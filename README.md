@@ -15,7 +15,9 @@ Tout s'exécute en local, sous Ollama, sur du matériel NVIDIA grand public.
 |---|---|
 | Structure du dépôt, conventions, CI, garde-fou anti-secrets | fait, testé |
 | Relais de développement Cloud ⇄ Local (`scripts/relay_orchestrator.py`) | testé en simulation |
-| Hub (`core/`) et modules (`modules/`) | à faire |
+| Moniteur GPU, contrat de module | fait, testé |
+| Gardiens Inoue (budget VRAM) et Fuma (watchdog, mode nocturne) | testés en simulation |
+| Bus, daemon, API locale, modules (`modules/`) | à faire |
 | Code d'origine du premier module (WoW Assistant) | présent dans `_import/`, à porter |
 
 ## Installation
@@ -81,7 +83,8 @@ Ctrl+C. Aucune clé dans le dépôt : les identifiants viennent de l'environneme
 
 **Vérifié (exécuté le 16/11/2026, Windows 10, Python 3.11) :**
 
-- `pytest` : 42 tests réussis ; `ruff check .` propre.
+- `pytest` : 89 tests réussis ; `ruff check .` propre.
+- Moniteur GPU : lecture réelle de deux GPU NVIDIA (RTX 5080, RTX 5060 Ti) via `pynvml`.
 - Relais : tous les scénarios en simulation (horloge virtuelle, serveur HTTP factice renvoyant des 429).
 - `relay_orchestrator.py --dry-run` : un cycle complet, code de sortie 0.
 

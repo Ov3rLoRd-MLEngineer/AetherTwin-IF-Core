@@ -18,11 +18,11 @@ Les phrases sont courtes. Rien n'est implicite.
 3. Le dépôt Git est initialisé. La branche est `main`.
 4. Le venv est `.venv`. Python 3.11.
 5. Le relais Cloud ⇄ Local existe : `scripts/relay_orchestrator.py`. Il est testé en simulation.
-6. `core/` est vide. `modules/` est vide.
+6. `core/` contient le moniteur GPU, le contrat de module, Inoue et Fuma. `modules/` est vide.
 7. Le code de WoW Assistant est dans `_import/wow_assistant_v9/`. Il n'est pas encore porté.
-8. Les tests passent : 42 tests.
+8. Les tests passent : 89 tests.
 9. Le poste a 2 GPU visibles : RTX 5080 16 Go et RTX 5060 Ti 16 Go.
-10. La prochaine tâche est le jalon J2 : le dossier `core/`.
+10. La prochaine tâche est la fin du jalon J2 : le bus (tâche 3), puis l'ordonnanceur et le daemon (tâches 6 et 7).
 
 ## Commandes exactes
 
@@ -37,6 +37,7 @@ Lance-les depuis la racine du dépôt. Utilise `cmd.exe` ou PowerShell. **Pas Gi
 | Relais, simulation | `.venv\Scripts\python.exe scripts\relay_orchestrator.py --dry-run` |
 | Relais, état | `.venv\Scripts\python.exe scripts\relay_orchestrator.py --status` |
 | Relais, réel | `.venv\Scripts\python.exe scripts\relay_orchestrator.py` |
+| Relevé GPU réel | `.venv\Scripts\python.exe -m core.hardware.gpu_monitor` |
 | Installer les dépendances | `.venv\Scripts\python.exe -m pip install -r requirements-dev.txt` |
 
 N'utilise jamais `python` seul. Le `python` du PATH est une autre version (3.10).
@@ -96,6 +97,8 @@ et passe `AGENT_HANDOFF.md`, `PROJECT_STATUS.md`, `ARCHITECTURE_MAP.md` en lectu
 Fais une tâche à la fois. Après chaque tâche : tests, changelog, commit.
 
 ### J2 — `core/` (P0)
+
+**Tâches 1, 2, 4 et 5 : faites le 16/11/2026.** Restent 3, 6 et 7.
 
 | # | Tâche | Fichiers | Terminé quand |
 |---|---|---|---|

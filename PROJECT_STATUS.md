@@ -7,9 +7,10 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 
 ## Où on en est
 
-- Dépôt initialisé : venv Python 3.11, Git, lint, tests, CI, fichiers de suivi.
-- Relais Cloud ⇄ Local écrit et testé **en simulation** (42 tests).
-- Aucun module du Hub n'existe encore. `core/` et `modules/` sont vides.
+- Dépôt initialisé : venv Python 3.11, Git, lint, tests, CI, fichiers de suivi. **89 tests** au total.
+- Relais Cloud ⇄ Local écrit et testé **en simulation**.
+- J2 à moitié fait : moniteur GPU, contrat de module, gardiens Inoue et Fuma. Reste le bus, l'ordonnanceur, le daemon et son API.
+- Aucun module du Hub n'existe encore. `modules/` est vide.
 - Le code de WoW Assistant est dans `_import/wow_assistant_v9/`, intact, non porté.
 
 ## Tableau des briques
@@ -24,9 +25,11 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | Relais — backend Claude Code | P0 | J1 | `FAIT-NON-TESTÉ` | sous-processus réel testé avec un faux binaire ; le format exact du message de quota de Claude Code n'a pas été observé |
 | Relais — agent local Claude Code via OmniRoute (défaut) | P0 | J1 | `FAIT-NON-TESTÉ` | commande et environnement repris du lanceur de Jérémy ; sous-processus réel testé avec un faux binaire ; jamais lancé contre OmniRoute + Qwen |
 | Relais — agent local Aider / OpenCode | P0 | J1 | `FAIT-NON-TESTÉ` | commande construite et testée ; **Aider et OpenCode ne sont pas installés** sur ce poste |
-| `core/` : contrat de module, bus, daemon | P0 | J2 | `À FAIRE` | |
-| Gardiens Inoue (VRAM) et Fuma (stabilité) | P0 | J2 | `À FAIRE` | |
-| `core/hardware/gpu_monitor.py` | P0 | J2 | `À FAIRE` | |
+| `core/hardware/gpu_monitor.py` | P0 | J2 | `FAIT-TESTÉ` | lecture réelle des 2 GPU via `pynvml` (nom, VRAM, charge, température, puissance) ; repli `nvidia-smi` puis « inconnu » testés |
+| `core/module_api.py` (manifeste, événements, classe de base) | P0 | J2 | `FAIT-TESTÉ` | validation et découverte testées ; aucun vrai module ne l'utilise encore |
+| Inoue — budget VRAM, file d'attente, un seul gros LLM | P0 | J2 | `SIMULÉ` | comptabilité testée avec des GPU factices ; **ne pilote pas encore Ollama** (aucun chargement/déchargement réel) |
+| Fuma — watchdog, alertes thermiques, mode nocturne | P0 | J2 | `SIMULÉ` | testé avec des modules factices et une horloge injectée ; pas encore branché sur de vrais processus |
+| `core/bus.py`, `core/scheduler.py`, `core/daemon.py`, API HTTP locale | P0 | J2 | `À FAIRE` | prochaine tâche |
 | Port de WoW Assistant → `modules/gaming_hud/` | P0 | J3 | `À FAIRE` | code d'origine lu, non porté |
 | `GameAdapter` + `wow_retail` + `log_tail` + `screen_ocr` | P0 | J3 | `À FAIRE` | |
 | Mode Showcase OBS, `/obs-hud`, filtre de confidentialité, logo | P0/P1 | J4 | `À FAIRE` | |
@@ -62,7 +65,7 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 
 ## Reste à faire, par priorité
 
-1. **P0 — J2** : `core/module_api.py`, bus, `daemon.py` minimal, Inoue, Fuma, `gpu_monitor.py`.
+1. **P0 — J2 (fin)** : `core/bus.py`, `core/scheduler.py`, `core/daemon.py` minimal + API HTTP locale ; brancher Inoue sur Ollama (`keep_alive`).
 2. **P0 — J3** : port de WoW Assistant, `GameAdapter`, adaptateur `log_tail`.
 3. **P0/P1 — J4** : Showcase OBS, `/obs-hud`, filtre de confidentialité avec canaris, logo SVG.
 4. **P1 — J5/J6** : base vectorielle, routeur LLM, `genesis_lab`, `scantrad`.
@@ -89,7 +92,7 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | 3 | Agent local seul : Ollama et OmniRoute lancés | `set ANTHROPIC_BASE_URL=http://127.0.0.1:20128/v1` · `set ANTHROPIC_AUTH_TOKEN=ollama` · `set ANTHROPIC_API_KEY=` puis `echo Lis AGENT_HANDOFF.md et resume-le en 3 lignes \| claude -p --model "ollama/qwen3-27b:latest"` | une réponse du modèle local, sans erreur de contexte |
 | 4 | Relais réel, fenêtre courte | `.venv\Scripts\python.exe scripts\relay_orchestrator.py --window-minutes 10 --max-cycles 1 --local-model qwen3-27b:latest` (depuis `cmd.exe`) | à la limite de quota : bascule sur l'agent local, puis retour ; vérifier `logs\relay.log` et `git log` |
 | 5 | Relever le message exact de limite de Claude Code | copier la ligne de `logs\relay.log` | permet d'ajuster `QUOTA_PATTERNS` si besoin |
-| 6 | Topologie 3 GPU | `nvidia-smi -L` sur la machine qui porte les 3 cartes | 3 lignes |
+| 6 | Topologie 3 GPU, une fois le riser installé | `.venv\Scripts\python.exe -m core.hardware.gpu_monitor` | `gpu_count: 3`, environ 48 900 MiB |
 
 ## Points attendus de Jérémy
 

@@ -101,8 +101,12 @@ core/
   __init__.py
   guardians/
     __init__.py
+    fuma.py
+    inoue.py
   hardware/
     __init__.py
+    gpu_monitor.py
+  module_api.py
 modules/
   __init__.py
 scripts/
@@ -116,6 +120,11 @@ config/
   local.example.yaml
 tests/
   __init__.py
+  core/
+    __init__.py
+    test_gpu_monitor.py
+    test_guardians.py
+    test_module_api.py
   data/
     .gitkeep
   test_architecture_map.py
@@ -135,6 +144,89 @@ logs/
 ```
 
 ## Signatures publiques (générées)
+
+### `core/guardians/fuma.py`
+
+Fuma — gardien de la stabilité et du mode nocturne.
+
+- **`class Alert`**
+  - `def to_dict(self) -> dict[str, Any]`
+- **`class Fuma`** — Watchdog, limites thermiques et mode nocturne du Hub.
+  - `def watch(self, name: str, health: Callable[[], Health], restart: Callable[[], None]) -> None`
+  - `def unwatch(self, name: str) -> None`
+  - `def tick(self) -> list[str]` — Un tour de surveillance. Retourne les noms des modules redémarrés pendant ce tour.
+  - `def revive(self, name: str) -> None` — Remet à zéro les essais d'un module mis au repos (action manuelle).
+  - `def check_gpus(self, gpus: list[GpuInfo]) -> list[Alert]`
+  - `def is_night(self) -> bool` — Vrai dans la plage de nuit. Une plage qui passe minuit (23 h → 7 h) est gérée.
+  - `def schedule_night_task(self, name: str, run: Callable[[], Any]) -> None` — Planifie une tâche lourde pour la nuit (ingestion vectorielle, indexation…).
+  - `def run_night_tasks(self, force: bool=False) -> list[str]` — Exécute les tâches en attente si c'est la nuit (ou si `force`). Retourne celles qui ont tourné.
+  - `def state(self) -> dict[str, Any]`
+
+### `core/guardians/inoue.py`
+
+Inoue — gardienne de l'énergie et de la VRAM.
+
+- **`class Verdict(StrEnum)`**
+- **`class Decision`**
+- **`class Inoue`** — Budget VRAM du Hub. Sans GPU détecté, le budget vaut 0 : seuls les modules sans besoin VRAM démarrent.
+  - `def total_gb(self) -> float`
+  - `def budget_gb(self) -> float` — VRAM attribuable : total moins la marge de sécurité.
+  - `def allocated_gb(self) -> float`
+  - `def available_gb(self) -> float`
+  - `def request(self, name: str, min_gb: float, comfort_gb: float | None=None) -> Decision` — Demande de VRAM. Accorde le confortable s'il tient, sinon le minimum, sinon met en file.
+  - `def release(self, name: str) -> list[tuple[str, Decision]]` — Libère l'attribution d'un module, puis sert la file d'attente dans l'ordre d'arrivée.
+  - `def plan_llm_load(self, model: str, vram_gb: float) -> tuple[Decision, list[str]]` — Prépare le chargement d'un gros modèle de langage.
+  - `def confirm_llm_unloaded(self, model: str) -> list[tuple[str, Decision]]`
+  - `def state(self) -> dict[str, Any]`
+
+### `core/hardware/gpu_monitor.py`
+
+Moniteur GPU : mesure la topologie réelle au lieu de la présumer.
+
+- **`class GpuInfo`** — État instantané d'un GPU. Une mesure indisponible vaut `None`, jamais une valeur inventée.
+  - `def vram_free_mib(self) -> int`
+  - `def to_dict(self) -> dict[str, Any]`
+- **`class GpuBackend(Protocol)`**
+  - `def read(self) -> list[GpuInfo]`
+- `def parse_nvidia_smi_csv(output: str) -> list[GpuInfo]` — Analyse la sortie de `nvidia-smi --query-gpu=… --format=csv,noheader,nounits`.
+- **`class NvidiaSmiBackend`** — Lit `nvidia-smi` (commande fixe, sans shell).
+  - `def usable() -> bool`
+  - `def read(self) -> list[GpuInfo]`
+- **`class PynvmlBackend`** — Lit NVML via `pynvml`. L'import est différé : le paquet est optionnel.
+  - `def read(self) -> list[GpuInfo]`
+- **`class UnknownBackend`** — Repli : aucun GPU NVIDIA détectable. N'empêche jamais le démarrage.
+  - `def read(self) -> list[GpuInfo]`
+- `def detect_backend() -> GpuBackend` — Choisit le meilleur backend disponible, sans jamais lever d'exception.
+- **`class GpuMonitor`** — Point d'entrée unique pour l'état des GPU (utilisé par Inoue, Fuma et l'API du daemon).
+  - `def backend_name(self) -> str`
+  - `def snapshot(self) -> list[GpuInfo]` — État de chaque GPU. En cas d'erreur de lecture : liste vide et `last_error` renseigné.
+  - `def total_vram_mib(self) -> int`
+  - `def report(self) -> dict[str, Any]` — Résumé sérialisable (API `/gpu`, overlay OBS).
+
+### `core/module_api.py`
+
+Contrat de module du Hub : manifeste, événements, cycle de vie.
+
+- **`class ManifestError(ValueError)`** — Manifeste absent, illisible ou invalide.
+- **`class Triggers`** — Ce qui active le module : processus (ex. « obs64.exe »), titres de fenêtres, ports.
+- **`class Manifest`** — Déclaration d'un module. Les besoins VRAM sont lus par Inoue avant tout démarrage.
+  - `def to_dict(self) -> dict[str, Any]`
+- `def parse_manifest(raw: Any) -> Manifest` — Valide un manifeste déjà décodé. Lève `ManifestError` avec un message précis.
+- `def load_manifest(module_dir: Path) -> Manifest` — Lit et valide `<module_dir>/manifest.json`.
+- `def discover_manifests(modules_root: Path) -> tuple[dict[str, Manifest], dict[str, str]]` — Parcourt `modules/`. Retourne (manifestes valides, erreurs par dossier). Un module cassé n'arrête rien.
+- **`class Event`** — Message du bus. `topic` est hiérarchique : « process.started », « gpu.alert », « module.gaming_hud.state ».
+  - `def to_dict(self) -> dict[str, Any]`
+  - `def from_dict(cls, raw: dict[str, Any]) -> Event`
+  - `def matches(self, pattern: str) -> bool` — « gpu.* » ou « gpu » couvre « gpu.alert » ; « * » couvre tout.
+- **`class Health`** — Santé d'un module. `degraded` = démarré sans une dépendance optionnelle (GPU, jeu, OBS, poids…).
+  - `def to_dict(self) -> dict[str, Any]`
+- **`class ModuleBase(ABC)`** — Classe de base de tout module. `publish` est fourni par le lanceur (bus du Hub).
+  - `def name(self) -> str`
+  - `def start(self) -> None` — Démarre le module. Doit réussir en mode dégradé si une dépendance optionnelle manque.
+  - `def stop(self) -> None` — Arrête proprement et libère les ressources (VRAM comprise).
+  - `def health(self) -> Health` — État de santé, interrogé par Fuma.
+  - `def handle_event(self, event: Event) -> None` — Reçoit un événement du bus.
+  - `def widget_schema(self) -> dict[str, Any]` — Schéma JSON de l'interface générée à la volée par le daemon (titre, sections, boutons).
 
 ### `scripts/gen_architecture_map.py`
 

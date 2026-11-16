@@ -7,6 +7,7 @@ Liste tenue à jour à chaque ajout de dépendance. Licences relevées dans les 
 | Paquet | Version | Licence | Usage |
 |---|---|---|---|
 | PyYAML | 6.0.3 | MIT | lecture des fichiers de configuration |
+| nvidia-ml-py | 13.615.71 | BSD-3-Clause | mesure des GPU NVIDIA (`core/hardware/gpu_monitor.py`) |
 
 ## Optionnelles
 

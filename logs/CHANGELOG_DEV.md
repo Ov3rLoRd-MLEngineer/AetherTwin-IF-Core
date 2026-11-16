@@ -126,3 +126,30 @@ réconciliées. La durée reste donc un paramètre : `--window-minutes` (défaut
    modèle `ollama/...`, ce qui laisse penser que la variable est ignorée.
 4. **Modèle local par défaut inchangé** (`qwen3-coder:30b-a3b-q4_K_M`) ; `--local-model qwen3-27b:latest`
    pour utiliser celui du lanceur.
+
+---
+
+## 2026-11-16 (nuit) — J2, première moitié : moniteur GPU, contrat de module, gardiens
+
+- **Agent :** Cloud
+- **Fichiers :** `core/hardware/gpu_monitor.py`, `core/module_api.py`, `core/guardians/inoue.py`,
+  `core/guardians/fuma.py`, `tests/core/test_gpu_monitor.py`, `tests/core/test_module_api.py`,
+  `tests/core/test_guardians.py`, `requirements.txt`, `THIRD_PARTY.md`, fichiers de suivi.
+- **Raison :** jalon J2 (tâches 1, 2, 4 et 5 de `AGENT_HANDOFF.md`).
+- **Tests :** `pytest` → **89 réussis** ; `ruff check .` propre.
+- **Exécution réelle :** `python -m core.hardware.gpu_monitor` → backend `pynvml`, 2 GPU,
+  32 614 MiB au total (RTX 5080 : 16 303 MiB ; RTX 5060 Ti : 16 311 MiB), températures et puissances lues.
+- **Reste du J2 :** bus, ordonnanceur GPU, daemon, API HTTP locale.
+
+### Décisions
+
+1. **Trois backends GPU** : `pynvml`, puis `nvidia-smi` en sous-processus (aucune dépendance), puis
+   « inconnu ». Le cahier des charges demandait `pynvml` + repli ; `nvidia-smi` ajoute un repli utile
+   sans coût. Toujours aucun backend AMD.
+2. **Une mesure indisponible vaut `None`**, jamais 0 : pas d'alerte ni de chiffre inventé.
+3. **Inoue est une comptabilité**, pas un pilote : elle décide (accordé / en file / refusé) et dit
+   quels modèles décharger ; le déchargement réel (`keep_alive=0` d'Ollama) sera fait par le routeur
+   LLM. Elle expose la VRAM mesurée à côté de la VRAM attribuée, pour comparer.
+4. **Sans GPU, budget = 0** : seuls les modules sans besoin VRAM démarrent (mode dégradé explicite).
+5. **Fuma met au repos** un module après 3 redémarrages ratés (délais 5, 10, 20 s), et lui rend ses
+   essais après 5 minutes de bonne santé. Plage de nuit par défaut : 23 h → 7 h.
