@@ -16,8 +16,9 @@ Tout s'exécute en local, sous Ollama, sur du matériel NVIDIA grand public.
 | Structure du dépôt, conventions, CI, garde-fou anti-secrets | fait, testé |
 | Relais de développement Cloud ⇄ Local (`scripts/relay_orchestrator.py`) | testé en simulation |
 | Moniteur GPU, contrat de module | fait, testé |
-| Gardiens Inoue (budget VRAM) et Fuma (watchdog, mode nocturne) | testés en simulation |
-| Bus, daemon, API locale, modules (`modules/`) | à faire |
+| Bus d'événements entre processus, démon, API locale (`127.0.0.1`) | fait, testé |
+| Gardiens Inoue (budget VRAM) et Fuma (watchdog, mode nocturne) | testés en simulation, branchés dans le démon |
+| Modules (`modules/`), routeur LLM | à faire |
 | Code d'origine du premier module (WoW Assistant) | présent dans `_import/`, à porter |
 
 ## Installation
@@ -38,6 +39,16 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 .\.venv\Scripts\python.exe -m pytest
 ```
+
+## Lancer le démon
+
+```powershell
+.\.venv\Scripts\python.exe -m core.daemon
+```
+
+Puis, dans un navigateur : `http://127.0.0.1:5750/health` (état du Hub et des deux gardiens),
+`/gpu` (mesure des cartes), `/modules`, `/events`. Le démon démarre aussi sans GPU, en mode dégradé.
+`/ask` répond 503 tant que le routeur LLM n'est pas écrit.
 
 ## Développement 24 h/24 : le relais Cloud ⇄ Local
 
@@ -83,8 +94,10 @@ Ctrl+C. Aucune clé dans le dépôt : les identifiants viennent de l'environneme
 
 **Vérifié (exécuté le 16/11/2026, Windows 10, Python 3.11) :**
 
-- `pytest` : 89 tests réussis ; `ruff check .` propre.
+- `pytest` : 110 tests réussis ; `ruff check .` propre.
 - Moniteur GPU : lecture réelle de deux GPU NVIDIA (RTX 5080, RTX 5060 Ti) via `pynvml`.
+- Démon : lancé pour de vrai, API joignable sur `127.0.0.1:5750` uniquement ; un module de test tourne
+  dans un processus séparé, s'arrête proprement, et est relancé par Fuma après un plantage.
 - Relais : tous les scénarios en simulation (horloge virtuelle, serveur HTTP factice renvoyant des 429).
 - `relay_orchestrator.py --dry-run` : un cycle complet, code de sortie 0.
 

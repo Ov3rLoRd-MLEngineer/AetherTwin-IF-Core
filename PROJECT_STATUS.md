@@ -7,10 +7,11 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 
 ## Où on en est
 
-- Dépôt initialisé : venv Python 3.11, Git, lint, tests, CI, fichiers de suivi. **89 tests** au total.
+- Dépôt initialisé : venv Python 3.11, Git, lint, tests, CI, fichiers de suivi. **110 tests** au total.
 - Relais Cloud ⇄ Local écrit et testé **en simulation**.
-- J2 à moitié fait : moniteur GPU, contrat de module, gardiens Inoue et Fuma. Reste le bus, l'ordonnanceur, le daemon et son API.
-- Aucun module du Hub n'existe encore. `modules/` est vide.
+- **J2 terminé** : moniteur GPU, contrat de module, bus, ordonnanceur, gardiens, démon et API locale.
+- Aucun module du Hub n'existe encore. `modules/` est vide. Prochain jalon : J3.
+- Décisions de Jérémy : Q4_K_M tant que la VRAM est de 32 Go ; contexte local 32 768 ; pas de push pour l'instant.
 - Le code de WoW Assistant est dans `_import/wow_assistant_v9/`, intact, non porté.
 
 ## Tableau des briques
@@ -69,7 +70,7 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 
 ## Reste à faire, par priorité
 
-1. **P0 — J2 (fin)** : `core/bus.py`, `core/scheduler.py`, `core/daemon.py` minimal + API HTTP locale ; brancher Inoue sur Ollama (`keep_alive`).
+1. **Restes du J2** (à traiter avec J3 et J5) : détection de fenêtres, interface générée à la volée, pilotage d'Ollama par Inoue (`keep_alive`).
 2. **P0 — J3** : port de WoW Assistant, `GameAdapter`, adaptateur `log_tail`.
 3. **P0/P1 — J4** : Showcase OBS, `/obs-hud`, filtre de confidentialité avec canaris, logo SVG.
 4. **P1 — J5/J6** : base vectorielle, routeur LLM, `genesis_lab`, `scantrad`.

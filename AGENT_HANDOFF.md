@@ -18,11 +18,12 @@ Les phrases sont courtes. Rien n'est implicite.
 3. Le dépôt Git est initialisé. La branche est `main`.
 4. Le venv est `.venv`. Python 3.11.
 5. Le relais Cloud ⇄ Local existe : `scripts/relay_orchestrator.py`. Il est testé en simulation.
-6. `core/` contient le moniteur GPU, le contrat de module, Inoue et Fuma. `modules/` est vide.
+6. Le jalon J2 est fait. `core/` contient : moniteur GPU, contrat de module, bus, lanceur de module,
+   ordonnanceur GPU, Inoue, Fuma, daemon, API locale. `modules/` est vide.
 7. Le code de WoW Assistant est dans `_import/wow_assistant_v9/`. Il n'est pas encore porté.
-8. Les tests passent : 89 tests.
-9. Le poste a 2 GPU visibles : RTX 5080 16 Go et RTX 5060 Ti 16 Go.
-10. La prochaine tâche est la fin du jalon J2 : le bus (tâche 3), puis l'ordonnanceur et le daemon (tâches 6 et 7).
+8. Les tests passent : 110 tests.
+9. Le poste a 2 GPU visibles : RTX 5080 16 Go et RTX 5060 Ti 16 Go. Les modèles restent en Q4_K_M.
+10. La prochaine tâche est le jalon J3 : porter WoW Assistant dans `modules/gaming_hud/` (tâche 8).
 
 ## Commandes exactes
 
@@ -48,7 +49,8 @@ N'utilise jamais `python` seul. Le `python` du PATH est une autre version (3.10)
 |---|---|---|
 | WoW Assistant d'origine | `cd _import\wow_assistant_v9` puis `python main.py` (demande pygame) | code d'origine, hors venv du projet |
 | `modules.gaming_hud` | `.venv\Scripts\python.exe -m modules.gaming_hud` | **n'existe pas encore** (J3) |
-| Daemon | `.venv\Scripts\python.exe -m core.daemon` | **n'existe pas encore** (J2) |
+| Daemon + API | `.venv\Scripts\python.exe -m core.daemon` puis ouvrir `http://127.0.0.1:5750/health` | fait, testé |
+| Daemon sans API | `.venv\Scripts\python.exe -m core.daemon --no-api` | fait |
 | Autres modules | — | n'existent pas encore |
 
 ## Recette locale validée par Jérémy (Ollama + Aider)
@@ -98,7 +100,16 @@ Fais une tâche à la fois. Après chaque tâche : tests, changelog, commit.
 
 ### J2 — `core/` (P0)
 
-**Tâches 1, 2, 4 et 5 : faites le 16/11/2026.** Restent 3, 6 et 7.
+**Tâches 1 à 7 : faites le 16/11/2026.** Le tableau reste pour référence. Restes connus du J2 :
+
+- Détection des fenêtres (`pygetwindow`) : non faite. Seuls les processus sont observés.
+- Interface générée à la volée depuis `widget_schema()` : non faite. Elle dépend du port de `ui.py` (J3).
+- Inoue ne pilote pas Ollama. Le déchargement réel (`keep_alive=0`) viendra avec `core/llm_router.py` (J5).
+- `/ask` répond 503 tant que le routeur LLM n'existe pas.
+
+Comment écrire un module : un dossier `modules/<nom>/` avec `manifest.json` et une classe qui hérite de
+`ModuleBase` (`core/module_api.py`). Exemple complet et court : la constante `DEMO_MODULE` de
+`tests/core/test_daemon.py`.
 
 | # | Tâche | Fichiers | Terminé quand |
 |---|---|---|---|
@@ -165,9 +176,14 @@ claude -p --model "ollama/qwen3-27b:latest"
 
 `ANTHROPIC_AUTH_TOKEN=ollama` est une valeur factice, pas un secret : le routeur local ne demande pas de clé.
 
+## Décisions de Jérémy (16/11/2026, soir)
+
+1. **Quantification : on reste en Q4_K_M** tant que la machine n'a que 32 Go de VRAM. Le Q8 est trop lourd.
+2. **Contexte local : 32 768 jetons.** C'est la limite logique pour ce matériel.
+3. **Pas de push GitHub pour l'instant.** Le travail se fait en local. Le dépôt sera poussé plus tard.
+4. Le message cosmétique du `.bat` d'Ollama reste en l'état.
+
 ## Questions encore ouvertes
 
-1. Nom du dépôt GitHub d'AetherTwin, et qui le crée (`gh` n'est pas installé).
-2. Identité Git des commits : confirmer `Ov3rLoRd-MLEngineer` + adresse noreply.
-3. Profil « qualité » Q8_0 : aucun modèle Q8 n'est installé. En télécharger un, ou rester en Q4_K_M ?
-4. Contexte réel de l'agent local : Ollama sert 32 768 jetons par défaut, Claude Code en suppose 200 000.
+1. Nom du dépôt GitHub d'AetherTwin (au moment du push).
+2. Identité Git des commits : confirmer `Ov3rLoRd-MLEngineer` + adresse noreply avant le premier push.

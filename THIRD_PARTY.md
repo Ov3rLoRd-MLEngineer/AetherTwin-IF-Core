@@ -8,6 +8,9 @@ Liste tenue à jour à chaque ajout de dépendance. Licences relevées dans les 
 |---|---|---|---|
 | PyYAML | 6.0.3 | MIT | lecture des fichiers de configuration |
 | nvidia-ml-py | 13.615.71 | BSD-3-Clause | mesure des GPU NVIDIA (`core/hardware/gpu_monitor.py`) |
+| psutil | 7.2.2 | BSD-3-Clause | surveillance des processus (`core/daemon.py`) |
+| fastapi | 0.163.1 | MIT | API HTTP locale (`core/api.py`) |
+| uvicorn | 0.54.0 | BSD-3-Clause | serveur de l'API locale |
 
 ## Optionnelles
 
@@ -21,6 +24,9 @@ Liste tenue à jour à chaque ajout de dépendance. Licences relevées dans les 
 |---|---|---|---|
 | pytest | 9.2.0 | MIT | tests |
 | ruff | 0.17.5 | MIT | lint |
+| httpx | 0.28.1 | BSD-3-Clause | client de test de l'API locale |
+
+FastAPI installe aussi `starlette` (BSD-3-Clause) et `pydantic` (MIT).
 
 ## Outils externes (non distribués avec le projet)
 
