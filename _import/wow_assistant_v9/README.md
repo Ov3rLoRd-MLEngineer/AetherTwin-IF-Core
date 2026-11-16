@@ -1,0 +1,77 @@
+# WoW Assistant
+
+Compagnon Python (Pygame) qui lit les données d'un addon WoW (HermesAssistant) via les SavedVariables.
+Lecture seule : aucune automatisation du jeu.
+
+## Onglets (touches 1 à 9 et 0)
+Personnage · Talents et grimoire · Journal des quêtes · Sacs (+ banque de bataillon / de guilde) · Métiers ·
+Hauts Faits · Collections du bataillon (Montures, Codex des mascottes, Jouets, Héritage, Transmoglyphe) ·
+Historique d'activité (Évolution, Journal, Statistiques) · Réputations et monnaies · Instances et Chambre
+
+## Commandes en jeu
+- `/ha` : état                      - `/ha save` : écrit le fichier tout de suite (fait un /reload)
+- `/ha scan [tout|achievements|statistiques|montures|mascottes|jouets|heritage|transmog|ensembles]` :
+  analyses complètes, découpées pour ne pas gêner le jeu (automatiques ~45 s après la connexion si > 3 jours)
+- `/ha auto <minutes>` / `/ha auto off` : /reload automatique prudent
+- `/ha combatlog on|off` : journal de combat (pour le mode Focus)
+- `/ha debug` : diagnostic
+
+## Overlay et widgets (nouveau)
+Bouton « Mode overlay » (onglet Personnage) ou raccourci global **F9** : fenêtre sans bordure, transparente, au premier plan.
+Seuls les widgets sont visibles ; les zones vides laissent passer les clics vers WoW.
+WoW doit être en mode « Fenêtré » ou « Fenêtré (plein écran) » (pas en plein écran exclusif).
+- Widgets : Personnage, Équipement (infobulles), Quêtes, Assistant (conversation avec Hermes), Sacs, Métiers,
+  Monnaies, Instances, Session. Glisser la barre de titre = déplacer ; coin bas-droit = redimensionner ;
+  « − » = réduire ; « × » = fermer (réactivable dans Paramètres > Widgets). Disposition mémorisée dans `layout.json`.
+- Raccourcis globaux par défaut : **F9** afficher/masquer l'overlay · **F10** verrouiller/déverrouiller · **F11** Mode Focus manuel
+  (modifiables dans Paramètres > Overlay).
+- Mode Focus : pendant un combat, chaque widget est gardé, réduit à sa barre de titre ou masqué (Paramètres > Widgets).
+  Le combat est détecté avec le journal de combat officiel : activez-le une fois avec `/ha combatlog on`.
+
+## Captures d'écran (vision) et voix
+- **Capture** : bouton « Capture » (barre d'outils, widget Assistant, fenêtre d'envoi) ou **F7** : l'overlay se masque un instant,
+  la fenêtre de WoW est capturée et jointe à la prochaine question (4 images maximum, réduites en JPEG).
+- **Win + Maj + S** : toute image copiée dans le presse-papier vous est proposée (notification « Joindre / Ignorer »).
+- **Micro** : bouton « Micro » (off → appuyer pour parler → activation vocale). Appuyer pour parler : maintenir **F8**
+  (touche ou bouton de souris configurable). La phrase est transcrite puis envoyée à l'assistant avec les images jointes.
+- **Reconnaissance (STT)** : serveur API compatible OpenAI (Open WebUI, faster-whisper-server...), programme local
+  (whisper.cpp...) ou faster-whisper. **Voix (TTS)** : voix Windows, Piper, ou désactivée. Réglages : Paramètres > Voix / Vision.
+- Dépendances : `pip install pillow sounddevice` (le micro est facultatif).
+
+## Widgets web (Open WebUI, lecteur vidéo)
+Widgets « Open WebUI » et « Lecteur vidéo » (Paramètres > Widgets > Actif, ou Paramètres > Web). Chaque page s'affiche dans un
+**processus séparé** (`webhost.py`) dont la fenêtre suit la position du widget ; la zone du widget est transparente, la page web
+est visible et cliquable à travers.
+- Isolation : aucun code web dans l'appli, aucun pont JavaScript → Python, aucune commande système, aucun accès aux fichiers de
+  l'appli (dossier de travail temporaire, environnement réduit, données web dans `cache/web/`), navigation limitée aux domaines
+  autorisés (liste blanche). Ce n'est pas un bac à sable Windows complet : le processus garde les droits de votre session.
+- Il n'existe volontairement pas d'extensions Python tierces : tout widget externe doit être une page web, donc isolée de la même façon.
+- Nécessite `pip install pywebview` (WebView2 sur Windows 10/11). Si la fenêtre est décalée : Paramètres > Web > Échelle Windows.
+
+## Données mémorisées
+`cache/last_snapshot.json` garde le dernier état connu du personnage : l'appli l'affiche dès le lancement.
+Une section vide (déconnexion, fichier en cours d'écriture) ne remplace jamais une section déjà connue.
+Le bouton « Actualiser » (onglet Personnage) relit le fichier du jeu.
+
+## Assistant IA (Hermes)
+Paramètres généraux (onglet Personnage) : serveur API compatible OpenAI (Ollama, LM Studio, Open WebUI,
+Omniroute, Hermes API Server...) ou programme local (hermes.exe). Réglages dans `settings.json`.
+Boutons « Envoyer à Hermes » : quêtes, montures, mascottes, jouets, apparences, ensembles.
+
+## Fichiers
+HermesAssistant.toc/.lua (addon) · main.py · config.py · settings.py · llm.py · snapcache.py ·
+lua_parser.py · game_connection.py · gamedata.py · character.py · quests.py · inventory.py · craft.py · history.py ·
+wowhead.py · theme.py · icons_draw.py · ui.py · tabs.py · tabs_data.py · tabs_collections.py · tabutil.py ·
+overlay.py · hotkeys.py · focus.py · widgets.py · widgets_builtin.py · vision.py · voice.py · webhost.py · webwidget.py ·
+layout.json · chat_history.json · wowhead_links.json · recipes.json
+
+
+## Nouveautés v9
+- **Paramètres > Jeu** : choix du dossier `_retail_` (champ, « Parcourir… », « Détecter automatiquement » sur tous les disques), vérifications
+  (WTF/Account, addon, fichier de données, journal de combat), appliqué à chaud et enregistré (`game.path` dans settings.json).
+  Au démarrage, si le chemin n'est plus valide, l'appli cherche seule le jeu ; sinon elle ouvre cette page.
+- **Overlay = 2e fenêtre** : la fenêtre principale reste sur son écran (sa position est mémorisée) ; la barre de widgets se place
+  librement sur la zone du jeu. Écran de la fenêtre principale et de l'overlay au choix (Paramètres > Overlay).
+  Boutons de la barre : « Fenêtre principale » (la ramène devant), « Fermer l'overlay ».
+- **Voix** : choix du micro (Paramètres > Voix), test du micro avec état en direct, niveau et messages d'erreur précis
+  (le message indique la commande pip pour CE Python si `sounddevice` manque).

@@ -1,0 +1,5 @@
+pygame>=2.5
+pillow>=10            # captures d'écran et presse-papier
+sounddevice>=0.4      # micro (facultatif : sans lui, tout le reste fonctionne)
+# facultatif : faster-whisper (reconnaissance vocale locale en Python)
+pywebview>=5         # widgets web Open WebUI / vidéo (facultatif)

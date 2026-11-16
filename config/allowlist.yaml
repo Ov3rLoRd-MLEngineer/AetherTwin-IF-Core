@@ -1,0 +1,14 @@
+# Liste blanche des commandes système qu'un module peut exécuter à la demande d'un LLM.
+# Règle : rien n'est autorisé par défaut. Une commande absente d'ici est refusée.
+# Chaque entrée est un exécutable + des arguments fixes ; jamais de chaîne de shell.
+
+commands: []
+
+# Exemple (désactivé) :
+# commands:
+#   - id: "gpu_status"
+#     argv: ["nvidia-smi", "--query-gpu=name,memory.used,memory.total", "--format=csv"]
+#     description: "Lecture seule de l'état des GPU."
+
+# Domaines autorisés pour les widgets web isolés et le scraping.
+web_domains: []

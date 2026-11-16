@@ -1,0 +1,5 @@
+{
+  "_aide": "Liens Wowhead forcés. Par défaut tout est automatique (lien fabriqué depuis l'objet équipé). Ici, 'by_item' (identifiant d'objet) ou 'by_slot' (numéro d'emplacement WoW, ex. 1 = tête) remplacent le lien automatique.",
+  "by_item": {},
+  "by_slot": {}
+}

@@ -1,0 +1,31 @@
+# Profils matériels. La topologie réelle est MESURÉE au lancement
+# (core/hardware/gpu_monitor.py) ; ces profils servent de référence documentée.
+# Décision de périmètre : NVIDIA/CUDA uniquement, aucun profil AMD.
+
+profiles:
+  tri_gpu_48gb_nvidia:
+    description: "Cible déclarée : 1 x RTX 5080 16 Go + 2 x RTX 5060 Ti 16 Go, sous Ollama."
+    status: "déclaré"   # non observé le 16/11/2026, voir measured ci-dessous
+    gpus:
+      - { name: "NVIDIA GeForce RTX 5080", vram_mib: 16303 }
+      - { name: "NVIDIA GeForce RTX 5060 Ti", vram_mib: 16311 }
+      - { name: "NVIDIA GeForce RTX 5060 Ti", vram_mib: 16311 }
+    vram_safety_margin: 0.10
+
+  dual_gpu_32gb_nvidia:
+    description: "Topologie observée sur le poste de développement."
+    status: "mesuré"
+    gpus:
+      - { name: "NVIDIA GeForce RTX 5080", vram_mib: 16303 }
+      - { name: "NVIDIA GeForce RTX 5060 Ti", vram_mib: 16311 }
+    vram_safety_margin: 0.10
+
+# Relevés bruts (ne rien écrire ici qui n'ait été mesuré).
+measured:
+  - date: "2026-11-16"
+    os: "Windows 10 Professionnel 10.0.19045"
+    command: "nvidia-smi --query-gpu=name,memory.total --format=csv"
+    gpus:
+      - { index: 0, name: "NVIDIA GeForce RTX 5080", vram_mib: 16303 }
+      - { index: 1, name: "NVIDIA GeForce RTX 5060 Ti", vram_mib: 16311 }
+    note: "Deux GPU visibles, pas trois. La seconde RTX 5060 Ti n'est pas dans cette machine."

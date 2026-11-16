@@ -1,0 +1,4 @@
+-r requirements.txt
+pytest==9.2.0
+ruff==0.17.5
+anthropic==2.9.0   # optionnel : backend --backend api du relais, et ses tests

@@ -1,0 +1,226 @@
+"""
+Connexion à l'assistant IA (Hermes pour le moment).
+Deux modes, choisis dans les Paramètres généraux :
+  - "api" : serveur compatible OpenAI (Ollama, LM Studio, vLLM, Open WebUI, Omniroute, Hermes API Server...)
+  - "exe" : programme local lancé sans shell (ex. hermes.exe), la question lui est passée en argument ou sur stdin
+
+Les envois se font dans un fil d'arrière-plan : l'interface interroge simplement le Job.
+"""
+import base64
+import json
+import os
+import subprocess
+import tempfile
+import threading
+import urllib.error
+import urllib.request
+
+
+class Job:
+    """Résultat d'un envoi : done passe à True quand text ou error est renseigné."""
+
+    def __init__(self):
+        self.done = False
+        self.text = ""
+        self.error = ""
+
+
+class LLMClient:
+    TIMEOUT = 180
+
+    def __init__(self, settings):
+        self.settings = settings
+
+    # ------------------------------------------------------------------ configuration
+    def _cfg(self, key):
+        return self.settings.get(f"llm.{key}", "")
+
+    def is_configured(self):
+        if self._cfg("mode") == "exe":
+            return bool(self._cfg("exe_path"))
+        return bool(self._cfg("endpoint")) and bool(self._cfg("model"))
+
+    def describe(self):
+        if self._cfg("mode") == "exe":
+            return f"Exécutable : {self._cfg('exe_path')}"
+        return f"{self._cfg('endpoint') or 'endpoint non défini'}  ·  {self._cfg('model') or 'modèle non défini'}"
+
+    # ------------------------------------------------------------------ URLs
+    def _base(self):
+        return self._cfg("endpoint").strip().rstrip("/")
+
+    def chat_url(self):
+        base = self._base()
+        if base.endswith("/chat/completions"):
+            return base
+        if base.endswith("/v1") or base.endswith("/api"):
+            return base + "/chat/completions"
+        return base + "/v1/chat/completions"
+
+    def models_urls(self):
+        base = self._base()
+        for suffix in ("/chat/completions",):
+            if base.endswith(suffix):
+                base = base[: -len(suffix)]
+        roots = [base]
+        if base.endswith("/v1") or base.endswith("/api"):
+            roots.append(base[:-3])
+        urls = []
+        for root in roots:
+            urls += [root + "/v1/models", root + "/api/models", root + "/api/tags", root + "/models"]
+        if base.endswith("/v1"):
+            urls.insert(0, base + "/models")
+        seen, out = set(), []
+        for u in urls:
+            if u not in seen:
+                seen.add(u)
+                out.append(u)
+        return out
+
+    def _headers(self):
+        headers = {"Content-Type": "application/json", "User-Agent": "WoWAssistant/1.5"}
+        if self._cfg("api_key"):
+            headers["Authorization"] = "Bearer " + self._cfg("api_key")
+        return headers
+
+    # ------------------------------------------------------------------ modèles disponibles
+    def list_models(self):
+        """(liste de noms, message d'erreur). Essaie /v1/models (OpenAI, Open WebUI), /api/models, /api/tags (Ollama)."""
+        if not self._base():
+            return [], "Endpoint non défini"
+        last_error = ""
+        for url in self.models_urls():
+            try:
+                request = urllib.request.Request(url, headers=self._headers())
+                with urllib.request.urlopen(request, timeout=8) as response:
+                    data = json.loads(response.read().decode("utf-8"))
+                names = _extract_model_names(data)
+                if names:
+                    return sorted(set(names)), ""
+            except (urllib.error.URLError, OSError, ValueError) as e:
+                last_error = str(e)
+        return [], last_error or "Aucun modèle trouvé"
+
+    # ------------------------------------------------------------------ envoi
+    def ask(self, prompt, images=None):
+        """images : liste de (type MIME, base64) à joindre à la question (vision)."""
+        job = Job()
+        threading.Thread(target=self._run, args=(prompt, list(images or []), job), daemon=True).start()
+        return job
+
+    def _run(self, prompt, images, job):
+        try:
+            if self._cfg("mode") == "exe":
+                job.text = self._ask_exe(prompt, images)
+            else:
+                job.text = self._ask_api(prompt, images)
+        except Exception as e:   # réseau, programme introuvable, réponse inattendue...
+            job.error = str(e) or e.__class__.__name__
+        finally:
+            job.done = True
+
+    def _ask_api(self, prompt, images=()):
+        if not self.is_configured():
+            raise RuntimeError("Assistant non configuré : renseignez l'endpoint et le modèle dans les Paramètres généraux.")
+        messages = []
+        if self._cfg("system_prompt"):
+            messages.append({"role": "system", "content": self._cfg("system_prompt")})
+        if images:   # format "vision" compatible OpenAI (Ollama, Open WebUI, LM Studio...)
+            content = [{"type": "text", "text": prompt}]
+            content += [{"type": "image_url", "image_url": {"url": f"data:{mime};base64,{data}"}} for mime, data in images]
+            messages.append({"role": "user", "content": content})
+        else:
+            messages.append({"role": "user", "content": prompt})
+        body = json.dumps({"model": self._cfg("model"), "messages": messages, "stream": False}).encode("utf-8")
+        request = urllib.request.Request(self.chat_url(), data=body, headers=self._headers(), method="POST")
+        try:
+            with urllib.request.urlopen(request, timeout=self.TIMEOUT) as response:
+                data = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode("utf-8", "ignore")[:300]
+            raise RuntimeError(f"Erreur HTTP {e.code} : {detail}")
+        if isinstance(data, dict):
+            if data.get("choices"):
+                return str(data["choices"][0].get("message", {}).get("content", "")).strip()
+            if isinstance(data.get("message"), dict):   # format natif Ollama
+                return str(data["message"].get("content", "")).strip()
+        raise RuntimeError("Réponse inattendue du serveur")
+
+    def _ask_exe(self, prompt, images=()):
+        exe = self._cfg("exe_path").strip().strip('"')
+        if not exe:
+            raise RuntimeError("Aucun exécutable défini dans les Paramètres généraux.")
+        template = self._cfg("exe_args") or "{prompt}"
+        tokens = [t.strip('"') for t in _split_args(template)]
+        paths = []
+        try:
+            # images : fichiers temporaires, passés avec {image} (la première) ou {images} (toutes) ;
+            # sans ces mots-clés, leurs chemins sont ajoutés à la question
+            for mime, data in images:
+                fd, path = tempfile.mkstemp(suffix=".jpg")
+                with os.fdopen(fd, "wb") as f:
+                    f.write(base64.b64decode(data))
+                paths.append(path)
+            has_image_token = any("{image" in t for t in tokens)
+            if paths and not has_image_token:
+                prompt += "\n\n(Images jointes : " + " ; ".join(paths) + ")"
+            use_stdin = not any("{prompt}" in t for t in tokens)
+            args = [exe]
+            for token in tokens:
+                if token == "{images}":
+                    args += paths
+                else:
+                    args.append(token.replace("{prompt}", prompt).replace("{image}", paths[0] if paths else ""))
+            flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            result = subprocess.run(args, input=prompt if use_stdin else None, capture_output=True, text=True,
+                                    encoding="utf-8", errors="replace", timeout=self.TIMEOUT, creationflags=flags)
+        finally:
+            for path in paths:
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+        text = (result.stdout or "").strip()
+        if result.returncode != 0 and not text:
+            raise RuntimeError((result.stderr or f"Code de sortie {result.returncode}").strip()[:400])
+        return text or "(réponse vide)"
+
+
+def _split_args(template):
+    """Découpe sans shell : les mots entre guillemets restent ensemble."""
+    tokens, current, quote = [], "", ""
+    for ch in template:
+        if quote:
+            if ch == quote:
+                quote = ""
+            else:
+                current += ch
+        elif ch in "\"'":
+            quote = ch
+        elif ch.isspace():
+            if current:
+                tokens.append(current)
+                current = ""
+        else:
+            current += ch
+    if current:
+        tokens.append(current)
+    return tokens
+
+
+def _extract_model_names(data):
+    """Formats : OpenAI {data:[{id}]}, Open WebUI {data:[{id,name}]}, Ollama {models:[{name}]}, liste simple."""
+    names = []
+    items = []
+    if isinstance(data, dict):
+        items = data.get("data") or data.get("models") or []
+    elif isinstance(data, list):
+        items = data
+    for item in items:
+        if isinstance(item, str):
+            names.append(item)
+        elif isinstance(item, dict):
+            name = item.get("id") or item.get("name") or item.get("model")
+            if name:
+                names.append(str(name))
+    return names

@@ -1,0 +1,35 @@
+[project]
+name = "aethertwin-if-core"
+version = "0.1.0.dev0"
+description = "AetherTwin (I&F Core) — Hub d'agents locaux évolutif, 100 % exécuté en local."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Jérémy (Onibaku Gumi)" }]
+dependencies = [
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=9.0", "ruff>=0.17"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["_import", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S"]
+ignore = [
+    "S603",  # subprocess sans shell avec liste d'arguments : c'est la forme voulue
+    "S607",  # exécutables résolus via le PATH (git, claude, aider)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "S310"]
+"scripts/relay_orchestrator.py" = ["S310"]  # urllib vers une URL configurée (API, Ollama)

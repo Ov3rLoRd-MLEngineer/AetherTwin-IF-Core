@@ -1,0 +1,4 @@
+# Dépendances d'exécution, épinglées (Python 3.11).
+# Les dépendances de chaque module seront ajoutées ici au fil des jalons,
+# les dépendances lourdes (PyTorch, ComfyUI…) restant optionnelles.
+PyYAML==6.0.3

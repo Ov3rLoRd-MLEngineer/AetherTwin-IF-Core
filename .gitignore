@@ -1,0 +1,51 @@
+# Environnements et caches Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# Configuration locale et secrets (jamais versionnés)
+config/local.yaml
+.env
+.env.*
+*.key
+*.pem
+
+# État d'exécution du relais et journaux volatils
+logs/relay_state*.json
+logs/relay*.lock
+logs/relay*.log
+logs/relay_local_agent*.log
+logs/relay_api_last_response.md
+logs/aider_model_settings.yml
+.aider*
+
+# Données d'exécution des modules
+cache/
+data/
+*.sqlite
+chroma/
+settings.json
+layout.json
+chat_history.json
+
+# Poids de modèles (téléchargement documenté, jamais dans le dépôt)
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.onnx
+*.gguf
+
+# Prompt de mission privé (document de travail, hors dépôt public)
+PROMPT_MAITRE_AetherTwin.md
+
+# Divers
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store

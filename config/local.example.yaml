@@ -1,0 +1,27 @@
+# Copie ce fichier en config/local.yaml (ignoré par Git) et adapte-le.
+# Aucune clé API ici : les secrets passent par des variables d'environnement.
+
+ollama:
+  # Hôte:port de l'API Ollama. Local, ou une autre machine du réseau local.
+  host: "127.0.0.1:11434"
+  # Profil « économe » et profil « qualité » : à mesurer, voir docs/HARDWARE_FIT.md
+  model_economy: "qwen3-coder:30b-a3b-q4_K_M"
+  model_quality: ""
+  num_ctx: 32768
+  keep_alive: "5m"
+
+hardware:
+  profile: "auto"          # "auto" = topologie mesurée au lancement
+  vram_safety_margin: 0.10 # 10 % de la VRAM totale, jamais consommés
+
+daemon:
+  bind: "127.0.0.1"        # ne jamais écouter ailleurs
+  port: 5750
+
+gaming_hud:
+  obs_hud_port: 5757
+  game_path: ""            # dossier _retail_ ; vide = détection automatique
+
+mangastudio:
+  handsegnet_weights: ""   # chemin local des poids (non versionnés)
+  footsegnet_weights: ""
