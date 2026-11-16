@@ -382,6 +382,53 @@ def test_local_agent_unavailable_when_binary_or_model_is_missing(tmp_path: Path,
     assert agent.available() == (False, "modèle absent")
 
 
+def test_local_claude_code_goes_through_the_local_router_without_any_real_key(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "vraie-cle-a-ne-pas-envoyer")
+    agent = ro.SubprocessLocalAgent("claude-code", "qwen3-27b:latest", 32768, "127.0.0.1:11434", tmp_path,
+                                    tmp_path / "logs", router_url="http://127.0.0.1:20128/v1")
+    cmd = agent.build_command("fais la tâche")
+    assert cmd == ["claude", "-p", "--model", "ollama/qwen3-27b:latest", "--permission-mode", "acceptEdits"]
+    assert "fais la tâche" not in cmd  # le prompt passe par l'entrée standard, pas par la ligne de commande
+    assert agent.prompt_file.read_text(encoding="utf-8") == "fais la tâche"
+    env = agent.build_env()
+    assert env["ANTHROPIC_BASE_URL"] == "http://127.0.0.1:20128/v1"
+    assert env["ANTHROPIC_API_KEY"] == ""  # la vraie clé ne part jamais vers le routeur local
+    assert env["ANTHROPIC_CONTEXT_LENGTH"] == "32768"  # aligné sur num_ctx d'Ollama
+
+
+def test_local_claude_code_needs_the_router(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(ro.shutil, "which", lambda name: "/bin/claude")
+    down = ro.SubprocessLocalAgent("claude-code", "m", 4096, "127.0.0.1:1", tmp_path, tmp_path,
+                                   model_check=lambda host, model: (True, ""),
+                                   router_check=lambda url: (False, "routeur éteint"))
+    assert down.available() == (False, "routeur éteint")
+    up = ro.SubprocessLocalAgent("claude-code", "m", 4096, "127.0.0.1:1", tmp_path, tmp_path,
+                                 model_check=lambda host, model: (True, ""), router_check=lambda url: (True, ""))
+    assert up.available() == (True, "")
+
+
+def test_local_claude_code_real_subprocess_reads_prompt_from_stdin(tmp_path: Path,
+                                                                   monkeypatch: pytest.MonkeyPatch) -> None:
+    agent = ro.SubprocessLocalAgent("claude-code", "m", 4096, "127.0.0.1:1", tmp_path, tmp_path / "logs")
+    script = "import os, sys; print(sys.stdin.read().upper(), os.environ['ANTHROPIC_BASE_URL'])"
+    monkeypatch.setattr(agent, "build_command",
+                        lambda prompt: (agent.prompt_file.parent.mkdir(exist_ok=True),
+                                        agent.prompt_file.write_text(prompt, encoding="utf-8"),
+                                        [sys.executable, "-c", script])[-1])
+    agent.start("bonjour local")
+    agent._proc.wait(timeout=30)  # type: ignore[union-attr]
+    assert not agent.is_running() and agent.exit_code() == 0
+    agent.stop()
+    out = (tmp_path / "logs" / "relay_local_agent.log").read_text(encoding="utf-8")
+    assert "BONJOUR LOCAL" in out and ro.DEFAULT_ROUTER_URL in out
+
+
+def test_router_unreachable_is_reported_not_raised() -> None:
+    ok, reason = ro.router_is_up("http://127.0.0.1:9/v1", timeout_s=1)
+    assert not ok and "injoignable" in reason
+
+
 def test_ollama_unreachable_is_reported_not_raised() -> None:
     ok, reason = ro.ollama_has_model("127.0.0.1:9", "modele", timeout_s=1)
     assert not ok and "injoignable" in reason

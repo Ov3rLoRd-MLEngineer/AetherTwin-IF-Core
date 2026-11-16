@@ -53,7 +53,9 @@ N'utilise jamais `python` seul. Le `python` du PATH est une autre version (3.10)
 ## Recette locale validée par Jérémy (Ollama + Aider)
 
 Cette recette vient du laboratoire Ov3rLoRd. Elle est **déclarée** par Jérémy. Elle n'a pas été
-rejouée dans ce dépôt.
+rejouée dans ce dépôt. **Aider n'est plus installé sur ce poste** : l'agent local par défaut du relais
+est Claude Code branché sur Ollama via OmniRoute (voir « Réponses de Jérémy »). La recette Aider reste
+valable si Aider est réinstallé (`--local-agent aider`).
 
 1. Lance Ollama avec un fichier `.bat`. Le `.bat` définit `GGML_CUDA_NO_PINNED=1` avant `ollama serve`.
    Raison : une variable définie ailleurs n'est pas toujours transmise au serveur.
@@ -125,6 +127,8 @@ Fais une tâche à la fois. Après chaque tâche : tests, changelog, commit.
 | PowerShell casse les guillemets de `python -c "..."` | Écrire un fichier `.py` et le lancer |
 | Sortie d'Aider peu fiable sous Git Bash | Lancer depuis `cmd.exe`, vérifier avec `git log` |
 | Contexte par défaut d'un modèle 30 B = 262 144 jetons | Fixer `num_ctx=32768` |
+| Claude Code ne connaît pas `ollama/...` : il suppose 200 000 jetons de contexte | Ollama n'en sert que 32 768 par défaut. Garder les tâches locales courtes. Une tâche = peu de fichiers |
+| OmniRoute écoute sur `0.0.0.0` sans clé | Le lancer avec `OMNIROUTE_SERVER_HOST=127.0.0.1` |
 | `tests/test_architecture_map.py` échoue après un ajout de fichier | Relancer `scripts\gen_architecture_map.py` |
 | `.toc` de l'addon sans `## SavedVariables` | Le jeu n'écrit rien. Ne jamais retirer cette ligne |
 | Widgets : clic sur les poignées | Enregistrer le corps **avant** les poignées |
@@ -132,12 +136,35 @@ Fais une tâche à la fois. Après chaque tâche : tests, changelog, commit.
 | Overlay | C'est une 2ᵉ fenêtre SDL (`pygame._sdl2.video.Window`). Les événements sont routés par `event.window` |
 | WoW n'écrit les SavedVariables qu'au `/reload`, à la déconnexion ou via `/ha save` | Ne pas attendre de temps réel |
 
-## Questions ouvertes pour Jérémy
+## Réponses de Jérémy (16/11/2026)
 
-1. Dépôt GitHub : nom, compte, public ou privé avec accès évaluateur ? (`gh` n'est pas installé.)
-2. Identité Git à utiliser pour les commits (actuellement : identité locale `Ov3rLoRd-MLEngineer`, adresse noreply).
-3. Où sont les deux RTX 5060 Ti ? Une seule est visible ici. Y a-t-il un serveur Ollama séparé, et à quelle adresse ?
-4. Quel modèle Qwen sert de profil « qualité » (Q8_0) ? Aucun modèle Q8 n'est identifiable dans `ollama list`.
-5. Chemins locaux des poids HandSegNet et FootSegNet, et liens HuggingFace / GitHub exacts.
-6. Dépôt Ov3rLoRd : `D:\OVERLORD\` est introuvable ou vide sur ce poste. Où est-il ?
-7. Aider : dans quel venv est-il installé ? Il n'est pas dans le PATH.
+| Sujet | Réponse | Vérifié ? |
+|---|---|---|
+| Compte GitHub | `https://github.com/Ov3rLoRd-MLEngineer` | le dépôt AetherTwin n'y est pas encore créé |
+| Seconde RTX 5060 Ti | pas encore branchée, il manque un riser | oui : 2 GPU, 31,8 Gio vus par Ollama |
+| Serveur de modèles | Ollama sur le port 11434, OmniRoute sur le port 20128, sur ce poste | oui (journaux de démarrage) |
+| Agent local habituel | **Claude Code** lancé avec `--model ollama/qwen3-27b:latest`, via OmniRoute | commande relevée dans son lanceur |
+| Aider | **pas installé**. Tout a été désinstallé depuis le premier projet | oui |
+| Modèles Qwen | `qwen3-27b`, `qwen3-35b`, `qwen3-coder:30b` : **tous en Q4_K_M** | oui (`ollama show`) |
+| HandSegNet | GitHub `Ov3rLoRd-MLEngineer/handsegnet-anime-sdxl`, HuggingFace du même nom | liens fournis, non ouverts |
+| FootSegNet | GitHub `Ov3rLoRd-MLEngineer/footsegnet-anime-sdxl`, HuggingFace du même nom | liens fournis, non ouverts |
+| Poids des modèles | rien en local, archivé sur un autre disque. **Tout est à télécharger** | — |
+| Dépôt Ov3rLoRd | `https://github.com/Ov3rLoRd-MLEngineer/OVERLORD`, public | oui : **237 commits** sur `main` (239 toutes branches), du 23/06/2026 au 10/08/2026 |
+
+Variables d'environnement de l'agent local Claude Code (le relais les pose lui-même) :
+
+```bat
+set ANTHROPIC_BASE_URL=http://127.0.0.1:20128/v1
+set ANTHROPIC_AUTH_TOKEN=ollama
+set ANTHROPIC_API_KEY=
+claude -p --model "ollama/qwen3-27b:latest"
+```
+
+`ANTHROPIC_AUTH_TOKEN=ollama` est une valeur factice, pas un secret : le routeur local ne demande pas de clé.
+
+## Questions encore ouvertes
+
+1. Nom du dépôt GitHub d'AetherTwin, et qui le crée (`gh` n'est pas installé).
+2. Identité Git des commits : confirmer `Ov3rLoRd-MLEngineer` + adresse noreply.
+3. Profil « qualité » Q8_0 : aucun modèle Q8 n'est installé. En télécharger un, ou rester en Q4_K_M ?
+4. Contexte réel de l'agent local : Ollama sert 32 768 jetons par défaut, Claude Code en suppose 200 000.

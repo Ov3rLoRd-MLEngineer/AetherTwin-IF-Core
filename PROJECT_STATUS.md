@@ -22,7 +22,8 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | `scripts/relay_orchestrator.py` — logique (états, verrou, reprise, backoff) | P0 | J1 | `SIMULÉ` | horloge virtuelle + doublures ; `--dry-run` exécuté |
 | Relais — backend API Anthropic | P0 | J1 | `SIMULÉ` | SDK officiel contre un serveur HTTP factice (429, 529, 400, 200) ; jamais appelé sur le vrai service |
 | Relais — backend Claude Code | P0 | J1 | `FAIT-NON-TESTÉ` | sous-processus réel testé avec un faux binaire ; le format exact du message de quota de Claude Code n'a pas été observé |
-| Relais — agent local Aider / OpenCode | P0 | J1 | `FAIT-NON-TESTÉ` | commande construite et testée ; **Aider et OpenCode absents du PATH** sur ce poste, jamais lancés |
+| Relais — agent local Claude Code via OmniRoute (défaut) | P0 | J1 | `FAIT-NON-TESTÉ` | commande et environnement repris du lanceur de Jérémy ; sous-processus réel testé avec un faux binaire ; jamais lancé contre OmniRoute + Qwen |
+| Relais — agent local Aider / OpenCode | P0 | J1 | `FAIT-NON-TESTÉ` | commande construite et testée ; **Aider et OpenCode ne sont pas installés** sur ce poste |
 | `core/` : contrat de module, bus, daemon | P0 | J2 | `À FAIRE` | |
 | Gardiens Inoue (VRAM) et Fuma (stabilité) | P0 | J2 | `À FAIRE` | |
 | `core/hardware/gpu_monitor.py` | P0 | J2 | `À FAIRE` | |
@@ -45,12 +46,19 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | GPU 0 | NVIDIA GeForce RTX 5080, 16 303 MiB | `nvidia-smi` |
 | GPU 1 | NVIDIA GeForce RTX 5060 Ti, 16 311 MiB | `nvidia-smi` |
 | Ollama | 0.40.16, 17 modèles installés | `ollama list` |
-| `qwen3-coder:30b-a3b-q4_K_M` | installé, 18 Go sur disque | `ollama list` |
-| `qwen3-27b:latest` / `qwen3-35b:latest` | 16 Go / 21 Go sur disque, quantification non vérifiée | `ollama list` |
+| `qwen3-coder:30b-a3b-q4_K_M` | 30,5 B, Q4_K_M, contexte max 262 144, 18 Go sur disque | `ollama show` |
+| `qwen3-27b:latest` | 27,3 B, Q4_K_M, contexte max 262 144, 16 Go sur disque | `ollama show` |
+| `qwen3-35b:latest` | 34,7 B, Q4_K_M, contexte max 262 144, 21 Go sur disque | `ollama show` |
+| VRAM vue par Ollama | 31,8 Gio au total ; contexte par défaut 32 768 | journal de démarrage d'Ollama |
+| Dépôt Ov3rLoRd | 237 commits sur `main`, 239 toutes branches, 23/06/2026 → 10/08/2026 | `git rev-list --count` sur le dépôt public |
 
-**Écart avec le cahier des charges :** deux GPU visibles (≈ 32 Go), pas trois (48 Go). La seconde
-RTX 5060 Ti n'est pas dans cette machine. `config/hardware_profiles.yaml` contient les deux profils.
-La VRAM occupée par chaque modèle une fois chargé n'a **pas** encore été mesurée.
+**Écarts avec le cahier des charges :**
+
+- Deux GPU visibles (≈ 32 Go), pas trois (48 Go) : la seconde RTX 5060 Ti attend un riser.
+  `config/hardware_profiles.yaml` contient les deux profils.
+- **Aucun modèle Q8_0 n'est installé.** Les trois Qwen sont en Q4_K_M. Le profil « qualité » reste à définir.
+- La VRAM occupée par chaque modèle une fois chargé n'a **pas** encore été mesurée.
+- L'agent local réel de Jérémy est Claude Code via OmniRoute, pas Aider.
 
 ## Reste à faire, par priorité
 
@@ -78,8 +86,8 @@ La VRAM occupée par chaque modèle une fois chargé n'a **pas** encore été me
 |---|---|---|---|
 | 1 | Suite de tests | `.venv\Scripts\python.exe -m pytest` | tout vert |
 | 2 | Relais en simulation | `.venv\Scripts\python.exe scripts\relay_orchestrator.py --dry-run` | un cycle cloud → local → cloud, code 0 |
-| 3 | Installer Aider dans un venv dédié, puis vérifier | `aider --version` | version affichée |
-| 4 | Relais réel, fenêtre courte | `.venv\Scripts\python.exe scripts\relay_orchestrator.py --window-minutes 10 --max-cycles 1` (depuis `cmd.exe`) | à la limite de quota : bascule sur Aider, puis retour ; vérifier `logs\relay.log` et `git log` |
+| 3 | Agent local seul : Ollama et OmniRoute lancés | `set ANTHROPIC_BASE_URL=http://127.0.0.1:20128/v1` · `set ANTHROPIC_AUTH_TOKEN=ollama` · `set ANTHROPIC_API_KEY=` puis `echo Lis AGENT_HANDOFF.md et resume-le en 3 lignes \| claude -p --model "ollama/qwen3-27b:latest"` | une réponse du modèle local, sans erreur de contexte |
+| 4 | Relais réel, fenêtre courte | `.venv\Scripts\python.exe scripts\relay_orchestrator.py --window-minutes 10 --max-cycles 1 --local-model qwen3-27b:latest` (depuis `cmd.exe`) | à la limite de quota : bascule sur l'agent local, puis retour ; vérifier `logs\relay.log` et `git log` |
 | 5 | Relever le message exact de limite de Claude Code | copier la ligne de `logs\relay.log` | permet d'ajuster `QUOTA_PATTERNS` si besoin |
 | 6 | Topologie 3 GPU | `nvidia-smi -L` sur la machine qui porte les 3 cartes | 3 lignes |
 

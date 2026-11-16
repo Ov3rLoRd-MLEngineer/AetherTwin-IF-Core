@@ -4,7 +4,8 @@ Cycle :
   1. Lance l'agent cloud (Claude Code, ou l'API Anthropic) et note l'heure T0 du premier prompt.
   2. Surveille les erreurs de quota (429, messages de limite d'usage, surcharge).
      Backoff court pour les erreurs transitoires ; bascule si le motif persiste.
-  3. Bascule sur l'agent local (Ollama + Aider ou OpenCode) jusqu'à T0 + fenêtre.
+  3. Bascule sur l'agent local jusqu'à T0 + fenêtre : Claude Code branché sur Ollama via un
+     routeur local (OmniRoute), ou Aider, ou OpenCode.
   4. Arrête proprement l'agent local (commit `wip(local): …`) et rend la main au cloud
      avec un résumé (changelog + git log + diff) pour revue.
 
@@ -14,7 +15,7 @@ Aucune clé en dur : les identifiants viennent de l'environnement.
 
 Exemples :
     python scripts/relay_orchestrator.py --dry-run
-    python scripts/relay_orchestrator.py --backend claude-code --local-agent aider
+    python scripts/relay_orchestrator.py --backend claude-code --local-agent claude-code
     python scripts/relay_orchestrator.py --status
 """
 from __future__ import annotations
@@ -42,6 +43,8 @@ DEFAULT_WINDOW_MINUTES = 302.0  # fenêtre de 5 h + 2 min de marge (voir README,
 DEFAULT_LOCAL_MODEL = "qwen3-coder:30b-a3b-q4_K_M"
 DEFAULT_NUM_CTX = 32768
 DEFAULT_OLLAMA_HOST = "127.0.0.1:11434"
+DEFAULT_ROUTER_URL = "http://127.0.0.1:20128/v1"  # OmniRoute : expose Ollama au format attendu par Claude Code
+DEFAULT_PERMISSION_ARGS = ("--permission-mode", "acceptEdits")  # sans cela, un agent non interactif n'écrit rien
 DEFAULT_API_MODEL = "claude-opus-5-5"
 HANDOFF_FILES = ("AGENT_HANDOFF.md", "PROJECT_STATUS.md", "ARCHITECTURE_MAP.md")
 CHANGELOG = "logs/CHANGELOG_DEV.md"
@@ -391,27 +394,66 @@ def ollama_has_model(host: str, model: str, timeout_s: float = 5.0) -> tuple[boo
     return False, f"Modèle {model} non installé sur {url} (ollama pull {model})"
 
 
+def router_is_up(router_url: str, timeout_s: float = 5.0) -> tuple[bool, str]:
+    """Vérifie que le routeur local (OmniRoute) répond sur /models."""
+    url = router_url.rstrip("/") + "/models"
+    try:
+        with urllib.request.urlopen(url, timeout=timeout_s):
+            return True, ""
+    except urllib.error.HTTPError:
+        return True, ""  # le routeur répond, même par une erreur HTTP
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        return False, f"Routeur local injoignable ({url}) : {exc}"
+
+
 class SubprocessLocalAgent:
-    """Aider ou OpenCode, branché sur Ollama. Sortie redirigée vers un journal (peu fiable sous Git Bash)."""
+    """Agent local branché sur Ollama : Claude Code via un routeur local, Aider, ou OpenCode.
+
+    La sortie est redirigée vers un journal (elle est peu fiable sous Git Bash).
+    """
+
+    BINARIES = {"claude-code": "claude", "aider": "aider", "opencode": "opencode"}
 
     def __init__(self, kind: str, model: str, num_ctx: int, ollama_host: str, repo: Path, logs_dir: Path,
-                 model_check: Callable[[str, str], tuple[bool, str]] = ollama_has_model) -> None:
+                 model_check: Callable[[str, str], tuple[bool, str]] = ollama_has_model,
+                 router_url: str = DEFAULT_ROUTER_URL, extra_args: Sequence[str] = DEFAULT_PERMISSION_ARGS,
+                 router_check: Callable[[str], tuple[bool, str]] = router_is_up) -> None:
         self.kind = kind
         self.model = model
         self.num_ctx = num_ctx
         self.ollama_host = ollama_host
         self.repo = repo
         self.logs_dir = logs_dir
+        self.router_url = router_url
+        self.extra_args = list(extra_args)
         self._model_check = model_check
+        self._router_check = router_check
         self._proc: subprocess.Popen[bytes] | None = None
         self._log_handle: Any = None
+        self._stdin_handle: Any = None
+
+    @property
+    def prompt_file(self) -> Path:
+        return self.logs_dir / "relay_local_prompt.md"
+
+    def build_env(self) -> dict[str, str]:
+        """Environnement de l'agent local. Aucune vraie clé : le routeur local n'en demande pas."""
+        env = dict(os.environ, OLLAMA_API_BASE=ollama_base_url(self.ollama_host))
+        if self.kind == "claude-code":
+            env["ANTHROPIC_BASE_URL"] = self.router_url
+            env["ANTHROPIC_AUTH_TOKEN"] = "ollama"  # noqa: S105 — valeur factice attendue par le routeur local
+            env["ANTHROPIC_API_KEY"] = ""  # la vraie clé ne doit jamais partir vers le routeur local
+            env["ANTHROPIC_CONTEXT_LENGTH"] = str(self.num_ctx)
+        return env
 
     def build_command(self, prompt: str) -> list[str]:
         self.logs_dir.mkdir(parents=True, exist_ok=True)
+        self.prompt_file.write_text(prompt, encoding="utf-8")
+        prompt_file = self.prompt_file
+        if self.kind == "claude-code":  # le prompt passe par l'entrée standard (voir start)
+            return ["claude", "-p", "--model", f"ollama/{self.model}", *self.extra_args]
         if self.kind == "opencode":
             return ["opencode", "run", "--model", f"ollama/{self.model}", prompt]
-        prompt_file = self.logs_dir / "relay_local_prompt.md"
-        prompt_file.write_text(prompt, encoding="utf-8")
         settings = self.logs_dir / "aider_model_settings.yml"
         settings.write_text(  # num_ctx obligatoire : le contexte par défaut d'un 30 B fait échouer le chargement
             f"- name: ollama_chat/{self.model}\n  extra_params:\n    num_ctx: {self.num_ctx}\n", encoding="utf-8")
@@ -423,18 +465,32 @@ class SubprocessLocalAgent:
         return cmd
 
     def available(self) -> tuple[bool, str]:
-        binary = "opencode" if self.kind == "opencode" else "aider"
+        binary = self.BINARIES.get(self.kind, self.kind)
         if not shutil.which(binary):
             return False, f"`{binary}` introuvable dans le PATH"
+        if self.kind == "claude-code":
+            reachable, reason = self._router_check(self.router_url)
+            if not reachable:
+                return False, reason
         return self._model_check(self.ollama_host, self.model)
 
     def start(self, prompt: str) -> None:
         cmd = resolve_command(self.build_command(prompt))
-        env = dict(os.environ, OLLAMA_API_BASE=ollama_base_url(self.ollama_host))
+        self._close_handles()
         self._log_handle = open(self.logs_dir / "relay_local_agent.log", "ab")  # noqa: SIM115
+        stdin: Any = subprocess.DEVNULL
+        if self.kind == "claude-code":
+            self._stdin_handle = stdin = open(self.prompt_file, "rb")  # noqa: SIM115
         flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-        self._proc = subprocess.Popen(cmd, cwd=str(self.repo), env=env, stdin=subprocess.DEVNULL,
+        self._proc = subprocess.Popen(cmd, cwd=str(self.repo), env=self.build_env(), stdin=stdin,
                                       stdout=self._log_handle, stderr=subprocess.STDOUT, creationflags=flags)
+
+    def _close_handles(self) -> None:
+        for name in ("_log_handle", "_stdin_handle"):
+            handle = getattr(self, name)
+            if handle is not None:
+                handle.close()
+                setattr(self, name, None)
 
     def is_running(self) -> bool:
         return self._proc is not None and self._proc.poll() is None
@@ -450,9 +506,7 @@ class SubprocessLocalAgent:
             except subprocess.TimeoutExpired:
                 self._proc.kill()
                 self._proc.wait(timeout=10)
-        if self._log_handle is not None:
-            self._log_handle.close()
-            self._log_handle = None
+        self._close_handles()
 
 
 # --------------------------------------------------------------------------- Git
@@ -800,15 +854,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--tasks-file", type=Path, help="liste de tâches pour l'agent local (défaut : logs/relay_tasks.md)")
     p.add_argument("--window-minutes", type=float, default=DEFAULT_WINDOW_MINUTES,
                    help="durée entre T0 et le retour au cloud (défaut : 302 = 5 h + 2 min)")
-    p.add_argument("--local-agent", choices=("aider", "opencode"), default="aider")
+    p.add_argument("--local-agent", choices=("claude-code", "aider", "opencode"), default="claude-code",
+                   help="claude-code = Claude Code branché sur Ollama via un routeur local (OmniRoute)")
+    p.add_argument("--router-url", default=os.environ.get("AETHERTWIN_ROUTER_URL") or DEFAULT_ROUTER_URL,
+                   help="URL du routeur local pour --local-agent claude-code")
+    p.add_argument("--local-arg", action="append", default=None,
+                   help="argument pour l'agent local claude-code (répétable ; défaut : --permission-mode acceptEdits)")
     p.add_argument("--local-model", default=DEFAULT_LOCAL_MODEL)
     p.add_argument("--num-ctx", type=int, default=DEFAULT_NUM_CTX)
     p.add_argument("--ollama-host", default=os.environ.get("OLLAMA_HOST") or DEFAULT_OLLAMA_HOST,
                    help="hôte:port d'Ollama (local ou réseau local)")
     p.add_argument("--claude-bin", default="claude")
-    p.add_argument("--claude-arg", action="append", default=[],
-                   help="argument supplémentaire pour Claude Code (répétable), ex. --claude-arg=--permission-mode "
-                        "--claude-arg=acceptEdits")
+    p.add_argument("--claude-arg", action="append", default=None,
+                   help="argument pour Claude Code côté cloud (répétable ; défaut : --permission-mode acceptEdits)")
     p.add_argument("--api-model", default=os.environ.get("ANTHROPIC_MODEL") or DEFAULT_API_MODEL)
     p.add_argument("--api-base-url", default=None)
     p.add_argument("--max-transient-retries", type=int, default=4)
@@ -883,11 +941,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     else:
         clock = Clock()
         git = GitRepo(repo)
-        local = SubprocessLocalAgent(args.local_agent, args.local_model, args.num_ctx, args.ollama_host, repo, logs)
+        local = SubprocessLocalAgent(
+            args.local_agent, args.local_model, args.num_ctx, args.ollama_host, repo, logs,
+            router_url=args.router_url,
+            extra_args=DEFAULT_PERMISSION_ARGS if args.local_arg is None else args.local_arg)
         if args.backend == "api":
             cloud = ApiBackend(args.api_model, logs / "relay_api_last_response.md", base_url=args.api_base_url)
         else:
-            cloud = ClaudeCodeBackend([args.claude_bin, "-p", "--output-format", "json", *args.claude_arg],
+            cloud_args = DEFAULT_PERMISSION_ARGS if args.claude_arg is None else args.claude_arg
+            cloud = ClaudeCodeBackend([args.claude_bin, "-p", "--output-format", "json", *cloud_args],
                                       cwd=repo, timeout_s=args.window_minutes * 60.0)
 
     def on_sigterm(_signum: int, _frame: object) -> None:

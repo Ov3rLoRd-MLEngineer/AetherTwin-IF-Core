@@ -28,4 +28,17 @@ measured:
     gpus:
       - { index: 0, name: "NVIDIA GeForce RTX 5080", vram_mib: 16303 }
       - { index: 1, name: "NVIDIA GeForce RTX 5060 Ti", vram_mib: 16311 }
-    note: "Deux GPU visibles, pas trois. La seconde RTX 5060 Ti n'est pas dans cette machine."
+    note: "Deux GPU visibles. La seconde RTX 5060 Ti n'est pas encore branchée (riser manquant)."
+    ollama:
+      version: "0.40.16"
+      total_vram_gib: 31.8          # journal de démarrage d'Ollama
+      default_num_ctx: 32768        # « vram-based default context »
+      kv_cache_type: "q8_0"
+      flash_attention: true
+      keep_alive: "5m"
+      num_parallel: 1
+    models:                          # ollama show, le 16/11/2026
+      - { name: "qwen3-27b:latest", parameters: "27.3B", quantization: "Q4_K_M", context_length: 262144, disk_gb: 16 }
+      - { name: "qwen3-35b:latest", parameters: "34.7B", quantization: "Q4_K_M", context_length: 262144, disk_gb: 21 }
+      - { name: "qwen3-coder:30b-a3b-q4_K_M", parameters: "30.5B", quantization: "Q4_K_M", context_length: 262144, disk_gb: 18 }
+    not_measured: "VRAM occupée par modèle une fois chargé ; aucun modèle Q8_0 n'est installé."

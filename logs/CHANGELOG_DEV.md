@@ -88,3 +88,41 @@ réconciliées. La durée reste donc un paramètre : `--window-minutes` (défaut
    après 3 échecs en moins de 60 s).
 8. **`git add -A`** pour le commit `wip(local)` : acceptable parce que `.gitignore` exclut les secrets
    et l'état d'exécution, et que `tests/test_repo_hygiene.py` vérifie les fichiers suivis.
+
+---
+
+## 2026-11-16 (soir) — réponses de Jérémy, agent local Claude Code via OmniRoute
+
+- **Agent :** Cloud
+- **Fichiers :** `scripts/relay_orchestrator.py`, `tests/test_relay_orchestrator.py`,
+  `config/hardware_profiles.yaml`, `config/local.example.yaml`, `AGENT_HANDOFF.md`,
+  `PROJECT_STATUS.md`, `README.md`.
+- **Raison :** Jérémy a précisé son installation réelle. Aider n'est pas installé ; son agent local est
+  Claude Code lancé avec `--model ollama/<modèle>` à travers OmniRoute (port 20128).
+- **Tests :** `pytest` → 46 réussis ; `ruff check .` propre.
+
+### Relevés
+
+- `ollama show` : `qwen3-27b` (27,3 B), `qwen3-35b` (34,7 B), `qwen3-coder:30b` (30,5 B) sont **tous
+  en Q4_K_M**, contexte maximal 262 144. Aucun Q8_0 installé.
+- Journal d'Ollama : 2 GPU, 31,8 Gio au total, contexte par défaut 32 768, cache KV `q8_0`,
+  flash attention activée, `keep_alive` 5 min, écoute sur `0.0.0.0:11434`.
+- OmniRoute 3.8.52 : écoute sur `0.0.0.0:20128` **sans clé** (avertissement affiché par OmniRoute).
+- Dépôt Ov3rLoRd (public) : **237 commits sur `main`** — le chiffre déclaré est confirmé ; 239 toutes
+  branches ; premier commit le 23/06/2026, dernier le 10/08/2026 ; 26 branches.
+- Recherche de motifs de clés dans l'état courant (`HEAD`) du dépôt Ov3rLoRd : aucun résultat.
+  **L'historique n'a pas été scanné.**
+
+### Décisions
+
+1. **Agent local par défaut : `claude-code`** (au lieu d'`aider`). Le relais pose
+   `ANTHROPIC_BASE_URL`, une valeur factice pour `ANTHROPIC_AUTH_TOKEN`, et **vide
+   `ANTHROPIC_API_KEY`** pour qu'une vraie clé ne parte jamais vers le routeur local.
+2. **`--permission-mode acceptEdits` par défaut** pour Claude Code, côté cloud et côté local : sans
+   cela un agent non interactif n'écrit aucun fichier. Modifiable par `--claude-arg` / `--local-arg`.
+   Non vérifié : les commandes (tests, commit) peuvent encore demander une autorisation.
+3. **`ANTHROPIC_CONTEXT_LENGTH` aligné sur `num_ctx`** (32 768) et non sur 150 000 comme dans le
+   lanceur. Effet réel non vérifié : Claude Code affiche « context assumed to be 200k tokens » pour un
+   modèle `ollama/...`, ce qui laisse penser que la variable est ignorée.
+4. **Modèle local par défaut inchangé** (`qwen3-coder:30b-a3b-q4_K_M`) ; `--local-model qwen3-27b:latest`
+   pour utiliser celui du lanceur.

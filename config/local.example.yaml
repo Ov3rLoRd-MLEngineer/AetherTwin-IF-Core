@@ -10,6 +10,11 @@ ollama:
   num_ctx: 32768
   keep_alive: "5m"
 
+router:
+  # Routeur local (OmniRoute) : expose Ollama au format attendu par Claude Code.
+  # Garde-le en écoute sur 127.0.0.1 (OMNIROUTE_SERVER_HOST=127.0.0.1).
+  url: "http://127.0.0.1:20128/v1"
+
 hardware:
   profile: "auto"          # "auto" = topologie mesurée au lancement
   vram_safety_margin: 0.10 # 10 % de la VRAM totale, jamais consommés

@@ -187,7 +187,10 @@ Relais Cloud <-> Local : continuer à développer pendant les coupures de quota.
   - `def stop(self) -> None`
 - `def ollama_base_url(host: str) -> str`
 - `def ollama_has_model(host: str, model: str, timeout_s: float=5.0) -> tuple[bool, str]` — Interroge /api/tags du serveur Ollama configuré (machine locale ou réseau local).
-- **`class SubprocessLocalAgent`** — Aider ou OpenCode, branché sur Ollama. Sortie redirigée vers un journal (peu fiable sous Git Bash).
+- `def router_is_up(router_url: str, timeout_s: float=5.0) -> tuple[bool, str]` — Vérifie que le routeur local (OmniRoute) répond sur /models.
+- **`class SubprocessLocalAgent`** — Agent local branché sur Ollama : Claude Code via un routeur local, Aider, ou OpenCode.
+  - `def prompt_file(self) -> Path`
+  - `def build_env(self) -> dict[str, str]` — Environnement de l'agent local. Aucune vraie clé : le routeur local n'en demande pas.
   - `def build_command(self, prompt: str) -> list[str]`
   - `def available(self) -> tuple[bool, str]`
   - `def start(self, prompt: str) -> None`

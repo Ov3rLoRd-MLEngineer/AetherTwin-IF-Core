@@ -42,7 +42,9 @@ py -3.11 -m venv .venv
 Le projet est développé par deux agents qui se relaient, avec une passation documentée :
 
 - un agent **cloud** (Claude Code), limité par une fenêtre de quota ;
-- un agent **local** (Qwen sous Ollama, piloté par Aider ou OpenCode), qui prend le relais pendant la coupure.
+- un agent **local** (Qwen sous Ollama), qui prend le relais pendant la coupure. Par défaut c'est
+  Claude Code lui-même, branché sur Ollama par un routeur local (OmniRoute) ; Aider et OpenCode sont
+  aussi pris en charge.
 
 ```mermaid
 stateDiagram-v2
@@ -62,7 +64,7 @@ relit **le diff seulement**.
 .\.venv\Scripts\python.exe scripts\relay_orchestrator.py --dry-run
 
 # relais réel
-.\.venv\Scripts\python.exe scripts\relay_orchestrator.py --backend claude-code --local-agent aider
+.\.venv\Scripts\python.exe scripts\relay_orchestrator.py --backend claude-code --local-agent claude-code
 
 # état enregistré
 .\.venv\Scripts\python.exe scripts\relay_orchestrator.py --status
@@ -86,7 +88,7 @@ Ctrl+C. Aucune clé dans le dépôt : les identifiants viennent de l'environneme
 **Non vérifié :**
 
 - Le relais face à une vraie limite de quota de Claude Code.
-- Le lancement réel d'Aider ou d'OpenCode (non installés sur le poste de développement).
+- Le lancement réel de l'agent local (Claude Code via OmniRoute ; Aider et OpenCode ne sont pas installés).
 - Le backend API face au vrai service Anthropic.
 - La CI GitHub (le dépôt n'est pas encore poussé).
 
