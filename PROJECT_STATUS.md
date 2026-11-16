@@ -29,7 +29,11 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | `core/module_api.py` (manifeste, événements, classe de base) | P0 | J2 | `FAIT-TESTÉ` | validation et découverte testées ; aucun vrai module ne l'utilise encore |
 | Inoue — budget VRAM, file d'attente, un seul gros LLM | P0 | J2 | `SIMULÉ` | comptabilité testée avec des GPU factices ; **ne pilote pas encore Ollama** (aucun chargement/déchargement réel) |
 | Fuma — watchdog, alertes thermiques, mode nocturne | P0 | J2 | `SIMULÉ` | testé avec des modules factices et une horloge injectée ; pas encore branché sur de vrais processus |
-| `core/bus.py`, `core/scheduler.py`, `core/daemon.py`, API HTTP locale | P0 | J2 | `À FAIRE` | prochaine tâche |
+| `core/bus.py` — bus entre processus sur 127.0.0.1 | P0 | J2 | `FAIT-TESTÉ` | événement échangé avec un vrai second processus ; clé erronée refusée ; messages JSON |
+| `core/scheduler.py` — file d'attente GPU unique | P0 | J2 | `SIMULÉ` | testé avec des tâches factices ; aucune vraie tâche vision/diffusion |
+| `core/daemon.py` + `core/module_runner.py` | P0 | J2 | `FAIT-TESTÉ` | module de test lancé dans un vrai processus séparé, arrêté proprement, relancé par Fuma après un plantage ; déclencheur de processus simulé (faux `obs64.exe`). Démon réel lancé le 16/11 : 2 GPU, budget 28,66 Go |
+| `core/api.py` — `/health`, `/modules`, `/events`, `/gpu`, `/ask` | P0 | J2 | `FAIT-TESTÉ` | écoute vérifiée sur 127.0.0.1 ; **`/ask` répond 503** tant que le routeur LLM n'existe pas (J5) |
+| Détection de fenêtres (`pygetwindow`), interface générée à la volée (`widget_schema`) | P0 | J2→J3 | `À FAIRE` | reporté avec le port de `ui.py` |
 | Port de WoW Assistant → `modules/gaming_hud/` | P0 | J3 | `À FAIRE` | code d'origine lu, non porté |
 | `GameAdapter` + `wow_retail` + `log_tail` + `screen_ocr` | P0 | J3 | `À FAIRE` | |
 | Mode Showcase OBS, `/obs-hud`, filtre de confidentialité, logo | P0/P1 | J4 | `À FAIRE` | |

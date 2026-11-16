@@ -99,6 +99,9 @@ derrière l'interface `GameAdapter` ; `LLMClient` devient client de `core/llm_ro
 ```
 core/
   __init__.py
+  api.py
+  bus.py
+  daemon.py
   guardians/
     __init__.py
     fuma.py
@@ -107,6 +110,8 @@ core/
     __init__.py
     gpu_monitor.py
   module_api.py
+  module_runner.py
+  scheduler.py
 modules/
   __init__.py
 scripts/
@@ -122,6 +127,8 @@ tests/
   __init__.py
   core/
     __init__.py
+    test_bus_scheduler.py
+    test_daemon.py
     test_gpu_monitor.py
     test_guardians.py
     test_module_api.py
@@ -144,6 +151,49 @@ logs/
 ```
 
 ## Signatures publiques (générées)
+
+### `core/api.py`
+
+API HTTP locale du démon (FastAPI). Servie sur 127.0.0.1 uniquement par `core.daemon`.
+
+- **`class AskRequest(BaseModel)`**
+- `def create_app(daemon: Daemon) -> FastAPI`
+
+### `core/bus.py`
+
+Bus d'événements local du Hub : publication / abonnement entre processus, sur 127.0.0.1 uniquement.
+
+- **`class EventBus`** — Centre du bus. `publish` sert les abonnés locaux puis les clients distants abonnés au sujet.
+  - `def start(self) -> tuple[str, int]`
+  - `def stop(self) -> None`
+  - `def child_env(self) -> dict[str, str]` — Variables à donner à un processus de module pour qu'il rejoigne le bus.
+  - `def subscribe(self, pattern: str, callback: Callable[[Event], None]) -> None`
+  - `def publish(self, event: Event) -> None`
+  - `def clients(self) -> list[str]`
+- **`class BusClient`** — Client du bus, utilisé dans le processus d'un module.
+  - `def from_env(cls, name: str, env: dict[str, str] | None=None) -> BusClient`
+  - `def subscribe(self, *patterns: str, timeout: float=5.0) -> None` — S'abonne et attend la confirmation du bus : aucun événement publié ensuite n'est perdu.
+  - `def publish(self, event: Event) -> None`
+  - `def recv(self, timeout: float | None=None) -> Event | None`
+  - `def close(self) -> None`
+
+### `core/daemon.py`
+
+Le démon : centre de l'architecture en étoile.
+
+- `def psutil_process_names() -> set[str] | None` — Noms (en minuscules) des processus en cours ; `None` si `psutil` est absent (mode dégradé).
+- **`class ManagedModule`**
+  - `def running(self) -> bool`
+- **`class Daemon`** — Registre de modules + bus + gardiens. Toutes les sources externes sont injectables (tests).
+  - `def start(self) -> None`
+  - `def stop(self) -> None`
+  - `def reload_modules(self) -> None` — (Re)lit les manifestes de `modules/`. Un manifeste invalide est signalé, pas fatal.
+  - `def activate(self, name: str, auto: bool=False) -> Decision` — Demande la VRAM à Inoue puis lance le module dans son processus. Idempotent.
+  - `def deactivate(self, name: str, timeout_s: float=8.0) -> None` — Arrêt propre (ordre sur le bus), puis arrêt forcé si le module ne répond pas. Rend la VRAM.
+  - `def tick(self) -> dict[str, Any]` — Un tour : processus, déclencheurs, watchdog, alertes GPU, tâches de nuit. Retourne ce qui a changé.
+  - `def status(self) -> dict[str, Any]`
+  - `def modules_status(self) -> list[dict[str, Any]]`
+- `def main(argv: list[str] | None=None) -> int`
 
 ### `core/guardians/fuma.py`
 
@@ -227,6 +277,23 @@ Contrat de module du Hub : manifeste, événements, cycle de vie.
   - `def health(self) -> Health` — État de santé, interrogé par Fuma.
   - `def handle_event(self, event: Event) -> None` — Reçoit un événement du bus.
   - `def widget_schema(self) -> dict[str, Any]` — Schéma JSON de l'interface générée à la volée par le daemon (titre, sections, boutons).
+
+### `core/module_runner.py`
+
+Lanceur d'un module dans son propre processus : `python -m core.module_runner <dossier_du_module>`.
+
+- `def load_module_class(entry: str) -> type[ModuleBase]`
+- `def run(module_dir: Path, client: BusClient | None=None, health_interval_s: float=HEALTH_INTERVAL_S) -> int`
+
+### `core/scheduler.py`
+
+File d'attente GPU unique pour les tâches de vision et de diffusion (scantrad, mangastudio).
+
+- **`class VramRefused(RuntimeError)`** — La tâche demande plus de VRAM que le budget, ou n'a pas obtenu de place à temps.
+- **`class GpuScheduler`** — Exécute les tâches GPU une par une, dans l'ordre d'arrivée.
+  - `def submit(self, name: str, vram_gb: float, fn: Callable[[], Any]) -> Future[Any]` — Met une tâche en file. Le résultat (ou l'erreur) arrive par le `Future` retourné.
+  - `def state(self) -> dict[str, Any]`
+  - `def shutdown(self) -> None`
 
 ### `scripts/gen_architecture_map.py`
 

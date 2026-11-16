@@ -153,3 +153,22 @@ réconciliées. La durée reste donc un paramètre : `--window-minutes` (défaut
 4. **Sans GPU, budget = 0** : seuls les modules sans besoin VRAM démarrent (mode dégradé explicite).
 5. **Fuma met au repos** un module après 3 redémarrages ratés (délais 5, 10, 20 s), et lui rend ses
    essais après 5 minutes de bonne santé. Plage de nuit par défaut : 23 h → 7 h.
+
+---
+
+## 2026-11-16 (nuit) — J2, seconde moitié : bus, ordonnanceur, démon, API locale
+
+- **Agent :** Cloud (session interrompue par la limite d'usage juste après ce commit)
+- **Fichiers :** `core/bus.py`, `core/module_runner.py`, `core/scheduler.py`, `core/daemon.py`,
+  `core/api.py`, `tests/core/test_bus_scheduler.py`, `tests/core/test_daemon.py`, `requirements*.txt`.
+- **Tests :** `pytest tests/core` → 64 réussis, rejoués 3 fois sans échec ; `ruff check .` propre.
+- **Exécution réelle :** `python -m core.daemon` → API sur 127.0.0.1:5750 ; `/health` : Windows 10,
+  `pynvml`, total 31,85 Go, budget 28,66 Go ; `/gpu` : les 2 cartes ; `/events` : `hub.started`.
+- **Décisions de Jérémy :** rester en Q4_K_M tant qu'il n'y a que 32 Go ; contexte local limité à
+  32 768 ; pas de push GitHub pour l'instant, travail en local.
+- **Décisions techniques :** bus en `multiprocessing.connection` avec clé aléatoire par lancement et
+  messages JSON (jamais `pickle`) ; un module par processus via `core.module_runner` ; `/ask` rend 503
+  tant que `core/llm_router.py` n'existe pas.
+- **Non fait :** détection de fenêtres, interface générée à la volée, pilotage d'Ollama par Inoue ;
+  `AGENT_HANDOFF.md`, `README.md`, `THIRD_PARTY.md` et `logs/relay_tasks.md` ne reflètent pas encore
+  cette seconde moitié (compte de tests, licences de fastapi/uvicorn/psutil/httpx).
