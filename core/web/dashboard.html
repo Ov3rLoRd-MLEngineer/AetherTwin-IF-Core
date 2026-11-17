@@ -170,12 +170,14 @@
         <p class="muted">Usage personnel : tout reste sur cette machine. Le premier passage charge les modèles
           (environ 30 s), les suivants sont plus rapides.</p>
         <form id="scan-form" class="row">
-          <input id="scan-file" type="file" accept="image/png,image/jpeg,image/webp" required>
+          <input id="scan-file" type="file" accept="image/png,image/jpeg,image/webp" multiple required
+                 aria-label="pages à traduire (plusieurs possibles : un chapitre)">
           <input id="scan-series" placeholder="Série (glossaire, facultatif)" autocomplete="off">
           <label><input type="checkbox" id="scan-nollm"> détection et effacement seuls</label>
           <button type="submit">Traduire</button>
         </form>
         <p id="scan-line" class="muted"></p>
+        <div id="scan-gallery" class="gallery"></div>
         <div id="scan-images" class="compare" hidden>
           <figure><figcaption>Original</figcaption><img id="scan-before" alt="page d'origine"></figure>
           <figure><figcaption>Traduite</figcaption><img id="scan-after" alt="page traduite"></figure>

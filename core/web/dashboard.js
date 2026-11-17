@@ -484,34 +484,76 @@ $("kb-ingest").addEventListener("click", async () => {
 });
 
 // ---------- scantrad ----------
+// Un chapitre : les pages choisies sont traduites l'une après l'autre (ordre des noms de fichiers),
+// avec le même glossaire ; chaque page reste consultable et corrigeable depuis la galerie.
+const chapter = { pages: [], current: -1 };
+
+function pageSummary(metrics) {
+  return `${metrics.bubbles} bulles traduites en ${metrics.total_s} s`
+    + (metrics.rejected_by_ocr ? ` (${metrics.rejected_by_ocr} zones écartées : pas de texte)` : "")
+    + (metrics.vram_peak_mib ? ` — VRAM au plus haut : ${gib(metrics.vram_peak_mib)} Gio` : "");
+}
+
+function showPage(index) {
+  const page = chapter.pages[index];
+  if (!page) return;
+  chapter.current = index;
+  $("scan-images").hidden = false;
+  $("scan-before").src = page.inputUrl;
+  $("scan-after").src = page.outputUrl ? `${page.outputUrl}?t=${Date.now()}` : "";
+  if (!page.outputUrl) $("scan-after").removeAttribute("src");
+  for (const [i, thumb] of [...$("scan-gallery").children].entries()) {
+    thumb.setAttribute("aria-current", String(i === index));
+  }
+  if (page.bubbles) showBubbleEditor(page.bubbles, page.outputUrl.split("/").pop());
+  else $("scan-bubbles").replaceChildren();
+}
+
 $("scan-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const file = $("scan-file").files[0];
-  if (!file) return;
-  const button = event.submitter;
+  const files = [...$("scan-file").files].sort((a, b) => a.name.localeCompare(b.name, "fr", { numeric: true }));
+  if (!files.length) return;
+  const button = $("scan-form").querySelector("button[type=submit]");  // `event.submitter` est vide sans clic
   button.disabled = true;
-  $("scan-line").textContent = "Traduction en cours… (détection, lecture, effacement, traduction)";
-  $("scan-bubbles").replaceChildren();
-  $("scan-images").hidden = false;
-  $("scan-before").src = URL.createObjectURL(file);
-  $("scan-after").removeAttribute("src");
-  try {
-    const query = new URLSearchParams({ series: $("scan-series").value.trim(), no_llm: $("scan-nollm").checked });
-    const reply = await api(`/scantrad/translate?${query}`, {
-      method: "POST", body: file, headers: { "Content-Type": file.type || "image/png" },
-    });
-    if (!reply.ok) throw new Error(reply.error || "échec");
-    const { metrics, bubbles } = reply.result;
-    $("scan-after").src = `${reply.output_url}?t=${Date.now()}`;
-    $("scan-line").textContent = `${metrics.bubbles} bulles traduites en ${metrics.total_s} s`
-      + (metrics.rejected_by_ocr ? ` (${metrics.rejected_by_ocr} zones écartées : pas de texte)` : "")
-      + (metrics.vram_peak_mib ? ` — VRAM au plus haut : ${gib(metrics.vram_peak_mib)} Gio` : "");
-    showBubbleEditor(bubbles, reply.output_url.split("/").pop());
-  } catch (error) {
-    $("scan-line").textContent = `Erreur : ${error.message}`;
-  } finally {
-    button.disabled = false;
+  chapter.pages = files.map((file) => ({ name: file.name, inputUrl: URL.createObjectURL(file) }));
+  $("scan-gallery").replaceChildren(...chapter.pages.map((page, i) => {
+    const thumb = el("button", { type: "button", title: page.name }, el("img", { src: page.inputUrl, alt: "" }),
+                     `${i + 1}. en attente`);
+    thumb.addEventListener("click", () => showPage(i));
+    return thumb;
+  }));
+  const query = new URLSearchParams({ series: $("scan-series").value.trim(), no_llm: $("scan-nollm").checked });
+  let done = 0, failed = 0;
+  const started = performance.now();
+  for (const [i, file] of files.entries()) {
+    const thumb = $("scan-gallery").children[i];
+    thumb.lastChild.textContent = `${i + 1}. en cours…`;
+    $("scan-line").textContent = `Page ${i + 1}/${files.length} : ${file.name} — détection, lecture, effacement, traduction…`;
+    showPage(i);
+    try {
+      const reply = await api(`/scantrad/translate?${query}`, {
+        method: "POST", body: file, headers: { "Content-Type": file.type || "image/png" },
+      });
+      if (!reply.ok) throw new Error(reply.error || "échec");
+      Object.assign(chapter.pages[i], { outputUrl: reply.output_url, bubbles: reply.result.bubbles,
+                                        metrics: reply.result.metrics });
+      thumb.querySelector("img").src = `${reply.output_url}?t=${Date.now()}`;
+      thumb.lastChild.textContent = `${i + 1}. ${reply.result.metrics.bubbles} bulles`;
+      done += 1;
+      showPage(i);
+    } catch (error) {
+      failed += 1;
+      thumb.lastChild.textContent = `${i + 1}. erreur`;
+      chapter.pages[i].error = error.message;
+    }
   }
+  const seconds = Math.round((performance.now() - started) / 1000);
+  const last = chapter.pages[chapter.current];
+  $("scan-line").textContent = files.length === 1 && last && last.metrics ? pageSummary(last.metrics)
+    : `${done} page(s) traduite(s) en ${seconds} s${failed ? `, ${failed} en erreur` : ""}. `
+      + "Clique sur une vignette pour la revoir ou la corriger.";
+  if (files.length === 1 && last && last.error) $("scan-line").textContent = `Erreur : ${last.error}`;
+  button.disabled = false;
 });
 
 // bulles éditables : corriger une traduction puis réincruster, sans relancer l'OCR ni le modèle
@@ -540,6 +582,12 @@ function showBubbleEditor(bubbles, outputName) {
       const reply = await post("/scantrad/retypeset", { output: outputName, translations });
       if (!reply.ok) throw new Error(reply.error || "échec");
       $("scan-after").src = `${reply.output_url}?t=${Date.now()}`;
+      const page = chapter.pages[chapter.current];
+      if (page && page.outputUrl === reply.output_url) {  // la galerie garde la version corrigée
+        page.bubbles = reply.result.bubbles;
+        const thumb = $("scan-gallery").children[chapter.current];
+        if (thumb) thumb.querySelector("img").src = `${reply.output_url}?t=${Date.now()}`;
+      }
       line.textContent = "Page mise à jour.";
     } catch (error) {
       line.textContent = `Erreur : ${error.message}`;

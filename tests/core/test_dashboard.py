@@ -167,6 +167,28 @@ def test_hub_journal_keeps_events_but_not_game_state(tmp_path) -> None:
             logger.removeHandler(handler)
 
 
+@pytest.mark.parametrize("headers, expected", [
+    ({}, 200),                                                    # le client de test du Hub
+    ({"Origin": "http://127.0.0.1:5750"}, 200),                   # le tableau de bord lui-même
+    ({"Origin": "http://localhost:5750"}, 200),
+    ({"Origin": "https://site-malveillant.example"}, 403),        # formulaire envoyé par un autre site
+    ({"Origin": "null"}, 403),                                    # page locale ou bac à sable
+    ({"Sec-Fetch-Site": "cross-site"}, 403),
+    ({"Host": "attaquant.example:5750"}, 403),                    # nom de domaine qui pointe sur 127.0.0.1
+])
+def test_writes_from_other_sites_are_refused(client, headers, expected) -> None:
+    stopped = []
+    client.app.state.shutdown = lambda: stopped.append(True)
+    assert client.post("/shutdown", headers=headers).status_code == expected
+    assert bool(stopped) is (expected == 200)
+
+
+def test_reads_check_the_host_too(client) -> None:
+    assert client.get("/health").status_code == 200
+    assert client.get("/health", headers={"Host": "127.0.0.1:5750"}).status_code == 200
+    assert client.get("/health", headers={"Host": "rebind.example"}).status_code == 403
+
+
 def test_port_in_use_detects_free_port() -> None:
     import socket
 

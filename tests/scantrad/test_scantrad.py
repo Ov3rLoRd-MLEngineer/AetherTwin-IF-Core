@@ -59,6 +59,30 @@ def test_text_first_detector_on_the_test_page(page) -> None:
         assert (cleaned[ty:ty + th, tx:tx + tw][block.text_mask > 0].min(axis=1) > 180).mean() > 0.95
 
 
+def test_spaced_line_end_is_kept_but_art_does_not_grow() -> None:
+    from modules.scantrad.detect import _line_like
+
+    blocks = detect_text_blocks(read_image(DATA / "page_test.png"))
+    x, _y, w, _h = blocks[2].box  # « 星がきれいだよ。» : « だよ » est séparé par un trou plus large
+    assert x + w >= 745, blocks[2].box
+    assert _line_like((0, 0, 130, 37), (140, 2, 20, 22))       # ligne + caractère de même hauteur
+    assert not _line_like((0, 0, 110, 120), (115, 10, 20, 22))  # tache carrée du dessin
+    assert not _line_like((0, 0, 130, 37), (140, 0, 20, 80))    # voisin bien plus grand
+
+
+def test_ocr_crop_hides_neighbouring_text() -> None:
+    from modules.scantrad.hub_stages import bubble_png
+    from modules.scantrad.pipeline import Bubble
+
+    page = np.full((300, 300, 3), 255, np.uint8)
+    page[140:160, 140:160] = 0      # le bloc lu
+    page[140:160, 60:80] = 0        # texte d'une bulle voisine, dans la marge de découpe
+    block = Bubble(1, (140, 140, 20, 20), np.full((20, 20), 255, np.uint8), np.zeros((20, 20), np.uint8))
+    crop = cv2.imdecode(np.frombuffer(bubble_png(page, block, pad=90), np.uint8), cv2.IMREAD_GRAYSCALE)
+    dark = np.argwhere(crop < 128)
+    assert len(dark) and dark[:, 1].min() > crop.shape[1] * 0.3  # seule l'encre du bloc, au centre, reste
+
+
 def _contains(outer, inner, slack: int = 0) -> bool:
     ox, oy, ow, oh = outer
     x, y, w, h = inner

@@ -27,6 +27,7 @@ import threading
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
@@ -43,6 +44,8 @@ IMAGE_TYPES = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
 MAX_UPLOAD = 25 * 1024 * 1024
 
 
+# Noms sous lesquels on joint le Hub. « testserver » est le nom utilisé par le client de test de FastAPI.
+TRUSTED_HOSTS = {"127.0.0.1", "localhost", "::1", "testserver"}
 MANGASTUDIO_DIR = REPO_ROOT / "data" / "mangastudio"
 FILE_NAME = re.compile(r"[\w-]+\.(png|jpg|jpeg|webp)")
 MEDIA = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}
@@ -115,6 +118,21 @@ class ChatRequest(BaseModel):
 
 def create_app(daemon: Daemon) -> FastAPI:
     app = FastAPI(title="AetherTwin (I&F Core)", version="0.1.0", docs_url=None, redoc_url=None)
+
+    @app.middleware("http")
+    async def local_only(request: Request, call_next: Any) -> Response:
+        """Le Hub écoute sur 127.0.0.1, mais un site ouvert dans le navigateur pourrait quand même lui envoyer
+        un formulaire (CSRF) ou passer par un nom de domaine qui pointe sur 127.0.0.1 (« DNS rebinding »).
+        Refusés : un hôte qui n'est pas local ; une écriture venue d'une autre origine."""
+        host = (request.headers.get("host") or "").rsplit(":", 1)[0].strip("[]").lower()
+        if host not in TRUSTED_HOSTS:
+            return Response("hôte refusé", status_code=403, media_type="text/plain; charset=utf-8")
+        if request.method not in ("GET", "HEAD", "OPTIONS"):
+            origin = request.headers.get("origin")
+            if request.headers.get("sec-fetch-site") == "cross-site" or (
+                    origin is not None and urlsplit(origin).hostname not in TRUSTED_HOSTS):
+                return Response("origine refusée", status_code=403, media_type="text/plain; charset=utf-8")
+        return await call_next(request)
 
     def module_or_404(name: str) -> None:
         if name not in daemon.modules:

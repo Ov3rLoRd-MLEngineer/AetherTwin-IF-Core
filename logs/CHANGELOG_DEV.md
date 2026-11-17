@@ -675,3 +675,22 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - **Réel :** flux SSE de `qwen3-27b` reçu par `curl` (rôle, contenu, fin, `[DONE]`) ; analyse FASTA de
   l'exemple (début du gène de la GFP, séquence publique) : 1 ORF de 53 acides aminés, protéine correcte.
   L'exemple avait d'abord été décrit à tort comme « écrit pour le projet » : commentaire corrigé.
+
+## 2026-11-17 — J8 (7) : sécurité de l'API, chapitre entier dans scantrad
+
+- **Agent :** Cloud
+- **Sécurité :** le Hub n'écoutait que sur 127.0.0.1, mais un site ouvert dans le navigateur pouvait lui envoyer
+  un formulaire POST (arrêter le Hub, lancer un module ou WoW Assistant) ; un nom de domaine pointant sur
+  127.0.0.1 permettait aussi de le joindre (DNS rebinding). Intergiciel `local_only` dans `core/api.py` :
+  hôte local exigé, écritures refusées si `Origin` n'est pas local ou si `Sec-Fetch-Site: cross-site`.
+  Tests paramétrés (7 cas) ; tableau de bord vérifié en réel.
+- **Chapitre :** plusieurs pages traduites à la suite (ordre naturel des noms), galerie, correction par page.
+  L'essai a révélé un bogue : `event.submitter` est vide quand le formulaire part sans clic (touche Entrée,
+  envoi par programme) ; le bouton est pris dans le formulaire.
+- **Détection :** « だよ » (page de test) restait à demi visible, séparé de « 星がきれい » par un trou plus large
+  que le seuil (kana en plusieurs traits). Un caractère isolé rejoint désormais un bloc en forme de ligne ou
+  de colonne, aligné, à moins de 1,5 caractère, 3 au plus, sans enchaînement. **Première tentative ratée** :
+  rattachement en chaîne → grands blocs sur le dessin, que l'OCR a lus en voyant le texte d'une bulle voisine
+  dans la marge de découpe → « Ce monde » et « Mariage » posés sur l'image. Corrigé aussi côté OCR : la marge
+  de découpe est blanchie au-delà d'une petite bordure. Vraie page revenue à 4 bulles, 7 faux positifs écartés.
+- **Tests :** ruff propre ; pytest vert (2 tests de non-régression ajoutés).

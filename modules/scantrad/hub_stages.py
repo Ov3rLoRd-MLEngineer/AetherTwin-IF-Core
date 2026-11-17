@@ -59,7 +59,14 @@ def bubble_png(page: np.ndarray, bubble: Bubble, pad: int = 0, min_side: int = 2
     agrandie si elle est petite : le modèle lit mieux."""
     x, y, w, h = bubble.box
     pad = pad or max(12, int(0.3 * max(w, h)))
-    crop = page[max(0, y - pad):y + h + pad, max(0, x - pad):x + w + pad]
+    y0, x0 = max(0, y - pad), max(0, x - pad)
+    crop = page[y0:y + h + pad, x0:x + w + pad].copy()
+    # la marge est blanchie au-delà d'une petite bordure : le modèle a de l'espace autour du texte, mais ne voit
+    # pas le texte d'une bulle voisine (sinon il le lit, et un faux positif du dessin passe pour une bulle)
+    keep = max(4, int(0.12 * min(w, h)))
+    inner = np.full(crop.shape[:2], False)
+    inner[max(0, y - keep - y0):y + h + keep - y0, max(0, x - keep - x0):x + w + keep - x0] = True
+    crop[~inner] = 255
     scale = max(1.0, min_side / max(1, min(crop.shape[:2])))
     if scale > 1:
         crop = cv2.resize(crop, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)

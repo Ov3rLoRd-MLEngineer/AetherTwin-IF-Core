@@ -95,12 +95,26 @@ def detect_text_blocks(page: np.ndarray, char_min: float = 0.011, char_max: floa
     merged = cv2.dilate(candidates, np.ones((gap, gap), np.uint8))
     block_count, block_labels, block_stats, _ = cv2.connectedComponentsWithStats(merged, connectivity=8)
     blocks: list[Bubble] = []
+    singles: list[tuple[int, int, int, int]] = []
+    groups: list[tuple[int, int, int, int]] = []
     for label in range(1, block_count):
         x, y, w, h, _area = (int(v) for v in block_stats[label])
         region = (block_labels[y:y + h, x:x + w] == label) & (candidates[y:y + h, x:x + w] > 0)
         chars = cv2.connectedComponents(region.astype(np.uint8), connectivity=8)[0] - 1
-        if chars < min_chars:
-            continue
+        (groups if chars >= min_chars else singles).append((x, y, w, h))
+    # Un caractère isolé (fin de ligne espacée, kana en plusieurs traits) rejoint le bloc voisin s'il est aligné
+    # avec lui et à moins d'un caractère et demi ; seul, il reste écarté (pétales, traits du dessin).
+    # Rattachement aux blocs d'ORIGINE seulement (pas d'enchaînement de proche en proche), 3 au plus par bloc :
+    # sinon des pétales alignés finissent par former un grand bloc sur le dessin.
+    grown = list(groups)
+    attached = [0] * len(groups)
+    for single in singles:
+        for i, group in enumerate(groups):
+            if attached[i] < 3 and _line_like(group, single) and _aligned_near(single, group, 1.5 * char):
+                grown[i] = union_box(grown[i], single)
+                attached[i] += 1
+                break
+    for x, y, w, h in grown:
         box = (x, y, w, h)
         blocks.append(Bubble(0, box, np.full((h, w), 255, np.uint8), np.zeros((h, w), np.uint8),
                              area=writing_area(bright, labels, small, box), vertical=h > 1.4 * w))
@@ -121,6 +135,31 @@ def detect_text_blocks(page: np.ndarray, char_min: float = 0.011, char_max: floa
     for index, block in enumerate(blocks, start=1):
         block.index = index
     return blocks
+
+
+def _line_like(group: tuple[int, int, int, int], single: tuple[int, int, int, int]) -> bool:
+    """Le bloc a la forme d'une ligne (ou d'une colonne) de texte, et le caractère isolé la même hauteur (ou la
+    même largeur) : une tache de dessin, plutôt carrée, ne grossit pas en avalant ses voisins."""
+    _gx, _gy, gw, gh = group
+    _sx, _sy, sw, sh = single
+    # 0,5 : la boîte du bloc inclut la marge de regroupement, elle est plus haute que ses caractères
+    if gw >= 1.8 * gh:  # ligne horizontale
+        return 0.5 <= sh / max(1, gh) <= 1.6
+    if gh >= 1.8 * gw:  # colonne verticale
+        return 0.5 <= sw / max(1, gw) <= 1.6
+    return False
+
+
+def _aligned_near(a: tuple[int, int, int, int], b: tuple[int, int, int, int], distance: float) -> bool:
+    """`a` prolonge `b` : sur la même ligne (ou colonne) à plus de moitié, et l'écart est d'au plus `distance`."""
+    ax, ay, aw, ah = a
+    bx, by, bw, bh = b
+    gap_x = max(bx - (ax + aw), ax - (bx + bw), 0)
+    gap_y = max(by - (ay + ah), ay - (by + bh), 0)
+    overlap_y = max(0, min(ay + ah, by + bh) - max(ay, by)) / max(1, min(ah, bh))
+    overlap_x = max(0, min(ax + aw, bx + bw) - max(ax, bx)) / max(1, min(aw, bw))
+    return (gap_x <= distance and gap_y == 0 and overlap_y >= 0.5) or \
+        (gap_y <= distance and gap_x == 0 and overlap_x >= 0.5)
 
 
 def union_box(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
