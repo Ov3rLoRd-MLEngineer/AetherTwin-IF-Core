@@ -163,6 +163,9 @@ core/
   hardware/
     __init__.py
     gpu_monitor.py
+  knowledge/
+    __init__.py
+    store.py
   llm_router.py
   module_api.py
   module_runner.py
@@ -265,6 +268,7 @@ tests/
     test_dashboard.py
     test_gpu_monitor.py
     test_guardians.py
+    test_knowledge_store.py
     test_llm_router.py
     test_module_api.py
   data/
@@ -417,6 +421,32 @@ Moniteur GPU : mesure la topologie réelle au lieu de la présumer.
   - `def snapshot(self) -> list[GpuInfo]` — État de chaque GPU. En cas d'erreur de lecture : liste vide et `last_error` renseigné.
   - `def total_vram_mib(self) -> int`
   - `def report(self) -> dict[str, Any]` — Résumé sérialisable (API `/gpu`, overlay OBS).
+
+### `core/knowledge/__init__.py`
+
+Connaissances locales : base vectorielle (`store`) et collecte web polie (`fetcher`).
+
+*(aucun symbole public)*
+
+### `core/knowledge/store.py`
+
+Base de connaissances locale : textes découpés, vecteurs d'embedding, recherche par similarité.
+
+- **`class KnowledgeError(RuntimeError)`**
+- **`class Hit`**
+  - `def to_dict(self) -> dict[str, Any]`
+- `def chunk_text(text: str, max_chars: int=900, overlap: int=150) -> list[str]` — Découpe par paragraphes, en morceaux d'au plus `max_chars`, avec un recouvrement pour garder le contexte.
+- `def cosine(a: Iterable[float], b: Iterable[float]) -> float`
+- `def lexical_score(query: str, text: str) -> float`
+- `def ollama_embedder(host: str='127.0.0.1:11434', model: str='nomic-embed-text', timeout_s: float=120.0) -> Embedder` — Embeddings par le serveur Ollama local (`/api/embed`). Lève `KnowledgeError` si indisponible.
+- **`class KnowledgeStore`**
+  - `def close(self) -> None`
+  - `def add_document(self, url: str, title: str, text: str, license: str, tags: Iterable[str]=(), fetched_at: float | None=None) -> dict[str, Any]` — Ajoute ou remplace un document. Sans changement de contenu, ne refait rien (`unchanged`).
+  - `def remove(self, url: str) -> bool`
+  - `def reindex(self) -> int` — Recalcule tous les vecteurs avec l'embedder courant (changement de modèle). Rend le nombre de passages.
+  - `def search(self, query: str, k: int=5, tag: str='') -> list[Hit]` — Les `k` passages les plus proches. Retombe sur les mots communs si les vecteurs sont indisponibles.
+  - `def sources_for(self, query: str, k: int=3) -> list[dict[str, str]]` — Format attendu par le Professeur (`Tutor(search=…)`) : titre, URL, licence, extrait.
+  - `def stats(self) -> dict[str, Any]`
 
 ### `core/llm_router.py`
 
