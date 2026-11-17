@@ -114,6 +114,54 @@ core/
   scheduler.py
 modules/
   __init__.py
+  gaming_hud/
+    __init__.py
+    __main__.py
+    addon/
+      HermesAssistant/
+        HermesAssistant.lua
+        HermesAssistant.toc
+    app/
+      activity.json
+      character.py
+      clipboard.py
+      config.py
+      craft.py
+      focus.py
+      game_connection.py
+      gamedata.py
+      history.json
+      history.py
+      hotkeys.py
+      icons_draw.py
+      inventory.py
+      Lancer WoW Assistant.bat
+      llm.py
+      lua_parser.py
+      main.py
+      mousepos.py
+      overlay.py
+      quests.py
+      README.md
+      recipes.json
+      requirements.txt
+      settings.json
+      settings.py
+      snapcache.py
+      tabs.py
+      tabs_collections.py
+      tabs_data.py
+      tabutil.py
+      theme.py
+      ui.py
+      vision.py
+      voice.py
+      webhost.py
+      webwidget.py
+      widgets.py
+      widgets_builtin.py
+      wowhead.py
+      wowhead_links.json
 scripts/
   __init__.py
   gen_architecture_map.py
@@ -134,12 +182,12 @@ tests/
     test_module_api.py
   data/
     .gitkeep
+  gaming_hud/
+    conftest.py
+    test_ui_fixes.py
   test_architecture_map.py
   test_relay_orchestrator.py
   test_repo_hygiene.py
-  wow_assistant_v9/
-    conftest.py
-    test_ui_fixes.py
 docs/
   .gitkeep
 research/
@@ -154,6 +202,8 @@ logs/
 ```
 
 ## Signatures publiques (générées)
+
+*Non listé : `modules/gaming_hud/app/` (code d'origine de WoW Assistant, voir la partie « flux »).*
 
 ### `core/api.py`
 
@@ -297,6 +347,19 @@ File d'attente GPU unique pour les tâches de vision et de diffusion (scantrad, 
   - `def submit(self, name: str, vram_gb: float, fn: Callable[[], Any]) -> Future[Any]` — Met une tâche en file. Le résultat (ou l'erreur) arrive par le `Future` retourné.
   - `def state(self) -> dict[str, Any]`
   - `def shutdown(self) -> None`
+
+### `modules/gaming_hud/__init__.py`
+
+gaming_hud — HUD de jeu du Hub (évolution de WoW Assistant).
+
+- `def ensure_app_path() -> Path` — Rend importables les modules de l'application d'origine (imports à plat). Idempotent.
+- `def run_app() -> None` — Lance WoW Assistant à l'identique (fenêtre Pygame, overlay, voix, vision).
+
+### `modules/gaming_hud/__main__.py`
+
+`python -m modules.gaming_hud` : lance l'application d'origine (exécution autonome, sans le Hub).
+
+*(aucun symbole public)*
 
 ### `scripts/gen_architecture_map.py`
 

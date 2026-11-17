@@ -14,7 +14,7 @@ import pytest
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
-APP_DIR = Path(__file__).resolve().parents[2] / "_import" / "wow_assistant_v9"
+APP_DIR = Path(__file__).resolve().parents[2] / "modules" / "gaming_hud" / "app"
 if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
 

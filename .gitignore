@@ -32,6 +32,9 @@ chroma/
 settings.json
 layout.json
 chat_history.json
+modules/gaming_hud/app/history.json
+modules/gaming_hud/app/activity.json
+modules/gaming_hud/app/config.json
 
 # Poids de modèles (téléchargement documenté, jamais dans le dépôt)
 *.safetensors

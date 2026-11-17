@@ -21,7 +21,7 @@ pythonpath = ["."]
 [tool.ruff]
 line-length = 120
 target-version = "py311"
-extend-exclude = ["_import", ".venv"]
+extend-exclude = ["modules/gaming_hud/app", ".venv"]  # app/ = code d'origine, non reformaté
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "S"]

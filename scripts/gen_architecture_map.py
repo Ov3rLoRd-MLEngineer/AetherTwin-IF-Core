@@ -18,7 +18,10 @@ TARGET = ROOT / "ARCHITECTURE_MAP.md"
 BEGIN, END = "<!-- AUTO:BEGIN -->", "<!-- AUTO:END -->"
 CODE_DIRS = ("core", "modules", "scripts")
 TREE_DIRS = ("core", "modules", "scripts", "config", "tests", "docs", "research", "assets", "logs", ".github")
-SKIP = {"__pycache__", ".venv", ".git", ".pytest_cache", ".ruff_cache"}
+SKIP = {"__pycache__", ".venv", ".git", ".pytest_cache", ".ruff_cache", "cache"}
+# Code d'origine de WoW Assistant : 30 fichiers à imports à plat, décrits dans la partie manuelle (flux).
+# Leurs signatures ne sont pas listées ici pour que la carte reste lisible par un agent à contexte limité.
+SIGNATURES_EXCLUDED = ("modules/gaming_hud/app/",)
 
 
 def first_line(doc: str | None) -> str:
@@ -81,10 +84,13 @@ def tree_lines() -> list[str]:
 
 
 def generate() -> str:
-    lines = ["## Arborescence (générée)", "", *tree_lines(), "", "## Signatures publiques (générées)", ""]
+    lines = ["## Arborescence (générée)", "", *tree_lines(), "", "## Signatures publiques (générées)", "",
+             "*Non listé : `modules/gaming_hud/app/` (code d'origine de WoW Assistant, voir la partie « flux »).*", ""]
     for name in CODE_DIRS:
         for path in sorted((ROOT / name).rglob("*.py")) if (ROOT / name).is_dir() else []:
             if SKIP & set(path.parts) or (path.name == "__init__.py" and not path.read_text("utf-8").strip()):
+                continue
+            if path.relative_to(ROOT).as_posix().startswith(SIGNATURES_EXCLUDED):
                 continue
             lines += describe_module(path)
     return "\n".join(lines).rstrip() + "\n"

@@ -30,10 +30,11 @@ concours ASUS Agent Computer Challenge (catégorie Advanced / High-End).
 - Dépendances minimales. Toute dépendance lourde (PyTorch, ComfyUI, Biopython…)
   est **optionnelle** : son absence met le module en mode dégradé, sans planter le Hub.
 - Chaque module a un test de démarrage en mode dégradé (sans GPU, sans jeu, sans OBS).
-- `_import/wow_assistant_v9/` est la **référence** du code d'origine, à porter vers
-  `modules/gaming_hud/`. Ne la modifie que si Jérémy demande un correctif de WoW Assistant ;
-  reporte alors les mêmes fichiers dans `D:\Hermes-Agent\wow_assistant_v9` (sa copie d'usage)
-  et ajoute un test dans `tests/wow_assistant_v9/`.
+- `modules/gaming_hud/app/` est le **code d'origine de WoW Assistant** (imports à plat, hors
+  lint). Ne le modifie que pour un correctif ou un branchement demandé ; garde-le lançable seul.
+  Reporte alors les mêmes fichiers dans `D:\Hermes-Agent\wow_assistant_v9` (copie d'usage de
+  Jérémy) et ajoute un test dans `tests/gaming_hud/`. Tout code nouveau va dans
+  `modules/gaming_hud/` (adaptateurs, module du Hub), jamais dans `app/`.
 
 ## Structure du dépôt
 
@@ -46,7 +47,6 @@ scripts/         relay_orchestrator.py, gen_architecture_map.py, setup.ps1
 config/          *.example.yaml versionnés ; local.yaml ignoré par Git
 tests/           pytest ; tests/data/ = données libres de droits uniquement
 docs/ research/ assets/ logs/
-_import/         code d'origine (lecture seule)
 ```
 
 ## Règles VRAM strictes
