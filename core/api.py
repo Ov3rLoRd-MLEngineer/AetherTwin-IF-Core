@@ -29,6 +29,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
+from core import config
 from core.daemon import REPO_ROOT, Daemon
 from core.llm_router import LlmError, LlmRefused, openai_to_ollama
 
@@ -36,6 +37,36 @@ WEB_DIR = Path(__file__).resolve().parent / "web"
 SCANTRAD_DIR = REPO_ROOT / "data" / "scantrad"
 IMAGE_TYPES = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
 MAX_UPLOAD = 25 * 1024 * 1024
+
+
+MANGASTUDIO_DIR = REPO_ROOT / "data" / "mangastudio"
+FILE_NAME = re.compile(r"[\w-]+\.(png|jpg|jpeg|webp)")
+MEDIA = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}
+
+
+async def save_upload(request: Request, folder: Path) -> Path:
+    """Enregistre l'image envoyée (corps brut, PNG/JPEG/WebP, 25 Mo au plus) sous un nom horodaté."""
+    suffix = IMAGE_TYPES.get(request.headers.get("content-type", "").split(";")[0].strip().lower())
+    if suffix is None:
+        raise HTTPException(status_code=415, detail="image PNG, JPEG ou WebP attendue")
+    body = await request.body()
+    if not body or len(body) > MAX_UPLOAD:
+        raise HTTPException(status_code=413, detail="image vide ou de plus de 25 Mo")
+    stamp = time.strftime("%Y%m%d-%H%M%S") + f"-{time.time_ns() // 1000 % 1000000:06d}"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{stamp}{suffix}"
+    path.write_bytes(body)
+    return path
+
+
+def image_file(root: Path, kind: str, filename: str) -> Response:
+    """Image servie seulement depuis `<root>/entrees` ou `<root>/sorties`, nom contrôlé."""
+    if kind not in ("entrees", "sorties") or not FILE_NAME.fullmatch(filename):
+        raise HTTPException(status_code=404, detail="introuvable")
+    path = root / kind / filename
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="introuvable")
+    return Response(path.read_bytes(), media_type=MEDIA[path.suffix[1:]], headers={"Cache-Control": "no-store"})
 
 
 def _glossary(series: str) -> Any:
@@ -156,32 +187,10 @@ def create_app(daemon: Daemon) -> FastAPI:
 
     @app.post("/scantrad/translate")
     async def scantrad_translate(request: Request, series: str = "", no_llm: bool = False) -> dict[str, Any]:
-        suffix = IMAGE_TYPES.get(request.headers.get("content-type", "").split(";")[0].strip().lower())
-        if suffix is None:
-            raise HTTPException(status_code=415, detail="image PNG, JPEG ou WebP attendue")
-        body = await request.body()
-        if not body or len(body) > MAX_UPLOAD:
-            raise HTTPException(status_code=413, detail="image vide ou de plus de 25 Mo")
-        stamp = time.strftime("%Y%m%d-%H%M%S") + f"-{int(time.time() * 1000) % 1000:03d}"
-        source = SCANTRAD_DIR / "entrees" / f"{stamp}{suffix}"
-        source.parent.mkdir(parents=True, exist_ok=True)
-        source.write_bytes(body)
-        output = SCANTRAD_DIR / "sorties" / f"{stamp}_fr.png"
-
-        def run() -> dict[str, Any]:
-            if "scantrad" not in daemon.modules:
-                raise HTTPException(status_code=503, detail="module scantrad absent")
-            if not daemon.modules["scantrad"].running():
-                decision = daemon.activate("scantrad")
-                if decision.verdict.value != "accordé":
-                    raise HTTPException(status_code=409, detail=decision.reason)
-            try:
-                return daemon.command("scantrad", "page", {"input": str(source), "output": str(output),
-                                                           "series": series, "no_llm": no_llm}, timeout_s=600)
-            except (RuntimeError, TimeoutError) as exc:
-                raise HTTPException(status_code=504, detail=str(exc)) from exc
-
-        reply = await run_in_threadpool(run)
+        source = await save_upload(request, SCANTRAD_DIR / "entrees")
+        output = SCANTRAD_DIR / "sorties" / f"{source.stem}_fr.png"
+        reply = await run_in_threadpool(module_call, "scantrad", "page", {
+            "input": str(source), "output": str(output), "series": series, "no_llm": no_llm})
         if reply.get("ok"):
             reply["input_url"] = f"/scantrad/files/entrees/{source.name}"
             reply["output_url"] = f"/scantrad/files/sorties/{output.name}"
@@ -189,13 +198,48 @@ def create_app(daemon: Daemon) -> FastAPI:
 
     @app.get("/scantrad/files/{kind}/{filename}")
     def scantrad_file(kind: str, filename: str) -> Response:
-        if kind not in ("entrees", "sorties") or not re.fullmatch(r"[\w-]+\.(png|jpg|jpeg|webp)", filename):
-            raise HTTPException(status_code=404, detail="introuvable")
-        path = SCANTRAD_DIR / kind / filename
-        if not path.is_file():
-            raise HTTPException(status_code=404, detail="introuvable")
-        media = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}
-        return Response(path.read_bytes(), media_type=media[path.suffix[1:]], headers={"Cache-Control": "no-store"})
+        return image_file(SCANTRAD_DIR, kind, filename)
+
+    @app.get("/mangastudio/files/{kind}/{filename}")
+    def mangastudio_file(kind: str, filename: str) -> Response:
+        return image_file(MANGASTUDIO_DIR, kind, filename)
+
+    @app.post("/mangastudio/upload")
+    async def mangastudio_upload(request: Request) -> dict[str, Any]:
+        source = await save_upload(request, MANGASTUDIO_DIR / "entrees")
+        return {"image": source.name, "url": f"/mangastudio/files/entrees/{source.name}"}
+
+    @app.post("/mangastudio/segment")
+    def mangastudio_segment(data: dict[str, Any]) -> dict[str, Any]:
+        name = str(data.get("image", ""))
+        if not re.fullmatch(r"[\w-]+\.(png|jpg|jpeg|webp)", name) or not (MANGASTUDIO_DIR / "entrees" / name).is_file():
+            raise HTTPException(status_code=404, detail="image inconnue : envoie-la d'abord")
+        reply = module_call("mangastudio", "segment", {
+            "input": str(MANGASTUDIO_DIR / "entrees" / name), "target": str(data.get("target", "hand")),
+            "boxes": data.get("boxes") or [], "output_dir": str(MANGASTUDIO_DIR / "sorties")})
+        if reply.get("ok"):
+            result = reply["result"]
+            result["mask_url"] = f"/mangastudio/files/sorties/{Path(result.pop('mask')).name}"
+            result["preview_url"] = f"/mangastudio/files/sorties/{Path(result.pop('preview')).name}"
+        return reply
+
+    @app.get("/mangastudio/status")
+    def mangastudio_status() -> dict[str, Any]:
+        from modules.mangastudio.module import status
+
+        return status(config.section("mangastudio"))
+
+    def module_call(name: str, command: str, payload: dict[str, Any], timeout_s: float = 600) -> dict[str, Any]:
+        """Commande à un module, lancé à la demande s'il ne tourne pas."""
+        module_or_404(name)
+        if not daemon.modules[name].running():
+            decision = daemon.activate(name)
+            if decision.verdict.value != "accordé":
+                raise HTTPException(status_code=409, detail=decision.reason)
+        try:
+            return daemon.command(name, command, payload, timeout_s=timeout_s)
+        except (RuntimeError, TimeoutError) as exc:
+            raise HTTPException(status_code=504, detail=str(exc)) from exc
 
     @app.get("/scantrad/glossary/{series}")
     def glossary_get(series: str) -> dict[str, Any]:

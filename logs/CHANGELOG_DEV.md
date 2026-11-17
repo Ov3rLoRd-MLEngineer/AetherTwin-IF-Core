@@ -554,3 +554,24 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   envoi HTTP (4 bulles, 34,7 s), arrêt du Hub par le bouton sans processus restant. **Non vérifié** : envoi
   d'image depuis le sélecteur de fichier du navigateur (testé par l'API seulement) ; WoW Assistant est fermé
   brutalement (`terminate`), un réglage non enregistré serait perdu.
+
+## 2026-11-17 — J7 (1/2) : mangastudio, HandSegNet et FootSegNet réels
+
+- **Agent :** Cloud
+- **Fichiers :** `modules/mangastudio/{__init__,segment,module}.py`, `manifest.json`, `README.md`,
+  `comfyui_nodes/__init__.py`, `workflows/continuity.json`, `core/api.py` (`/mangastudio/*`, helpers d'envoi
+  et de service d'images partagés avec scantrad), `core/web/dashboard.*` (onglet Studio), `.gitignore`
+  (`/models/`), `tests/mangastudio/`, `tests/core/test_dashboard.py`.
+  Aussi : `modules/genesis_lab/tutor.py` (le Professeur ne félicite plus une réponse fausse, constat du test 12).
+- **Fiches des modèles lues** (Hugging Face et GitHub de Jérémy) : SAM ViT-B, décodeur de masque affiné,
+  une boîte par appel, masque binaire, Apache 2.0 (le GitHub de HandSegNet affiche MIT dans sa barre latérale :
+  à vérifier par Jérémy). Aucun nœud ComfyUI n'existait dans ces dépôts.
+- **Installé dans `.venv`** (à la demande de Jérémy : « tout récupérer ») : torch 2.11.0+cu128,
+  torchvision 0.26.0+cu128, segment-anything 1.0, safetensors 0.8.0 ; numpy et pillow inchangés.
+  **Téléchargé** dans `models/mangastudio/` (ignoré par Git) : `handsegnet_vit_b_best.safetensors` et
+  `footsegnet_vit_b_best.safetensors`, 374 979 240 octets chacun.
+- **Tests :** ruff propre ; pytest vert. **Réel** : HandSegNet sur RTX 5080, 21,8 s au premier appel
+  (chargement et initialisation CUDA), 0,17 s ensuite, 2 772 MiB alloués ; nœud ComfyUI exécuté hors ComfyUI
+  avec le vrai modèle ; Studio par le Hub (envoi + segmentation, score 0,71, 9,1 s modèle compris).
+  **Non vérifié** : tracé des boîtes à la souris dans le navigateur ; workflow de continuité dans un vrai
+  ComfyUI (structure seulement) ; FootSegNet sur une image réelle (chargement vérifié par l'état seulement).

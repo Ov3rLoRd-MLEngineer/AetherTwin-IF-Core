@@ -39,7 +39,7 @@ def test_static_refuses_other_files(client, path: str) -> None:
 
 def test_dashboard_has_every_tab(client) -> None:
     page = client.get("/").text
-    for tab in ("accueil", "jeu", "assistant", "professeur", "connaissances", "scantrad", "journal"):
+    for tab in ("accueil", "jeu", "assistant", "professeur", "connaissances", "scantrad", "studio", "journal"):
         assert f'data-tab="{tab}"' in page and f'data-panel="{tab}"' in page
     assert "frame-src http://127.0.0.1:5757" in client.get("/").headers["content-security-policy"]
 
@@ -118,6 +118,24 @@ def test_scantrad_files_are_confined(client, path) -> None:
 def test_scantrad_upload_rejects_non_images(client) -> None:
     assert client.post("/scantrad/translate", content=b"MZ", headers={"Content-Type": "application/x-msdownload"}
                        ).status_code == 415
+
+
+def test_studio_upload_and_confined_files(client, tmp_path, monkeypatch) -> None:
+    import core.api
+
+    monkeypatch.setattr(core.api, "MANGASTUDIO_DIR", tmp_path / "studio")
+    png = (tmp_path.parent / "x.png")
+    import cv2
+    import numpy as np
+
+    cv2.imwrite(str(png), np.zeros((8, 8, 3), np.uint8))
+    up = client.post("/mangastudio/upload", content=png.read_bytes(), headers={"Content-Type": "image/png"}).json()
+    assert up["url"].startswith("/mangastudio/files/entrees/") and client.get(up["url"]).status_code == 200
+    assert client.post("/mangastudio/segment", json={"image": "../../secret.png"}).status_code == 404
+    assert client.post("/mangastudio/segment", json={"image": "absente.png"}).status_code == 404
+    assert client.get("/mangastudio/files/sorties/..%2Fentrees.png").status_code == 404
+    status = client.get("/mangastudio/status").json()
+    assert set(status["models"]) == {"hand", "foot"}
 
 
 def test_port_in_use_detects_free_port() -> None:

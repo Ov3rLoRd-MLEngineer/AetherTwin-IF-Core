@@ -251,6 +251,16 @@ modules/
     manifest.json
     module.py
     tutor.py
+  mangastudio/
+    __init__.py
+    comfyui_nodes/
+      __init__.py
+    manifest.json
+    module.py
+    README.md
+    segment.py
+    workflows/
+      continuity.json
   scantrad/
     __init__.py
     __main__.py
@@ -305,6 +315,9 @@ tests/
     __init__.py
     test_calculs.py
     test_tutor_module.py
+  mangastudio/
+    __init__.py
+    test_mangastudio.py
   scantrad/
     __init__.py
     test_scantrad.py
@@ -338,6 +351,8 @@ logs/
 
 API HTTP locale du démon (FastAPI). Servie sur 127.0.0.1 uniquement par `core.daemon`.
 
+- `async def save_upload(request: Request, folder: Path) -> Path` — Enregistre l'image envoyée (corps brut, PNG/JPEG/WebP, 25 Mo au plus) sous un nom horodaté.
+- `def image_file(root: Path, kind: str, filename: str) -> Response` — Image servie seulement depuis `<root>/entrees` ou `<root>/sorties`, nom contrôlé.
 - `def static(filename: str) -> Response` — Sert un fichier de `core/web/` (liste fermée d'extensions, aucun chemin hors du dossier).
 - **`class AskRequest(BaseModel)`**
 - **`class ChatRequest(BaseModel)`**
@@ -786,6 +801,50 @@ Professeur Personnel Adaptatif.
   - `def progress(self) -> dict[str, Any]`
 - `def numbers_in(text: str) -> list[float]` — Nombres écrits dans un texte (virgule ou point décimal).
 - `def foreign_numbers(text: str, allowed: list[float], tolerance: float=0.005) -> list[str]` — Nombres du texte absents de la liste admise (à 0,5 % près). Les petits entiers sont toujours admis.
+
+### `modules/mangastudio/__init__.py`
+
+Studio de retouche anime : segmentation main/pied (HandSegNet, FootSegNet), nœuds ComfyUI, continuité.
+
+*(aucun symbole public)*
+
+### `modules/mangastudio/comfyui_nodes/__init__.py`
+
+Nœuds ComfyUI d'AetherTwin : masque de main (HandSegNet) et de pied (FootSegNet).
+
+- `def segment_batch(image: Any, box: tuple[int, int, int, int], target: str, weights: str='') -> Any` — Masque pour chaque image du lot. `box` en pixels (x1, y1, x2, y2), bornée à l'image.
+- **`class HandSegNetMask(_SegNetNode)`** — Masque d'une main dans la boîte (HandSegNet, SAM ViT-B affiné, Apache 2.0).
+- **`class FootSegNetMask(_SegNetNode)`** — Masque d'un pied ou d'une chaussure dans la boîte (FootSegNet, SAM ViT-B affiné, Apache 2.0).
+
+### `modules/mangastudio/module.py`
+
+Module du Hub : segmentation main/pied à la demande (retouche locale).
+
+- `def read_rgb(path: Path) -> np.ndarray`
+- `def write_png(path: Path, image: np.ndarray) -> None`
+- `def status(settings: dict[str, Any]) -> dict[str, Any]`
+- **`class MangaStudioModule(ModuleBase)`**
+  - `def start(self) -> None`
+  - `def stop(self) -> None`
+  - `def health(self) -> Health`
+  - `def handle_event(self, event: Event) -> None`
+
+### `modules/mangastudio/segment.py`
+
+Segmentation des mains et des pieds : HandSegNet et FootSegNet (modèles de Jérémy, Apache 2.0).
+
+- **`class Segmentation`**
+- `def missing_dependencies() -> list[str]`
+- `def weights_path(target: str, settings: dict[str, Any]) -> Path`
+- `def check_box(box: Any, width: int, height: int) -> tuple[int, int, int, int]` — Valide et borne une boîte (x1, y1, x2, y2) à l'image. Lève `ValueError` si elle est vide ou mal formée.
+- `def grabcut_segment(image_rgb: np.ndarray, box: tuple[int, int, int, int], iterations: int=4) -> np.ndarray` — Simulation : GrabCut d'OpenCV initialisé par la boîte. Déterministe, sans GPU.
+- **`class SamSegmenter`** — HandSegNet / FootSegNet : SAM ViT-B chargé avec les poids affinés. Chargé à la première demande.
+  - `def unload(self) -> None`
+- **`class SimulatedSegmenter`**
+  - `def unload(self) -> None`
+- `def make_segmenter(target: str, settings: dict[str, Any]) -> SamSegmenter | SimulatedSegmenter` — Le vrai modèle si tout est là ; sinon la simulation, avec la raison précise.
+- `def combine(masks: list[np.ndarray]) -> np.ndarray` — Plusieurs mains (ou pieds) : réunion des masques.
+- `def overlay(image_rgb: np.ndarray, mask: np.ndarray, color: tuple[int, int, int]=(255, 64, 160), alpha: float=0.45) -> np.ndarray` — Image avec le masque teinté et son contour : pour voir d'un coup d'œil ce qui sera retouché.
 
 ### `modules/scantrad/__init__.py`
 

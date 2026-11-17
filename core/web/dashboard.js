@@ -410,6 +410,120 @@ $("glo-save").addEventListener("click", async () => {
   }
 });
 
+// ---------- studio (mangastudio) ----------
+const studio = { image: null, name: "", boxes: [], drag: null };
+
+async function refreshStudio() {
+  try {
+    const s = await api("/mangastudio/status");
+    const ready = Object.values(s.models).filter((m) => m.ready).map((m) => m.model);
+    $("studio-status").textContent = ready.length
+      ? `Modèles prêts : ${ready.join(", ")}.`
+      : `Mode simulation (GrabCut d'OpenCV) : ${s.missing_dependencies.length
+        ? `dépendances absentes (${s.missing_dependencies.join(", ")})` : "poids introuvables"}. `
+        + "Les masques ne reflètent pas la qualité de HandSegNet/FootSegNet.";
+    $("studio-status").className = ready.length ? "muted" : "warn";
+  } catch (error) {
+    $("studio-status").textContent = `État indisponible : ${error.message}`;
+  }
+}
+
+function drawStudio() {
+  const canvas = $("studio-canvas");
+  if (!studio.image) return;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(studio.image, 0, 0);
+  ctx.lineWidth = Math.max(2, canvas.width / 400);
+  ctx.strokeStyle = "#ff40a0";
+  for (const [x1, y1, x2, y2] of studio.boxes.concat(studio.drag ? [studio.drag] : [])) {
+    ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+  }
+}
+
+function canvasPoint(event) {
+  const canvas = $("studio-canvas");
+  const rect = canvas.getBoundingClientRect();
+  return [Math.round((event.clientX - rect.left) * canvas.width / rect.width),
+          Math.round((event.clientY - rect.top) * canvas.height / rect.height)];
+}
+
+$("studio-file").addEventListener("change", async () => {
+  const file = $("studio-file").files[0];
+  if (!file) return;
+  $("studio-line").textContent = "Envoi de l'image…";
+  try {
+    const up = await api("/mangastudio/upload", { method: "POST", body: file,
+                                                  headers: { "Content-Type": file.type || "image/png" } });
+    studio.name = up.image;
+    studio.boxes = [];
+    const image = new Image();
+    image.onload = () => {
+      const canvas = $("studio-canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      studio.image = image;
+      canvas.hidden = false;
+      drawStudio();
+      $("studio-line").textContent = "Trace une boîte autour d'une main ou d'un pied.";
+    };
+    image.src = up.url;
+  } catch (error) {
+    $("studio-line").textContent = `Erreur : ${error.message}`;
+  }
+});
+
+$("studio-canvas").addEventListener("mousedown", (event) => {
+  const [x, y] = canvasPoint(event);
+  studio.drag = [x, y, x, y];
+});
+$("studio-canvas").addEventListener("mousemove", (event) => {
+  if (!studio.drag) return;
+  const [x, y] = canvasPoint(event);
+  studio.drag = [studio.drag[0], studio.drag[1], x, y];
+  drawStudio();
+});
+window.addEventListener("mouseup", () => {
+  if (!studio.drag) return;
+  const [x1, y1, x2, y2] = studio.drag;
+  if (Math.abs(x2 - x1) > 4 && Math.abs(y2 - y1) > 4) {
+    studio.boxes.push([Math.min(x1, x2), Math.min(y1, y2), Math.max(x1, x2), Math.max(y1, y2)]);
+  }
+  studio.drag = null;
+  drawStudio();
+  $("studio-line").textContent = `${studio.boxes.length} boîte(s).`;
+});
+$("studio-clear").addEventListener("click", () => {
+  studio.boxes = [];
+  drawStudio();
+  $("studio-line").textContent = "Boîtes effacées.";
+});
+
+$("studio-run").addEventListener("click", async (event) => {
+  if (!studio.name || !studio.boxes.length) {
+    $("studio-line").textContent = "Choisis une image et trace au moins une boîte.";
+    return;
+  }
+  const button = event.currentTarget;
+  button.disabled = true;
+  $("studio-line").textContent = "Segmentation… (le premier appel charge le modèle)";
+  try {
+    const reply = await post("/mangastudio/segment", { image: studio.name, target: $("studio-target").value,
+                                                       boxes: studio.boxes });
+    if (!reply.ok) throw new Error(reply.error || "échec");
+    const r = reply.result;
+    $("studio-result").hidden = false;
+    $("studio-preview").src = `${r.preview_url}?t=${Date.now()}`;
+    $("studio-mask").src = `${r.mask_url}?t=${Date.now()}`;
+    const scores = r.scores.filter((s) => s != null).map((s) => s.toFixed(2)).join(", ");
+    $("studio-line").textContent = `${r.backend}${r.simulated ? ` — SIMULATION (${r.reason})` : ""} : `
+      + `${r.mask_pixels} pixels en ${r.seconds} s${scores ? ` — confiance du modèle : ${scores}` : ""}`;
+  } catch (error) {
+    $("studio-line").textContent = `Erreur : ${error.message}`;
+  } finally {
+    button.disabled = false;
+  }
+});
+
 // ---------- journal ----------
 async function refreshEvents() {
   try {
@@ -436,6 +550,7 @@ function refreshAll() {
   if (tab === "jeu") refreshGame();
   if (tab === "connaissances") refreshKnowledge();
   if (tab === "journal") refreshEvents();
+  if (tab === "studio" && !studio.statusShown) { studio.statusShown = true; refreshStudio(); }
 }
 showTab(currentTab());
 setInterval(refreshAll, 3000);
