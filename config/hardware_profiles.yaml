@@ -41,4 +41,13 @@ measured:
       - { name: "qwen3-27b:latest", parameters: "27.3B", quantization: "Q4_K_M", context_length: 262144, disk_gb: 16 }
       - { name: "qwen3-35b:latest", parameters: "34.7B", quantization: "Q4_K_M", context_length: 262144, disk_gb: 21 }
       - { name: "qwen3-coder:30b-a3b-q4_K_M", parameters: "30.5B", quantization: "Q4_K_M", context_length: 262144, disk_gb: 18 }
-    not_measured: "VRAM occupée par modèle une fois chargé ; aucun modèle Q8_0 n'est installé."
+    not_measured: "VRAM occupée par les Qwen 27B/30B/35B une fois chargés ; aucun modèle Q8_0 n'est installé."
+
+  - date: "2026-11-17"
+    what: "Modèle de vision chargé par l'adaptateur screen_ocr (test réel)"
+    model: "qwen2.5vl:7b"
+    num_ctx: 4096
+    ollama_ps: "5.2 GB, 100% GPU"
+    vram_used_mib: { "RTX 5080": 1926, "RTX 5060 Ti": 6464 }   # nvidia-smi, modèle chargé ; 5060 Ti à 0 avant
+    first_answer_s: 16.69            # chargement à froid compris, image 900x360
+    note: "Ollama a placé le modèle entier sur la RTX 5060 Ti, restée libre."

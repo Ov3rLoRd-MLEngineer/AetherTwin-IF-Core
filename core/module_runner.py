@@ -13,6 +13,7 @@ import sys
 import time
 from pathlib import Path
 
+from core import config
 from core.bus import BusClient
 from core.module_api import Event, ModuleBase, load_manifest
 
@@ -37,7 +38,7 @@ def run(module_dir: Path, client: BusClient | None = None, health_interval_s: fl
         client.publish(Event(f"{prefix}.{kind}", dict(payload), source=manifest.name))
 
     try:
-        module = load_module_class(manifest.entry)(manifest)
+        module = load_module_class(manifest.entry)(manifest, config.section(manifest.name))
         module.publish = client.publish
         client.subscribe(f"{prefix}.cmd", "hub", "process", "gpu")
         module.start()

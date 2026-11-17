@@ -1,0 +1,39 @@
+# Exemple de règles pour l'adaptateur log_tail : un jeu qui écrit un journal texte.
+# Copie ce fichier, adapte `path` et les expressions régulières, puis donne son chemin au module.
+# Rien n'est écrit dans le journal : il est seulement lu.
+
+id: demo_log
+game: "Jeu de démonstration"
+path: "demo_game.log"          # relatif à ce fichier, ou chemin absolu ; %APPDATA% et ~ sont acceptés
+encoding: utf-8
+
+rules:
+  - field: zone
+    pattern: 'Entering zone: (?P<value>.+)'
+    description: "Zone actuelle"
+
+  - field: level
+    pattern: 'Level up! Now level (?P<value>\d+)'
+    type: int
+    description: "Niveau du personnage"
+
+  - field: health_percent
+    pattern: 'HP: (?P<value>\d+(\.\d+)?)%'
+    type: float
+
+  - field: deaths
+    pattern: 'You died'
+    mode: count
+    description: "Nombre de morts depuis le début du journal"
+
+  - field: loot
+    pattern: 'You receive loot: (?P<value>.+)'
+    mode: append
+    max: 10
+    description: "Derniers objets ramassés"
+
+  - field: whispers
+    pattern: 'Whisper from (?P<value>.+)'
+    mode: append
+    max: 20
+    private: true              # jamais affiché en mode Showcase (diffusion OBS)

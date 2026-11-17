@@ -101,6 +101,7 @@ core/
   __init__.py
   api.py
   bus.py
+  config.py
   daemon.py
   guardians/
     __init__.py
@@ -117,6 +118,13 @@ modules/
   gaming_hud/
     __init__.py
     __main__.py
+    adapters/
+      __init__.py
+      base.py
+      log_tail.py
+      privacy.py
+      screen_ocr.py
+      wow_retail.py
     addon/
       HermesAssistant/
         HermesAssistant.lua
@@ -162,6 +170,10 @@ modules/
       widgets_builtin.py
       wowhead.py
       wowhead_links.json
+    manifest.json
+    module.py
+    rules/
+      log_tail.example.yaml
 scripts/
   __init__.py
   gen_architecture_map.py
@@ -183,7 +195,10 @@ tests/
   data/
     .gitkeep
   gaming_hud/
+    __init__.py
     conftest.py
+    test_adapters.py
+    test_module.py
     test_ui_fixes.py
   test_architecture_map.py
   test_relay_orchestrator.py
@@ -229,6 +244,14 @@ Bus d'événements local du Hub : publication / abonnement entre processus, sur 
   - `def publish(self, event: Event) -> None`
   - `def recv(self, timeout: float | None=None) -> Event | None`
   - `def close(self) -> None`
+
+### `core/config.py`
+
+Configuration locale du Hub : `config/local.yaml` (ignoré par Git), jamais de secret dans le dépôt.
+
+- `def config_path() -> Path`
+- `def load_config(path: Path | None=None) -> dict[str, Any]` — Configuration complète ; `{}` si le fichier est absent, illisible ou n'est pas un dictionnaire.
+- `def section(name: str, path: Path | None=None) -> dict[str, Any]` — Une section de la configuration (ex. « ollama », « gaming_hud ») ; `{}` si elle n'existe pas.
 
 ### `core/daemon.py`
 
@@ -360,6 +383,95 @@ gaming_hud — HUD de jeu du Hub (évolution de WoW Assistant).
 `python -m modules.gaming_hud` : lance l'application d'origine (exécution autonome, sans le Hub).
 
 *(aucun symbole public)*
+
+### `modules/gaming_hud/adapters/__init__.py`
+
+Adaptateurs de jeu. Voir `base.GameAdapter`.
+
+*(aucun symbole public)*
+
+### `modules/gaming_hud/adapters/base.py`
+
+Interface commune « adaptateur de jeu ».
+
+- **`class GameAdapter(Protocol)`** — Contrat d'un adaptateur de jeu.
+  - `def detect(self) -> bool` — Le jeu est-il installé ou en cours d'exécution ? Ne lève jamais d'exception.
+  - `def read_state(self) -> dict[str, Any]` — État normalisé, en lecture seule. Un état partiel ou vide est un résultat valide.
+  - `def schema(self) -> dict[str, Any]` — Description des sections de l'état (pour l'interface et pour le LLM).
+  - `def widgets(self) -> list[dict[str, Any]]` — Widgets proposés par l'adaptateur : `[{"id", "title", "section", "note"}]`.
+  - `def privacy_filter(self, state: dict[str, Any], mode: str) -> dict[str, Any]` — Copie de l'état sans données privées. `mode` : « off » ou « showcase ».
+  - `def context_for_llm(self, state: dict[str, Any]) -> str` — Résumé textuel court de l'état, joint aux questions posées à l'assistant.
+- `def check_mode(mode: str) -> str`
+
+### `modules/gaming_hud/adapters/log_tail.py`
+
+Adaptateur générique : suit un fichier journal texte et en tire un état, avec des règles regex en YAML.
+
+- **`class RulesError(ValueError)`** — Fichier de règles invalide.
+- **`class Rule`**
+- `def parse_rules(raw: Any) -> tuple[dict[str, Any], list[Rule]]` — Valide le contenu d'un fichier de règles. Retourne (en-tête, règles).
+- **`class LogTailAdapter`** — Construit un état à partir des lignes d'un journal texte.
+  - `def from_file(cls, rules_path: Path, options: PrivacyOptions | None=None) -> LogTailAdapter`
+  - `def detect(self) -> bool`
+  - `def read_state(self) -> dict[str, Any]`
+  - `def schema(self) -> dict[str, Any]`
+  - `def widgets(self) -> list[dict[str, Any]]`
+  - `def privacy_filter(self, state: dict[str, Any], mode: str) -> dict[str, Any]`
+  - `def context_for_llm(self, state: dict[str, Any]) -> str`
+
+### `modules/gaming_hud/adapters/privacy.py`
+
+Filtre de confidentialité commun aux adaptateurs (mode Showcase / diffusion OBS).
+
+- **`class PrivacyOptions`** — Réglages du mode Showcase.
+- `def scrub_text(text: str) -> str` — Retire e-mails, chemins de fichiers et jetons d'une chaîne.
+- `def round_amount(value: float, unit: int=1) -> int` — Arrondit à 1 chiffre significatif, dans l'unité donnée (ex. 10 000 cuivres = 1 pièce d'or).
+- `def filter_state(state: Any, options: PrivacyOptions, *, money_keys: Iterable[str]=(), money_unit: int=1, name_keys: Iterable[str]=(), names: Iterable[str]=(), private_keys: Iterable[str]=()) -> Any` — Copie filtrée de `state`.
+- `def leaks(filtered: Any, canaries: Iterable[str]) -> list[str]` — Canaris retrouvés dans la sortie filtrée (aide de test : la liste doit être vide).
+
+### `modules/gaming_hud/adapters/screen_ocr.py`
+
+Adaptateur EXPÉRIMENTAL : état dérivé d'une capture d'écran par un modèle de vision local.
+
+- `def grab_screen_png(max_edge: int=1280) -> bytes` — Capture l'écran principal (Pillow) et le réduit. Lève `RuntimeError` si la capture est impossible.
+- `def ollama_vision(host: str, model: str, prompt: str, image_png: bytes, num_ctx: int=4096, keep_alive: str='30s', timeout_s: float=180.0) -> str` — Question + image au modèle de vision local, réponse au format JSON (API native d'Ollama).
+- `def extract_json(text: str) -> dict[str, Any]` — Extrait l'objet JSON d'une réponse de modèle (tolère les balises de code et le texte autour).
+- **`class ScreenOcrAdapter`** — Lit des champs à l'écran avec un modèle de vision local.
+  - `def prompt(self) -> str`
+  - `def detect(self) -> bool`
+  - `def read_state(self, force: bool=False) -> dict[str, Any]`
+  - `def schema(self) -> dict[str, Any]`
+  - `def widgets(self) -> list[dict[str, Any]]`
+  - `def privacy_filter(self, state: dict[str, Any], mode: str) -> dict[str, Any]`
+  - `def context_for_llm(self, state: dict[str, Any]) -> str`
+
+### `modules/gaming_hud/adapters/wow_retail.py`
+
+Adaptateur World of Warcraft (Retail) : l'implémentation d'origine derrière l'interface `GameAdapter`.
+
+- **`class WowRetailAdapter`** — Lit l'état du personnage depuis les SavedVariables de l'addon HermesAssistant.
+  - `def detect(self) -> bool`
+  - `def read_state(self) -> dict[str, Any]`
+  - `def schema(self) -> dict[str, Any]`
+  - `def widgets(self) -> list[dict[str, Any]]`
+  - `def privacy_filter(self, state: dict[str, Any], mode: str) -> dict[str, Any]`
+  - `def context_for_llm(self, state: dict[str, Any]) -> str` — Même phrase que l'application d'origine (`main.player_context`), construite depuis l'état normalisé.
+
+### `modules/gaming_hud/module.py`
+
+Module du Hub : lit l'état du jeu par un `GameAdapter` et le publie sur le bus.
+
+- `def build_adapter(config: dict[str, Any]) -> GameAdapter` — Construit l'adaptateur demandé par la configuration. Lève `ValueError` si elle est invalide.
+- `def compact(state: dict[str, Any], limit: int=MAX_SECTION_BYTES) -> tuple[dict[str, Any], list[str]]` — Sépare les sections publiables des sections trop lourdes pour le bus. Retourne (état, sections omises).
+- `def running_process_names() -> set[str]` — Noms des processus en cours (minuscules) ; ensemble vide si `psutil` est absent.
+- **`class GamingHudModule(ModuleBase)`** — Publie l'état du jeu ; bascule en mode Showcase quand un logiciel de diffusion est lancé.
+  - `def start(self) -> None`
+  - `def stop(self) -> None`
+  - `def health(self) -> Health`
+  - `def handle_event(self, event: Event) -> None`
+  - `def set_showcase(self, on: bool) -> None`
+  - `def read(self) -> dict[str, Any]` — Lit l'état et rend ce qui a le droit de sortir du module dans le mode courant.
+  - `def publish_state(self, force: bool=False) -> bool` — Publie l'état s'il a changé (ou si `force`). Retourne True si un événement est parti.
 
 ### `scripts/gen_architecture_map.py`
 

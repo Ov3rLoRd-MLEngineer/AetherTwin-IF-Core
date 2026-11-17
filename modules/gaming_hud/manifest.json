@@ -1,0 +1,17 @@
+{
+  "name": "gaming_hud",
+  "version": "0.1.0",
+  "description": "HUD de jeu : état du jeu en lecture seule, mode Showcase pour la diffusion",
+  "entry": "modules.gaming_hud.module:GamingHudModule",
+  "vram_min_gb": 0,
+  "vram_comfort_gb": 0,
+  "python_deps": ["PyYAML"],
+  "optional_deps": ["pygame", "pillow", "psutil", "pywebview", "sounddevice", "faster-whisper"],
+  "triggers": {
+    "processes": ["Wow.exe", "WowT.exe", "obs64.exe"],
+    "windows": ["World of Warcraft"],
+    "ports": []
+  },
+  "network": [],
+  "experimental": false
+}
