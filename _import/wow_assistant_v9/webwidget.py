@@ -20,8 +20,9 @@ from webhost import host_allowed
 HOST_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "webhost.py")
 KEEP_ENV = ("PATH", "SYSTEMROOT", "SystemRoot", "WINDIR", "TEMP", "TMP", "USERPROFILE", "APPDATA", "LOCALAPPDATA",
             "COMSPEC", "PATHEXT", "HOMEDRIVE", "HOMEPATH", "LANG", "DISPLAY", "XAUTHORITY", "HOME")
-EXIT_MESSAGES = {3: "pywebview n'est pas installé : pip install pywebview", 4: "Adresse refusée (hors liste blanche)",
-                 5: "Le moteur web n'a pas pu démarrer"}
+_PY = f"{sys.version_info.major}.{sys.version_info.minor}"     # le « pip » nu peut viser un AUTRE Python que celui de l'appli
+EXIT_MESSAGES = {3: f"pywebview absent de ce Python ({_PY}) : py -{_PY} -m pip install pywebview",
+                 4: "Adresse refusée (hors liste blanche)", 5: "Le moteur web n'a pas pu démarrer"}
 
 
 class WebHost:

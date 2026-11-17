@@ -246,6 +246,28 @@ def test_faster_whisper_never_receives_an_api_model_name(tmp_path: Path) -> None
     assert "whisper-1" not in voice.FASTER_WHISPER_MODELS
 
 
+def test_missing_package_message_names_the_python_actually_running(monkeypatch: pytest.MonkeyPatch) -> None:
+    import builtins
+    import sys
+
+    import settings as settings_mod
+    import voice
+    import webwidget
+
+    version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    assert f"py -{version} -m pip install pywebview" in webwidget.EXIT_MESSAGES[3]
+    real_import = builtins.__import__
+
+    def no_faster_whisper(name, *args, **kwargs):
+        if name == "faster_whisper":
+            raise ImportError("absent")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", no_faster_whisper)
+    with pytest.raises(RuntimeError, match=rf"py -{version} -m pip install faster-whisper"):
+        voice.Transcriber(settings_mod.Settings(path="inexistant.json"))._faster(b"")
+
+
 def test_faster_whisper_model_is_chosen_with_buttons(app) -> None:
     app.settings.set("voice.stt.backend", "faster-whisper")
     app.open_settings("voice")

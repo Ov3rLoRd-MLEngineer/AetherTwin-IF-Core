@@ -275,3 +275,27 @@ réconciliées. La durée reste donc un paramètre : `--window-minutes` (défaut
   restent lisibles et les nouvelles écritures sont chiffrées.
 - Rien n'a été modifié chez OmniRoute. La décision (laisser tel quel, ou activer le chiffrement en créant
   `.env` dans le dossier `.omniroute`) revient à Jérémy.
+
+---
+
+## 2026-11-17 — WoW Assistant : faster-whisper « non installé » alors qu'il l'est
+
+- **Agent :** Cloud
+- **Fichiers :** `_import/wow_assistant_v9/voice.py`, `webwidget.py` ; un test ajouté. Copiés dans
+  `D:\Hermes-Agent\wow_assistant_v9`.
+- **Cause :** le `pip` nu de Jérémy appartient à Python 3.10 ; l'appli tourne en 3.11 depuis le lanceur.
+  `pip install faster-whisper` l'avait donc installé dans le mauvais Python.
+- **Fait :** `py -3.11 -m pip install faster-whisper` (1.2.1 ; CTranslate2 voit 2 périphériques CUDA).
+  L'installation avait monté `certifi`, que le paquet `hermes-agent` de Jérémy fixe à 2026.5.20 :
+  version remise, `pip check` ne signale plus ce conflit. Les autres avertissements de `pip check`
+  (aiohttp, annotated-doc, botocore) existaient avant et n'ont pas été touchés.
+- **Messages d'erreur :** ils donnent maintenant la commande exacte pour le Python qui fait tourner
+  l'appli (`py -3.11 -m pip install …`), pour faster-whisper et pour pywebview.
+- **Tests :** `pytest` → 138 réussis ; `ruff check .` propre.
+- **Non vérifié :** une transcription réelle (le modèle n'a pas été téléchargé).
+
+### OmniRoute : état constaté, aucune action
+
+`storage.sqlite` n'est plus dans le dossier `.omniroute` : il est dans la corbeille de Windows, et une
+copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont restés. Un `.env` vide a
+été créé. OmniRoute est arrêté. Rien n'a été touché : la suite dépend de ce que Jérémy voulait faire.

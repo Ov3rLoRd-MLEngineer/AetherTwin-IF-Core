@@ -201,7 +201,9 @@ class Transcriber:
         try:
             from faster_whisper import WhisperModel
         except ImportError:
-            raise RuntimeError("faster-whisper n'est pas installé : pip install faster-whisper")
+            # le « pip » nu peut viser un autre Python que celui qui fait tourner l'appli : on donne la commande exacte
+            version = f"{sys.version_info.major}.{sys.version_info.minor}"
+            raise RuntimeError(f"faster-whisper absent de ce Python ({version}) : py -{version} -m pip install faster-whisper")
         name = faster_whisper_model(self._cfg("fw_model"), self._cfg("model"))
         if self._model is None or self._model_name != name:
             self._model, self._model_name = WhisperModel(name, compute_type="int8"), name
