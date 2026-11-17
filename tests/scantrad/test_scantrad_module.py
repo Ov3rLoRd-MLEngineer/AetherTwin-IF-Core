@@ -48,5 +48,15 @@ def test_dashboard_upload_translates_through_the_module(tmp_path: Path, monkeypa
         image = client.get(reply["output_url"])
         assert image.status_code == 200 and image.headers["content-type"] == "image/png"
         assert client.get(reply["input_url"]).content == PAGE.read_bytes()
+        # correction à la main, réincrustée sur la page nettoyée (sans OCR ni modèle)
+        name = reply["output_url"].rsplit("/", 1)[-1]
+        before = image.content
+        fixed = client.post("/scantrad/retypeset", json={"output": name, "translations": {"1": "Salut !"}}).json()
+        assert fixed["ok"] is True, fixed
+        assert [b["translation"] for b in fixed["result"]["bubbles"]][0] == "Salut !"
+        assert client.get(fixed["output_url"]).content != before
+        too_long = client.post("/scantrad/retypeset", json={"output": name, "translations": {"1": "x" * 401}}).json()
+        assert too_long["ok"] is False and "400" in too_long["error"]
+        assert client.post("/scantrad/retypeset", json={"output": "../../x_fr.png"}).status_code == 404
     finally:
         daemon.stop()

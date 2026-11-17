@@ -258,6 +258,7 @@ modules/
     __init__.py
     comfyui_nodes/
       __init__.py
+    grounding.py
     manifest.json
     module.py
     README.md
@@ -869,6 +870,15 @@ Nœuds ComfyUI d'AetherTwin : masque de main (HandSegNet) et de pied (FootSegNet
 - **`class HandSegNetMask(_SegNetNode)`** — Masque d'une main dans la boîte (HandSegNet, SAM ViT-B affiné, Apache 2.0).
 - **`class FootSegNetMask(_SegNetNode)`** — Masque d'un pied ou d'une chaussure dans la boîte (FootSegNet, SAM ViT-B affiné, Apache 2.0).
 
+### `modules/mangastudio/grounding.py`
+
+Boîtes automatiques : le modèle de vision local (Qwen2.5-VL) localise les mains ou les pieds.
+
+- `def prepare(image_rgb: np.ndarray) -> tuple[str, float, float]` — Image en PNG base64 à la taille attendue par le modèle, et facteurs (x, y) pour revenir à l'original.
+- `def prompt(target: str) -> str`
+- `def parse_boxes(text: str, sx: float, sy: float, width: int, height: int, pad: float=0.12, limit: int=12) -> list[list[int]]` — Boîtes du modèle ramenées à l'image d'origine, élargies un peu (SAM préfère une boîte un peu large),
+- `def detect(image_rgb: np.ndarray, target: str, chat: Any, model: str='qwen2.5vl:7b') -> list[list[int]]` — `chat(messages, model=…, num_ctx=…, options=…)` : le routeur LLM du Hub (règles VRAM appliquées).
+
 ### `modules/mangastudio/module.py`
 
 Module du Hub : segmentation main/pied à la demande (retouche locale).
@@ -955,8 +965,11 @@ OCR et traduction par les modèles locaux, **via le Hub** (API compatible OpenAI
 
 ### `modules/scantrad/module.py`
 
-Module du Hub : traduit une page sur commande.
+Module du Hub : traduit une page sur commande, et réincruste des traductions corrigées à la main.
 
+- `def work_paths(output: Path) -> tuple[Path, Path]` — Fichiers de travail d'une page traduite : (image nettoyée, description des bulles).
+- `def save_work(output: Path, cleaned: np.ndarray, bubbles: list[Bubble]) -> None`
+- `def retypeset(output: Path, translations: dict[str, str], font: str='') -> list[dict[str, Any]]` — Réincruste des traductions corrigées sur la page nettoyée. Rend les bulles mises à jour.
 - **`class ScantradModule(ModuleBase)`**
   - `def start(self) -> None`
   - `def stop(self) -> None`

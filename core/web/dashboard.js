@@ -47,6 +47,19 @@ async function refreshHub() {
     const health = await api("/health");
     const minutes = Math.floor(health.uptime_s / 60);
     $("hub-line").textContent = `Hub en marche depuis ${minutes} min — ${health.os} — GPU via ${health.gpu_backend}`;
+    const inoue = health.inoue || {};
+    if (inoue.budget_gb !== undefined) {
+      const pct = inoue.budget_gb ? Math.min(100, Math.round(100 * inoue.allocated_gb / inoue.budget_gb)) : 0;
+      $("inoue-bar").style.width = `${pct}%`;
+      $("inoue-line").textContent = `Réservé : ${inoue.allocated_gb} Go sur ${inoue.budget_gb} Go de budget `
+        + `(VRAM totale ${inoue.total_gb} Go, mesurée en usage : ${inoue.measured_used_gb} Go)`
+        + (inoue.degraded ? " — GPU non mesurés : tout est refusé par prudence" : "");
+      const entries = Object.entries(inoue.allocations || {});
+      $("inoue-list").replaceChildren(...(entries.length
+        ? entries.map(([who, gb]) => el("li", {}, `${who.replace(/^llm-small:/, "petit modèle ")
+          .replace(/^llm:/, "modèle ")} : ${Number(gb).toFixed(1)} Go`))
+        : [el("li", { class: "muted" }, "Aucune réservation en cours.")]));
+    }
     const llm = health.llm || {};
     const loaded = (llm.loaded || []).map((m) => (typeof m === "string" ? m : m.name)).join(", ");
     $("llm-line").textContent = llm.reachable
@@ -392,15 +405,49 @@ $("scan-form").addEventListener("submit", async (event) => {
     $("scan-line").textContent = `${metrics.bubbles} bulles traduites en ${metrics.total_s} s`
       + (metrics.rejected_by_ocr ? ` (${metrics.rejected_by_ocr} zones écartées : pas de texte)` : "")
       + (metrics.vram_peak_mib ? ` — VRAM au plus haut : ${gib(metrics.vram_peak_mib)} Gio` : "");
-    const list = el("ol", { class: "bubble-list" });
-    for (const b of bubbles) list.append(el("li", {}, `${b.source || "—"}  →  ${b.translation || "—"}`));
-    $("scan-bubbles").replaceChildren(list);
+    showBubbleEditor(bubbles, reply.output_url.split("/").pop());
   } catch (error) {
     $("scan-line").textContent = `Erreur : ${error.message}`;
   } finally {
     button.disabled = false;
   }
 });
+
+// bulles éditables : corriger une traduction puis réincruster, sans relancer l'OCR ni le modèle
+function showBubbleEditor(bubbles, outputName) {
+  const box = $("scan-bubbles");
+  box.replaceChildren();
+  if (!bubbles.length) return;
+  const table = el("table", { class: "bubble-edit" },
+    el("thead", {}, el("tr", {}, el("th", {}, "#"), el("th", {}, "Texte lu"), el("th", {}, "Traduction"))));
+  const body = el("tbody");
+  for (const b of bubbles) {
+    const input = el("input", { class: "full", value: b.translation || "", "data-index": String(b.index),
+                                "aria-label": `traduction de la bulle ${b.index}` });
+    body.append(el("tr", {}, el("td", {}, String(b.index)), el("td", { lang: "ja" }, b.source || "—"),
+                    el("td", {}, input)));
+  }
+  table.append(body);
+  const button = el("button", { type: "button" }, "Réincruster mes corrections");
+  const line = el("span", { class: "muted" });
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    line.textContent = "Réincrustation…";
+    const translations = {};
+    for (const input of body.querySelectorAll("input")) translations[input.dataset.index] = input.value;
+    try {
+      const reply = await post("/scantrad/retypeset", { output: outputName, translations });
+      if (!reply.ok) throw new Error(reply.error || "échec");
+      $("scan-after").src = `${reply.output_url}?t=${Date.now()}`;
+      line.textContent = "Page mise à jour.";
+    } catch (error) {
+      line.textContent = `Erreur : ${error.message}`;
+    } finally {
+      button.disabled = false;
+    }
+  });
+  box.append(table, el("div", { class: "row" }, button, line));
+}
 
 const toLines = (map) => Object.entries(map).map(([jp, fr]) => `${jp} = ${fr}`).join("\n");
 function fromLines(text) {
@@ -518,6 +565,28 @@ window.addEventListener("mouseup", () => {
   drawStudio();
   $("studio-line").textContent = `${studio.boxes.length} boîte(s).`;
 });
+$("studio-detect").addEventListener("click", async (event) => {
+  if (!studio.name) {
+    $("studio-line").textContent = "Choisis d'abord une image.";
+    return;
+  }
+  const button = event.currentTarget;
+  button.disabled = true;
+  $("studio-line").textContent = "Le modèle de vision cherche… (premier appel : chargement du modèle)";
+  try {
+    const found = await post("/mangastudio/detect", { image: studio.name, target: $("studio-target").value });
+    studio.boxes = found.boxes;
+    drawStudio();
+    $("studio-line").textContent = found.boxes.length
+      ? `${found.boxes.length} boîte(s) proposée(s) par ${found.model} en ${found.seconds} s : corrige-les si besoin.`
+      : "Rien trouvé : trace les boîtes à la main.";
+  } catch (error) {
+    $("studio-line").textContent = `Erreur : ${error.message}`;
+  } finally {
+    button.disabled = false;
+  }
+});
+
 $("studio-clear").addEventListener("click", () => {
   studio.boxes = [];
   drawStudio();

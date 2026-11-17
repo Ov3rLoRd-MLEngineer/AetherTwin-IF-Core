@@ -98,6 +98,36 @@ def test_status_reports_models(tmp_path: Path) -> None:
     assert state["models"]["hand"]["ready"] is (not missing_dependencies())
 
 
+def test_grounding_prepare_and_parse() -> None:
+    from modules.mangastudio import grounding
+
+    data, sx, sy = grounding.prepare(np.zeros((451, 443, 3), np.uint8))
+    assert data and sx == pytest.approx(443 / 980) and sy == pytest.approx(451 / 1008)  # mesuré en réel
+    text = '```json\n[{"bbox_2d": [456, 275, 527, 335], "label": "hand"}, {"bbox_2d": [1, 2, 3]}, "x"]\n```'
+    boxes = grounding.parse_boxes(text, sx, sy, 443, 451)
+    assert len(boxes) == 1
+    x1, y1, x2, y2 = boxes[0]
+    assert 200 <= x1 < 206 and 116 <= y1 < 124 and 236 < x2 <= 242 and 148 < y2 <= 154  # échelle + 12 % de marge
+    assert grounding.parse_boxes("[]", 1, 1, 10, 10) == [] and grounding.parse_boxes("rien", 1, 1, 10, 10) == []
+    assert grounding.parse_boxes('[{"bbox_2d": [5000, 5000, 6000, 6000]}]', 1, 1, 100, 100) == []  # hors image
+
+
+def test_grounding_detect_uses_the_hub_router() -> None:
+    from modules.mangastudio import grounding
+
+    calls = []
+
+    def chat(messages, model, num_ctx, options):
+        calls.append((messages, model, num_ctx, options))
+        return {"content": '[{"bbox_2d": [100, 100, 300, 300], "label": "hand"}]'}
+
+    boxes = grounding.detect(drawing(), "foot", chat)
+    assert len(boxes) == 1 and calls[0][1] == "qwen2.5vl:7b" and calls[0][2] == 4096
+    assert "foot or shoe" in calls[0][0][0]["content"] and calls[0][0][0]["images"]
+    with pytest.raises(ValueError):
+        grounding.detect(drawing(), "tête", chat)
+
+
 def load_nodes_standalone():
     """Charge le dossier des nœuds comme le ferait ComfyUI : seul, sans le reste d'AetherTwin."""
     spec = importlib.util.spec_from_file_location("aethertwin_segnet", STUDIO / "comfyui_nodes" / "__init__.py")

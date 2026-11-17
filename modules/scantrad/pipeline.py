@@ -30,7 +30,7 @@ class Bubble:
 
     def to_dict(self) -> dict[str, Any]:
         return {"index": self.index, "box": list(self.box), "source": self.source, "translation": self.translation,
-                "area": list(self.area) if self.area else None}
+                "area": list(self.area) if self.area else None, "vertical": self.vertical}
 
 
 class Detector(Protocol):
@@ -58,6 +58,7 @@ class PageResult:
     image: np.ndarray
     bubbles: list[Bubble]
     metrics: dict[str, Any] = field(default_factory=dict)
+    cleaned: np.ndarray | None = None  # page sans le texte d'origine : base d'une réincrustation corrigée
 
     def summary(self) -> dict[str, Any]:
         return {"bubbles": [b.to_dict() for b in self.bubbles], "metrics": self.metrics}
@@ -118,4 +119,4 @@ class Scantrad:
                    "rejected_by_ocr": rejected,
                    "vram_peak_mib": max(vram) if vram else None,
                    "steps": list(times)}
-        return PageResult(output, bubbles, metrics)
+        return PageResult(output, bubbles, metrics, cleaned)

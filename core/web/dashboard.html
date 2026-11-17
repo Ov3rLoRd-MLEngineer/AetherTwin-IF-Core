@@ -39,6 +39,13 @@
         <p id="llm-line" class="muted"></p>
       </section>
       <section>
+        <h2>Budget VRAM (Inoue)</h2>
+        <p class="muted">Inoue garde 10 % de la VRAM en réserve et n'accepte qu'un gros modèle de langage à la fois.</p>
+        <div class="bar big"><i id="inoue-bar"></i></div>
+        <p id="inoue-line"></p>
+        <ul id="inoue-list" class="links"></ul>
+      </section>
+      <section>
         <h2>Modules</h2>
         <table>
           <thead><tr><th>Module</th><th>État</th><th>Détail</th><th></th></tr></thead>
@@ -190,6 +197,7 @@
             <option value="hand">Main (HandSegNet)</option>
             <option value="foot">Pied (FootSegNet)</option>
           </select>
+          <button id="studio-detect" type="button" class="ghost">Détecter automatiquement</button>
           <button id="studio-clear" type="button" class="ghost">Effacer les boîtes</button>
           <button id="studio-run" type="button">Créer le masque</button>
         </div>

@@ -639,3 +639,18 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - **Carte d'architecture sur clone neuf** du dernier commit : à jour (l'échec précédent venait d'un commit
   fait avant régénération). Dossiers de vérification supprimés (environ 3 Go).
 - **Suivi :** `PROJECT_STATUS.md` (J8 en cours, tests 8, 15, 16).
+
+## 2026-11-17 — J8 (4) : corrections de scantrad, mains automatiques, budget VRAM visible
+
+- **Agent :** Cloud
+- **Fichiers :** `modules/scantrad/{pipeline,module}.py` (page nettoyée et `_travail.json` gardés, commande
+  `retypeset`), `modules/mangastudio/grounding.py` (nouveau), `core/api.py` (`/scantrad/retypeset`,
+  `/mangastudio/detect`), `core/web/dashboard.*` (bulles éditables, bouton « Détecter automatiquement »,
+  encadré Budget VRAM), tests, suivi.
+- **Mains automatiques :** Qwen2.5-VL répond dans l'espace de l'image qu'il reçoit ; Ollama la redimensionne
+  vers environ 1 Mpx (premier essai : coordonnées hors de l'image, 663 pour une largeur de 443). L'image est
+  désormais envoyée déjà à cette taille (980×1008 pour 443×451) et les boîtes sont ramenées à l'original,
+  élargies de 12 %. **Réel** : 5 boîtes en 2,6 s, 5 masques HandSegNet en 10,5 s modèle compris ; deux
+  masques débordent sur un manteau et une cape.
+- **Tests :** ruff propre ; pytest : 369 réussis, 4 réels ignorés par défaut. Budget VRAM vérifié sur le Hub
+  de Jérémy. **Non vérifié** par Jérémy : correction des traductions, détection automatique.

@@ -200,6 +200,18 @@ def create_app(daemon: Daemon) -> FastAPI:
             reply["output_url"] = f"/scantrad/files/sorties/{output.name}"
         return reply
 
+    @app.post("/scantrad/retypeset")
+    def scantrad_retypeset(data: dict[str, Any]) -> dict[str, Any]:
+        """Traductions corrigées à la main, réincrustées sur la page nettoyée (sans OCR ni modèle)."""
+        name = str(data.get("output", ""))
+        if not re.fullmatch(r"[\w-]+_fr\.png", name) or not (SCANTRAD_DIR / "sorties" / name).is_file():
+            raise HTTPException(status_code=404, detail="page traduite inconnue")
+        reply = module_call("scantrad", "retypeset", {"output": str(SCANTRAD_DIR / "sorties" / name),
+                                                      "translations": data.get("translations") or {}})
+        if reply.get("ok"):
+            reply["output_url"] = f"/scantrad/files/sorties/{name}"
+        return reply
+
     @app.get("/scantrad/files/{kind}/{filename}")
     def scantrad_file(kind: str, filename: str) -> Response:
         return image_file(SCANTRAD_DIR, kind, filename)
@@ -226,6 +238,24 @@ def create_app(daemon: Daemon) -> FastAPI:
             result["mask_url"] = f"/mangastudio/files/sorties/{Path(result.pop('mask')).name}"
             result["preview_url"] = f"/mangastudio/files/sorties/{Path(result.pop('preview')).name}"
         return reply
+
+    @app.post("/mangastudio/detect")
+    def mangastudio_detect(data: dict[str, Any]) -> dict[str, Any]:
+        """Boîtes proposées par le modèle de vision local (point de départ, à corriger à la main)."""
+        from modules.mangastudio import grounding
+        from modules.mangastudio.module import read_rgb
+
+        name = str(data.get("image", ""))
+        if not FILE_NAME.fullmatch(name) or not (MANGASTUDIO_DIR / "entrees" / name).is_file():
+            raise HTTPException(status_code=404, detail="image inconnue : envoie-la d'abord")
+        target = str(data.get("target", "hand"))
+        if target not in grounding.LABELS:
+            raise HTTPException(status_code=400, detail="cible : hand ou foot")
+        image = read_rgb(MANGASTUDIO_DIR / "entrees" / name)
+        model = str(config.section("mangastudio").get("vision_model") or "qwen2.5vl:7b")
+        started = time.perf_counter()
+        boxes = llm_call(lambda: {"boxes": grounding.detect(image, target, daemon.llm.chat, model)})["boxes"]
+        return {"boxes": boxes, "model": model, "seconds": round(time.perf_counter() - started, 2)}
 
     @app.get("/mangastudio/status")
     def mangastudio_status() -> dict[str, Any]:
