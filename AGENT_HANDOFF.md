@@ -27,7 +27,10 @@ Les phrases sont courtes. Rien n'est implicite.
 9. Le poste a 2 GPU visibles : RTX 5080 16 Go et RTX 5060 Ti 16 Go. Les modèles restent en Q4_K_M.
 10. J4 (overlay OBS), J5 (`genesis_lab`, `core/knowledge/`) et J6 (`modules/scantrad/`) sont faits (17/11).
     Lanceur double-clic : `Lancer AetherTwin.bat` (raccourci « AetherTwin » sur le bureau), tableau de bord
-    sur `http://127.0.0.1:5750/`. **Prochaine tâche : J7** (voir « J7 » plus bas) : `mangastudio`, puis `if_game`.
+    sur `http://127.0.0.1:5750/`, en onglets. J7 fait aussi (`mangastudio`, `if_game`).
+    **Prochaine tâche : J8** : `research/overlord_notes.md` (+ questionnaire), `docs/HARDWARE_FIT.md`,
+    `docs/DEMO_SCRIPT.md`, README final, `scripts/setup.ps1` vérifié dans un venv vierge (penser à torch cu128,
+    facultatif). Puis J9 : gel, branche `concours`, tag `v0.1.0-concours`, scan des secrets dans l'historique.
 
 ## Commandes exactes
 
@@ -60,7 +63,8 @@ N'utilise jamais `python` seul. Le `python` du PATH est une autre version (3.10)
 | Base de connaissances | tableau de bord, « Collecter maintenant » ; `GET /knowledge/search?q=…` | fait, testé en réel (sans vecteurs) |
 | `scantrad` | onglet Scantrad du tableau de bord, ou `.venv\Scripts\python.exe -m modules.scantrad PAGE.png --series demo` (Hub lancé) | fait, testé en réel (page de test + une vraie page) |
 | WoW Assistant depuis le Hub | onglet Jeu, ou `POST /modules/gaming_hud/app/start` (champ `app` du manifeste) | fait, testé en réel |
-| `mangastudio`, `if_game` | — | n'existent pas encore (J7) |
+| `mangastudio` | onglet Studio (poids dans `models/mangastudio/`, torch cu128 dans `.venv`) | fait, testé en réel (HandSegNet) |
+| `if_game` | onglet Éther | fait, testé en réel |
 
 ## Recette locale validée par Jérémy (Ollama + Aider)
 

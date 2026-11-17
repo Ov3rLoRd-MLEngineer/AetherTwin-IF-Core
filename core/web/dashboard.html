@@ -25,6 +25,7 @@
     <button role="tab" data-tab="connaissances">Connaissances</button>
     <button role="tab" data-tab="scantrad">Scantrad</button>
     <button role="tab" data-tab="studio">Studio</button>
+    <button role="tab" data-tab="ether">Éther</button>
     <button role="tab" data-tab="journal">Journal</button>
   </nav>
 
@@ -197,6 +198,29 @@
         <div id="studio-result" class="compare" hidden>
           <figure><figcaption>Aperçu (zone teintée)</figcaption><img id="studio-preview" alt="aperçu du masque"></figure>
           <figure><figcaption>Masque (blanc = zone à retoucher)</figcaption><img id="studio-mask" alt="masque"></figure>
+        </div>
+      </section>
+    </div>
+
+    <!-- Éther (if_game) -->
+    <div class="panel" data-panel="ether" hidden>
+      <section>
+        <h2>Fuma &amp; Inoue : Les Gardiens de l'Éther</h2>
+        <p class="muted">Exploration calme, sans combat. Le modèle local invente les lieux et les répliques ; le
+          jeu vérifie tout avant de l'accepter.</p>
+        <div class="row">
+          <span id="ether-place" class="question">—</span>
+          <span id="ether-stats" class="muted"></span>
+        </div>
+        <div id="ether-log" class="answer ether-log"></div>
+        <div id="ether-exits" class="row"></div>
+        <form id="ether-form" class="row">
+          <input id="ether-input" class="grow" autocomplete="off" placeholder="regarder, prendre …, répondre …, parler à Fuma, repos, aide">
+          <button type="submit">Agir</button>
+        </form>
+        <div class="row">
+          <input id="ether-seed" type="number" value="42" min="0" aria-label="graine">
+          <button id="ether-new" type="button" class="ghost">Nouvelle partie</button>
         </div>
       </section>
     </div>

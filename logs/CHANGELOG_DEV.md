@@ -575,3 +575,17 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   avec le vrai modèle ; Studio par le Hub (envoi + segmentation, score 0,71, 9,1 s modèle compris).
   **Non vérifié** : tracé des boîtes à la souris dans le navigateur ; workflow de continuité dans un vrai
   ComfyUI (structure seulement) ; FootSegNet sur une image réelle (chargement vérifié par l'état seulement).
+
+## 2026-11-17 — J7 (2/2) : if_game, « Fuma & Inoue : Les Gardiens de l'Éther »
+
+- **Agent :** Cloud
+- **Fichiers :** `modules/if_game/{__init__,world,module}.py`, `manifest.json`, `core/web/dashboard.*`
+  (onglet Éther), `tests/if_game/`, suivi.
+- **Principe :** le monde est un JSON (`World`) que seul le code modifie ; les actions sont analysées par le
+  code ; un lieu ou une réplique proposés par le modèle sont validés (forme, longueurs, mots durs refusés) et,
+  refusés, remplacés par le générateur procédural déterministe (graine). Pas de combat ni d'échec punitif :
+  énergie qui baisse en marchant, repos proposé par Fuma, indice si l'énigme est ratée. Sauvegarde atomique
+  après chaque action (`data/if_game/partie.json`), sauvegarde incohérente refusée.
+- **Tests :** ruff propre ; pytest : 364 réussis, 4 réels ignorés par défaut. **Réel** : onglet Éther, lieu
+  « Jardin des Brumes Douces » inventé par `qwen3-27b` et accepté, réplique de Fuma par le modèle (le nom du
+  gardien est désormais ajouté devant). Une fausse manœuvre de ma part a relancé une partie pendant l'essai.

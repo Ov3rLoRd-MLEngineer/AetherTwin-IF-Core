@@ -251,6 +251,11 @@ modules/
     manifest.json
     module.py
     tutor.py
+  if_game/
+    __init__.py
+    manifest.json
+    module.py
+    world.py
   mangastudio/
     __init__.py
     comfyui_nodes/
@@ -315,6 +320,9 @@ tests/
     __init__.py
     test_calculs.py
     test_tutor_module.py
+  if_game/
+    __init__.py
+    test_if_game.py
   mangastudio/
     __init__.py
     test_mangastudio.py
@@ -801,6 +809,49 @@ Professeur Personnel Adaptatif.
   - `def progress(self) -> dict[str, Any]`
 - `def numbers_in(text: str) -> list[float]` — Nombres écrits dans un texte (virgule ou point décimal).
 - `def foreign_numbers(text: str, allowed: list[float], tolerance: float=0.005) -> list[str]` — Nombres du texte absents de la liste admise (à 0,5 % près). Les petits entiers sont toujours admis.
+
+### `modules/if_game/__init__.py`
+
+« Fuma & Inoue : Les Gardiens de l'Éther » : exploration calme ; le modèle propose, le code valide.
+
+*(aucun symbole public)*
+
+### `modules/if_game/module.py`
+
+Module du Hub : le jeu « Fuma & Inoue : Les Gardiens de l'Éther ».
+
+- `def hub_text(hub_api: str, model: str='', temperature: float=0.8, timeout_s: float=120.0)`
+- **`class IfGameModule(ModuleBase)`**
+  - `def start(self) -> None`
+  - `def stop(self) -> None`
+  - `def health(self) -> Health`
+  - `def handle_event(self, event: Event) -> None`
+
+### `modules/if_game/world.py`
+
+« Fuma & Inoue : Les Gardiens de l'Éther » — monde, règles et narration.
+
+- `def plain(text: str) -> str`
+- **`class Place`**
+- **`class World`**
+  - `def new(cls, seed: int) -> World`
+  - `def to_dict(self) -> dict[str, Any]`
+  - `def from_dict(cls, data: dict[str, Any]) -> World`
+  - `def save(self, path: Path) -> None`
+  - `def load(cls, path: Path) -> World`
+  - `def validate(self) -> None` — Invariants du monde ; lève `ValueError` si une sauvegarde est incohérente.
+  - `def place(self) -> Place`
+  - `def rng(self, salt: str) -> random.Random`
+  - `def log(self, text: str) -> str`
+- `def procedural_place(world: World, place_id: str, came_from: str) -> Place`
+- `def place_prompt(world: World, direction: str) -> str`
+- `def validate_proposal(text: str, known_names: set[str]) -> dict[str, str] | None` — Ce que le code accepte d'un lieu proposé par le modèle ; `None` = refus (le procédural prend le relais).
+- `def create_place(world: World, direction: str, propose: Propose | None) -> Place`
+- `def parse_action(text: str) -> tuple[str, str]` — (verbe, argument) reconnus par le code. Tout le reste est « inconnu ».
+- `def describe(world: World) -> str`
+- `def act(world: World, text: str, propose: Propose | None=None, talk: Propose | None=None) -> str` — Applique une action du joueur et rend la narration. Seul point qui modifie le monde.
+- `def talk_prompt(world: World, who: str) -> str`
+- `def view(world: World) -> dict[str, Any]` — Ce que l'interface affiche.
 
 ### `modules/mangastudio/__init__.py`
 

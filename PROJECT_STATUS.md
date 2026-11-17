@@ -7,8 +7,8 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 
 ## Où on en est
 
-- Dépôt initialisé : venv Python 3.11, Git, lint, tests, CI, fichiers de suivi. **318 tests** au total (17/11) :
-  315 passent, 3 sont des tests réels sur GPU, activés par `AETHERTWIN_REAL_OLLAMA=1`.
+- Dépôt initialisé : venv Python 3.11, Git, lint, tests, CI, fichiers de suivi. **368 tests** au total (17/11) :
+  364 passent, 4 sont des tests réels sur GPU, activés par `AETHERTWIN_REAL_OLLAMA=1`.
 - Relais Cloud ⇄ Local écrit et testé **en simulation**.
 - **J2 terminé** : moniteur GPU, contrat de module, bus, ordonnanceur, gardiens, démon et API locale.
 - **J3 terminé** (17/11) : WoW Assistant porté dans `modules/gaming_hud/`, interface `GameAdapter`, trois
@@ -18,7 +18,9 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 - **J5 terminé** (17/11) : `genesis_lab`, base vectorielle, collecte web polie, ingestion nocturne, sources
   citées par le Professeur.
 - **J6 terminé** (17/11) : `scantrad`, traduction locale d'une page de manga, essai réel sur la page de test
-  (`docs/captures/scantrad_page_test_fr.png`). Prochaine étape : J7 (`mangastudio`, `if_game`).
+  (`docs/captures/scantrad_page_test_fr.png`), puis détection refaite pour les vraies pages.
+- **J7 terminé** (17/11) : `mangastudio` (HandSegNet et FootSegNet réels sur GPU, nœuds ComfyUI, onglet
+  Studio) et `if_game` (onglet Éther). Prochaine étape : J8 (documents finaux, `setup.ps1` vérifié).
 - Décisions de Jérémy : Q4_K_M tant que la VRAM est de 32 Go ; contexte local 32 768 ; pas de push pour l'instant.
 - **Lancement simple** (17/11) : `Lancer AetherTwin.bat` à la racine (raccourci « AetherTwin » sur le bureau)
   démarre le Hub et ouvre le tableau de bord sur `http://127.0.0.1:5750/`, en onglets : Accueil (GPU,
@@ -68,7 +70,11 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | `genesis_lab` : module du Hub | P1 | J5 | `FAIT-TESTÉ` | calcul demandé sur le bus et rendu par le module dans son processus (démon réel) ; liste blanche d'outils |
 | `scantrad` : chaîne complète | P1 | J6 | `FAIT-TESTÉ` | tests (vraie page de test + modèles factices) et **essai réel** : 5 bulles détectées dans l'ordre manga, OCR exact par `qwen2.5vl:7b`, traduction `qwen3-27b`, 23,6 s, VRAM au plus haut 26 153 MiB. Une seule page, synthétique : vraie page scannée non essayée |
 | `scantrad` : module du Hub + entrée du lanceur | P1 | J6 | `FAIT-TESTÉ` / `FAIT-NON-TESTÉ` | module piloté par le démon (test réel de processus, sans modèle) ; l'entrée 4 du lanceur n'a pas été jouée de bout en bout |
-| `mangastudio`, `if_game` | P2 | J7 | `À FAIRE` | |
+| `mangastudio` : segmentation main/pied | P2 | J7 | `FAIT-TESTÉ` | **réel** : HandSegNet sur RTX 5080, 0,17 s par masque une fois chargé (21,8 s au premier appel), 2,8 Go de VRAM ; simulation GrabCut signalée sans torch ni poids. FootSegNet : chargement vérifié, pas de masque réel essayé |
+| `mangastudio` : nœuds ComfyUI | P2 | J7 | `FAIT-TESTÉ` (hors ComfyUI) | chargés seuls et exécutés avec le vrai modèle ; **jamais chargés dans un vrai ComfyUI** |
+| `mangastudio` : workflow de continuité | P2 | J7 | `FAIT-NON-TESTÉ` | IP-Adapter + ControlNet + masque des mains ; structure vérifiée, aucune image générée |
+| `mangastudio` : onglet Studio | P2 | J7 | `FAIT-TESTÉ` / `FAIT-NON-TESTÉ` | envoi et segmentation réels par l'API ; tracé des boîtes à la souris non essayé |
+| `if_game` : Fuma & Inoue, onglet Éther | P2 | J7 | `FAIT-TESTÉ` | graine reproductible, propositions du modèle validées (ton calme, formes), sauvegarde ; **réel** : lieu inventé par `qwen3-27b` et réplique de Fuma acceptés |
 | `research/overlord_notes.md`, `docs/HARDWARE_FIT.md`, README final | P0 | J8 | `À FAIRE` | README actuel = version provisoire |
 | Gel, branche `concours`, tag `v0.1.0-concours`, scan de l'historique | P0 | J9 | `À FAIRE` | |
 

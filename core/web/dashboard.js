@@ -524,6 +524,72 @@ $("studio-run").addEventListener("click", async (event) => {
   }
 });
 
+// ---------- éther (if_game) ----------
+const ether = { shown: false };
+
+function etherRender(result, said) {
+  const log = $("ether-log");
+  if (said) log.append(el("p", { class: "me" }, `> ${said}`));
+  if (result.narration) log.append(el("p", {}, result.narration));
+  log.scrollTop = log.scrollHeight;
+  $("ether-place").textContent = result.place;
+  $("ether-stats").textContent = `tour ${result.turn} · lumière d'Inoue ${result.energy}/${result.max_energy}`
+    + ` · ${result.explored} lieux · ${result.riddles_solved} énigmes · sac : ${result.inventory.join(", ") || "vide"}`
+    + (result.origin === "modèle local" ? " · lieu inventé par le modèle local" : "");
+  const exits = $("ether-exits");
+  exits.replaceChildren();
+  for (const [direction, target] of Object.entries(result.exits)) {
+    const button = el("button", { class: "ghost" }, target ? direction : `${direction} ?`);
+    button.addEventListener("click", () => etherAct(direction));
+    exits.append(button);
+  }
+}
+
+async function etherCall(command, payload) {
+  if (!modulesByName.if_game || !modulesByName.if_game.running) await post("/modules/if_game/activate");
+  const reply = await post(`/modules/if_game/command/${command}`, payload || {});
+  if (!reply.ok) throw new Error(reply.error || "erreur du jeu");
+  return reply.result;
+}
+
+async function etherAct(text) {
+  $("ether-input").disabled = true;
+  try {
+    etherRender(await etherCall("act", { text }), text);
+  } catch (error) {
+    $("ether-log").append(el("p", { class: "warn" }, `Erreur : ${error.message}`));
+  } finally {
+    $("ether-input").disabled = false;
+    $("ether-input").focus();
+  }
+}
+
+$("ether-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const text = $("ether-input").value.trim();
+  if (!text) return;
+  $("ether-input").value = "";
+  etherAct(text);
+});
+$("ether-new").addEventListener("click", async () => {
+  try {
+    $("ether-log").replaceChildren();
+    etherRender(await etherCall("new", { seed: Number($("ether-seed").value) || 0 }));
+  } catch (error) {
+    $("ether-log").append(el("p", { class: "warn" }, `Erreur : ${error.message}`));
+  }
+});
+
+async function refreshEther() {
+  try {
+    const result = await etherCall("state", {});
+    $("ether-log").replaceChildren(...result.journal.map((line) => el("p", {}, line)));
+    etherRender({ ...result, narration: "" });
+  } catch (error) {
+    $("ether-log").replaceChildren(el("p", { class: "warn" }, `Jeu indisponible : ${error.message}`));
+  }
+}
+
 // ---------- journal ----------
 async function refreshEvents() {
   try {
@@ -551,6 +617,7 @@ function refreshAll() {
   if (tab === "connaissances") refreshKnowledge();
   if (tab === "journal") refreshEvents();
   if (tab === "studio" && !studio.statusShown) { studio.statusShown = true; refreshStudio(); }
+  if (tab === "ether" && !ether.shown) { ether.shown = true; refreshEther(); }
 }
 showTab(currentTab());
 setInterval(refreshAll, 3000);
