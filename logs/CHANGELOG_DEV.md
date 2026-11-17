@@ -250,3 +250,28 @@ réconciliées. La durée reste donc un paramètre : `--window-minutes` (défaut
 - La variable utilisateur `OLLAMA_NUM_CTX=65536` n'apparaît pas dans la configuration lue par Ollama
   (le journal liste `OLLAMA_CONTEXT_LENGTH:0` et calcule `default_num_ctx=32768`). Elle semble sans effet.
 - OmniRoute signale `STORAGE_ENCRYPTION_KEY` non définie alors qu'une base existe : à traiter par Jérémy.
+
+---
+
+## 2026-11-17 — WoW Assistant : écran Voix ; diagnostic de l'avertissement d'OmniRoute
+
+- **Agent :** Cloud
+- **Fichiers :** `_import/wow_assistant_v9/` : `ui.py`, `voice.py`, `settings.py`, `README.md` ;
+  `tests/wow_assistant_v9/` (3 tests ajoutés). Mêmes fichiers copiés dans `D:\Hermes-Agent\wow_assistant_v9`.
+- **Tests :** `pytest` → 137 réussis ; `ruff check .` propre.
+- **Défauts vus sur une capture de Jérémy :**
+  1. Avec le moteur faster-whisper, le champ « modèle » était partagé avec l'API et valait `whisper-1`,
+     que faster-whisper refuse. Nouveau réglage `voice.stt.fw_model` (défaut `small`), choisi par boutons.
+  2. Le message d'état en bas de la fenêtre chevauchait la mention de droite : il est maintenant abrégé.
+- **Non vérifié :** une transcription réelle avec faster-whisper (pas de micro ni de modèle téléchargé ici).
+
+### Diagnostic OmniRoute (lecture seule, aucune valeur secrète affichée)
+
+- L'avertissement vient de `bin/omniroute.mjs` : si `STORAGE_ENCRYPTION_KEY` est vide **et** qu'une base
+  existe, OmniRoute refuse de créer une clé, par prudence. Il ne vérifie pas si la base est chiffrée.
+- La base de Jérémy ne contient **aucun** identifiant chiffré (0 valeur au format `enc:v1:`) : 5 connexions
+  de fournisseurs, dont 2 avec jetons et clés **en clair**. Aucune clé n'a donc été perdue.
+- D'après `src/lib/db/encryption.ts` : sans clé, stockage en clair ; avec une clé, les valeurs en clair
+  restent lisibles et les nouvelles écritures sont chiffrées.
+- Rien n'a été modifié chez OmniRoute. La décision (laisser tel quel, ou activer le chiffrement en créant
+  `.env` dans le dossier `.omniroute`) revient à Jérémy.

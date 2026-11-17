@@ -234,6 +234,49 @@ def test_clear_button_removes_the_api_key_from_the_settings_file(app, page: str,
     assert "cle-de-test-a-effacer" not in stored and json.loads(stored)  # effacée du fichier, sans « Enregistrer »
 
 
+# --------------------------------------------------------------------------- voix
+def test_faster_whisper_never_receives_an_api_model_name(tmp_path: Path) -> None:
+    import voice
+
+    assert voice.faster_whisper_model("", "whisper-1") == "small"  # « whisper-1 » est un nom d'API : refusé
+    assert voice.faster_whisper_model("medium", "whisper-1") == "medium"
+    assert voice.faster_whisper_model("", "") == "small"
+    assert voice.faster_whisper_model("", "Systran/faster-whisper-small") == "Systran/faster-whisper-small"
+    assert voice.faster_whisper_model("", str(tmp_path)) == str(tmp_path)  # dossier de modèle local
+    assert "whisper-1" not in voice.FASTER_WHISPER_MODELS
+
+
+def test_faster_whisper_model_is_chosen_with_buttons(app) -> None:
+    app.settings.set("voice.stt.backend", "faster-whisper")
+    app.open_settings("voice")
+    app.draw(app.test_ctx)
+    app.screen.cut.clear()
+    app.draw(app.test_ctx)
+    shot(app, "parametres_voice_faster_whisper")
+    assert app.screen.cut == []
+    assert app.settings.get("voice.stt.fw_model") == "small"  # valeur par défaut valide
+    drawn_now = {k for k, v in app._input_rects.items() if v[2] == app._frame}
+    assert "set_v_stt_model" not in drawn_now  # plus de champ libre où taper un nom de modèle invalide
+
+
+def test_long_status_message_does_not_overlap_the_footer(app) -> None:
+    app.open_settings("voice")
+    app.modal["status"] = ("Invalid model size 'whisper-1', expected one of: tiny.en, tiny, base.en, base, "
+                           "small.en, small, medium.en, medium, large-v1, large-v2, large-v3")
+    app.modal["status_ok"] = False
+    app.draw(app.test_ctx)
+    app.screen.blits.clear()
+    app.draw(app.test_ctx)
+    shot(app, "parametres_voice_message_long")
+    left_edge, bottom = (app.W - 960) // 2, (app.H - 780) // 2 + 780  # cadre de la fenêtre de paramètres
+    row = sorted((r for r in app.screen.blits
+                  if bottom - 62 <= r.y <= bottom - 36 and left_edge <= r.x <= left_edge + 960 and r.h < 30),
+                 key=lambda r: r.x)
+    assert len(row) >= 4  # « Enregistrer », « Fermer », le message, la mention de droite
+    for left, right in zip(row, row[1:], strict=False):
+        assert left.right <= right.left, f"deux textes se chevauchent en bas de la fenêtre : {left} / {right}"
+
+
 # --------------------------------------------------------------------------- mise en page
 @pytest.mark.parametrize("page", SETTINGS_PAGES)
 def test_settings_pages_have_no_text_cut_or_overflowing(app, page: str) -> None:

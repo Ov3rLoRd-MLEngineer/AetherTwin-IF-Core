@@ -39,7 +39,7 @@ DEFAULTS = {
         "sensitivity": 3,                     # 1 (peu sensible) à 5 (très sensible)
         "auto_send": True,                    # envoie le message dès qu'il est transcrit
         "speak_answers": False,               # lit les réponses de l'assistant à voix haute
-        "stt": {"backend": "api", "endpoint": "", "model": "whisper-1", "api_key": "", "exe": "",
+        "stt": {"backend": "api", "endpoint": "", "model": "whisper-1", "fw_model": "small", "api_key": "", "exe": "",
                 "args": "-f {audio} -l fr -nt", "language": "fr"},
         "tts": {"backend": "sapi", "rate": 0, "max_chars": 700, "piper_exe": "piper", "piper_model": ""},
     },

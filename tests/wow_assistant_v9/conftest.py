@@ -27,9 +27,11 @@ class SpySurface(pygame.Surface):
     def __init__(self, size) -> None:
         super().__init__(size)
         self.cut: list[tuple[int, int, int, int]] = []
+        self.blits: list[pygame.Rect] = []
 
     def blit(self, source, dest, *args, **kwargs):
         rect = source.get_rect(topleft=dest) if not isinstance(dest, pygame.Rect) else dest
+        self.blits.append(pygame.Rect(rect))
         clip = self.get_clip()
         visible = rect.clip(clip)
         if visible.h > 0 and visible.w > 0 and (rect.left < clip.left or rect.right > clip.right):

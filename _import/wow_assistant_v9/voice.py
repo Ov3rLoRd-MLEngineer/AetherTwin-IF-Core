@@ -36,6 +36,23 @@ MOUSE_KEYS = {"mouse3": 0x04, "mouse4": 0x05, "mouse5": 0x06}
 _MOD_VK = {"ctrl": 0x11, "control": 0x11, "alt": 0x12, "shift": 0x10, "win": 0x5B}
 MIN_SPEECH_SECONDS = 0.4
 MAX_SPEECH_BLOCKS = 400          # 20 s
+FASTER_WHISPER_MODELS = ("tiny", "base", "small", "medium", "large-v3")     # tailles proposées dans les Paramètres
+
+
+def faster_whisper_model(choice, legacy=""):
+    """Nom du modèle faster-whisper à charger.
+
+    `choice` = réglage voice.stt.fw_model. `legacy` = ancien champ partagé avec l'API (voice.stt.model) : on ne le
+    reprend que s'il désigne un dossier de modèle ou un dépôt (« org/modele ») — jamais un nom d'API comme
+    « whisper-1 », que faster-whisper refuse.
+    """
+    choice = str(choice or "").strip()
+    if choice:
+        return choice
+    legacy = str(legacy or "").strip()
+    if legacy and (os.path.isdir(legacy) or "/" in legacy):
+        return legacy
+    return "small"
 
 
 # ===========================================================================
@@ -185,7 +202,7 @@ class Transcriber:
             from faster_whisper import WhisperModel
         except ImportError:
             raise RuntimeError("faster-whisper n'est pas installé : pip install faster-whisper")
-        name = self._cfg("model") or "small"
+        name = faster_whisper_model(self._cfg("fw_model"), self._cfg("model"))
         if self._model is None or self._model_name != name:
             self._model, self._model_name = WhisperModel(name, compute_type="int8"), name
         fd, path = tempfile.mkstemp(suffix=".wav")

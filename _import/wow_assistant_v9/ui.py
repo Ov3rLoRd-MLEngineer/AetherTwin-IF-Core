@@ -17,6 +17,7 @@ import clipboard
 import mousepos
 import overlay as overlay_win
 import tabs
+import voice as voice_mod
 from character import EQUIPMENT_LAYOUT, Character, format_duration
 from config import WoWConfig
 from quests import QuestTracker
@@ -1574,9 +1575,12 @@ class UI:
 
         self.pill((x, by, 180, 36), "Enregistrer", True, lambda: self._apply_settings_inputs(True))
         self.pill((x + 190, by, 120, 36), "Fermer", False, self.close_modal)
+        footer = "settings.json (clé API stockée en clair sur ce PC)"
         if m["page"] != "llm" and m["status"]:
-            self.text(self.fit(m["status"], "small", 420), "small", "green" if m["status_ok"] else "red", (x + 330, by + 10))
-        self.text("settings.json (clé API stockée en clair sur ce PC)", "tiny", "gray", (rect.right - 24, by + 12), anchor="topright")
+            # le message s'arrête avant la mention de droite : il est abrégé au lieu de la chevaucher
+            room = rect.right - 24 - self.fonts["tiny"].size(self._glyphs(footer))[0] - 16 - (x + 330)
+            self.text(self.fit(m["status"], "small", max(60, room)), "small", "green" if m["status_ok"] else "red", (x + 330, by + 10))
+        self.text(footer, "tiny", "gray", (rect.right - 24, by + 12), anchor="topright")
 
     def _field(self, x, y, label, key, placeholder, label_w, field_w, mask=False):
         self.text(label, "small", "label", (x, y + 8))
@@ -1899,7 +1903,12 @@ class UI:
             y = self._field(x, y, "Programme", "set_v_stt_exe", "whisper-cli.exe (whisper.cpp) ou chemin complet", 270, 640)
             y = self._field(x, y, "Arguments", "set_v_stt_args", "-m modele.bin -f {audio} -l fr -nt", 270, 640)
         else:
-            y = self._field(x, y, "Modèle faster-whisper", "set_v_stt_model", "small, medium…", 270, 300)
+            # choix parmi les tailles acceptées par faster-whisper (« whisper-1 » est un nom de l'API, il y est refusé)
+            y = self._pill_choice(x, y, "Modèle faster-whisper", "voice.stt.fw_model",
+                                  tuple((name, name) for name in voice_mod.FASTER_WHISPER_MODELS), label_w=270, pw=112)
+            self.text("Du plus rapide (tiny) au plus précis (large-v3). Le modèle est téléchargé à la première utilisation.",
+                      "tiny", "gray", (x + 270, y - 8))
+            y += 18
         y = self._pill_choice(x, y, "Voix (TTS)", "voice.tts.backend",
                               (("sapi", "Voix Windows"), ("piper", "Piper"), ("off", "Désactivée")), pw=190)
         if self.settings.get("voice.tts.backend") == "piper":

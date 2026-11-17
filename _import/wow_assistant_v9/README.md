@@ -90,5 +90,8 @@ layout.json · chat_history.json · wowhead_links.json · recipes.json
 - Nouveau fichier : `clipboard.py` (presse-papier Windows, sans dépendance).
 - **Clés API** : bouton « × » à droite du champ (Paramètres > Assistant IA, et Paramètres > Voix) : efface la clé du champ
   et de `settings.json` immédiatement.
+- **Voix > faster-whisper** : le modèle se choisit par boutons (tiny, base, small, medium, large-v3) ; « whisper-1 », qui est
+  un nom de l'API, n'est plus transmis à faster-whisper. Le message d'état en bas de la fenêtre est abrégé au lieu de
+  chevaucher la mention de droite.
 - **Lancement** : double-cliquer sur `Lancer WoW Assistant.bat` (Python 3.11). Les widgets web demandent `pywebview`
   dans CE Python : `py -3.11 -m pip install pywebview`.
