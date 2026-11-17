@@ -5,6 +5,8 @@ Principe : **le code calcule, le LLM explique.**
 - La correction (juste / faux) est décidée par le code, avec une tolérance numérique.
 - Le LLM local, s'il est disponible, ne sert qu'à formuler l'explication au niveau de l'élève ; il reçoit
   la réponse déjà calculée et ne peut pas la changer. Sans LLM, une explication type est donnée.
+- Garde-fou : une explication qui contient un nombre que le code n'a pas fourni est rejetée (le modèle a
+  tendance à inventer des calculs intermédiaires faux). Une seconde chance, puis l'explication type.
 - Les sources (base de connaissances locale, recherche web polie) sont citées quand elles existent.
 
 La progression est mémorisée dans un fichier JSON local, propre à chaque élève.
@@ -14,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import random
+import re
 import time
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
@@ -258,9 +261,48 @@ class Tutor:
             f"L'élève a {'réussi' if correct else 'fait une erreur'}. "
             "Explique la démarche, encourage, et ne donne aucun autre nombre que ceux fournis ci-dessus."
         )
-        try:
-            text = self.llm([{"role": "user", "content": prompt}]).strip()
-        except Exception:  # noqa: BLE001 — LLM indisponible : on donne l'explication type
+        allowed = numbers_in(f"{exercise.question} {expected} {exercise.method} {given}")
+        messages = [{"role": "user", "content": prompt}]
+        text = ""
+        for _attempt in range(2):
+            try:
+                text = self.llm(messages).strip()
+            except Exception:  # noqa: BLE001 — LLM indisponible : on donne l'explication type
+                return fallback
+            invented = foreign_numbers(text, allowed)
+            if not invented:
+                break
+            # Le modèle a écrit un nombre que le code n'a pas fourni (calcul intermédiaire de son cru, souvent
+            # faux) : on le lui signale une fois, puis on renonce à son texte.
+            messages = [*messages, {"role": "assistant", "content": text}, {"role": "user", "content": (
+                f"Ton texte contient des nombres que je ne t'ai pas donnés ({', '.join(invented[:5])}). "
+                "Réécris l'explication sans aucun calcul intermédiaire, avec les seuls nombres fournis.")}]
+        else:
             return fallback
         # garde-fou : la valeur calculée par le code figure toujours dans la correction affichée
-        return text if str(exercise.answer) in text else f"{text}\n\n{verdict}"
+        if isinstance(exercise.answer, str):
+            shown = exercise.answer in text
+        else:  # « 89,0 » dans le texte vaut « 89.0 »
+            shown = not foreign_numbers(str(exercise.answer), numbers_in(text))
+        return text if shown else f"{text}\n\n{verdict}"
+
+
+_NUMBER = re.compile(r"\d+(?:[.,]\d+)?")
+SMALL_INTEGER_MAX = 10  # exposants, rangs (« 3ᵉ loi »), « 2 fois » : toujours admis
+
+
+def numbers_in(text: str) -> list[float]:
+    """Nombres écrits dans un texte (virgule ou point décimal)."""
+    return [float(match.replace(",", ".")) for match in _NUMBER.findall(text)]
+
+
+def foreign_numbers(text: str, allowed: list[float], tolerance: float = 0.005) -> list[str]:
+    """Nombres du texte absents de la liste admise (à 0,5 % près). Les petits entiers sont toujours admis."""
+    foreign = []
+    for raw in _NUMBER.findall(text):
+        value = float(raw.replace(",", "."))
+        if value == int(value) and value <= SMALL_INTEGER_MAX and "." not in raw and "," not in raw:
+            continue
+        if not any(abs(value - ok) <= tolerance * max(abs(ok), 1e-9) for ok in allowed):
+            foreign.append(raw)
+    return foreign

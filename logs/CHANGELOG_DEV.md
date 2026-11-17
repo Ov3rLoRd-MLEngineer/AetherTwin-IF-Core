@@ -439,3 +439,23 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
    descendre ; trois niveaux (débutant, intermédiaire, avancé) règlent le vocabulaire demandé au LLM.
 6. **Unités dans les noms de fonctions** (`_m`, `_s`, `_kg`, `_pa`, `_k`, `_mol`) et refus des valeurs non
    physiques (négatives, nulles, non finies).
+
+---
+
+## 2026-11-17 — Professeur : essai réel et garde-fou sur les nombres
+
+- **Agent :** Cloud
+- **Fichiers :** `modules/genesis_lab/tutor.py`, `tests/genesis_lab/test_tutor_module.py`, suivi.
+- **Essai réel** (`qwen3-27b:latest`, `num_ctx` 32 768, réponse fausse à un exercice de Kepler, niveaux
+  débutant et avancé) : le vocabulaire s'adapte au niveau ; la valeur calculée par le code (89,0 jours) est
+  conservée ; réponses en 5 à 11 s.
+- **Défaut constaté pendant l'essai :** au niveau avancé, le modèle a écrit un calcul intermédiaire de son
+  cru et faux (« racine cube de 0.059319 … 0.39 ans »), malgré la consigne de ne donner aucun autre nombre.
+- **Correction :** `foreign_numbers` compare les nombres du texte à ceux fournis par le code (énoncé,
+  réponse, démarche, réponse de l'élève). Un nombre étranger → le reproche précis est renvoyé au modèle
+  une fois ; s'il recommence, son texte est écarté et l'explication type est donnée. Les petits entiers
+  (exposants, « 3ᵉ loi ») sont admis ; « 89,0 » vaut « 89.0 ».
+- **Après correction, même essai réel :** aucune explication ne contient de nombre étranger.
+- **Limite connue :** le garde-fou contrôle les nombres, pas le sens des phrases. Une phrase fausse sans
+  nombre nouveau passerait. Essai réel limité à un exercice et deux niveaux.
+- **Tests :** `pytest` → 268 réussis, 2 ignorés ; `ruff check .` propre.

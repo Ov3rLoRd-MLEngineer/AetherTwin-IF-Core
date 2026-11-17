@@ -110,6 +110,38 @@ def test_tutor_works_without_llm_and_survives_failures(tmp_path: Path) -> None:
     assert not result["correct"] and str(exercise.answer) in result["explanation"] and result["sources"] == []
 
 
+def test_explanation_with_numbers_the_code_did_not_provide_is_rejected(tmp_path: Path) -> None:
+    """Constat réel du 17/11 : le modèle invente des calculs intermédiaires faux. Son texte est alors écarté."""
+    exercise = make_exercise("astro", 2, 5)  # « … à 0.39 unités astronomiques … » -> 89.0 jours
+    assert exercise.answer == 89.0
+    calls: list[list[dict[str, str]]] = []
+
+    def inventive(messages: list[dict[str, str]]) -> str:
+        calls.append(messages)
+        return "La racine de 0.059319 donne 0.2436 an, soit 89.0 jours."
+
+    result = Tutor(tmp_path / "a.json", llm=inventive).answer(exercise, 100)
+    assert len(calls) == 2 and "0.059319" in calls[1][-1]["content"]  # une seconde chance, avec le reproche précis
+    assert result["explanation"].startswith("La réponse attendue est 89.0 jours.")  # puis l'explication type
+    assert "0.059319" not in result["explanation"]
+
+    def corrected(messages: list[dict[str, str]]) -> str:
+        return ("La racine de 0.059319 donne 89.0 jours." if len(messages) == 1
+                else "Avec la 3ᵉ loi de Kepler, à 0,39 unité astronomique on trouve 89,0 jours et non 100.")
+
+    kept = Tutor(tmp_path / "b.json", llm=corrected).answer(exercise, 100)["explanation"]
+    assert kept.startswith("Avec la 3ᵉ loi") and "La réponse attendue" not in kept  # « 89,0 » vaut « 89.0 »
+
+
+def test_number_guard_helpers() -> None:
+    from modules.genesis_lab.tutor import foreign_numbers, numbers_in
+
+    assert numbers_in("à 0,39 UA : 89.0 jours, T² = a³") == [0.39, 89.0]
+    assert foreign_numbers("la 3ᵉ loi, 2 fois, 89,0 jours", [89.0]) == []  # petits entiers toujours admis
+    assert foreign_numbers("soit 88.9 jours", [89.0]) == [] and foreign_numbers("soit 95 jours", [89.0]) == ["95"]
+    assert foreign_numbers("3.5 fois", [89.0]) == ["3.5"]  # un décimal n'est pas un « petit entier »
+
+
 def test_corrupt_profile_starts_fresh(tmp_path: Path) -> None:
     path = tmp_path / "p.json"
     path.write_text("{ cassé", encoding="utf-8")

@@ -7,8 +7,8 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 
 ## Où on en est
 
-- Dépôt initialisé : venv Python 3.11, Git, lint, tests, CI, fichiers de suivi. **268 tests** au total :
-  266 passent partout, 2 sont des tests réels sur GPU, activés par `AETHERTWIN_REAL_OLLAMA=1`.
+- Dépôt initialisé : venv Python 3.11, Git, lint, tests, CI, fichiers de suivi. **270 tests** au total :
+  268 passent partout, 2 sont des tests réels sur GPU, activés par `AETHERTWIN_REAL_OLLAMA=1`.
 - Relais Cloud ⇄ Local écrit et testé **en simulation**.
 - **J2 terminé** : moniteur GPU, contrat de module, bus, ordonnanceur, gardiens, démon et API locale.
 - **J3 terminé** (17/11) : WoW Assistant porté dans `modules/gaming_hud/`, interface `GameAdapter`, trois
@@ -55,7 +55,7 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | Logo I&F Core (couleur + monochrome) | P1 | J4 | `FAIT-TESTÉ` | SVG géométrique écrit à la main, remplaçable ; la variante monochrome est affichée dans l'overlay |
 | Base vectorielle, scraping légal | P1 | J5 | `À FAIRE` | le routeur LLM, lui, est fait (voir plus haut) |
 | `genesis_lab` : calculs bio, astro, chimie | P1 | J5 | `FAIT-TESTÉ` | code déterministe, comparé à des valeurs de référence (année sidérale, ISS, Sirius, Proxima, masses molaires, volume molaire, pH de l'acide acétique…). Biopython non requis, comparaison croisée non faite |
-| `genesis_lab` : Professeur adaptatif | P1 | J5 | `SIMULÉ` | session guidée scriptée avec un LLM **factice** ; le code calcule et corrige, le LLM ne fait qu'expliquer. Jamais essayé avec le modèle local réel. Sources : branchement prévu, base vectorielle non faite |
+| `genesis_lab` : Professeur adaptatif | P1 | J5 | `FAIT-TESTÉ` | session guidée scriptée (LLM factice) + **essai réel** avec `qwen3-27b` à deux niveaux : le vocabulaire s'adapte, la valeur calculée par le code est conservée. L'essai a montré que le modèle invente des calculs intermédiaires faux : un garde-fou rejette désormais tout nombre non fourni par le code. Essai réel limité à un exercice. Sources : branchement prévu, base vectorielle non faite |
 | `genesis_lab` : module du Hub | P1 | J5 | `FAIT-TESTÉ` | calcul demandé sur le bus et rendu par le module dans son processus (démon réel) ; liste blanche d'outils |
 | `scantrad` | P1 | J6 | `À FAIRE` | |
 | `mangastudio`, `if_game` | P2 | J7 | `À FAIRE` | |

@@ -684,6 +684,8 @@ Professeur Personnel Adaptatif.
   - `def next_exercise(self, domain: str) -> Exercise`
   - `def answer(self, exercise: Exercise, given: Any) -> dict[str, Any]` — Corrige une réponse, adapte le niveau, mémorise, et rend l'explication avec ses sources.
   - `def progress(self) -> dict[str, Any]`
+- `def numbers_in(text: str) -> list[float]` — Nombres écrits dans un texte (virgule ou point décimal).
+- `def foreign_numbers(text: str, allowed: list[float], tolerance: float=0.005) -> list[str]` — Nombres du texte absents de la liste admise (à 0,5 % près). Les petits entiers sont toujours admis.
 
 ### `scripts/gen_architecture_map.py`
 
