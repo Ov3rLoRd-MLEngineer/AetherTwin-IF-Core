@@ -123,15 +123,24 @@ class WowRetailAdapter:
         return out
 
     def context_for_llm(self, state: dict[str, Any]) -> str:
-        """Même phrase que l'application d'origine (`main.player_context`), construite depuis l'état normalisé."""
-        c = state.get("character") or {}
-        if not c.get("name"):
-            return "Contexte joueur : inconnu (aucune donnée de jeu disponible)."
-        ilvl = c.get("ilvl") or 0
-        try:
-            ilvl_text = f"{float(ilvl):g}"
-        except (TypeError, ValueError):
-            ilvl_text = str(ilvl)
-        return (f"Contexte joueur : {c.get('name')}, niveau {c.get('level', '?')} {c.get('class', '')} "
-                f"{c.get('specialization', '')}, zone {c.get('zone') or 'inconnue'}, "
-                f"niveau d'objet {ilvl_text}.").replace("  ", " ")
+        return context_from_state(state)
+
+
+def context_from_state(state: dict[str, Any]) -> str:
+    """Résumé court pour l'assistant : la phrase de l'application d'origine, bâtie sur l'état normalisé.
+
+    Fonction de module pour que `app/main.py` puisse l'appeler sans construire d'adaptateur.
+    """
+    c = state.get("character") or {}
+    if not c.get("name"):
+        return "Contexte joueur : inconnu (aucune donnée de jeu disponible)."
+    ilvl = c.get("ilvl") or 0
+    try:
+        ilvl_text = f"{float(ilvl):g}"
+    except (TypeError, ValueError):
+        ilvl_text = str(ilvl)
+    zone, subzone = c.get("zone") or "", c.get("subzone") or ""
+    location = f"{zone} - {subzone}" if zone and subzone and subzone != zone else zone
+    return (f"Contexte joueur : {c.get('name')}, niveau {c.get('level', '?')} {c.get('class', '')} "
+            f"{c.get('specialization', '')}, zone {location or 'inconnue'}, "
+            f"niveau d'objet {ilvl_text}.").replace("  ", " ")

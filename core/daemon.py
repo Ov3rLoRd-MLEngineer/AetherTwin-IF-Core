@@ -27,10 +27,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from core import config
 from core.bus import EventBus
 from core.guardians.fuma import Fuma
 from core.guardians.inoue import Decision, Inoue, Verdict
 from core.hardware.gpu_monitor import GpuMonitor
+from core.llm_router import LlmConfig, LlmRouter
 from core.module_api import (
     MANIFEST_NAME,
     Event,
@@ -81,11 +83,14 @@ class Daemon:
 
     def __init__(self, modules_root: Path | None = None, monitor: GpuMonitor | None = None,
                  process_names: Callable[[], set[str] | None] = psutil_process_names,
-                 now: Callable[[], float] = time.time, python: str = sys.executable) -> None:
+                 now: Callable[[], float] = time.time, python: str = sys.executable,
+                 llm: LlmRouter | None = None) -> None:
         self.modules_root = modules_root or REPO_ROOT / "modules"
         self.monitor = monitor or GpuMonitor()
         self.bus = EventBus()
         self.inoue = Inoue(self.monitor)
+        self.llm = llm or LlmRouter(self.inoue, LlmConfig.from_section(config.section("ollama")))
+        self.contexts: dict[str, str] = {}  # module -> dernier contexte publié pour l'assistant
         self.fuma = Fuma(now=now)
         self.scheduler = GpuScheduler(self.inoue)
         self.modules: dict[str, ManagedModule] = {}
@@ -204,6 +209,20 @@ class Daemon:
             module.last_health = dict(event.payload.get("health") or {})
         elif parts[2] == "error":
             module.last_error = str(event.payload.get("error", ""))
+        elif parts[2] == "state" and event.payload.get("context"):
+            self.contexts[parts[1]] = str(event.payload["context"])
+
+    # -- assistant
+    def ask(self, prompt: str, model: str | None = None, with_context: bool = True) -> dict[str, Any]:
+        """Question à l'assistant local, avec le contexte publié par les modules actifs (déjà filtré par eux)."""
+        context = "\n".join(self.contexts[name] for name in sorted(self.contexts)
+                            if self.modules.get(name) and self.modules[name].active) if with_context else ""
+        messages: list[dict[str, Any]] = []
+        if context:
+            messages.append({"role": "system", "content": context})
+        messages.append({"role": "user", "content": prompt})
+        answer = self.llm.chat(messages, model=model)
+        return {**answer, "context_used": context}
 
     # -- un tour de surveillance
     def tick(self) -> dict[str, Any]:
@@ -244,6 +263,7 @@ class Daemon:
             "inoue": self.inoue.state(),
             "fuma": self.fuma.state(),
             "scheduler": self.scheduler.state(),
+            "llm": self.llm.state(),
             "manifest_errors": self.manifest_errors,
         }
 

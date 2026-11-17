@@ -18,13 +18,14 @@ Les phrases sont courtes. Rien n'est implicite.
 3. Le dépôt Git est initialisé. La branche est `main`.
 4. Le venv est `.venv`. Python 3.11.
 5. Le relais Cloud ⇄ Local existe : `scripts/relay_orchestrator.py`. Il est testé en simulation.
-6. Le jalon J2 est fait. `core/` contient : moniteur GPU, contrat de module, bus, lanceur de module,
-   ordonnanceur GPU, Inoue, Fuma, daemon, API locale. `modules/` est vide.
-7. Le code de WoW Assistant est dans `_import/wow_assistant_v9/`. Il n'est pas encore porté.
-8. Les tests passent : 134 tests. WoW Assistant v9 a reçu des correctifs le 17/11 (`tests/wow_assistant_v9/`).
+6. Les jalons J2 et J3 sont faits. `core/` contient : moniteur GPU, contrat de module, bus, lanceur de
+   module, ordonnanceur GPU, Inoue, Fuma, daemon, API locale, configuration, routeur LLM.
+7. `modules/gaming_hud/` est le premier module réel. Son dossier `app/` est le code d'origine de
+   WoW Assistant (imports à plat, ne pas reformater). Le dossier `_import/` n'existe plus.
+8. Les tests passent : 200 tests, plus 2 tests réels sur GPU ignorés par défaut. WoW Assistant v9 a reçu des correctifs le 17/11 (`tests/wow_assistant_v9/`).
    Les mêmes fichiers sont dans `D:\Hermes-Agent\wow_assistant_v9`, la copie que Jérémy utilise.
 9. Le poste a 2 GPU visibles : RTX 5080 16 Go et RTX 5060 Ti 16 Go. Les modèles restent en Q4_K_M.
-10. La prochaine tâche est le jalon J3 : porter WoW Assistant dans `modules/gaming_hud/` (tâche 8).
+10. La prochaine tâche est le jalon J4 : la page `/obs-hud` (voir « J4 » plus bas).
 
 ## Commandes exactes
 
@@ -48,8 +49,9 @@ N'utilise jamais `python` seul. Le `python` du PATH est une autre version (3.10)
 
 | Module | Commande | État |
 |---|---|---|
-| WoW Assistant d'origine | `cd _import\wow_assistant_v9` puis `python main.py` (demande pygame) | code d'origine, hors venv du projet |
-| `modules.gaming_hud` | `.venv\Scripts\python.exe -m modules.gaming_hud` | **n'existe pas encore** (J3) |
+| WoW Assistant (fenêtre Pygame) | `.venv\Scripts\python.exe -m modules.gaming_hud` | fait, testé en réel |
+| `gaming_hud` dans le Hub | daemon lancé, puis `curl -X POST http://127.0.0.1:5750/modules/gaming_hud/activate` | fait, testé en réel |
+| Question à l'assistant local | `curl -X POST http://127.0.0.1:5750/ask -H "Content-Type: application/json" -d "{\"prompt\":\"bonjour\",\"model\":\"qwen3-27b:latest\"}"` | fait, testé en réel |
 | Daemon + API | `.venv\Scripts\python.exe -m core.daemon` puis ouvrir `http://127.0.0.1:5750/health` | fait, testé |
 | Daemon sans API | `.venv\Scripts\python.exe -m core.daemon --no-api` | fait |
 | Autres modules | — | n'existent pas encore |
@@ -105,12 +107,18 @@ Fais une tâche à la fois. Après chaque tâche : tests, changelog, commit.
 
 - Détection des fenêtres (`pygetwindow`) : non faite. Seuls les processus sont observés.
 - Interface générée à la volée depuis `widget_schema()` : non faite. Elle dépend du port de `ui.py` (J3).
-- Inoue ne pilote pas Ollama. Le déchargement réel (`keep_alive=0`) viendra avec `core/llm_router.py` (J5).
-- `/ask` répond 503 tant que le routeur LLM n'existe pas.
+- (Fait depuis, le 17/11 : `core/llm_router.py` pilote Ollama pour Inoue, et `/ask` répond.)
 
 Comment écrire un module : un dossier `modules/<nom>/` avec `manifest.json` et une classe qui hérite de
-`ModuleBase` (`core/module_api.py`). Exemple complet et court : la constante `DEMO_MODULE` de
-`tests/core/test_daemon.py`.
+`ModuleBase` (`core/module_api.py`). Exemple court : la constante `DEMO_MODULE` de
+`tests/core/test_daemon.py`. Exemple réel : `modules/gaming_hud/module.py`.
+
+Comment ajouter un jeu : écrire une classe qui respecte `GameAdapter`
+(`modules/gaming_hud/adapters/base.py`). Pour un jeu qui écrit un journal texte, aucun code n'est
+nécessaire : copie `modules/gaming_hud/rules/log_tail.example.yaml` et adapte les règles.
+
+Comment appeler un modèle local : toujours par `core/llm_router.py` (`LlmRouter.chat`). Ne parle jamais
+à Ollama directement : le routeur fixe `num_ctx` et décharge l'ancien gros modèle avant d'en charger un autre.
 
 | # | Tâche | Fichiers | Terminé quand |
 |---|---|---|---|
@@ -122,7 +130,24 @@ Comment écrire un module : un dossier `modules/<nom>/` avec `manifest.json` et 
 | 6 | Ordonnanceur GPU | `core/scheduler.py` | File d'attente unique pour les tâches vision/diffusion |
 | 7 | Daemon minimal | `core/daemon.py`, `tests/core/test_daemon.py` | Démarre sans GPU. Charge et décharge un module de test. Détecte le lancement et l'arrêt d'un processus de test. API FastAPI sur `127.0.0.1` : `/health`, `/modules`, `/events`, `/gpu`, `/ask` |
 
-### J3 — `modules/gaming_hud/` (P0)
+### J4 — Mode Showcase OBS (P0/P1) — prochaine étape
+
+Déjà fait : le filtre de confidentialité (`modules/gaming_hud/adapters/privacy.py`) et la bascule
+automatique (`GamingHudModule.set_showcase`). Il reste :
+
+| # | Tâche | Fichiers | Terminé quand |
+|---|---|---|---|
+| A | Serveur de l'overlay | `modules/gaming_hud/obs_server.py`, `tests/gaming_hud/test_obs_server.py` | Écoute sur `127.0.0.1:5757` seulement. `GET /obs-hud` rend une page HTML. `GET /obs-hud/events` diffuse l'état en SSE. L'état diffusé passe **toujours** par `privacy_filter(state, "showcase")` |
+| B | Page de l'overlay | `modules/gaming_hud/web/obs_hud.html` (+ CSS/JS dans le même dossier) | Fond transparent. Aucune dépendance externe (pas de CDN). Affiche personnage, zone, quêtes, et les GPU (utilisation, VRAM, température, puissance) |
+| C | Logo | `assets/logo_if_core.svg`, `assets/logo_if_core_mono.svg` | Yin & Yang géométrique : Inoue claire, Fuma sombre. Variante monochrome pour l'overlay |
+| D | Captures de rendu | `tests/gaming_hud/test_obs_hud_render.py` | Playwright ouvre `/obs-hud` et enregistre une capture. Test ignoré si Playwright est absent |
+| E | Canaris sur la page | même fichier que A | Aucun canari (`tests/gaming_hud/test_adapters.py`) dans le HTML ni dans le flux SSE |
+
+### J3 — `modules/gaming_hud/` (P0) — **fait le 17/11/2026**
+
+Écarts avec le tableau ci-dessous : le code d'origine est dans `modules/gaming_hud/app/` et garde ses
+imports à plat ; `modules/gaming_hud.py` n'existe pas (un paquet du même nom le remplace) ; les tests
+sont dans `tests/gaming_hud/`.
 
 | # | Tâche | Fichiers | Terminé quand |
 |---|---|---|---|
@@ -145,6 +170,11 @@ Comment écrire un module : un dossier `modules/<nom>/` avec `manifest.json` et 
 | Claude Code ne connaît pas `ollama/...` : il suppose 200 000 jetons de contexte | Ollama n'en sert que 32 768 par défaut. Garder les tâches locales courtes. Une tâche = peu de fichiers |
 | OmniRoute écoute sur `0.0.0.0` sans clé | Le lancer avec `OMNIROUTE_SERVER_HOST=127.0.0.1` |
 | `tests/test_architecture_map.py` échoue après un ajout de fichier | Relancer `scripts\gen_architecture_map.py` |
+| `modules/gaming_hud/app/` utilise des imports à plat (`import ui`) | Appeler `modules.gaming_hud.ensure_app_path()` avant d'importer un de ses fichiers. Ne pas convertir en imports de paquet |
+| Un fichier de `app/` modifié | Le recopier dans `D:\Hermes-Agent\wow_assistant_v9` : les deux doivent rester identiques |
+| Message de commit contenant des guillemets sous PowerShell | Écrire le message dans un fichier, puis `git commit -F fichier` |
+| Un gros modèle Qwen dépasse 16 Go de VRAM | Normal : Ollama le répartit sur 2 GPU. Ne charge jamais deux gros modèles : passe par `LlmRouter` |
+| Les tests réels sur GPU sont ignorés par défaut | `set AETHERTWIN_REAL_OLLAMA=1` pour les activer |
 | `.toc` de l'addon sans `## SavedVariables` | Le jeu n'écrit rien. Ne jamais retirer cette ligne |
 | Widgets : clic sur les poignées | Enregistrer le corps **avant** les poignées |
 | Cache d'instantané | Une section vide n'écrase jamais une section connue |

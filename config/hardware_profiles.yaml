@@ -51,3 +51,18 @@ measured:
     vram_used_mib: { "RTX 5080": 1926, "RTX 5060 Ti": 6464 }   # nvidia-smi, modèle chargé ; 5060 Ti à 0 avant
     first_answer_s: 16.69            # chargement à froid compris, image 900x360
     note: "Ollama a placé le modèle entier sur la RTX 5060 Ti, restée libre."
+
+  - date: "2026-11-17"
+    what: "Gros modèles chargés l'un après l'autre par core/llm_router.py (test réel, num_ctx fixé)"
+    command: "AETHERTWIN_REAL_OLLAMA=1 pytest tests/core/test_llm_router.py -k real_ollama -s"
+    num_ctx: 32768
+    kv_cache_type: "q8_0"
+    models:
+      - { name: "qwen3-27b:latest", quantization: "Q4_K_M", vram_gib: 16.77, first_answer_s: 10.92 }
+      - { name: "qwen3-coder:30b-a3b-q4_K_M", quantization: "Q4_K_M", vram_gib: 19.69, first_answer_s: 14.02 }
+    source: "size_vram de /api/ps d'Ollama, après la première réponse (chargement à froid compris)"
+    observed:
+      - "Un seul gros modèle en mémoire à chaque instant : le routeur a déchargé le premier avant le second."
+      - "Les deux dépassent la VRAM d'une seule carte de 16 Go : Ollama les répartit sur les deux GPU."
+      - "Après déchargement : 0 MiB sur la RTX 5060 Ti, retour au niveau de repos sur la RTX 5080."
+    not_measured: "Répartition par GPU pendant le chargement ; débit en jetons par seconde ; contexte rempli."

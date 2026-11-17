@@ -143,6 +143,15 @@ def main():
         return f"{base}  ·  journal de combat : {monitor.status}" + ("  ·  FOCUS ACTIF" if focus.active else "")
 
     def player_context():
+        # Dans AetherTwin, le contexte de l'assistant vient de l'adaptateur de jeu (interface GameAdapter).
+        # Copie autonome de l'appli (sans le paquet « modules ») ou aucune donnée de jeu : phrase d'origine.
+        state = connection.snapshot or cached or {}
+        if state.get("character", {}).get("name"):
+            try:
+                from modules.gaming_hud.adapters.wow_retail import context_from_state
+                return context_from_state(state)
+            except ImportError:
+                pass
         c = character
         return (f"Contexte joueur : {c.name}, niveau {c.level} {c.class_name} {c.spec}, zone {c.location or 'inconnue'}, "
                 f"niveau d'objet {c.ilvl:g}.")

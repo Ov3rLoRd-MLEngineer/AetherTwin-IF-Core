@@ -10,6 +10,7 @@ import pytest
 from core.daemon import Daemon
 from core.guardians.inoue import Verdict
 from core.hardware.gpu_monitor import GpuInfo, GpuMonitor, UnknownBackend
+from core.llm_router import LlmError, LlmRouter
 from core.module_api import Event
 
 DEMO_MODULE = '''
@@ -49,6 +50,11 @@ def make_modules(root: Path, vram_min_gb: float = 0, extra: dict | None = None) 
     return root
 
 
+def ollama_stopped(method: str, url: str, body: dict | None, timeout_s: float) -> dict:
+    """Transport factice : Ollama est arrêté. Les tests du démon ne dépendent d'aucun serveur de modèles."""
+    raise LlmError("Ollama injoignable (arrêté pour le test)")
+
+
 class Processes:
     def __init__(self) -> None:
         self.names: set[str] | None = {"explorer.exe"}
@@ -77,7 +83,7 @@ def wait_for(predicate, timeout: float = 20.0) -> bool:
 def hub(tmp_path: Path):
     processes = Processes()
     daemon = Daemon(make_modules(tmp_path / "modules"), monitor=GpuMonitor(UnknownBackend()),
-                    process_names=processes)
+                    process_names=processes, llm=LlmRouter(transport=ollama_stopped))
     daemon.fuma.backoff_s = 0.0
     daemon.processes = processes  # type: ignore[attr-defined]
     daemon.topics = []  # type: ignore[attr-defined]
@@ -200,4 +206,5 @@ def test_local_api(hub: Daemon) -> None:
     assert client.post("/modules/demo/deactivate").json() == {"name": "demo", "active": False}
     assert client.post("/modules/inconnu/activate").status_code == 404
     answer = client.post("/ask", json={"prompt": "bonjour"})
-    assert answer.status_code == 503 and "routeur LLM" in answer.json()["detail"]  # honnête : pas encore branché
+    assert answer.status_code == 503 and "modèle" in answer.json()["detail"]  # erreur claire, pas de plantage
+    assert client.get("/health").json()["llm"]["reachable"] is False  # mode dégradé visible dans /health

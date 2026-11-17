@@ -7,10 +7,14 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 
 ## Où on en est
 
-- Dépôt initialisé : venv Python 3.11, Git, lint, tests, CI, fichiers de suivi. **134 tests** au total.
+- Dépôt initialisé : venv Python 3.11, Git, lint, tests, CI, fichiers de suivi. **202 tests** au total :
+  200 passent partout, 2 sont des tests réels sur GPU, activés par `AETHERTWIN_REAL_OLLAMA=1`.
 - Relais Cloud ⇄ Local écrit et testé **en simulation**.
 - **J2 terminé** : moniteur GPU, contrat de module, bus, ordonnanceur, gardiens, démon et API locale.
-- Aucun module du Hub n'existe encore. `modules/` est vide. Prochain jalon : J3.
+- **J3 terminé** (17/11) : WoW Assistant porté dans `modules/gaming_hud/`, interface `GameAdapter`, trois
+  adaptateurs, module du Hub avec bascule Showcase, routeur LLM. Premier module réel du Hub.
+- Essai réel de bout en bout réussi : démon → module → données du jeu → modèle local → réponse correcte.
+- Prochain jalon : **J4** (page `/obs-hud`, monitoring GPU dans l'overlay, logo).
 - Décisions de Jérémy : Q4_K_M tant que la VRAM est de 32 Go ; contexte local 32 768 ; pas de push pour l'instant.
 - Le code de WoW Assistant est dans `_import/wow_assistant_v9/`, intact, non porté.
 
@@ -37,10 +41,16 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | Détection de fenêtres (`pygetwindow`), interface générée à la volée (`widget_schema`) | P0 | J2→J3 | `À FAIRE` | reporté avec le port de `ui.py` |
 | Correctifs de WoW Assistant v9 (17/11) : fermeture, saisie, presse-papier, clic droit, widgets web, mise en page | P0 | avant J3 | `FAIT-TESTÉ` | 24 tests headless ; fermeture vérifiée avec de vraies fenêtres ; fenêtre web vérifiée activable (Python 3.10 et 3.11). **Testé par Jérémy le 17/11** : frappe dans Open WebUI, sessions conservées, fermeture. Connexion YouTube refusée par Google (limite connue). Bouton « × » d'effacement de clé API ajouté |
 | Modèles 3D à la place des silhouettes | P2 | — | `À FAIRE` | non entrepris : voir le changelog du 17/11 |
-| Port de WoW Assistant → `modules/gaming_hud/` | P0 | J3 | `À FAIRE` | code d'origine lu, non porté |
-| `GameAdapter` + `wow_retail` + `log_tail` + `screen_ocr` | P0 | J3 | `À FAIRE` | |
+| Port de WoW Assistant → `modules/gaming_hud/app/` | P0 | J3 | `FAIT-TESTÉ` | code déplacé sans modification ; `python -m modules.gaming_hud` lancé en réel : fenêtre ouverte, données du jeu lues, fermeture par la croix, code 0. Imports « à plat » conservés (décision consignée) |
+| Interface `GameAdapter` + adaptateur `wow_retail` | P0 | J3 | `FAIT-TESTÉ` | lecture seule vérifiée (aucun fichier du jeu modifié) ; testé sur un faux dossier de jeu **et** sur les SavedVariables réelles |
+| Adaptateur `log_tail` (journal texte + règles YAML) | P0 | J3 | `FAIT-TESTÉ` | fichier qui grandit, ligne incomplète, troncature, règles invalides ; **aucun vrai jeu** branché dessus |
+| Adaptateur `screen_ocr` (expérimental) | P0 | J3 | `FAIT-TESTÉ` | test réel avec `qwen2.5vl:7b` sur une **image générée** : 3 valeurs lues sur 3. Jamais essayé sur une vraie capture de jeu |
+| Filtre de confidentialité Showcase (`adapters/privacy.py`) | P0 | J3/J4 | `FAIT-TESTÉ` | canaris (compte, e-mail, chemin, clé, or exact, noms) absents de la sortie ; vérifié aussi sur les données réelles |
+| Module du Hub `GamingHudModule` + bascule Showcase | P0 | J3/J4 | `FAIT-TESTÉ` | bout en bout dans le démon réel ; le logiciel de diffusion est **simulé** par un faux processus (OBS réel non testé) |
+| `core/llm_router.py` + `/ask` + API compatible OpenAI | P1 | J5 (avancé) | `FAIT-TESTÉ` | faux Ollama en HTTP, puis **réel** : `qwen3-27b` (16,77 Go) puis `qwen3-coder:30b` (19,69 Go) à `num_ctx` 32 768, un seul en mémoire à la fois. Pas de diffusion mot à mot |
+| Assistant de l'appli branché sur le Hub | P0 | J3 | `FAIT-TESTÉ` | le `LLMClient` d'origine, inchangé, interroge le Hub (liste des modèles et réponse réelles). Contexte fourni par `GameAdapter` ; mode `hermes.exe` conservé, non testé |
 | Mode Showcase OBS, `/obs-hud`, filtre de confidentialité, logo | P0/P1 | J4 | `À FAIRE` | |
-| Base vectorielle, scraping légal, routeur LLM | P1 | J5 | `À FAIRE` | |
+| Base vectorielle, scraping légal | P1 | J5 | `À FAIRE` | le routeur LLM, lui, est fait (voir plus haut) |
 | `genesis_lab` + Professeur | P1 | J5 | `À FAIRE` | |
 | `scantrad` | P1 | J6 | `À FAIRE` | |
 | `mangastudio`, `if_game` | P2 | J7 | `À FAIRE` | |
@@ -61,6 +71,12 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | `qwen3-35b:latest` | 34,7 B, Q4_K_M, contexte max 262 144, 21 Go sur disque | `ollama show` |
 | VRAM vue par Ollama | 31,8 Gio au total ; contexte par défaut 32 768 | journal de démarrage d'Ollama |
 | Dépôt Ov3rLoRd | 237 commits sur `main`, 239 toutes branches, 23/06/2026 → 10/08/2026 | `git rev-list --count` sur le dépôt public |
+| VRAM `qwen3-27b` Q4_K_M, `num_ctx` 32 768 | **16,77 Gio** ; première réponse en 10,9 s | `/api/ps` d'Ollama, 17/11 |
+| VRAM `qwen3-coder:30b` Q4_K_M, `num_ctx` 32 768 | **19,69 Gio** ; première réponse en 14,0 s | `/api/ps` d'Ollama, 17/11 |
+| VRAM `qwen2.5vl:7b`, `num_ctx` 4 096 | 6 464 MiB sur la RTX 5060 Ti ; lecture d'image en 16,7 s à froid | `nvidia-smi`, 17/11 |
+
+Constat utile pour `docs/HARDWARE_FIT.md` : les deux gros modèles dépassent déjà, en Q4 et à 32 768 de
+contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les deux GPU.
 
 **Écarts avec le cahier des charges :**
 
@@ -72,9 +88,10 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 
 ## Reste à faire, par priorité
 
-1. **Restes du J2** (à traiter avec J3 et J5) : détection de fenêtres, interface générée à la volée, pilotage d'Ollama par Inoue (`keep_alive`).
-2. **P0 — J3** : port de WoW Assistant, `GameAdapter`, adaptateur `log_tail`.
-3. **P0/P1 — J4** : Showcase OBS, `/obs-hud`, filtre de confidentialité avec canaris, logo SVG.
+1. **Restes du J2** : détection de fenêtres, interface générée à la volée depuis `widget_schema()`.
+2. **P0/P1 — J4** : page `/obs-hud` (overlay transparent, SSE), monitoring des GPU dans l'overlay, logo SVG,
+   captures Playwright, essai avec OBS réel. Le filtre de confidentialité et la bascule sont déjà faits.
+3. **Restes du J3** : essayer `log_tail` et `screen_ocr` sur un vrai jeu ; diffusion mot à mot dans l'API.
 4. **P1 — J5/J6** : base vectorielle, routeur LLM, `genesis_lab`, `scantrad`.
 5. **P2 — J7** : `mangastudio`, `if_game` (squelettes honnêtes si le temps manque).
 6. **P0 — J8/J9** : documents finaux, installation en venv vierge, gel, soumission.
@@ -99,6 +116,10 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | 3 | Agent local seul : Ollama et OmniRoute lancés | `set ANTHROPIC_BASE_URL=http://127.0.0.1:20128/v1` · `set ANTHROPIC_AUTH_TOKEN=ollama` · `set ANTHROPIC_API_KEY=` puis `echo Lis AGENT_HANDOFF.md et resume-le en 3 lignes \| claude -p --model "ollama/qwen3-27b:latest"` | une réponse du modèle local, sans erreur de contexte |
 | 4 | Relais réel, fenêtre courte | `.venv\Scripts\python.exe scripts\relay_orchestrator.py --window-minutes 10 --max-cycles 1 --local-model qwen3-27b:latest` (depuis `cmd.exe`) | à la limite de quota : bascule sur l'agent local, puis retour ; vérifier `logs\relay.log` et `git log` |
 | 5 | Relever le message exact de limite de Claude Code | copier la ligne de `logs\relay.log` | permet d'ajuster `QUOTA_PATTERNS` si besoin |
+| 7 | Hub complet | `.venv\Scripts\python.exe -m core.daemon`, puis dans un autre terminal `curl -X POST http://127.0.0.1:5750/modules/gaming_hud/activate` et ouvrir `http://127.0.0.1:5750/events` | un événement `module.gaming_hud.state` avec ton personnage |
+| 8 | Bascule Showcase avec OBS réel | Hub lancé et `gaming_hud` actif, démarrer OBS, rouvrir `/events` | `module.gaming_hud.showcase` `{"on": true}`, puis un état sans chemin ni compte, or arrondi |
+| 9 | Assistant de l'appli via le Hub | dans WoW Assistant : Paramètres > Assistant IA, Endpoint `http://127.0.0.1:5750`, puis « Charger la liste des modèles » | la liste des modèles d'Ollama s'affiche ; les réponses passent par le Hub |
+| 10 | Tests réels sur GPU | `set AETHERTWIN_REAL_OLLAMA=1` puis `.venv\Scripts\python.exe -m pytest -k real -s` | 2 tests réussis, VRAM affichée |
 | 6 | Topologie 3 GPU, une fois le riser installé | `.venv\Scripts\python.exe -m core.hardware.gpu_monitor` | `gpu_count: 3`, environ 48 900 MiB |
 
 ## Points attendus de Jérémy

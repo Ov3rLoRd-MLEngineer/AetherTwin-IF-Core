@@ -4,9 +4,12 @@
 ollama:
   # Hôte:port de l'API Ollama. Local, ou une autre machine du réseau local.
   host: "127.0.0.1:11434"
-  # Profil « économe » et profil « qualité » : à mesurer, voir docs/HARDWARE_FIT.md
+  # Modèle utilisé quand une demande n'en précise pas. Tant que la machine a 32 Go de VRAM,
+  # on reste en Q4_K_M : mesures dans config/hardware_profiles.yaml.
+  default_model: "qwen3-27b:latest"
   model_economy: "qwen3-coder:30b-a3b-q4_K_M"
-  model_quality: ""
+  model_quality: ""        # profil Q8_0 : non défini (trop lourd pour 32 Go)
+  big_model_gb: 8          # au-dessus : « gros modèle », un seul chargé à la fois
   num_ctx: 32768
   keep_alive: "5m"
 
@@ -24,8 +27,14 @@ daemon:
   port: 5750
 
 gaming_hud:
-  obs_hud_port: 5757
+  adapter: "wow_retail"    # wow_retail | log_tail | screen_ocr
   game_path: ""            # dossier _retail_ ; vide = détection automatique
+  rules_file: ""           # log_tail : chemin d'un fichier de règles YAML
+  poll_seconds: 2
+  showcase_processes: ["obs64.exe", "obs32.exe", "obs.exe"]   # leur présence active le mode Showcase
+  hide_character_names: false                                  # en Showcase : remplace les noms de personnages
+  gold: "round"            # en Showcase : round (arrondi) | hide (masqué) | keep
+  obs_hud_port: 5757
 
 mangastudio:
   handsegnet_weights: ""   # chemin local des poids (non versionnés)

@@ -313,3 +313,61 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - **Non vérifié :** le redémarrage d'OmniRoute avec cette clé, et le fait que les fournisseurs répondent
   toujours. À faire par Jérémy.
 - **Retour arrière :** OmniRoute arrêté, remettre les quatre fichiers de la sauvegarde à leur place.
+- **Retour de Jérémy :** OmniRoute redémarre, la clé est chargée, la topologie des fournisseurs est correcte
+  (un fournisseur, « Gemini Web (Free) », est en erreur : non investigué).
+
+---
+
+## 2026-11-17 — J3 : gaming_hud, GameAdapter, routeur LLM
+
+- **Agent :** Cloud
+- **Fichiers :**
+  - déplacés : `_import/wow_assistant_v9/` → `modules/gaming_hud/app/` (sans modification) ; addon Lua →
+    `modules/gaming_hud/addon/HermesAssistant/` ; `tests/wow_assistant_v9/` → `tests/gaming_hud/` ;
+  - nouveaux : `modules/gaming_hud/__init__.py`, `__main__.py`, `module.py`, `manifest.json`,
+    `adapters/{base,privacy,wow_retail,log_tail,screen_ocr}.py`, `rules/log_tail.example.yaml`,
+    `core/config.py`, `core/llm_router.py`, `tests/gaming_hud/test_adapters.py`, `test_module.py`,
+    `tests/core/test_llm_router.py` ;
+  - modifiés : `core/api.py`, `core/daemon.py`, `core/module_runner.py`, `modules/gaming_hud/app/main.py`
+    (contexte de l'assistant fourni par l'adaptateur), `config/*.yaml`, fichiers de suivi.
+    `main.py` recopié dans `D:\Hermes-Agent\wow_assistant_v9`.
+- **Tests :** `pytest` → 200 réussis, 2 ignorés (tests réels sur GPU, lancés à la main et réussis) ;
+  `ruff check .` propre.
+- **Vérifications réelles :**
+  1. `python -m modules.gaming_hud` : fenêtre ouverte, SavedVariables du jeu lues, fermeture par la croix, code 0.
+  2. Adaptateur WoW sur les données réelles : état lu ; aucun nom, compte ni chemin dans la sortie Showcase.
+  3. `screen_ocr` avec `qwen2.5vl:7b` sur une image générée : 3 valeurs lues sur 3 ; 16,7 s à froid ;
+     6 464 MiB sur la RTX 5060 Ti.
+  4. Routeur LLM : `qwen3-27b` (16,77 Gio, 10,9 s) puis `qwen3-coder:30b` (19,69 Gio, 14,0 s), `num_ctx`
+     32 768 ; un seul gros modèle en mémoire à chaque instant ; VRAM rendue après déchargement.
+  5. Bout en bout : démon réel → `gaming_hud` activé par l'API → état du jeu publié → `/ask` au modèle
+     local avec le contexte du jeu → réponse correcte (zone et niveau). Puis le `LLMClient` de l'appli,
+     inchangé, pointé sur le Hub : 17 modèles listés, réponse reçue.
+- **Non vérifié :** OBS réel (simulé par un faux processus) ; `log_tail` et `screen_ocr` sur un vrai jeu ;
+  le mode `hermes.exe` ; l'appli lancée avec le jeu ouvert après le déplacement.
+
+### Décisions
+
+1. **Imports à plat conservés dans `app/`.** Convertir 30 fichiers en imports de paquet aurait été un
+   remaniement risqué, sans bénéfice à 8 jours de la clôture, et aurait cassé la copie autonome de
+   Jérémy. Le dossier est ajouté au chemin d'import par `ensure_app_path()`, uniquement dans le processus
+   qui en a besoin. Conséquence assumée : `app/` est exclu du lint et de la liste des signatures.
+2. **`modules/gaming_hud.py` n'existe pas** : Python ne permet pas un fichier et un paquet de même nom.
+   Le « point d'entrée mince » demandé est `modules/gaming_hud/__init__.py` + `__main__.py`.
+3. **Le module du Hub est un service de données sans fenêtre.** L'application Pygame reste indépendante
+   (`python -m modules.gaming_hud`). Le module lit l'état par un adaptateur et le publie sur le bus.
+4. **Le filtre de confidentialité ne fait pas confiance à la forme des données** : il supprime toute clé
+   au nom sensible et nettoie toute chaîne (e-mails, chemins, jetons), à n'importe quelle profondeur.
+   Par défaut le nom du personnage reste affiché et l'or est arrondi à un chiffre significatif.
+5. **En Showcase, le contexte destiné à l'assistant est bâti sur l'état filtré**, pas sur l'état brut.
+6. **Les sections de plus de 20 Ko ne sont pas publiées sur le bus** (collections, hauts faits…) : elles
+   sont listées dans `omitted`.
+7. **L'assistant de l'appli passe par le Hub sans modification de son code** : le Hub expose
+   `/v1/models` et `/v1/chat/completions` ; il suffit de régler l'adresse du serveur sur
+   `http://127.0.0.1:5750`. Le mode `hermes.exe` est donc conservé tel quel.
+8. **Routeur LLM avancé de J5 à J3**, car le branchement de l'assistant en dépend. « Gros modèle » =
+   plus de 8 Go : un seul chargé à la fois. Les petits modèles (vision 7 B) cohabitent.
+   L'estimation avant chargement vaut la taille des poids × 1,15 ; elle est remplacée par la mesure
+   réelle dès la première réponse.
+9. **`screen_ocr` reste marqué expérimental** : un modèle de vision peut se tromper. Les valeurs sont
+   validées par type ; une valeur illisible reste absente.

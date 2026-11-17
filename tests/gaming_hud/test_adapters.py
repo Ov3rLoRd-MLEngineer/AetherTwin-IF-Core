@@ -97,6 +97,20 @@ def test_wow_reads_saved_variables(wow: WowRetailAdapter) -> None:
                                           "zone Hurlevent, niveau d'objet 17.5.")
 
 
+def test_wow_context_matches_the_sentence_of_the_original_app(wow: WowRetailAdapter) -> None:
+    """Non-régression : l'adaptateur produit la même phrase que `main.player_context` d'origine."""
+    from character import Character  # module d'origine (app/), rendu importable par l'adaptateur
+
+    state = wow.read_state()
+    state["character"]["subzone"] = "Quartier commerçant"
+    c = Character()
+    c.update_from_dict(state["character"])
+    original = (f"Contexte joueur : {c.name}, niveau {c.level} {c.class_name} {c.spec}, "
+                f"zone {c.location or 'inconnue'}, niveau d'objet {c.ilvl:g}.")
+    assert wow.context_for_llm(state) == original
+    assert "Hurlevent - Quartier commerçant" in original
+
+
 def test_wow_without_game_is_degraded_not_broken(tmp_path: Path) -> None:
     adapter = WowRetailAdapter(str(tmp_path / "absent"), autodetect=False)
     state = adapter.read_state()

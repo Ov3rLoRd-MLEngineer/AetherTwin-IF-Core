@@ -7,11 +7,11 @@ Deux parties :
   `scripts/gen_architecture_map.py` via `ast`. Ne les modifie pas à la main.
   Un test (`tests/test_architecture_map.py`) échoue si elles sont périmées.
 
-État au 16/11/2026 : seuls `scripts/` et `tests/` contiennent du code. `core/` et
-`modules/` sont des paquets vides (jalons J2 et J3). Les schémas marqués
-« cible » décrivent ce qui est prévu, pas ce qui existe.
+État au 17/11/2026 : le centre (`core/`) et un premier module réel (`modules/gaming_hud/`) existent
+et sont testés. Les modules `scantrad`, `mangastudio`, `genesis_lab` et `if_game` du schéma ci-dessous
+n'existent pas encore : pour eux, le schéma décrit la cible.
 
-## Vue d'ensemble (cible)
+## Vue d'ensemble
 
 ```mermaid
 flowchart TB
@@ -34,8 +34,59 @@ flowchart TB
     INOUE -. autorise / met en file .-> STUDIO
 ```
 
-Chaque module tourne dans un **processus séparé** et ne parle au Hub que par le bus
-local (`127.0.0.1`). Statut : **À FAIRE** (J2).
+Chaque module tourne dans un **processus séparé** (`core/module_runner.py`) et ne parle au Hub que
+par le bus local (`core/bus.py`, `127.0.0.1`, clé tirée au hasard à chaque lancement, messages JSON).
+
+## Flux d'un module réel : gaming_hud (existant, testé en réel)
+
+```mermaid
+sequenceDiagram
+    participant J as Jeu (fichiers, lecture seule)
+    participant M as GamingHudModule (processus séparé)
+    participant B as Bus du Hub
+    participant D as Démon (Inoue, Fuma, API)
+    participant R as LlmRouter
+    participant O as Ollama (local)
+    D->>M: lance le processus (Inoue a accordé la VRAM demandée : 0)
+    loop toutes les 2 s
+        M->>J: GameAdapter.read_state()
+        M->>M: privacy_filter(état, "off" ou "showcase")
+        M->>B: module.gaming_hud.state {state, context, omitted}
+    end
+    D->>B: process.started {obs64.exe}
+    B->>M: événement
+    M->>B: module.gaming_hud.showcase {on: true}
+    Note over M,B: désormais tout ce qui est publié est filtré
+    D->>R: /ask : question + contexte publié par les modules actifs
+    R->>D: Inoue.plan_llm_load → modèles à décharger d'abord
+    R->>O: keep_alive 0 (ancien gros modèle), puis /api/chat (num_ctx fixé)
+    O->>R: réponse ; VRAM réelle relue dans /api/ps
+```
+
+| Sujet du bus | Émetteur | Contenu |
+|---|---|---|
+| `hub.started`, `hub.shutdown` | démon | démarrage et arrêt du Hub |
+| `process.started`, `process.stopped` | démon | `{name}` d'un processus de la machine |
+| `gpu.alert.temperature`, `gpu.alert.power` | Fuma | GPU au-dessus d'une limite |
+| `module.<nom>.started`, `.health`, `.stopped`, `.error` | lanceur de module | cycle de vie |
+| `module.<nom>.restarted` | Fuma | module relancé après un plantage |
+| `module.<nom>.vram` | démon | décision d'Inoue quand elle n'accorde pas la VRAM |
+| `module.<nom>.cmd.*` | démon ou API | ordres : `stop`, `showcase`, `refresh` |
+| `module.gaming_hud.state`, `.showcase` | gaming_hud | état du jeu, bascule Showcase |
+
+### Adaptateurs de jeu
+
+`modules/gaming_hud/adapters/base.py` définit `GameAdapter` : `detect`, `read_state`, `schema`,
+`widgets`, `privacy_filter`, `context_for_llm`. Trois implémentations :
+
+| Adaptateur | Source | Statut |
+|---|---|---|
+| `wow_retail` | SavedVariables de l'addon HermesAssistant (via `app/game_connection.py`) | testé sur données réelles |
+| `log_tail` | un journal texte + des règles regex en YAML | testé, aucun vrai jeu branché |
+| `screen_ocr` | capture d'écran lue par le modèle de vision local | expérimental, testé sur image générée |
+
+Le filtre commun est `adapters/privacy.py` : il parcourt tout l'état, supprime les clés au nom
+sensible et nettoie chaque chaîne. Il ne suppose rien de la forme des données.
 
 ## Flux du relais Cloud ⇄ Local (existant, testé en simulation)
 
@@ -72,9 +123,10 @@ Points de conception :
 - Le prompt de Claude Code passe par l'entrée standard, jamais par un shell.
 - À la reprise, Claude reçoit le **diff seulement** (tronqué à 20 000 caractères).
 
-## Flux de données de WoW Assistant (code d'origine, à porter en J3)
+## Flux de données de WoW Assistant (application d'origine)
 
-Référence figée : `_import/wow_assistant_v9/`.
+Emplacement : `modules/gaming_hud/app/` (imports à plat, lancée par `python -m modules.gaming_hud`).
+Ses signatures ne sont pas listées dans la partie générée.
 
 ```mermaid
 flowchart LR
@@ -90,8 +142,9 @@ flowchart LR
     UI --> LLM["llm.LLMClient — API compatible OpenAI ou hermes.exe"]
 ```
 
-Cible J3 : `GameConnection` + parseur + cache deviennent `adapters/wow_retail.py`
-derrière l'interface `GameAdapter` ; `LLMClient` devient client de `core/llm_router.py`.
+Fait en J3 : `adapters/wow_retail.py` enveloppe `GameConnection`, le parseur et la règle de fusion
+du cache derrière `GameAdapter`, sans les modifier. `LLMClient` devient client du Hub en réglant son
+serveur sur `http://127.0.0.1:5750` (API compatible OpenAI servie par `core/api.py`).
 
 <!-- AUTO:BEGIN -->
 ## Arborescence (générée)
@@ -110,6 +163,7 @@ core/
   hardware/
     __init__.py
     gpu_monitor.py
+  llm_router.py
   module_api.py
   module_runner.py
   scheduler.py
@@ -191,6 +245,7 @@ tests/
     test_daemon.py
     test_gpu_monitor.py
     test_guardians.py
+    test_llm_router.py
     test_module_api.py
   data/
     .gitkeep
@@ -225,6 +280,7 @@ logs/
 API HTTP locale du démon (FastAPI). Servie sur 127.0.0.1 uniquement par `core.daemon`.
 
 - **`class AskRequest(BaseModel)`**
+- **`class ChatRequest(BaseModel)`**
 - `def create_app(daemon: Daemon) -> FastAPI`
 
 ### `core/bus.py`
@@ -266,6 +322,7 @@ Le démon : centre de l'architecture en étoile.
   - `def reload_modules(self) -> None` — (Re)lit les manifestes de `modules/`. Un manifeste invalide est signalé, pas fatal.
   - `def activate(self, name: str, auto: bool=False) -> Decision` — Demande la VRAM à Inoue puis lance le module dans son processus. Idempotent.
   - `def deactivate(self, name: str, timeout_s: float=8.0) -> None` — Arrêt propre (ordre sur le bus), puis arrêt forcé si le module ne répond pas. Rend la VRAM.
+  - `def ask(self, prompt: str, model: str | None=None, with_context: bool=True) -> dict[str, Any]` — Question à l'assistant local, avec le contexte publié par les modules actifs (déjà filtré par eux).
   - `def tick(self) -> dict[str, Any]` — Un tour : processus, déclencheurs, watchdog, alertes GPU, tâches de nuit. Retourne ce qui a changé.
   - `def status(self) -> dict[str, Any]`
   - `def modules_status(self) -> list[dict[str, Any]]`
@@ -328,6 +385,26 @@ Moniteur GPU : mesure la topologie réelle au lieu de la présumer.
   - `def snapshot(self) -> list[GpuInfo]` — État de chaque GPU. En cas d'erreur de lecture : liste vide et `last_error` renseigné.
   - `def total_vram_mib(self) -> int`
   - `def report(self) -> dict[str, Any]` — Résumé sérialisable (API `/gpu`, overlay OBS).
+
+### `core/llm_router.py`
+
+Routeur LLM du Hub : toutes les demandes de génération passent par ici, vers Ollama, en local.
+
+- **`class LlmError(RuntimeError)`** — Ollama injoignable, modèle absent, réponse inattendue.
+- **`class LlmRefused(LlmError)`** — Inoue refuse ou diffère le chargement : le modèle ne tient pas dans le budget VRAM.
+- **`class LlmConfig`**
+  - `def from_section(cls, raw: dict[str, Any]) -> LlmConfig` — Construit la configuration depuis la section `ollama` de `config/local.yaml`.
+  - `def base_url(self) -> str`
+- `def http_json(method: str, url: str, body: dict[str, Any] | None, timeout_s: float) -> dict[str, Any]` — Appel HTTP JSON vers Ollama. Lève `LlmError` avec un message lisible.
+- **`class LlmRouter`** — Point d'entrée unique vers les modèles de langage locaux.
+  - `def list_models(self) -> list[dict[str, Any]]` — Modèles installés : `[{"name", "size_gb", "parameters", "quantization"}]`.
+  - `def loaded(self) -> list[dict[str, Any]]` — Modèles actuellement en mémoire : `[{"name", "vram_gb", "size_gb", "context"}]` (lu dans `/api/ps`).
+  - `def estimate_vram_gb(self, model: str) -> float` — VRAM à prévoir : la dernière valeur **mesurée** si elle existe, sinon taille des poids x marge.
+  - `def unload(self, model: str) -> None` — Décharge réellement un modèle de la VRAM (`keep_alive: 0`).
+  - `def sync(self) -> list[str]` — Aligne la comptabilité d'Inoue sur ce qu'Ollama a vraiment en mémoire (les modèles expirent seuls).
+  - `def chat(self, messages: list[dict[str, Any]], model: str | None=None, num_ctx: int | None=None, think: bool | None=None, options: dict[str, Any] | None=None) -> dict[str, Any]` — Envoie une conversation au modèle local. Retourne `{"content", "model", "num_ctx", "seconds", …}`.
+  - `def state(self) -> dict[str, Any]` — État pour l'API du démon. Ne lève jamais : Ollama arrêté = mode dégradé.
+- `def openai_to_ollama(messages: list[dict[str, Any]]) -> list[dict[str, Any]]` — Convertit des messages au format OpenAI (texte, ou parties texte + `image_url` en data URI) pour Ollama.
 
 ### `core/module_api.py`
 
@@ -455,7 +532,8 @@ Adaptateur World of Warcraft (Retail) : l'implémentation d'origine derrière l'
   - `def schema(self) -> dict[str, Any]`
   - `def widgets(self) -> list[dict[str, Any]]`
   - `def privacy_filter(self, state: dict[str, Any], mode: str) -> dict[str, Any]`
-  - `def context_for_llm(self, state: dict[str, Any]) -> str` — Même phrase que l'application d'origine (`main.player_context`), construite depuis l'état normalisé.
+  - `def context_for_llm(self, state: dict[str, Any]) -> str`
+- `def context_from_state(state: dict[str, Any]) -> str` — Résumé court pour l'assistant : la phrase de l'application d'origine, bâtie sur l'état normalisé.
 
 ### `modules/gaming_hud/module.py`
 
