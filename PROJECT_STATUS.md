@@ -21,7 +21,9 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
   (`docs/captures/scantrad_page_test_fr.png`). Prochaine étape : J7 (`mangastudio`, `if_game`).
 - Décisions de Jérémy : Q4_K_M tant que la VRAM est de 32 Go ; contexte local 32 768 ; pas de push pour l'instant.
 - **Lancement simple** (17/11) : `Lancer AetherTwin.bat` à la racine (raccourci « AetherTwin » sur le bureau)
-  ouvre un tableau de bord local sur `http://127.0.0.1:5750/` : GPU, modules, assistant, Professeur.
+  démarre le Hub et ouvre le tableau de bord sur `http://127.0.0.1:5750/`, en onglets : Accueil (GPU,
+  modules), Jeu (WoW Assistant, état du jeu, Showcase, overlay OBS), Assistant, Professeur, Connaissances,
+  Scantrad (envoi d'image, glossaire), Journal. Bouton « Arrêter le Hub ».
 - Le code de WoW Assistant est dans `modules/gaming_hud/app/`.
 
 ## Tableau des briques
@@ -128,13 +130,13 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 3 | Agent local seul : Ollama et OmniRoute lancés | `set ANTHROPIC_BASE_URL=http://127.0.0.1:20128/v1` · `set ANTHROPIC_AUTH_TOKEN=ollama` · `set ANTHROPIC_API_KEY=` puis `echo Lis AGENT_HANDOFF.md et resume-le en 3 lignes \| claude -p --model "ollama/qwen3-27b:latest"` | une réponse du modèle local, sans erreur de contexte |
 | 4 | Relais réel, fenêtre courte | `.venv\Scripts\python.exe scripts\relay_orchestrator.py --window-minutes 10 --max-cycles 1 --local-model qwen3-27b:latest` (depuis `cmd.exe`) | à la limite de quota : bascule sur l'agent local, puis retour ; vérifier `logs\relay.log` et `git log` |
 | 5 | Relever le message exact de limite de Claude Code | copier la ligne de `logs\relay.log` | permet d'ajuster `QUOTA_PATTERNS` si besoin |
-| 7 | Hub complet | raccourci **AetherTwin** du bureau, choix 2 ; le tableau de bord s'ouvre sur `http://127.0.0.1:5750/` | GPU, modules `gaming_hud` et `genesis_lab` « actif » ; lien « Derniers événements » : un `module.gaming_hud.state` avec ton personnage |
-| 8 | Bascule Showcase avec OBS réel | Hub lancé (choix 2), démarrer OBS, rouvrir « Derniers événements » | `module.gaming_hud.showcase` `{"on": true}`, puis un état sans chemin ni compte, or arrondi |
-| 13 | Scantrad sur une de tes pages | Hub lancé ; raccourci **AetherTwin**, choix 4, glisser l'image dans la fenêtre | image `_fr.png` à côté de l'original ; note les bulles ratées (vraie page scannée jamais essayée) |
-| 14 | Recherche par vecteurs | `ollama pull nomic-embed-text`, relancer le Hub, « Collecter maintenant » | ligne Connaissances : « avec vecteurs (nomic-embed-text) » |
-| 12 | Professeur | tableau de bord, section Professeur : « Nouvel exercice », répondre, « Corriger » | correction, explication rédigée par le modèle local (10 à 40 s au premier appel), niveau qui évolue |
+| 7 | Hub complet — **OK (Jérémy, 17/11)** ; à refaire avec les onglets | raccourci **AetherTwin** ; onglet **Jeu** : « Lancer WoW Assistant », puis « Fermer » | la fenêtre de WoW Assistant s'ouvre et se ferme depuis le navigateur ; « Ce que l'assistant sait de ton jeu » affiche ton personnage |
+| 8 | Bascule Showcase avec OBS réel | onglet **Jeu**, OBS fermé puis ouvert | l'étiquette passe de « Showcase : inactif » à « Showcase : ACTIF » sans rien toucher (vérifié par Claude avec OBS ouvert, 17/11) |
+| 13 | Scantrad sur une de tes pages — 1er essai : bulles ratées, texte non effacé (corrigé le 17/11) | onglet **Scantrad** : choisir l'image, « Traduire » | original et traduction côte à côte, liste des bulles ; note celles qui manquent |
+| 14 | Recherche par vecteurs — **OK (Jérémy, 17/11)** : 377 passages avec vecteurs | — | — |
+| 12 | Professeur — **OK (Jérémy, 17/11)** | — | — |
 | 9 | Assistant de l'appli via le Hub | dans WoW Assistant : Paramètres > Assistant IA, Endpoint `http://127.0.0.1:5750`, puis « Charger la liste des modèles » | la liste des modèles d'Ollama s'affiche ; les réponses passent par le Hub |
-| 11 | Overlay dans OBS | Hub lancé et `gaming_hud` actif ; dans OBS : Sources > + > Navigateur, URL `http://127.0.0.1:5757/obs-hud`, largeur 420, hauteur 600 | l'overlay apparaît sur fond transparent, les jauges GPU bougent, aucun chemin ni nom de compte visible |
+| 11 | Overlay dans OBS — **OK (Jérémy, 17/11, capture)** | — | — |
 | 10 | Tests réels sur GPU | `set AETHERTWIN_REAL_OLLAMA=1` puis `.venv\Scripts\python.exe -m pytest -k real -s` | 2 tests réussis, VRAM affichée |
 | 6 | Topologie 3 GPU, une fois le riser installé | `.venv\Scripts\python.exe -m core.hardware.gpu_monitor` | `gpu_count: 3`, environ 48 900 MiB |
 

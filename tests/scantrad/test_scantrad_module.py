@@ -27,3 +27,26 @@ def test_scantrad_module_translates_on_command(tmp_path: Path) -> None:
         assert missing["ok"] is False and "introuvable" in missing["error"]
     finally:
         daemon.stop()
+
+
+def test_dashboard_upload_translates_through_the_module(tmp_path: Path, monkeypatch) -> None:
+    from fastapi.testclient import TestClient
+
+    import core.api
+    from core.api import create_app
+
+    monkeypatch.setattr(core.api, "SCANTRAD_DIR", tmp_path / "scantrad")
+    daemon = Daemon(REPO_ROOT / "modules", monitor=GpuMonitor(UnknownBackend()), process_names=lambda: set(),
+                    llm=LlmRouter(transport=ollama_stopped))
+    daemon.start()
+    try:
+        client = TestClient(create_app(daemon))
+        reply = client.post("/scantrad/translate?no_llm=true", content=PAGE.read_bytes(),
+                            headers={"Content-Type": "image/png"}).json()
+        assert reply["ok"] is True, reply  # le module est lancé à la demande
+        assert reply["result"]["metrics"]["bubbles"] == 5
+        image = client.get(reply["output_url"])
+        assert image.status_code == 200 and image.headers["content-type"] == "image/png"
+        assert client.get(reply["input_url"]).content == PAGE.read_bytes()
+    finally:
+        daemon.stop()

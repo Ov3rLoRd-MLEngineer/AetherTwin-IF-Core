@@ -45,10 +45,19 @@ def test_minimal_manifest_has_safe_defaults() -> None:
     ({"python_deps": "torch"}, "python_deps"),
     ({"triggers": {"ports": [70000]}}, "ports"),
     ({"triggers": []}, "triggers"),
+    ({"app": {"module": "modules.x; del C:\\"}}, "app"),  # jamais une commande libre
+    ({"app": {"module": "../evil"}}, "app"),
+    ({"app": "notepad.exe"}, "app"),
 ])
 def test_invalid_manifests_are_rejected_with_a_precise_message(change: dict, expected: str) -> None:
     with pytest.raises(api.ManifestError, match=expected):
         api.parse_manifest({**VALID, **change})
+
+
+def test_manifest_app_is_a_python_module() -> None:
+    manifest = api.parse_manifest({**VALID, "app": {"label": "WoW Assistant", "module": "modules.gaming_hud"}})
+    assert manifest.app == ("WoW Assistant", "modules.gaming_hud")
+    assert api.parse_manifest(VALID).app is None
 
 
 def test_manifest_must_be_an_object() -> None:

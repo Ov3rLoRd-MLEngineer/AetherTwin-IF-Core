@@ -533,3 +533,24 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   bulles voisines et effacé du dessin : annulée, seul le masque d'effacement est élargi.
 - **Tests :** ruff propre ; pytest vert. **Réel** (page de Jérémy, non versionnée) : 4 bulles traduites,
   7 faux positifs écartés, dessin intact ; ratés : texte manuscrit et texte rogné au bord.
+
+## 2026-11-17 — Hub tout-en-un dans le navigateur (onglets)
+
+- **Agent :** Cloud
+- **Demande de Jérémy :** tout faire depuis le navigateur, en onglets, et lancer WoW Assistant depuis le Hub.
+- **Fichiers :** `core/web/dashboard.{html,css,js}`, `core/api.py`, `core/daemon.py`, `core/module_api.py`
+  (champ `app` du manifeste), `modules/gaming_hud/manifest.json`, `Lancer AetherTwin.bat` (plus de menu),
+  `tests/core/{test_dashboard,test_module_api,sleeper}.py`, `tests/scantrad/test_scantrad_module.py`, suivi.
+- **Ajouts :** onglets Accueil, Jeu, Assistant, Professeur, Connaissances, Scantrad, Journal ; application de
+  bureau d'un module (`app` : un module Python validé, jamais une commande libre ; une seule instance ; fermée
+  avec le Hub) ; dernier état publié par module (`/modules/{nom}/state`) ; commande sans réponse
+  (`/notify`, bascule Showcase) ; envoi d'image à scantrad (`/scantrad/translate`, 25 Mo max, PNG/JPEG/WebP,
+  fichiers servis seulement depuis `data/scantrad/{entrees,sorties}`) ; glossaire éditable ; arrêt du Hub
+  (`/shutdown`) ; le Professeur lance son module à la demande ; le démon attend qu'un module fraîchement lancé
+  écoute le bus avant de lui envoyer une commande.
+- **Problème :** `display: grid` des panneaux annulait l'attribut `hidden` → règle `[hidden]` explicite.
+- **Tests :** ruff propre ; pytest vert. **Réel** : onglets affichés, état du personnage et Showcase actif
+  (OBS ouvert), WoW Assistant ouvert puis fermé depuis l'onglet Jeu (fenêtre vérifiée), page traduite par
+  envoi HTTP (4 bulles, 34,7 s), arrêt du Hub par le bouton sans processus restant. **Non vérifié** : envoi
+  d'image depuis le sélecteur de fichier du navigateur (testé par l'API seulement) ; WoW Assistant est fermé
+  brutalement (`terminate`), un réglage non enregistré serait perdu.

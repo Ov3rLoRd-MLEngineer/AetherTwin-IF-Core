@@ -13,5 +13,6 @@
     "ports": []
   },
   "network": [],
-  "experimental": false
+  "experimental": false,
+  "app": {"label": "WoW Assistant", "module": "modules.gaming_hud"}
 }

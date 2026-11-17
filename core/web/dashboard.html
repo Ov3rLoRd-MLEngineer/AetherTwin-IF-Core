@@ -10,81 +10,183 @@
 <body>
   <header>
     <img src="/static/logo.svg" alt="" width="40" height="40">
-    <div>
+    <div class="grow">
       <h1>AetherTwin <span>I&amp;F Core</span></h1>
       <p id="hub-line">Connexion au Hub…</p>
     </div>
+    <button id="hub-stop" type="button" class="ghost danger">Arrêter le Hub</button>
   </header>
 
+  <nav id="tabs" role="tablist">
+    <button role="tab" data-tab="accueil">Accueil</button>
+    <button role="tab" data-tab="jeu">Jeu</button>
+    <button role="tab" data-tab="assistant">Assistant</button>
+    <button role="tab" data-tab="professeur">Professeur</button>
+    <button role="tab" data-tab="connaissances">Connaissances</button>
+    <button role="tab" data-tab="scantrad">Scantrad</button>
+    <button role="tab" data-tab="journal">Journal</button>
+  </nav>
+
   <main>
-    <section>
-      <h2>Cartes graphiques</h2>
-      <div id="gpus" class="cards"><p class="muted">Mesure en cours…</p></div>
-      <p id="llm-line" class="muted"></p>
-    </section>
+    <!-- Accueil -->
+    <div class="panel" data-panel="accueil">
+      <section>
+        <h2>Cartes graphiques</h2>
+        <div id="gpus" class="cards"><p class="muted">Mesure en cours…</p></div>
+        <p id="llm-line" class="muted"></p>
+      </section>
+      <section>
+        <h2>Modules</h2>
+        <table>
+          <thead><tr><th>Module</th><th>État</th><th>Détail</th><th></th></tr></thead>
+          <tbody id="modules"></tbody>
+        </table>
+        <p class="muted">Un module se lance aussi seul quand son déclencheur apparaît (ex. gaming_hud avec WoW ou OBS).</p>
+      </section>
+    </div>
 
-    <section>
-      <h2>Modules</h2>
-      <table>
-        <thead><tr><th>Module</th><th>État</th><th>Détail</th><th></th></tr></thead>
-        <tbody id="modules"></tbody>
-      </table>
-      <p class="muted">Un module se lance aussi seul quand son déclencheur apparaît (ex. gaming_hud avec WoW ou OBS).</p>
-    </section>
-
-    <section>
-      <h2>Assistant local</h2>
-      <form id="ask-form">
-        <textarea id="ask-prompt" rows="3" placeholder="Pose ta question au modèle local…" required></textarea>
+    <!-- Jeu -->
+    <div class="panel" data-panel="jeu" hidden>
+      <section>
+        <h2>WoW Assistant</h2>
+        <p class="muted">L'application de bureau d'origine (fenêtre Pygame), lancée par le Hub.</p>
         <div class="row">
-          <label><input type="checkbox" id="ask-context" checked> avec le contexte des modules actifs</label>
-          <button type="submit">Envoyer</button>
+          <button id="app-toggle" type="button">Lancer WoW Assistant</button>
+          <span id="app-line" class="muted"></span>
         </div>
-      </form>
-      <pre id="ask-answer" class="answer" hidden></pre>
-    </section>
+      </section>
+      <section>
+        <h2>Lecture du jeu (gaming_hud)</h2>
+        <div class="row">
+          <button id="hud-toggle" type="button">Activer gaming_hud</button>
+          <span id="hud-line" class="muted"></span>
+        </div>
+        <h3>Ce que l'assistant sait de ton jeu</h3>
+        <pre id="hud-context" class="answer">—</pre>
+      </section>
+      <section>
+        <h2>Mode Showcase (diffusion)</h2>
+        <p class="muted">Quand OBS est ouvert, gaming_hud passe seul en mode Showcase : il retire de ce qu'il
+          publie le nom de compte, les chemins de fichiers, les clés, et arrondit l'or. L'overlay OBS, lui, est
+          toujours filtré. Tu peux aussi forcer le mode ici.</p>
+        <div class="row">
+          <span id="showcase-line" class="pill">—</span>
+          <button id="showcase-on" type="button" class="ghost">Forcer Showcase</button>
+          <button id="showcase-off" type="button" class="ghost">Repasser en normal</button>
+        </div>
+      </section>
+      <section>
+        <h2>Overlay OBS</h2>
+        <p>Dans OBS : Sources → + → Navigateur, URL <code id="overlay-url">http://127.0.0.1:5757/obs-hud</code>,
+          largeur 420, hauteur 600. gaming_hud doit être actif.</p>
+        <div class="row"><button id="overlay-copy" type="button" class="ghost">Copier l'URL</button>
+          <button id="overlay-preview" type="button" class="ghost">Afficher l'aperçu</button></div>
+        <div id="overlay-box" class="overlay-box" hidden></div>
+      </section>
+    </div>
 
-    <section>
-      <h2>Professeur (genesis_lab)</h2>
-      <div class="row">
-        <select id="prof-domain">
-          <option value="bio">Génétique et bio-informatique</option>
-          <option value="astro">Astrophysique</option>
-          <option value="chem">Génie chimique</option>
-        </select>
-        <button id="prof-new" type="button">Nouvel exercice</button>
-        <button id="prof-progress" type="button" class="ghost">Ma progression</button>
-      </div>
-      <div id="prof-exercise" hidden>
-        <p id="prof-question" class="question"></p>
-        <form id="prof-form" class="row">
-          <input id="prof-given" autocomplete="off" required placeholder="Ta réponse">
-          <span id="prof-unit" class="muted"></span>
-          <button type="submit">Corriger</button>
+    <!-- Assistant -->
+    <div class="panel" data-panel="assistant" hidden>
+      <section>
+        <h2>Assistant local</h2>
+        <form id="ask-form">
+          <textarea id="ask-prompt" rows="4" placeholder="Pose ta question au modèle local…" required></textarea>
+          <div class="row">
+            <label><input type="checkbox" id="ask-context" checked> avec le contexte des modules actifs (ex. ton jeu)</label>
+            <button type="submit">Envoyer</button>
+          </div>
         </form>
-      </div>
-      <div id="prof-result" class="answer" hidden></div>
-    </section>
+        <pre id="ask-answer" class="answer" hidden></pre>
+      </section>
+    </div>
 
-    <section>
-      <h2>Connaissances</h2>
-      <p id="kb-line" class="muted">…</p>
-      <form id="kb-form" class="row">
-        <input id="kb-query" autocomplete="off" required placeholder="Chercher dans la base locale">
-        <button type="submit">Chercher</button>
-        <button id="kb-ingest" type="button" class="ghost">Collecter maintenant</button>
-      </form>
-      <div id="kb-result" class="answer" hidden></div>
-    </section>
+    <!-- Professeur -->
+    <div class="panel" data-panel="professeur" hidden>
+      <section>
+        <h2>Professeur (genesis_lab)</h2>
+        <p class="muted">Les calculs sont faits par du code ; le modèle local explique et cite ses sources.</p>
+        <div class="row">
+          <select id="prof-domain">
+            <option value="bio">Génétique et bio-informatique</option>
+            <option value="astro">Astrophysique</option>
+            <option value="chem">Génie chimique</option>
+          </select>
+          <button id="prof-new" type="button">Nouvel exercice</button>
+          <button id="prof-progress" type="button" class="ghost">Ma progression</button>
+        </div>
+        <div id="prof-exercise" hidden>
+          <p id="prof-question" class="question"></p>
+          <form id="prof-form" class="row">
+            <input id="prof-given" autocomplete="off" required placeholder="Ta réponse">
+            <span id="prof-unit" class="muted"></span>
+            <button type="submit">Corriger</button>
+          </form>
+        </div>
+        <div id="prof-result" class="answer" hidden></div>
+      </section>
+    </div>
 
-    <section>
-      <h2>Liens utiles</h2>
-      <ul class="links">
-        <li><a href="http://127.0.0.1:5757/obs-hud" target="_blank" rel="noopener">Overlay OBS</a> <span class="muted">(gaming_hud actif ; source navigateur 1920×1080 dans OBS)</span></li>
-        <li><a href="/health" target="_blank" rel="noopener">État brut du Hub (JSON)</a></li>
-        <li><a href="/events" target="_blank" rel="noopener">Derniers événements du bus (JSON)</a></li>
-      </ul>
-    </section>
+    <!-- Connaissances -->
+    <div class="panel" data-panel="connaissances" hidden>
+      <section>
+        <h2>Base de connaissances</h2>
+        <p id="kb-line" class="muted">…</p>
+        <form id="kb-form" class="row">
+          <input id="kb-query" class="grow" autocomplete="off" required placeholder="Chercher dans la base locale">
+          <button type="submit">Chercher</button>
+          <button id="kb-ingest" type="button" class="ghost">Collecter maintenant</button>
+        </form>
+        <div id="kb-result" class="answer" hidden></div>
+      </section>
+    </div>
+
+    <!-- Scantrad -->
+    <div class="panel" data-panel="scantrad" hidden>
+      <section>
+        <h2>Traduire une page</h2>
+        <p class="muted">Usage personnel : tout reste sur cette machine. Le premier passage charge les modèles
+          (environ 30 s), les suivants sont plus rapides.</p>
+        <form id="scan-form" class="row">
+          <input id="scan-file" type="file" accept="image/png,image/jpeg,image/webp" required>
+          <input id="scan-series" placeholder="Série (glossaire, facultatif)" autocomplete="off">
+          <label><input type="checkbox" id="scan-nollm"> détection et effacement seuls</label>
+          <button type="submit">Traduire</button>
+        </form>
+        <p id="scan-line" class="muted"></p>
+        <div id="scan-images" class="compare" hidden>
+          <figure><figcaption>Original</figcaption><img id="scan-before" alt="page d'origine"></figure>
+          <figure><figcaption>Traduite</figcaption><img id="scan-after" alt="page traduite"></figure>
+        </div>
+        <div id="scan-bubbles"></div>
+      </section>
+      <section>
+        <h2>Glossaire d'une série</h2>
+        <p class="muted">Une entrée par ligne : <code>japonais = français</code>. Seules les entrées présentes
+          dans la page sont données au modèle.</p>
+        <div class="row">
+          <input id="glo-series" placeholder="Nom de la série" autocomplete="off">
+          <button id="glo-load" type="button" class="ghost">Charger</button>
+        </div>
+        <div class="two">
+          <label>Personnages<textarea id="glo-characters" rows="6" placeholder="ユキ = Yuki"></textarea></label>
+          <label>Termes<textarea id="glo-terms" rows="6" placeholder="海賊 = pirate"></textarea></label>
+        </div>
+        <label>Ton<input id="glo-tone" class="full" autocomplete="off"></label>
+        <div class="row"><button id="glo-save" type="button">Enregistrer</button><span id="glo-line" class="muted"></span></div>
+      </section>
+    </div>
+
+    <!-- Journal -->
+    <div class="panel" data-panel="journal" hidden>
+      <section>
+        <h2>Derniers événements du Hub</h2>
+        <p class="muted">Ce qui circule entre le Hub et les modules, le plus récent en haut.</p>
+        <table class="events">
+          <thead><tr><th>Heure</th><th>Événement</th><th>Détail</th></tr></thead>
+          <tbody id="events"></tbody>
+        </table>
+      </section>
+    </div>
   </main>
   <footer>Tout tourne sur cette machine. Rien n'écoute en dehors de 127.0.0.1.</footer>
 </body>

@@ -93,6 +93,8 @@ class Daemon:
         self.inoue = Inoue(self.monitor)
         self.llm = llm or LlmRouter(self.inoue, LlmConfig.from_section(config.section("ollama")))
         self.contexts: dict[str, str] = {}  # module -> dernier contexte publié pour l'assistant
+        self.states: dict[str, dict[str, Any]] = {}  # module -> dernier état publié (déjà filtré par le module)
+        self.apps: dict[str, subprocess.Popen[bytes]] = {}  # module -> application de bureau lancée
         self.fuma = Fuma(now=now)
         self.scheduler = GpuScheduler(self.inoue)
         self.modules: dict[str, ManagedModule] = {}
@@ -123,6 +125,8 @@ class Daemon:
         self.bus.publish(Event("hub.shutdown"))
         for name in list(self.modules):
             self.deactivate(name)
+        for name in list(self.apps):
+            self.stop_app(name)
         if self.knowledge is not None:
             self.knowledge.stop()
         self.scheduler.shutdown()
@@ -190,6 +194,7 @@ class Daemon:
                                        cwd=str(REPO_ROOT), env=env, stdin=subprocess.DEVNULL)
         module.starts += 1
         module.last_error = ""
+        module.last_health = {}  # rempli par `module.<nom>.started` : sert à savoir qu'il écoute le bus
 
     def _respawn(self, name: str) -> None:
         with self._lock:
@@ -217,13 +222,52 @@ class Daemon:
             module.last_health = dict(event.payload.get("health") or {})
         elif parts[2] == "error":
             module.last_error = str(event.payload.get("error", ""))
-        elif parts[2] == "state" and event.payload.get("context"):
-            self.contexts[parts[1]] = str(event.payload["context"])
+        elif parts[2] == "state":
+            self.states[parts[1]] = {**event.payload, "received_at": self._now()}
+            if event.payload.get("context"):
+                self.contexts[parts[1]] = str(event.payload["context"])
         elif parts[2] == "result":
             waiter = self._pending.get(str(event.payload.get("request_id")))
             if waiter is not None:
                 waiter[1].update(event.payload)
                 waiter[0].set()
+
+    # -- application de bureau d'un module (ex. la fenêtre de WoW Assistant)
+    def app_spec(self, name: str) -> dict[str, str] | None:
+        """`"app": {"label": …, "module": …}` du manifeste : un module Python fixe (validé au chargement du
+        manifeste), jamais une commande libre."""
+        app = self.modules[name].manifest.app
+        return {"label": app[0], "module": app[1]} if app else None
+
+    def app_running(self, name: str) -> bool:
+        proc = self.apps.get(name)
+        return proc is not None and proc.poll() is None
+
+    def start_app(self, name: str) -> bool:
+        """Lance l'application (`python -m <module>` depuis la racine du dépôt). `False` si elle tourne déjà."""
+        spec = self.app_spec(name)
+        if spec is None:
+            raise ValueError(f"le module {name} n'a pas d'application de bureau")
+        if self.app_running(name):
+            return False
+        self.apps[name] = subprocess.Popen([self._python, "-m", spec["module"]], cwd=str(REPO_ROOT),
+                                           stdin=subprocess.DEVNULL)
+        self.bus.publish(Event(f"module.{name}.app", {"running": True, "label": spec["label"]}))
+        return True
+
+    def stop_app(self, name: str, timeout_s: float = 5.0) -> None:
+        proc = self.apps.pop(name, None)
+        if proc is not None and proc.poll() is None:
+            proc.terminate()
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                proc.wait(timeout=timeout_s)
+            self.bus.publish(Event(f"module.{name}.app", {"running": False}))
+
+    def notify(self, name: str, command: str, payload: dict[str, Any] | None = None) -> None:
+        """Commande sans réponse attendue (ex. `showcase`)."""
+        if name not in self.modules or not command.replace("_", "").isalnum():
+            raise ValueError(f"commande invalide : {name}.{command}")
+        self.bus.publish(Event(f"module.{name}.cmd.{command}", dict(payload or {})))
 
     # -- commandes vers un module (réponse attendue sur `module.<nom>.result`)
     def command(self, name: str, command: str, payload: dict[str, Any] | None = None,
@@ -237,6 +281,9 @@ class Daemon:
             raise ValueError(f"commande invalide : {command!r}")
         if not module.running():
             raise RuntimeError(f"le module {name} n'est pas lancé")
+        deadline = time.monotonic() + 30  # module tout juste lancé : on attend qu'il écoute le bus
+        while not module.last_health and module.running() and time.monotonic() < deadline:
+            time.sleep(0.1)
         request_id = uuid.uuid4().hex
         done, reply = threading.Event(), {}
         self._pending[request_id] = (done, reply)
@@ -311,6 +358,7 @@ class Daemon:
             "starts": m.starts, "vram_min_gb": m.manifest.vram_min_gb,
             "vram_comfort_gb": m.manifest.vram_comfort_gb, "experimental": m.manifest.experimental,
             "triggers": list(m.manifest.triggers.processes), "health": m.last_health, "error": m.last_error,
+            "app": (self.app_spec(name) or {}).get("label"), "app_running": self.app_running(name),
         } for name, m in sorted(self.modules.items())]
 
 
@@ -378,7 +426,10 @@ def main(argv: list[str] | None = None) -> int:
 
             from core.api import create_app
 
-            uvicorn.run(create_app(daemon), host="127.0.0.1", port=args.port, log_level="warning")
+            app = create_app(daemon)
+            server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=args.port, log_level="warning"))
+            app.state.shutdown = lambda: setattr(server, "should_exit", True)  # bouton « Arrêter le Hub »
+            server.run()
     except KeyboardInterrupt:
         pass
     finally:

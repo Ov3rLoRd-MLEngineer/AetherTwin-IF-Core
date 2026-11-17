@@ -58,7 +58,8 @@ N'utilise jamais `python` seul. Le `python` du PATH est une autre version (3.10)
 | Daemon sans API | `.venv\Scripts\python.exe -m core.daemon --no-api` | fait |
 | Professeur (`genesis_lab`) | tableau de bord, section Professeur (module à lancer d'abord) | fait, testé en réel |
 | Base de connaissances | tableau de bord, « Collecter maintenant » ; `GET /knowledge/search?q=…` | fait, testé en réel (sans vecteurs) |
-| `scantrad` | `.venv\Scripts\python.exe -m modules.scantrad PAGE.png --series demo` (Hub lancé) | fait, testé en réel sur la page de test |
+| `scantrad` | onglet Scantrad du tableau de bord, ou `.venv\Scripts\python.exe -m modules.scantrad PAGE.png --series demo` (Hub lancé) | fait, testé en réel (page de test + une vraie page) |
+| WoW Assistant depuis le Hub | onglet Jeu, ou `POST /modules/gaming_hud/app/start` (champ `app` du manifeste) | fait, testé en réel |
 | `mangastudio`, `if_game` | — | n'existent pas encore (J7) |
 
 ## Recette locale validée par Jérémy (Ollama + Aider)

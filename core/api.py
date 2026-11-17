@@ -20,20 +20,35 @@ Toutes les générations passent par `core.llm_router` : règles VRAM appliquée
 """
 from __future__ import annotations
 
+import re
 import time
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
-from core.daemon import Daemon
+from core.daemon import REPO_ROOT, Daemon
 from core.llm_router import LlmError, LlmRefused, openai_to_ollama
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
+SCANTRAD_DIR = REPO_ROOT / "data" / "scantrad"
+IMAGE_TYPES = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
+MAX_UPLOAD = 25 * 1024 * 1024
+
+
+def _glossary(series: str) -> Any:
+    from modules.scantrad.cli import glossary_for
+
+    try:
+        return glossary_for(series, SCANTRAD_DIR)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 STATIC_TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
                 ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml"}
-CSP = "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; connect-src 'self'"
+CSP = ("default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' blob:; connect-src 'self'; "
+       "frame-src http://127.0.0.1:5757")  # aperçu de l'overlay OBS (gaming_hud), local lui aussi
 
 
 def static(filename: str) -> Response:
@@ -110,6 +125,104 @@ def create_app(daemon: Daemon) -> FastAPI:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except TimeoutError as exc:
             raise HTTPException(status_code=504, detail=str(exc)) from exc
+
+    @app.post("/modules/{name}/notify/{command}")
+    def module_notify(name: str, command: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        module_or_404(name)
+        try:
+            daemon.notify(name, command, payload or {})
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"sent": True}
+
+    @app.get("/modules/{name}/state")
+    def module_state(name: str) -> dict[str, Any]:
+        module_or_404(name)
+        return daemon.states.get(name) or {}
+
+    @app.post("/modules/{name}/app/{action}")
+    def module_app(name: str, action: str) -> dict[str, Any]:
+        module_or_404(name)
+        if action == "start":
+            try:
+                started = daemon.start_app(name)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            return {"running": True, "started": started}
+        if action == "stop":
+            daemon.stop_app(name)
+            return {"running": False}
+        raise HTTPException(status_code=404, detail="action inconnue")
+
+    @app.post("/scantrad/translate")
+    async def scantrad_translate(request: Request, series: str = "", no_llm: bool = False) -> dict[str, Any]:
+        suffix = IMAGE_TYPES.get(request.headers.get("content-type", "").split(";")[0].strip().lower())
+        if suffix is None:
+            raise HTTPException(status_code=415, detail="image PNG, JPEG ou WebP attendue")
+        body = await request.body()
+        if not body or len(body) > MAX_UPLOAD:
+            raise HTTPException(status_code=413, detail="image vide ou de plus de 25 Mo")
+        stamp = time.strftime("%Y%m%d-%H%M%S") + f"-{int(time.time() * 1000) % 1000:03d}"
+        source = SCANTRAD_DIR / "entrees" / f"{stamp}{suffix}"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(body)
+        output = SCANTRAD_DIR / "sorties" / f"{stamp}_fr.png"
+
+        def run() -> dict[str, Any]:
+            if "scantrad" not in daemon.modules:
+                raise HTTPException(status_code=503, detail="module scantrad absent")
+            if not daemon.modules["scantrad"].running():
+                decision = daemon.activate("scantrad")
+                if decision.verdict.value != "accordé":
+                    raise HTTPException(status_code=409, detail=decision.reason)
+            try:
+                return daemon.command("scantrad", "page", {"input": str(source), "output": str(output),
+                                                           "series": series, "no_llm": no_llm}, timeout_s=600)
+            except (RuntimeError, TimeoutError) as exc:
+                raise HTTPException(status_code=504, detail=str(exc)) from exc
+
+        reply = await run_in_threadpool(run)
+        if reply.get("ok"):
+            reply["input_url"] = f"/scantrad/files/entrees/{source.name}"
+            reply["output_url"] = f"/scantrad/files/sorties/{output.name}"
+        return reply
+
+    @app.get("/scantrad/files/{kind}/{filename}")
+    def scantrad_file(kind: str, filename: str) -> Response:
+        if kind not in ("entrees", "sorties") or not re.fullmatch(r"[\w-]+\.(png|jpg|jpeg|webp)", filename):
+            raise HTTPException(status_code=404, detail="introuvable")
+        path = SCANTRAD_DIR / kind / filename
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="introuvable")
+        media = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}
+        return Response(path.read_bytes(), media_type=media[path.suffix[1:]], headers={"Cache-Control": "no-store"})
+
+    @app.get("/scantrad/glossary/{series}")
+    def glossary_get(series: str) -> dict[str, Any]:
+        glossary = _glossary(series)
+        return {"series": series, "characters": glossary.characters, "terms": glossary.terms, "tone": glossary.tone}
+
+    @app.put("/scantrad/glossary/{series}")
+    def glossary_put(series: str, data: dict[str, Any]) -> dict[str, Any]:
+        glossary = _glossary(series)
+        for key in ("characters", "terms"):
+            value = data.get(key, {})
+            if not isinstance(value, dict) or not all(isinstance(k, str) and isinstance(v, str)
+                                                      for k, v in value.items()):
+                raise HTTPException(status_code=400, detail=f"`{key}` : dictionnaire japonais → français attendu")
+            setattr(glossary, key, {k.strip(): v.strip() for k, v in value.items() if k.strip() and v.strip()})
+        if isinstance(data.get("tone"), str) and data["tone"].strip():
+            glossary.tone = data["tone"].strip()[:300]
+        glossary.save()
+        return glossary_get(series)
+
+    @app.post("/shutdown")
+    def shutdown() -> dict[str, Any]:
+        stop = getattr(app.state, "shutdown", None)
+        if stop is None:
+            raise HTTPException(status_code=503, detail="arrêt à distance indisponible")
+        stop()
+        return {"stopping": True}
 
     def knowledge_or_503() -> Any:
         if daemon.knowledge is None:

@@ -46,6 +46,8 @@ class Manifest:
     triggers: Triggers = field(default_factory=Triggers)
     network: tuple[str, ...] = ()  # domaines autorisés ; vide = aucun accès réseau externe
     experimental: bool = False
+    # application de bureau facultative : (libellé, module Python lancé par `python -m`)
+    app: tuple[str, str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -86,12 +88,19 @@ def parse_manifest(raw: Any) -> Manifest:
     if not isinstance(ports, list) or not all(isinstance(p, int) and 0 < p < 65536 for p in ports):
         raise ManifestError("`triggers.ports` doit être une liste de ports valides")
 
+    app = raw.get("app")
+    if app is not None:
+        if not isinstance(app, dict) or not isinstance(app.get("module"), str) \
+                or not re.fullmatch(r"[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)*", app["module"]):
+            raise ManifestError("`app` doit être {\"label\": …, \"module\": \"paquet.module\"}")
+        app = (str(app.get("label") or raw["name"]), app["module"])
+
     return Manifest(
         name=raw["name"], version=raw["version"], description=raw["description"], entry=raw["entry"],
         vram_min_gb=vram["vram_min_gb"], vram_comfort_gb=vram["vram_comfort_gb"],
         python_deps=_strings(raw, "python_deps"), optional_deps=_strings(raw, "optional_deps"),
         triggers=Triggers(_strings(trig, "processes"), _strings(trig, "windows"), tuple(ports)),
-        network=_strings(raw, "network"), experimental=bool(raw.get("experimental", False)),
+        network=_strings(raw, "network"), experimental=bool(raw.get("experimental", False)), app=app,
     )
 
 

@@ -2,12 +2,12 @@
 // Tableau de bord du Hub : lit l'API locale (même origine), aucune ressource externe.
 
 const $ = (id) => document.getElementById(id);
+const OVERLAY_URL = "http://127.0.0.1:5757/obs-hud";
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
   for (const [key, value] of Object.entries(attrs)) {
     if (key === "class") node.className = value;
-    else if (key === "onclick") node.addEventListener("click", value);
     else node.setAttribute(key, value);
   }
   for (const child of children) node.append(child instanceof Node ? child : String(child ?? ""));
@@ -15,17 +15,33 @@ function el(tag, attrs = {}, ...children) {
 }
 
 async function api(path, options = {}) {
-  const response = await fetch(path, {
-    ...options,
-    headers: options.body ? { "Content-Type": "application/json" } : {},
-  });
+  const headers = options.headers || (options.body && typeof options.body === "string"
+    ? { "Content-Type": "application/json" } : {});
+  const response = await fetch(path, { ...options, headers });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.detail || `erreur ${response.status}`);
   return data;
 }
 
+const post = (path, body) => api(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) });
 const gib = (mib) => (mib / 1024).toFixed(1);
+let modulesByName = {};
 
+// ---------- onglets ----------
+function showTab(name) {
+  const tabs = [...document.querySelectorAll("#tabs button")];
+  if (!tabs.some((t) => t.dataset.tab === name)) name = "accueil";
+  for (const tab of tabs) tab.setAttribute("aria-selected", String(tab.dataset.tab === name));
+  for (const panel of document.querySelectorAll(".panel")) panel.hidden = panel.dataset.panel !== name;
+  if (location.hash !== `#${name}`) history.replaceState(null, "", `#${name}`);
+  refreshAll();
+}
+for (const tab of document.querySelectorAll("#tabs button")) {
+  tab.addEventListener("click", () => showTab(tab.dataset.tab));
+}
+const currentTab = () => (location.hash || "#accueil").slice(1);
+
+// ---------- en-tête ----------
 async function refreshHub() {
   try {
     const health = await api("/health");
@@ -42,6 +58,17 @@ async function refreshHub() {
   }
 }
 
+$("hub-stop").addEventListener("click", async () => {
+  if (!confirm("Arrêter le Hub ? Les modules et WoW Assistant lancés par le Hub seront fermés.")) return;
+  try {
+    await post("/shutdown");
+    $("hub-line").textContent = "Hub arrêté. Relance-le avec le raccourci AetherTwin du bureau.";
+  } catch (error) {
+    alert(error.message);
+  }
+});
+
+// ---------- accueil ----------
 async function refreshGpus() {
   try {
     const report = await api("/gpu");
@@ -61,8 +88,7 @@ async function refreshGpus() {
         gpu.power_w != null ? `${Math.round(gpu.power_w)} W` : null,
       ].filter(Boolean).join(" · ");
       box.append(el("div", { class: "card" },
-        el("b", {}, `GPU ${gpu.index} — ${gpu.name}`),
-        bar,
+        el("b", {}, `GPU ${gpu.index} — ${gpu.name}`), bar,
         el("span", {}, `VRAM ${gib(gpu.vram_used_mib)} / ${gib(gpu.vram_total_mib)} Gio (${pct} %)`),
         el("div", { class: "muted" }, extra)));
     }
@@ -71,43 +97,122 @@ async function refreshGpus() {
   }
 }
 
-async function toggleModule(module, button) {
+async function toggleModule(name, button) {
   button.disabled = true;
+  const module = modulesByName[name];
   try {
-    const action = module.active ? "deactivate" : "activate";
-    const result = await api(`/modules/${module.name}/${action}`, { method: "POST" });
-    if (result.verdict && result.verdict !== "accordé") alert(`${module.name} : ${result.verdict} — ${result.reason}`);
+    const result = await post(`/modules/${name}/${module && module.active ? "deactivate" : "activate"}`);
+    if (result.verdict && result.verdict !== "accordé") alert(`${name} : ${result.verdict} — ${result.reason}`);
   } catch (error) {
-    alert(`${module.name} : ${error.message}`);
+    alert(`${name} : ${error.message}`);
   }
   setTimeout(refreshModules, 800);
+}
+
+async function toggleApp(name, button) {
+  button.disabled = true;
+  const module = modulesByName[name];
+  try {
+    await post(`/modules/${name}/app/${module && module.app_running ? "stop" : "start"}`);
+  } catch (error) {
+    alert(`${name} : ${error.message}`);
+  }
+  setTimeout(refreshModules, 800);
+}
+
+function moduleState(module) {
+  if (module.active && module.running) return [module.auto ? "actif (déclencheur)" : "actif", "state-on"];
+  if (module.waiting_vram) return ["en attente de VRAM", "state-wait"];
+  if (module.active) return ["démarrage…", "state-wait"];
+  return ["arrêté", module.error ? "state-err" : ""];
 }
 
 async function refreshModules() {
   try {
     const modules = await api("/modules");
+    modulesByName = Object.fromEntries(modules.map((m) => [m.name, m]));
     const body = $("modules");
     body.replaceChildren();
     for (const module of modules) {
-      let state = "arrêté", cls = "";
-      if (module.active && module.running) { state = module.auto ? "actif (déclencheur)" : "actif"; cls = "state-on"; }
-      else if (module.waiting_vram) { state = "en attente de VRAM"; cls = "state-wait"; }
-      else if (module.active) { state = "démarrage…"; cls = "state-wait"; }
-      if (module.error) cls = "state-err";
+      const [state, cls] = moduleState(module);
       const detail = module.error || (module.health && module.health.detail) || module.description;
+      const actions = el("div", { class: "row" });
       const button = el("button", { class: module.active ? "ghost" : "" }, module.active ? "Arrêter" : "Lancer");
-      button.addEventListener("click", () => toggleModule(module, button));
+      button.addEventListener("click", () => toggleModule(module.name, button));
+      actions.append(button);
+      if (module.app) {
+        const app = el("button", { class: "ghost" }, module.app_running ? `Fermer ${module.app}` : `Ouvrir ${module.app}`);
+        app.addEventListener("click", () => toggleApp(module.name, app));
+        actions.append(app);
+      }
       body.append(el("tr", {},
         el("td", {}, el("b", {}, module.name), el("div", { class: "muted" }, `v${module.version}`)),
-        el("td", { class: cls }, state),
-        el("td", {}, detail),
-        el("td", {}, button)));
+        el("td", { class: cls }, state), el("td", {}, detail), el("td", {}, actions)));
     }
+    refreshGameButtons();
   } catch (error) {
     $("modules").replaceChildren(el("tr", {}, el("td", { colspan: "4" }, `Liste indisponible : ${error.message}`)));
   }
 }
 
+// ---------- jeu ----------
+function refreshGameButtons() {
+  const hud = modulesByName.gaming_hud;
+  if (!hud) return;
+  $("app-toggle").textContent = hud.app_running ? "Fermer WoW Assistant" : "Lancer WoW Assistant";
+  $("app-toggle").className = hud.app_running ? "ghost" : "";
+  $("app-toggle").disabled = false;
+  $("app-line").textContent = hud.app_running ? "ouvert" : "fermé";
+  $("hud-toggle").textContent = hud.active ? "Arrêter gaming_hud" : "Activer gaming_hud";
+  $("hud-toggle").className = hud.active ? "ghost" : "";
+  $("hud-toggle").disabled = false;
+  $("hud-line").textContent = moduleState(hud)[0] + (hud.health && hud.health.detail ? ` — ${hud.health.detail}` : "");
+}
+$("app-toggle").addEventListener("click", (e) => toggleApp("gaming_hud", e.currentTarget));
+$("hud-toggle").addEventListener("click", (e) => toggleModule("gaming_hud", e.currentTarget));
+
+async function refreshGame() {
+  try {
+    const state = await api("/modules/gaming_hud/state");
+    if (!state.adapter && !state.context) {
+      $("hud-context").textContent = "Rien pour l'instant : active gaming_hud (et lance le jeu ou WoW Assistant).";
+    } else {
+      const age = state.received_at ? Math.round(Date.now() / 1000 - state.received_at) : null;
+      $("hud-context").textContent = (state.context || "(état lu, mais rien à résumer)")
+        + (age != null ? `\n\n— mis à jour il y a ${age} s, adaptateur ${state.adapter}` : "");
+    }
+    const on = Boolean(state.showcase);
+    $("showcase-line").textContent = on ? "Showcase : ACTIF" : "Showcase : inactif";
+    $("showcase-line").className = on ? "pill on" : "pill";
+  } catch (error) {
+    $("hud-context").textContent = `État indisponible : ${error.message}`;
+  }
+}
+for (const [id, on] of [["showcase-on", true], ["showcase-off", false]]) {
+  $(id).addEventListener("click", async () => {
+    try {
+      await post("/modules/gaming_hud/notify/showcase", { on });
+      setTimeout(refreshGame, 600);
+    } catch (error) {
+      alert(error.message);
+    }
+  });
+}
+$("overlay-copy").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(OVERLAY_URL);
+    $("overlay-copy").textContent = "Copiée !";
+  } catch {
+    $("overlay-copy").textContent = "Copie impossible : sélectionne l'URL";
+  }
+});
+$("overlay-preview").addEventListener("click", () => {
+  const box = $("overlay-box");
+  box.hidden = !box.hidden;
+  box.replaceChildren(...(box.hidden ? [] : [el("iframe", { src: OVERLAY_URL, title: "aperçu de l'overlay" })]));
+});
+
+// ---------- assistant ----------
 $("ask-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const button = event.submitter;
@@ -116,10 +221,7 @@ $("ask-form").addEventListener("submit", async (event) => {
   out.hidden = false;
   out.textContent = "Le modèle local réfléchit… (le premier chargement prend 10 à 20 s)";
   try {
-    const result = await api("/ask", {
-      method: "POST",
-      body: JSON.stringify({ prompt: $("ask-prompt").value, with_context: $("ask-context").checked }),
-    });
+    const result = await post("/ask", { prompt: $("ask-prompt").value, with_context: $("ask-context").checked });
     out.textContent = `${result.answer}\n\n— ${result.model}`;
   } catch (error) {
     out.textContent = `Erreur : ${error.message}`;
@@ -128,22 +230,22 @@ $("ask-form").addEventListener("submit", async (event) => {
   }
 });
 
+// ---------- professeur ----------
 let currentExercise = null;
 
 async function professor(command, payload, button) {
   if (button) button.disabled = true;
   try {
-    const reply = await api(`/modules/genesis_lab/command/${command}`, {
-      method: "POST", body: JSON.stringify(payload || {}),
-    });
+    if (!modulesByName.genesis_lab || !modulesByName.genesis_lab.running) {
+      await post("/modules/genesis_lab/activate");  // lancé à la demande
+    }
+    const reply = await post(`/modules/genesis_lab/command/${command}`, payload || {});
     if (!reply.ok) throw new Error(reply.error || "erreur du module");
     return reply.result;
   } catch (error) {
     const box = $("prof-result");
     box.hidden = false;
-    box.textContent = error.message.includes("pas lancé")
-      ? "Le module genesis_lab n'est pas lancé : clique sur « Lancer » dans la liste des modules."
-      : `Erreur : ${error.message}`;
+    box.textContent = `Erreur : ${error.message}`;
     return null;
   } finally {
     if (button) button.disabled = false;
@@ -173,13 +275,19 @@ $("prof-form").addEventListener("submit", async (event) => {
     given: $("prof-given").value,
   }, event.submitter);
   if (!result) return;
+  const sources = result.sources || [];
+  const sourceLine = el("p", { class: "muted" }, `Niveau : ${result.level_before} → ${result.level_after}`);
+  if (sources.length) {
+    sourceLine.append(" — sources : ");
+    sources.forEach((s, i) => {
+      if (i) sourceLine.append(", ");
+      sourceLine.append(el("a", { href: s.url, target: "_blank", rel: "noopener" }, s.title || s.url));
+    });
+  }
   box.replaceChildren(
     el("p", { class: result.correct ? "good" : "badans" },
       result.correct ? "Juste !" : `Pas tout à fait : la réponse attendue était ${result.expected} ${result.unit}`),
-    el("p", {}, result.explanation),
-    el("p", { class: "muted" },
-      `Niveau : ${result.level_before} → ${result.level_after}`
-      + (result.sources && result.sources.length ? ` — sources : ${result.sources.map((s) => s.title || s.url).join(", ")}` : "")));
+    el("p", {}, result.explanation), sourceLine);
 });
 
 $("prof-progress").addEventListener("click", async (event) => {
@@ -192,6 +300,7 @@ $("prof-progress").addEventListener("click", async (event) => {
     .join("\n");
 });
 
+// ---------- connaissances ----------
 async function refreshKnowledge() {
   try {
     const kb = await api("/knowledge");
@@ -228,18 +337,105 @@ $("kb-form").addEventListener("submit", async (event) => {
 
 $("kb-ingest").addEventListener("click", async () => {
   try {
-    const result = await api("/knowledge/ingest", { method: "POST" });
-    $("kb-line").textContent = result.detail;
+    $("kb-line").textContent = (await post("/knowledge/ingest")).detail;
   } catch (error) {
     $("kb-line").textContent = `Erreur : ${error.message}`;
   }
 });
 
-function refreshAll() {
-  refreshKnowledge();
-  refreshHub();
-  refreshGpus();
-  refreshModules();
+// ---------- scantrad ----------
+$("scan-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const file = $("scan-file").files[0];
+  if (!file) return;
+  const button = event.submitter;
+  button.disabled = true;
+  $("scan-line").textContent = "Traduction en cours… (détection, lecture, effacement, traduction)";
+  $("scan-bubbles").replaceChildren();
+  $("scan-images").hidden = false;
+  $("scan-before").src = URL.createObjectURL(file);
+  $("scan-after").removeAttribute("src");
+  try {
+    const query = new URLSearchParams({ series: $("scan-series").value.trim(), no_llm: $("scan-nollm").checked });
+    const reply = await api(`/scantrad/translate?${query}`, {
+      method: "POST", body: file, headers: { "Content-Type": file.type || "image/png" },
+    });
+    if (!reply.ok) throw new Error(reply.error || "échec");
+    const { metrics, bubbles } = reply.result;
+    $("scan-after").src = `${reply.output_url}?t=${Date.now()}`;
+    $("scan-line").textContent = `${metrics.bubbles} bulles traduites en ${metrics.total_s} s`
+      + (metrics.rejected_by_ocr ? ` (${metrics.rejected_by_ocr} zones écartées : pas de texte)` : "")
+      + (metrics.vram_peak_mib ? ` — VRAM au plus haut : ${gib(metrics.vram_peak_mib)} Gio` : "");
+    const list = el("ol", { class: "bubble-list" });
+    for (const b of bubbles) list.append(el("li", {}, `${b.source || "—"}  →  ${b.translation || "—"}`));
+    $("scan-bubbles").replaceChildren(list);
+  } catch (error) {
+    $("scan-line").textContent = `Erreur : ${error.message}`;
+  } finally {
+    button.disabled = false;
+  }
+});
+
+const toLines = (map) => Object.entries(map).map(([jp, fr]) => `${jp} = ${fr}`).join("\n");
+function fromLines(text) {
+  const out = {};
+  for (const line of text.split("\n")) {
+    const [jp, ...rest] = line.split("=");
+    if (jp.trim() && rest.join("=").trim()) out[jp.trim()] = rest.join("=").trim();
+  }
+  return out;
 }
-refreshAll();
+$("glo-load").addEventListener("click", async () => {
+  try {
+    const g = await api(`/scantrad/glossary/${encodeURIComponent($("glo-series").value.trim())}`);
+    $("glo-characters").value = toLines(g.characters);
+    $("glo-terms").value = toLines(g.terms);
+    $("glo-tone").value = g.tone;
+    $("glo-line").textContent = "chargé";
+  } catch (error) {
+    $("glo-line").textContent = `Erreur : ${error.message}`;
+  }
+});
+$("glo-save").addEventListener("click", async () => {
+  try {
+    await api(`/scantrad/glossary/${encodeURIComponent($("glo-series").value.trim())}`, {
+      method: "PUT",
+      body: JSON.stringify({ characters: fromLines($("glo-characters").value), terms: fromLines($("glo-terms").value),
+                             tone: $("glo-tone").value }),
+    });
+    $("glo-line").textContent = "enregistré";
+    $("scan-series").value = $("glo-series").value;
+  } catch (error) {
+    $("glo-line").textContent = `Erreur : ${error.message}`;
+  }
+});
+
+// ---------- journal ----------
+async function refreshEvents() {
+  try {
+    const events = await api("/events?limit=100");
+    const body = $("events");
+    body.replaceChildren();
+    for (const event of events.reverse()) {
+      const time = new Date(event.ts * 1000).toLocaleTimeString("fr-FR");
+      const payload = JSON.stringify(event.payload);
+      body.append(el("tr", {}, el("td", {}, time), el("td", {}, event.topic),
+        el("td", {}, payload.length > 160 ? `${payload.slice(0, 160)}…` : payload)));
+    }
+  } catch (error) {
+    $("events").replaceChildren(el("tr", {}, el("td", { colspan: "3" }, `Journal indisponible : ${error.message}`)));
+  }
+}
+
+// ---------- rafraîchissement ----------
+function refreshAll() {
+  refreshHub();
+  refreshModules();
+  const tab = currentTab();
+  if (tab === "accueil") refreshGpus();
+  if (tab === "jeu") refreshGame();
+  if (tab === "connaissances") refreshKnowledge();
+  if (tab === "journal") refreshEvents();
+}
+showTab(currentTab());
 setInterval(refreshAll, 3000);

@@ -278,6 +278,7 @@ tests/
   __init__.py
   core/
     __init__.py
+    sleeper.py
     test_bus_scheduler.py
     test_daemon.py
     test_dashboard.py
@@ -381,6 +382,11 @@ Le démon : centre de l'architecture en étoile.
   - `def reload_modules(self) -> None` — (Re)lit les manifestes de `modules/`. Un manifeste invalide est signalé, pas fatal.
   - `def activate(self, name: str, auto: bool=False) -> Decision` — Demande la VRAM à Inoue puis lance le module dans son processus. Idempotent.
   - `def deactivate(self, name: str, timeout_s: float=8.0) -> None` — Arrêt propre (ordre sur le bus), puis arrêt forcé si le module ne répond pas. Rend la VRAM.
+  - `def app_spec(self, name: str) -> dict[str, str] | None` — `"app": {"label": …, "module": …}` du manifeste : un module Python fixe (validé au chargement du
+  - `def app_running(self, name: str) -> bool`
+  - `def start_app(self, name: str) -> bool` — Lance l'application (`python -m <module>` depuis la racine du dépôt). `False` si elle tourne déjà.
+  - `def stop_app(self, name: str, timeout_s: float=5.0) -> None`
+  - `def notify(self, name: str, command: str, payload: dict[str, Any] | None=None) -> None` — Commande sans réponse attendue (ex. `showcase`).
   - `def command(self, name: str, command: str, payload: dict[str, Any] | None=None, timeout_s: float=240.0) -> dict[str, Any]` — Envoie `module.<nom>.cmd.<commande>` et attend la réponse portant le même `request_id`.
   - `def ask(self, prompt: str, model: str | None=None, with_context: bool=True) -> dict[str, Any]` — Question à l'assistant local, avec le contexte publié par les modules actifs (déjà filtré par eux).
   - `def tick(self) -> dict[str, Any]` — Un tour : processus, déclencheurs, watchdog, alertes GPU, tâches de nuit. Retourne ce qui a changé.
