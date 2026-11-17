@@ -1,4 +1,4 @@
-﻿# PROJECT_STATUS — AetherTwin (I&F Core)
+# PROJECT_STATUS — AetherTwin (I&F Core)
 
 Dernière mise à jour : **16/11/2026** (J0–J1) · Clôture du concours : **25/11/2026** · Reste : 9 jours.
 
