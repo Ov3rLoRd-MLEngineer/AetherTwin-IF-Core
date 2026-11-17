@@ -165,7 +165,7 @@
     low.width = LW; low.height = LH;
     const lctx = low.getContext("2d");
     const floorImg = lctx.createImageData(LW, LH - HORIZON);
-    let view = null, scene = null, seed = 0, hits = [], running = false, last = 0;
+    let view = null, scene = null, seed = 0, hits = [], running = false, last = 0, arrivedAt = -1e9;
     const lights = [];
 
     function drawSky(t) {
@@ -323,6 +323,12 @@
         ctx.fillRect(h.x * sx - w / 2, (h.y - h.r) * sy - 20, w, 18);
         ctx.fillStyle = "#fff"; ctx.fillText(h.label, h.x * sx, (h.y - h.r) * sy - 6);
       }
+      // fondu d'arrivée dans un nouveau lieu
+      const since = (performance.now() - arrivedAt) / 700;
+      if (since < 1) {
+        ctx.fillStyle = `rgba(8,8,20,${1 - since})`;
+        ctx.fillRect(0, 0, W, H);
+      }
       // nom du lieu
       ctx.font = `600 ${Math.round(18 * sx / 3)}px Georgia, serif`;
       ctx.textAlign = "left";
@@ -345,11 +351,20 @@
     return {
       update(next) {
         const key = `${next.place_id}|${next.place}|${(next.items || []).join(",")}|${next.riddle}`;
-        if (!scene || key !== this.key) { scene = layout(next, next.seed || 0); this.key = key; seed = next.seed || 0; }
+        if (!scene || key !== this.key) {
+          if (scene && view && next.place_id !== view.place_id) arrivedAt = performance.now();  // changement de lieu
+          scene = layout(next, next.seed || 0); this.key = key; seed = next.seed || 0;
+        }
         view = next;
         if (!running) { running = true; requestAnimationFrame(frame); }
       },
       stop() { running = false; },
+      // portails visibles, en coordonnées d'écran (pour l'accessibilité et les essais automatiques)
+      portals() {
+        const rect = canvas.getBoundingClientRect();
+        return hits.map((h) => ({ direction: h.direction, x: rect.left + h.x * rect.width / LW,
+                                  y: rect.top + h.y * rect.height / LH }));
+      },
       themeName() { return scene ? scene.theme.floor : ""; },
     };
   }

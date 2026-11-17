@@ -20,13 +20,17 @@ Toutes les générations passent par `core.llm_router` : règles VRAM appliquée
 """
 from __future__ import annotations
 
+import json
+import queue
 import re
+import threading
 import time
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from core import config
@@ -310,6 +314,41 @@ def create_app(daemon: Daemon) -> FastAPI:
     def ask(request: AskRequest) -> dict[str, Any]:
         result = llm_call(lambda: daemon.ask(request.prompt, request.model, request.with_context))
         return {"answer": result["content"], **{k: v for k, v in result.items() if k != "content"}}
+
+    @app.post("/ask/stream")
+    def ask_stream(request: AskRequest) -> StreamingResponse:
+        """La réponse arrive au fil de la génération : une ligne JSON par morceau (`{"text": …}`), puis
+        `{"done": {"model", "seconds"}}` ou `{"error": …}`. La génération tourne dans un fil dédié (le verrou du
+        routeur est pris et rendu par ce même fil)."""
+        messages, _context = daemon.ask_messages(request.prompt, request.with_context)
+        pieces: queue.Queue[tuple[str, Any]] = queue.Queue()
+
+        def worker() -> None:
+            started = time.perf_counter()
+            try:
+                for piece in daemon.llm.chat_stream(messages, model=request.model):
+                    pieces.put(("text", piece))
+                pieces.put(("done", {"model": request.model or daemon.llm.config.default_model,
+                                     "seconds": round(time.perf_counter() - started, 2)}))
+            except LlmRefused as exc:
+                pieces.put(("error", f"VRAM : {exc}"))
+            except LlmError as exc:
+                pieces.put(("error", str(exc)))
+
+        threading.Thread(target=worker, name="ask-stream", daemon=True).start()
+
+        def lines() -> Any:
+            while True:
+                try:
+                    kind, value = pieces.get(timeout=daemon.llm.config.timeout_s)
+                except queue.Empty:
+                    yield json.dumps({"error": "délai dépassé"}, ensure_ascii=False) + "\n"
+                    return
+                yield json.dumps({kind: value}, ensure_ascii=False) + "\n"
+                if kind != "text":
+                    return
+
+        return StreamingResponse(lines(), media_type="application/x-ndjson")
 
     @app.get("/v1/models")
     def v1_models() -> dict[str, Any]:

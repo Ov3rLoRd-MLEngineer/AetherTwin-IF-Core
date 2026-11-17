@@ -65,6 +65,15 @@ class _Handler(BaseHTTPRequestHandler):
         elif self.path == "/api/generate" and body.get("keep_alive") == 0:
             fake.loaded.pop(model, None)
             self._send(200, {"done": True})
+        elif self.path == "/api/chat" and body.get("stream"):  # une ligne JSON par morceau, comme Ollama
+            fake.loaded[model] = fake.installed[model] * 1.2
+            lines = [{"message": {"content": word}, "done": False} for word in ("Bon", "jour ", "Jérémy")]
+            payload = "".join(json.dumps(line) + "\n" for line in [*lines, {"done": True}]).encode("utf-8")
+            self.send_response(200)
+            self.send_header("content-type", "application/x-ndjson")
+            self.send_header("content-length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
         elif self.path == "/api/chat":
             fake.loaded[model] = fake.installed[model] * 1.2  # la VRAM réelle dépasse la taille des poids
             self._send(200, {"message": {"role": "assistant", "content": f"réponse de {model}"},
@@ -252,6 +261,27 @@ def test_api_ask_uses_the_context_published_by_active_modules(api, ollama: FakeO
     assert client.post("/ask", json={"prompt": "x", "with_context": False}).json()["context_used"] == ""
     daemon.modules["gaming_hud"].active = False  # module arrêté : son contexte n'est plus joint
     assert client.post("/ask", json={"prompt": "x"}).json()["context_used"] == ""
+
+
+def test_chat_stream_follows_the_same_vram_rules(router: LlmRouter, ollama: FakeOllama) -> None:
+    router.chat(USER, model="gros-a:27b")
+    ollama.calls.clear()
+    assert "".join(router.chat_stream(USER, model="gros-b:30b")) == "Bonjour Jérémy"
+    assert [(p, b["model"]) for p, b in ollama.calls] == [("/api/generate", "gros-a:27b"), ("/api/chat", "gros-b:30b")]
+    assert ollama.calls[-1][1]["stream"] is True and ollama.calls[-1][1]["options"]["num_ctx"] == 32768
+    assert router.measured_vram_gb["gros-b:30b"] == pytest.approx(19.2)
+    with pytest.raises(LlmRefused):
+        list(router.chat_stream(USER, model="geant:70b"))
+
+
+def test_api_ask_stream(api, ollama: FakeOllama) -> None:
+    client, _daemon = api
+    lines = [json.loads(line) for line in client.post("/ask/stream", json={"prompt": "salut"}).text.splitlines()]
+    assert [line["text"] for line in lines[:-1]] == ["Bon", "jour ", "Jérémy"]
+    assert lines[-1]["done"]["model"] == "gros-a:27b"
+    refused = [json.loads(line) for line in client.post("/ask/stream", json={"prompt": "x", "model": "geant:70b"})
+               .text.splitlines()]
+    assert len(refused) == 1 and refused[0]["error"].startswith("VRAM")
 
 
 # --------------------------------------------------------------------------- test réel (GPU requis)

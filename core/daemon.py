@@ -296,14 +296,18 @@ class Daemon:
             self._pending.pop(request_id, None)
 
     # -- assistant
-    def ask(self, prompt: str, model: str | None = None, with_context: bool = True) -> dict[str, Any]:
-        """Question à l'assistant local, avec le contexte publié par les modules actifs (déjà filtré par eux)."""
+    def ask_messages(self, prompt: str, with_context: bool = True) -> tuple[list[dict[str, Any]], str]:
+        """Messages pour l'assistant : le contexte publié par les modules actifs (déjà filtré par eux), puis la
+        question."""
         context = "\n".join(self.contexts[name] for name in sorted(self.contexts)
                             if self.modules.get(name) and self.modules[name].active) if with_context else ""
-        messages: list[dict[str, Any]] = []
-        if context:
-            messages.append({"role": "system", "content": context})
+        messages: list[dict[str, Any]] = [{"role": "system", "content": context}] if context else []
         messages.append({"role": "user", "content": prompt})
+        return messages, context
+
+    def ask(self, prompt: str, model: str | None = None, with_context: bool = True) -> dict[str, Any]:
+        """Question à l'assistant local, avec le contexte publié par les modules actifs (déjà filtré par eux)."""
+        messages, context = self.ask_messages(prompt, with_context)
         answer = self.llm.chat(messages, model=model)
         return {**answer, "context_used": context}
 

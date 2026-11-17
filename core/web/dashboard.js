@@ -221,8 +221,34 @@ $("ask-form").addEventListener("submit", async (event) => {
   out.hidden = false;
   out.textContent = "Le modèle local réfléchit… (le premier chargement prend 10 à 20 s)";
   try {
-    const result = await post("/ask", { prompt: $("ask-prompt").value, with_context: $("ask-context").checked });
-    out.textContent = `${result.answer}\n\n— ${result.model}`;
+    // réponse mot à mot : une ligne JSON par morceau
+    const response = await fetch("/ask/stream", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: $("ask-prompt").value, with_context: $("ask-context").checked }),
+    });
+    if (!response.ok || !response.body) throw new Error(`erreur ${response.status}`);
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "", text = "", started = false;
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop();
+      for (const line of lines.filter(Boolean)) {
+        const msg = JSON.parse(line);
+        if (msg.text !== undefined) {
+          if (!started) { out.textContent = ""; started = true; }
+          text += msg.text;
+          out.textContent = text;
+        } else if (msg.done) {
+          out.textContent = `${text}\n\n— ${msg.done.model}, ${msg.done.seconds} s`;
+        } else if (msg.error) {
+          throw new Error(msg.error);
+        }
+      }
+    }
   } catch (error) {
     out.textContent = `Erreur : ${error.message}`;
   } finally {

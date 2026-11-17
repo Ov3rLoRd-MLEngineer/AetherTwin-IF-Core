@@ -16,7 +16,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -78,6 +78,25 @@ def http_json(method: str, url: str, body: dict[str, Any] | None, timeout_s: flo
     return value if isinstance(value, dict) else {}
 
 
+def http_stream(url: str, body: dict[str, Any], timeout_s: float) -> Iterator[dict[str, Any]]:
+    """Réponse d'Ollama morceau par morceau (une ligne JSON par morceau)."""
+    request = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), method="POST",  # noqa: S310
+                                     headers={"Content-Type": "application/json"})
+    try:
+        response = urllib.request.urlopen(request, timeout=timeout_s)  # noqa: S310 — hôte Ollama configuré
+    except urllib.error.HTTPError as exc:
+        raise LlmError(f"Ollama a répondu {exc.code} : {exc.read().decode('utf-8', 'ignore')[:300]}") from exc
+    except (urllib.error.URLError, OSError) as exc:
+        raise LlmError(f"Ollama injoignable ({url}) : {exc}") from exc
+    with response:
+        for line in response:
+            if line.strip():
+                try:
+                    yield json.loads(line)
+                except ValueError as exc:
+                    raise LlmError("morceau de réponse d'Ollama illisible") from exc
+
+
 @dataclass
 class LlmRouter:
     """Point d'entrée unique vers les modèles de langage locaux."""
@@ -85,6 +104,7 @@ class LlmRouter:
     inoue: Inoue | None = None
     config: LlmConfig = field(default_factory=LlmConfig)
     transport: Callable[[str, str, dict[str, Any] | None, float], dict[str, Any]] = http_json
+    stream_transport: Callable[[str, dict[str, Any], float], Iterator[dict[str, Any]]] = http_stream
     measured_vram_gb: dict[str, float] = field(default_factory=dict)
     _lock: threading.RLock = field(default_factory=threading.RLock)
 
@@ -194,6 +214,42 @@ class LlmRouter:
         return {"content": str(message.get("content", "")).strip(), "model": model, "num_ctx": ctx, "seconds": seconds,
                 "vram_gb": vram, "prompt_tokens": data.get("prompt_eval_count"),
                 "completion_tokens": data.get("eval_count")}
+
+    def chat_stream(self, messages: list[dict[str, Any]], model: str | None = None, num_ctx: int | None = None,
+                    think: bool | None = None, options: dict[str, Any] | None = None) -> Iterator[str]:
+        """Comme `chat`, mais rend le texte au fil de la génération. Mêmes règles VRAM, même verrou.
+
+        À consommer **dans un seul fil** du début à la fin (le verrou est tenu pendant toute la génération).
+        """
+        model = model or self.config.default_model
+        if not model:
+            raise LlmError("aucun modèle demandé et aucun modèle par défaut configuré (section `ollama`)")
+        ctx = int(num_ctx or self.config.num_ctx)
+        with self._lock:
+            self._reserve(model)
+            body: dict[str, Any] = {"model": model, "messages": messages, "stream": True,
+                                    "keep_alive": self.config.keep_alive,
+                                    "options": {"num_ctx": ctx, **(options or {})}}
+            if think is not None:
+                body["think"] = think
+            try:
+                for chunk in self.stream_transport(self.config.base_url + "/api/chat", body, self.config.timeout_s):
+                    piece = str((chunk.get("message") or {}).get("content", ""))
+                    if piece:
+                        yield piece
+                    if chunk.get("done"):
+                        break
+            except LlmError:
+                if self.inoue is not None:
+                    self.inoue.confirm_llm_unloaded(model)
+                    self.inoue.release(f"llm-small:{model}")
+                raise
+            try:
+                vram = next((m["vram_gb"] for m in self.loaded() if m["name"] == model), None)
+            except LlmError:
+                vram = None
+            if vram:
+                self.measured_vram_gb[model] = vram
 
     def state(self) -> dict[str, Any]:
         """État pour l'API du démon. Ne lève jamais : Ollama arrêté = mode dégradé."""

@@ -613,3 +613,20 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - **Tests :** ruff propre ; pytest vert. Rendu vérifié dans le navigateur (jardin, grotte, bibliothèque, lac).
   **Non vérifié** : fluidité sur une autre machine ; navigation au clic sur un portail (testée par les
   boutons, pas par le clic dans la scène).
+
+## 2026-11-17 — J8 (2) : réponse mot à mot, installation enrichie, jeu au clic
+
+- **Agent :** Cloud
+- **Fichiers :** `core/llm_router.py` (`http_stream`, `chat_stream`), `core/daemon.py` (`ask_messages`),
+  `core/api.py` (`POST /ask/stream`, NDJSON), `core/web/dashboard.js` (lecture du flux),
+  `core/web/ether_scene.js` (fondu d'arrivée, `portals()`), `scripts/setup.ps1` (`-Gpu`, `-Weights`,
+  `-Shortcut`, vérification d'Ollama et des modèles, enregistré avec BOM pour PowerShell 5.1),
+  `requirements-gpu.txt`, tests.
+- **Diffusion mot à mot :** même réservation VRAM et même verrou que `chat` ; la génération tourne dans un fil
+  dédié qui remplit une file (le verrou est pris et rendu par le même fil). **Réel** (Hub d'essai sur le port
+  5751 pour ne pas toucher celui de Jérémy) : premier mot à 16,0 s (chargement de `qwen3-27b` compris), fin à
+  18,4 s, environ 30 morceaux par seconde.
+- **Jeu :** clic réel sur le portail « est » dans la scène : nouveau lieu inventé par le modèle et affiché.
+- **Accents de `setup.ps1` :** PowerShell 5.1 lit un `.ps1` sans BOM en ANSI (« SystÃ¨me » dans le journal de
+  l'installation vierge) : fichier réenregistré en UTF-8 avec BOM.
+- **Tests :** ruff propre ; pytest vert.

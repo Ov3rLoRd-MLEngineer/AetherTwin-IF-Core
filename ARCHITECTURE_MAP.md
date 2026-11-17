@@ -333,6 +333,8 @@ tests/
 docs/
   .gitkeep
   captures/
+    ether_hd2d_jardin.png
+    ether_hd2d_lac.png
     obs_hud.png
     scantrad_page_test_fr.png
 research/
@@ -408,6 +410,7 @@ Le démon : centre de l'architecture en étoile.
   - `def stop_app(self, name: str, timeout_s: float=5.0) -> None`
   - `def notify(self, name: str, command: str, payload: dict[str, Any] | None=None) -> None` — Commande sans réponse attendue (ex. `showcase`).
   - `def command(self, name: str, command: str, payload: dict[str, Any] | None=None, timeout_s: float=240.0) -> dict[str, Any]` — Envoie `module.<nom>.cmd.<commande>` et attend la réponse portant le même `request_id`.
+  - `def ask_messages(self, prompt: str, with_context: bool=True) -> tuple[list[dict[str, Any]], str]` — Messages pour l'assistant : le contexte publié par les modules actifs (déjà filtré par eux), puis la
   - `def ask(self, prompt: str, model: str | None=None, with_context: bool=True) -> dict[str, Any]` — Question à l'assistant local, avec le contexte publié par les modules actifs (déjà filtré par eux).
   - `def tick(self) -> dict[str, Any]` — Un tour : processus, déclencheurs, watchdog, alertes GPU, tâches de nuit. Retourne ce qui a changé.
   - `def status(self) -> dict[str, Any]`
@@ -537,6 +540,7 @@ Routeur LLM du Hub : toutes les demandes de génération passent par ici, vers O
   - `def from_section(cls, raw: dict[str, Any]) -> LlmConfig` — Construit la configuration depuis la section `ollama` de `config/local.yaml`.
   - `def base_url(self) -> str`
 - `def http_json(method: str, url: str, body: dict[str, Any] | None, timeout_s: float) -> dict[str, Any]` — Appel HTTP JSON vers Ollama. Lève `LlmError` avec un message lisible.
+- `def http_stream(url: str, body: dict[str, Any], timeout_s: float) -> Iterator[dict[str, Any]]` — Réponse d'Ollama morceau par morceau (une ligne JSON par morceau).
 - **`class LlmRouter`** — Point d'entrée unique vers les modèles de langage locaux.
   - `def list_models(self) -> list[dict[str, Any]]` — Modèles installés : `[{"name", "size_gb", "parameters", "quantization"}]`.
   - `def loaded(self) -> list[dict[str, Any]]` — Modèles actuellement en mémoire : `[{"name", "vram_gb", "size_gb", "context"}]` (lu dans `/api/ps`).
@@ -544,6 +548,7 @@ Routeur LLM du Hub : toutes les demandes de génération passent par ici, vers O
   - `def unload(self, model: str) -> None` — Décharge réellement un modèle de la VRAM (`keep_alive: 0`).
   - `def sync(self) -> list[str]` — Aligne la comptabilité d'Inoue sur ce qu'Ollama a vraiment en mémoire (les modèles expirent seuls).
   - `def chat(self, messages: list[dict[str, Any]], model: str | None=None, num_ctx: int | None=None, think: bool | None=None, options: dict[str, Any] | None=None) -> dict[str, Any]` — Envoie une conversation au modèle local. Retourne `{"content", "model", "num_ctx", "seconds", …}`.
+  - `def chat_stream(self, messages: list[dict[str, Any]], model: str | None=None, num_ctx: int | None=None, think: bool | None=None, options: dict[str, Any] | None=None) -> Iterator[str]` — Comme `chat`, mais rend le texte au fil de la génération. Mêmes règles VRAM, même verrou.
   - `def state(self) -> dict[str, Any]` — État pour l'API du démon. Ne lève jamais : Ollama arrêté = mode dégradé.
 - `def openai_to_ollama(messages: list[dict[str, Any]]) -> list[dict[str, Any]]` — Convertit des messages au format OpenAI (texte, ou parties texte + `image_url` en data URI) pour Ollama.
 
