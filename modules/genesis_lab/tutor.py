@@ -264,8 +264,10 @@ class Tutor:
             f"Question : {exercise.question}\nRéponse de l'élève : {given}\n"
             f"Réponse exacte, calculée par le programme (ne la recalcule pas, ne la modifie pas) : {expected}\n"
             f"Démarche : {exercise.method}\n"
-            f"L'élève a {'réussi' if correct else 'fait une erreur'}. "
-            "Explique la démarche, encourage, et ne donne aucun autre nombre que ceux fournis ci-dessus."
+            + ("L'élève a réussi : félicite-le brièvement. " if correct else
+               "L'élève s'est trompé : ne le félicite pas pour sa réponse et ne dis pas qu'elle est juste ; "
+               "montre sans reproche où est l'erreur probable. ")
+            + "Explique la démarche, encourage, et ne donne aucun autre nombre que ceux fournis ci-dessus."
         )
         allowed = numbers_in(f"{exercise.question} {expected} {exercise.method} {given}")
         messages = [{"role": "user", "content": prompt}]
