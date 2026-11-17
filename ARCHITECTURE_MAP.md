@@ -176,6 +176,7 @@ core/
     dashboard.css
     dashboard.html
     dashboard.js
+    ether_scene.js
     logo.svg
 modules/
   __init__.py
@@ -194,7 +195,6 @@ modules/
         HermesAssistant.lua
         HermesAssistant.toc
     app/
-      activity.json
       character.py
       clipboard.py
       config.py
@@ -202,7 +202,6 @@ modules/
       focus.py
       game_connection.py
       gamedata.py
-      history.json
       history.py
       hotkeys.py
       icons_draw.py
@@ -217,7 +216,6 @@ modules/
       README.md
       recipes.json
       requirements.txt
-      settings.json
       settings.py
       snapcache.py
       tabs.py
@@ -288,7 +286,6 @@ config/
   hardware_profiles.yaml
   knowledge_sources.yaml
   local.example.yaml
-  local.yaml
 tests/
   __init__.py
   core/
@@ -1002,6 +999,7 @@ Génère la partie automatique de ARCHITECTURE_MAP.md (arborescence + signatures
 - `def first_line(doc: str | None) -> str`
 - `def signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str`
 - `def describe_module(path: Path) -> list[str]`
+- `def git_ignored(paths: list[Path]) -> set[Path]` — Chemins ignorés par Git (réglages locaux, caches…) : la carte doit être la même sur tous les postes.
 - `def tree_lines() -> list[str]`
 - `def generate() -> str`
 - `def render(current: str) -> str`

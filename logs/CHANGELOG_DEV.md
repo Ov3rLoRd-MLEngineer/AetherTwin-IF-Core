@@ -589,3 +589,27 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - **Tests :** ruff propre ; pytest : 364 réussis, 4 réels ignorés par défaut. **Réel** : onglet Éther, lieu
   « Jardin des Brumes Douces » inventé par `qwen3-27b` et accepté, réplique de Fuma par le modèle (le nom du
   gardien est désormais ajouté devant). Une fausse manœuvre de ma part a relancé une partie pendant l'essai.
+
+## 2026-11-17 — J8 (1) : installation vérifiée sur un clone vierge, rendu HD-2D du jeu
+
+- **Agent :** Cloud
+- **Installation vierge :** clone du dépôt dans un dossier temporaire, `scripts\setup.ps1` (75 s), puis toute la
+  suite : tout passe sauf la carte d'architecture, qui listait des fichiers **ignorés par Git** présents
+  seulement sur le poste de Jérémy (`settings.json`, `history.json`, `activity.json` de WoW Assistant,
+  `config/local.yaml`). Correction : `scripts/gen_architecture_map.py` filtre par `git check-ignore -z`
+  (une première version sans `-z` recevait des chemins entre guillemets et ne filtrait rien).
+- **Licence HandSegNet/FootSegNet :** poids sous Apache 2.0 (Hugging Face), code d'inférence des dépôts
+  GitHub sous MIT ; le README GitHub de FootSegNet dit Apache 2.0 pour l'ensemble. Noté dans le README du
+  module.
+- **Rendu HD-2D** (`core/web/ether_scene.js`, onglet Éther) : Canvas 2D sans bibliothèque ; monde en pixel art
+  320×180 avec sol en perspective (« mode 7 »), décors en panneaux, ombres, collines en parallaxe, gardiens
+  au premier plan ; effets HD par-dessus : flou de profondeur (maquette), halo, lumières additives
+  (lanternes, cristaux, portails, lucioles, lumière d'Inoue qui suit son énergie), vignettage. Six ambiances
+  choisies par les mots du lieu (lac, bibliothèque, observatoire, grotte, jardin, sanctuaire), disposition
+  reproductible (graine + lieu). Les sorties sont des portails cliquables. `view()` transmet `place_id` et
+  `description`. Captures : `docs/captures/ether_hd2d_{jardin,lac}.png`.
+- **Problèmes du rendu corrigés à l'œil :** gardiens hors champ (trop près), décors minuscules, mur de brume
+  à l'horizon, halo d'Inoue qui l'effaçait, étiquette « sud » sur Inoue.
+- **Tests :** ruff propre ; pytest vert. Rendu vérifié dans le navigateur (jardin, grotte, bibliothèque, lac).
+  **Non vérifié** : fluidité sur une autre machine ; navigation au clic sur un portail (testée par les
+  boutons, pas par le clic dans la scène).

@@ -525,9 +525,13 @@ $("studio-run").addEventListener("click", async (event) => {
 });
 
 // ---------- éther (if_game) ----------
-const ether = { shown: false };
+const ether = { shown: false, scene: null };
 
 function etherRender(result, said) {
+  if (window.EtherScene) {
+    ether.scene = ether.scene || window.EtherScene.create($("ether-canvas"), (direction) => etherAct(direction));
+    ether.scene.update(result);
+  }
   const log = $("ether-log");
   if (said) log.append(el("p", { class: "me" }, `> ${said}`));
   if (result.narration) log.append(el("p", {}, result.narration));

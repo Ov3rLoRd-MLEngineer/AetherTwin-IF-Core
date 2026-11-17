@@ -143,6 +143,13 @@ def test_module_commands_and_autosave(tmp_path: Path) -> None:
     assert sent[-1].payload["ok"] is False
 
 
+def test_view_gives_the_scene_what_it_needs() -> None:
+    world = play(4, ["nord"])
+    shown = view(world)
+    assert shown["place_id"] == world.here and shown["description"] == world.place.description
+    assert set(shown["exits"]) <= {"nord", "sud", "est", "ouest", "haut", "bas"}  # positions connues de la scène
+
+
 def test_view_hides_the_riddle_answer() -> None:
     world = World.new(1)
     world.place.riddle = {"question": "Qui ?", "answers": ["lune"], "solved": False, "hint": "L"}

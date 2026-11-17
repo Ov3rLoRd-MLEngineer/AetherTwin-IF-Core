@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import subprocess
 import sys
 from pathlib import Path
 
@@ -64,6 +65,19 @@ def _doc_suffix(node: ast.AST) -> str:
     return f" — {summary}" if summary else ""
 
 
+def git_ignored(paths: list[Path]) -> set[Path]:
+    """Chemins ignorés par Git (réglages locaux, caches…) : la carte doit être la même sur tous les postes."""
+    if not paths:
+        return set()
+    try:
+        result = subprocess.run(["git", "check-ignore", "-z", "--stdin"], cwd=ROOT, capture_output=True,  # noqa: S603, S607
+                                input="\0".join(p.relative_to(ROOT).as_posix() for p in paths).encode("utf-8"),
+                                timeout=30, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    return {ROOT / name for name in result.stdout.decode("utf-8").split("\0") if name}
+
+
 def tree_lines() -> list[str]:
     out = ["```"]
     for name in TREE_DIRS:
@@ -71,8 +85,12 @@ def tree_lines() -> list[str]:
         if not base.is_dir():
             continue
         out.append(f"{name}/")
-        for path in sorted(base.rglob("*")):
+        candidates = sorted(base.rglob("*"))
+        ignored = git_ignored(candidates)
+        for path in candidates:
             parts = path.relative_to(ROOT).parts
+            if path in ignored or any(parent in ignored for parent in path.parents):
+                continue
             if SKIP & set(parts) or path.name.endswith((".pyc", ".log", ".lock")) or "relay_state" in path.name:
                 continue
             if path.is_file() and parts[0] == "logs" and path.name != "CHANGELOG_DEV.md":

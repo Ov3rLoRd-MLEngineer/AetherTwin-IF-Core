@@ -314,7 +314,8 @@ def talk_prompt(world: World, who: str) -> str:
 def view(world: World) -> dict[str, Any]:
     """Ce que l'interface affiche."""
     place = world.place
-    return {"seed": world.seed, "turn": world.turn, "place": place.name, "origin": place.origin,
+    return {"seed": world.seed, "turn": world.turn, "place": place.name, "place_id": place.id,
+            "description": place.description, "origin": place.origin,
             "exits": place.exits, "items": place.items, "energy": world.energy, "max_energy": MAX_ENERGY,
             "inventory": world.inventory, "riddles_solved": world.riddles_solved, "explored": len(world.places),
             "riddle": place.riddle["question"] if place.riddle and not place.riddle["solved"] else "",

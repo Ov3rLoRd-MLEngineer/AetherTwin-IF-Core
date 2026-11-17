@@ -25,10 +25,13 @@ def test_dashboard_page_and_assets(client) -> None:
     page = client.get("/")
     assert page.status_code == 200 and "AetherTwin" in page.text
     assert "default-src 'none'" in page.headers["content-security-policy"]
-    for name, kind in (("dashboard.css", "text/css"), ("dashboard.js", "javascript"), ("logo.svg", "svg")):
+    for name, kind in (("dashboard.css", "text/css"), ("dashboard.js", "javascript"), ("logo.svg", "svg"),
+                       ("ether_scene.js", "javascript")):
         response = client.get(f"/static/{name}")
         assert response.status_code == 200 and kind in response.headers["content-type"]
-    assert "http" not in client.get("/static/dashboard.js").text.replace("http://127.0.0.1", "")  # rien d'externe
+    for script in ("dashboard.js", "ether_scene.js"):  # rien d'externe : ni CDN, ni police distante
+        assert "http" not in client.get(f"/static/{script}").text.replace("http://127.0.0.1", "")
+    assert "/static/ether_scene.js" in page.text
 
 
 @pytest.mark.parametrize("path", ["/static/..%2Fapi.py", "/static/api.py", "/static/inconnu.css",

@@ -11,6 +11,13 @@ rend un masque binaire, base d'une retouche locale (régénérer seulement la ma
 | Continuité inter-cases | `workflows/continuity.json` | format API de ComfyUI : IP-Adapter (identité du personnage) + ControlNet (trait de la nouvelle case), puis masque des mains pour contrôle. **À valider sur la machine GPU** |
 | Interface | onglet **Studio** du tableau de bord | choisir l'image, tracer la boîte, obtenir le masque et un aperçu teinté |
 
+## Licences (vérifiées le 17/11/2026)
+
+- **Poids** (Hugging Face, `Ov3rLoRd-MLEngineer/*-anime-sdxl`) : Apache 2.0 (`LICENSE_WEIGHTS.txt`, métadonnées).
+- **Code d'inférence** des dépôts GitHub d'origine : MIT (fichier `LICENSE`). Le README GitHub de FootSegNet
+  annonce « Apache 2.0 » pour l'ensemble : à harmoniser par l'auteur. Le code de ce dossier est celui
+  d'AetherTwin et suit la licence du projet.
+
 ## Poids
 
 Non versionnés (375 Mo chacun). Par défaut : `models/mangastudio/handsegnet_vit_b_best.safetensors` et
