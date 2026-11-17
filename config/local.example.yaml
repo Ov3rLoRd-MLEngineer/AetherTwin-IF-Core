@@ -36,6 +36,11 @@ gaming_hud:
   gold: "round"            # en Showcase : round (arrondi) | hide (masqué) | keep
   obs_hud_port: 5757
 
+genesis_lab:
+  profile: "data/genesis_lab/eleve.json"   # progression de l'élève (ignorée par Git)
+  hub_api: "http://127.0.0.1:5750"          # explications rédigées par le modèle local, via le Hub ; vide = types
+  model: ""                                 # vide = modèle par défaut du Hub
+
 mangastudio:
   handsegnet_weights: ""   # chemin local des poids (non versionnés)
   footsegnet_weights: ""

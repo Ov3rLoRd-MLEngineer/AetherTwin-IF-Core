@@ -167,6 +167,11 @@ core/
   module_api.py
   module_runner.py
   scheduler.py
+  web/
+    dashboard.css
+    dashboard.html
+    dashboard.js
+    logo.svg
 modules/
   __init__.py
   gaming_hud/
@@ -250,12 +255,14 @@ config/
   allowlist.yaml
   hardware_profiles.yaml
   local.example.yaml
+  local.yaml
 tests/
   __init__.py
   core/
     __init__.py
     test_bus_scheduler.py
     test_daemon.py
+    test_dashboard.py
     test_gpu_monitor.py
     test_guardians.py
     test_llm_router.py
@@ -301,6 +308,7 @@ logs/
 
 API HTTP locale du démon (FastAPI). Servie sur 127.0.0.1 uniquement par `core.daemon`.
 
+- `def static(filename: str) -> Response` — Sert un fichier de `core/web/` (liste fermée d'extensions, aucun chemin hors du dossier).
 - **`class AskRequest(BaseModel)`**
 - **`class ChatRequest(BaseModel)`**
 - `def create_app(daemon: Daemon) -> FastAPI`
@@ -344,10 +352,12 @@ Le démon : centre de l'architecture en étoile.
   - `def reload_modules(self) -> None` — (Re)lit les manifestes de `modules/`. Un manifeste invalide est signalé, pas fatal.
   - `def activate(self, name: str, auto: bool=False) -> Decision` — Demande la VRAM à Inoue puis lance le module dans son processus. Idempotent.
   - `def deactivate(self, name: str, timeout_s: float=8.0) -> None` — Arrêt propre (ordre sur le bus), puis arrêt forcé si le module ne répond pas. Rend la VRAM.
+  - `def command(self, name: str, command: str, payload: dict[str, Any] | None=None, timeout_s: float=240.0) -> dict[str, Any]` — Envoie `module.<nom>.cmd.<commande>` et attend la réponse portant le même `request_id`.
   - `def ask(self, prompt: str, model: str | None=None, with_context: bool=True) -> dict[str, Any]` — Question à l'assistant local, avec le contexte publié par les modules actifs (déjà filtré par eux).
   - `def tick(self) -> dict[str, Any]` — Un tour : processus, déclencheurs, watchdog, alertes GPU, tâches de nuit. Retourne ce qui a changé.
   - `def status(self) -> dict[str, Any]`
   - `def modules_status(self) -> list[dict[str, Any]]`
+- `def port_in_use(port: int) -> bool`
 - `def main(argv: list[str] | None=None) -> int`
 
 ### `core/guardians/fuma.py`

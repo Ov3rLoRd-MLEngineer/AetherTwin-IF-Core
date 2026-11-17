@@ -22,6 +22,8 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
+import webbrowser
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -103,6 +105,7 @@ class Daemon:
         self._started_at = now()
         self._now = now
         self.process_watch_degraded = False
+        self._pending: dict[str, tuple[threading.Event, dict[str, Any]]] = {}
 
     # -- cycle de vie
     def start(self) -> None:
@@ -211,6 +214,34 @@ class Daemon:
             module.last_error = str(event.payload.get("error", ""))
         elif parts[2] == "state" and event.payload.get("context"):
             self.contexts[parts[1]] = str(event.payload["context"])
+        elif parts[2] == "result":
+            waiter = self._pending.get(str(event.payload.get("request_id")))
+            if waiter is not None:
+                waiter[1].update(event.payload)
+                waiter[0].set()
+
+    # -- commandes vers un module (réponse attendue sur `module.<nom>.result`)
+    def command(self, name: str, command: str, payload: dict[str, Any] | None = None,
+                timeout_s: float = 240.0) -> dict[str, Any]:
+        """Envoie `module.<nom>.cmd.<commande>` et attend la réponse portant le même `request_id`.
+
+        Lève `KeyError` si le module est inconnu, `RuntimeError` s'il n'est pas lancé, `TimeoutError` sans réponse.
+        """
+        module = self.modules[name]
+        if not command.replace("_", "").isalnum():
+            raise ValueError(f"commande invalide : {command!r}")
+        if not module.running():
+            raise RuntimeError(f"le module {name} n'est pas lancé")
+        request_id = uuid.uuid4().hex
+        done, reply = threading.Event(), {}
+        self._pending[request_id] = (done, reply)
+        try:
+            self.bus.publish(Event(f"module.{name}.cmd.{command}", {**(payload or {}), "request_id": request_id}))
+            if not done.wait(timeout_s):
+                raise TimeoutError(f"pas de réponse de {name} en {timeout_s:g} s")
+            return reply
+        finally:
+            self._pending.pop(request_id, None)
 
     # -- assistant
     def ask(self, prompt: str, model: str | None = None, with_context: bool = True) -> dict[str, Any]:
@@ -284,17 +315,45 @@ def _manifest_name(directory: Path) -> str | None:
         return None
 
 
+def port_in_use(port: int) -> bool:
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.5)
+        return sock.connect_ex(("127.0.0.1", port)) == 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Démon AetherTwin (I&F Core).")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="port de l'API (toujours sur 127.0.0.1)")
     parser.add_argument("--no-api", action="store_true", help="ne lance pas l'API HTTP")
     parser.add_argument("--tick-seconds", type=float, default=2.0)
+    parser.add_argument("--open", action="store_true", help="ouvre le tableau de bord dans le navigateur")
+    parser.add_argument("--activate", action="append", default=[], metavar="MODULE",
+                        help="active ce module dès le démarrage (répétable)")
     args = parser.parse_args(argv)
+    url = f"http://127.0.0.1:{args.port}/"
+
+    if not args.no_api and port_in_use(args.port):
+        print(f"Un démon AetherTwin (ou autre programme) écoute déjà sur le port {args.port} : {url}")
+        if args.open:
+            webbrowser.open(url)
+        return 0
 
     daemon = Daemon()
     daemon.start()
     print(f"AetherTwin — démon démarré. OS : {daemon.os_name}. GPU : {daemon.monitor.backend_name}. "
           f"Modules : {', '.join(sorted(daemon.modules)) or 'aucun'}.")
+    for name in args.activate:
+        if name in daemon.modules:
+            decision = daemon.activate(name)
+            print(f"  {name} : {decision.verdict.value} {decision.reason}".rstrip())
+        else:
+            print(f"  module inconnu : {name}")
+    if not args.no_api:
+        print(f"Tableau de bord : {url}   (Ctrl+C ou fermer cette fenêtre pour arrêter)")
+        if args.open:
+            threading.Timer(1.5, webbrowser.open, args=(url,)).start()
     stop = threading.Event()
 
     def loop() -> None:

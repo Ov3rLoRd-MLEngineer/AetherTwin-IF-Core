@@ -1,5 +1,7 @@
 """API HTTP locale du démon (FastAPI). Servie sur 127.0.0.1 uniquement par `core.daemon`.
 
+    GET  /                         tableau de bord (fichiers de `core/web/`)
+    POST /modules/{name}/command/{cmd}  commande à un module, réponse attendue par `request_id`
     GET  /health                   état du Hub, des gardiens, du routeur LLM et des modes dégradés
     GET  /modules                  registre des modules
     POST /modules/{name}/activate  demande l'activation (Inoue décide)
@@ -19,13 +21,29 @@ Toutes les générations passent par `core.llm_router` : règles VRAM appliquée
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
 
 from core.daemon import Daemon
 from core.llm_router import LlmError, LlmRefused, openai_to_ollama
+
+WEB_DIR = Path(__file__).resolve().parent / "web"
+STATIC_TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
+                ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml"}
+CSP = "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; connect-src 'self'"
+
+
+def static(filename: str) -> Response:
+    """Sert un fichier de `core/web/` (liste fermée d'extensions, aucun chemin hors du dossier)."""
+    path = (WEB_DIR / filename).resolve()
+    if path.parent != WEB_DIR or path.suffix not in STATIC_TYPES or not path.is_file():
+        raise HTTPException(status_code=404, detail="introuvable")
+    return Response(path.read_bytes(), media_type=STATIC_TYPES[path.suffix],
+                    headers={"Content-Security-Policy": CSP, "X-Content-Type-Options": "nosniff",
+                             "Cache-Control": "no-store"})
 
 
 class AskRequest(BaseModel):
@@ -76,6 +94,30 @@ def create_app(daemon: Daemon) -> FastAPI:
         module_or_404(name)
         daemon.deactivate(name)
         return {"name": name, "active": False}
+
+    @app.post("/modules/{name}/command/{command}")
+    def module_command(name: str, command: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        module_or_404(name)
+        try:
+            return daemon.command(name, command, payload or {})
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except TimeoutError as exc:
+            raise HTTPException(status_code=504, detail=str(exc)) from exc
+
+    @app.get("/", include_in_schema=False)
+    def dashboard() -> Response:
+        return static("dashboard.html")
+
+    @app.get("/static/{filename}", include_in_schema=False)
+    def static_file(filename: str) -> Response:
+        return static(filename)
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    def favicon() -> Response:
+        return Response(status_code=204)
 
     @app.get("/events")
     def events(limit: int = 50) -> list[dict[str, Any]]:

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AetherTwin — Hub</title>
+  <link rel="stylesheet" href="/static/dashboard.css">
+  <script src="/static/dashboard.js" defer></script>
+</head>
+<body>
+  <header>
+    <img src="/static/logo.svg" alt="" width="40" height="40">
+    <div>
+      <h1>AetherTwin <span>I&amp;F Core</span></h1>
+      <p id="hub-line">Connexion au Hub…</p>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>Cartes graphiques</h2>
+      <div id="gpus" class="cards"><p class="muted">Mesure en cours…</p></div>
+      <p id="llm-line" class="muted"></p>
+    </section>
+
+    <section>
+      <h2>Modules</h2>
+      <table>
+        <thead><tr><th>Module</th><th>État</th><th>Détail</th><th></th></tr></thead>
+        <tbody id="modules"></tbody>
+      </table>
+      <p class="muted">Un module se lance aussi seul quand son déclencheur apparaît (ex. gaming_hud avec WoW ou OBS).</p>
+    </section>
+
+    <section>
+      <h2>Assistant local</h2>
+      <form id="ask-form">
+        <textarea id="ask-prompt" rows="3" placeholder="Pose ta question au modèle local…" required></textarea>
+        <div class="row">
+          <label><input type="checkbox" id="ask-context" checked> avec le contexte des modules actifs</label>
+          <button type="submit">Envoyer</button>
+        </div>
+      </form>
+      <pre id="ask-answer" class="answer" hidden></pre>
+    </section>
+
+    <section>
+      <h2>Professeur (genesis_lab)</h2>
+      <div class="row">
+        <select id="prof-domain">
+          <option value="bio">Génétique et bio-informatique</option>
+          <option value="astro">Astrophysique</option>
+          <option value="chem">Génie chimique</option>
+        </select>
+        <button id="prof-new" type="button">Nouvel exercice</button>
+        <button id="prof-progress" type="button" class="ghost">Ma progression</button>
+      </div>
+      <div id="prof-exercise" hidden>
+        <p id="prof-question" class="question"></p>
+        <form id="prof-form" class="row">
+          <input id="prof-given" autocomplete="off" required placeholder="Ta réponse">
+          <span id="prof-unit" class="muted"></span>
+          <button type="submit">Corriger</button>
+        </form>
+      </div>
+      <div id="prof-result" class="answer" hidden></div>
+    </section>
+
+    <section>
+      <h2>Liens utiles</h2>
+      <ul class="links">
+        <li><a href="http://127.0.0.1:5757/obs-hud" target="_blank" rel="noopener">Overlay OBS</a> <span class="muted">(gaming_hud actif ; source navigateur 1920×1080 dans OBS)</span></li>
+        <li><a href="/health" target="_blank" rel="noopener">État brut du Hub (JSON)</a></li>
+        <li><a href="/events" target="_blank" rel="noopener">Derniers événements du bus (JSON)</a></li>
+      </ul>
+    </section>
+  </main>
+  <footer>Tout tourne sur cette machine. Rien n'écoute en dehors de 127.0.0.1.</footer>
+</body>
+</html>

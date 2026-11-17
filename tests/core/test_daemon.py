@@ -31,6 +31,9 @@ class Demo(ModuleBase):
         if event.topic == "module.demo.cmd.ping":
             self.count += 1
             self.publish(Event("module.demo.pong", {"count": self.count}, source="demo"))
+        elif event.topic == "module.demo.cmd.echo":
+            self.publish(Event("module.demo.result", {"request_id": event.payload.get("request_id"), "ok": True,
+                                                      "result": event.payload.get("text")}, source="demo"))
         elif event.topic == "module.demo.cmd.crash":
             import os
             os._exit(7)
@@ -203,7 +206,12 @@ def test_local_api(hub: Daemon) -> None:
     assert wait_for(lambda: "module.demo.started" in hub.topics)
     assert client.get("/modules").json()[0]["running"] is True
     assert "module.demo.started" in [e["topic"] for e in client.get("/events").json()]
+    reply = client.post("/modules/demo/command/echo", json={"text": "bonjour"}).json()
+    assert reply["ok"] is True and reply["result"] == "bonjour"  # réponse rattachée par request_id
+    assert client.post("/modules/demo/command/a.b", json={}).status_code == 400  # nom de commande filtré
     assert client.post("/modules/demo/deactivate").json() == {"name": "demo", "active": False}
+    stopped = client.post("/modules/demo/command/echo", json={})
+    assert stopped.status_code == 409 and "pas lancé" in stopped.json()["detail"]
     assert client.post("/modules/inconnu/activate").status_code == 404
     answer = client.post("/ask", json={"prompt": "bonjour"})
     assert answer.status_code == 503 and "modèle" in answer.json()["detail"]  # erreur claire, pas de plantage

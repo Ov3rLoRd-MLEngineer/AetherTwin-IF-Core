@@ -459,3 +459,21 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - **Limite connue :** le garde-fou contrôle les nombres, pas le sens des phrases. Une phrase fausse sans
   nombre nouveau passerait. Essai réel limité à un exercice et deux niveaux.
 - **Tests :** `pytest` → 268 réussis, 2 ignorés ; `ruff check .` propre.
+
+## 2026-11-17 — Lancement simple : lanceur .bat et tableau de bord
+
+- **Agent :** Cloud
+- **Fichiers :** `Lancer AetherTwin.bat`, `core/web/{dashboard.html,dashboard.css,dashboard.js,logo.svg}`,
+  `core/api.py`, `core/daemon.py`, `config/local.example.yaml`, `tests/core/test_dashboard.py`,
+  `tests/core/test_daemon.py`, `PROJECT_STATUS.md`. Hors dépôt : raccourci `AetherTwin.lnk` sur le bureau.
+- **Raison :** Jérémy lançait `python -m core.daemon` depuis `.venv\Scripts` et `modules\gaming_hud\app` :
+  `ModuleNotFoundError`, car `-m` exige la racine du projet. Le lanceur se place lui-même à la racine et
+  utilise le Python du `.venv` ; il crée `config/local.yaml` depuis l'exemple s'il manque.
+- **Ajouts :** page `/` (GPU, modules avec Lancer/Arrêter, assistant, Professeur, liens), CSP stricte, fichiers
+  servis seulement depuis `core/web/` ; `Daemon.command()` et `POST /modules/{nom}/command/{cmd}` (attend la
+  réponse `module.<nom>.result` portant le même `request_id`) ; options `--open` et `--activate` du démon ;
+  si le port est déjà pris, le lanceur ouvre simplement le tableau de bord. Section `genesis_lab` dans
+  l'exemple de configuration (explications par le modèle local via le Hub).
+- **Tests :** ruff propre ; pytest vert. **Essai réel** : Hub lancé avec `gaming_hud` et `genesis_lab`,
+  tableau de bord affichant les deux GPU réels, exercice de GC % corrigé, explication rédigée par
+  `qwen3-27b` (~30 s, chargement compris).
