@@ -411,7 +411,7 @@ Le démon : centre de l'architecture en étoile.
   - `def stop_app(self, name: str, timeout_s: float=6.0) -> str` — Ferme l'application **doucement** (demande de fermeture de fenêtre : elle enregistre ce qu'elle doit),
   - `def notify(self, name: str, command: str, payload: dict[str, Any] | None=None) -> None` — Commande sans réponse attendue (ex. `showcase`).
   - `def command(self, name: str, command: str, payload: dict[str, Any] | None=None, timeout_s: float=240.0) -> dict[str, Any]` — Envoie `module.<nom>.cmd.<commande>` et attend la réponse portant le même `request_id`.
-  - `def ask_messages(self, prompt: str, with_context: bool=True, history: list[dict[str, Any]] | None=None) -> tuple[list[dict[str, Any]], str]` — Messages pour l'assistant : le contexte publié par les modules actifs (déjà filtré par eux), les
+  - `def ask_messages(self, prompt: str, with_context: bool=True, history: list[dict[str, Any]] | None=None, passages: list[dict[str, Any]] | None=None) -> tuple[list[dict[str, Any]], str]` — Messages pour l'assistant : le contexte publié par les modules actifs (déjà filtré par eux), les
   - `def ask(self, prompt: str, model: str | None=None, with_context: bool=True) -> dict[str, Any]` — Question à l'assistant local, avec le contexte publié par les modules actifs (déjà filtré par eux).
   - `def tick(self) -> dict[str, Any]` — Un tour : processus, déclencheurs, watchdog, alertes GPU, tâches de nuit. Retourne ce qui a changé.
   - `def status(self) -> dict[str, Any]`

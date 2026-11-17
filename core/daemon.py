@@ -313,13 +313,20 @@ class Daemon:
             self._pending.pop(request_id, None)
 
     # -- assistant
-    def ask_messages(self, prompt: str, with_context: bool = True,
-                     history: list[dict[str, Any]] | None = None) -> tuple[list[dict[str, Any]], str]:
+    def ask_messages(self, prompt: str, with_context: bool = True, history: list[dict[str, Any]] | None = None,
+                     passages: list[dict[str, Any]] | None = None) -> tuple[list[dict[str, Any]], str]:
         """Messages pour l'assistant : le contexte publié par les modules actifs (déjà filtré par eux), les
-        derniers échanges de la conversation (rôles `user`/`assistant` seulement, 12 au plus, textes bornés),
-        puis la question."""
+        extraits de la base de connaissances s'il y en a (numérotés, à citer), les derniers échanges de la
+        conversation (rôles `user`/`assistant` seulement, 12 au plus, textes bornés), puis la question."""
         context = "\n".join(self.contexts[name] for name in sorted(self.contexts)
                             if self.modules.get(name) and self.modules[name].active) if with_context else ""
+        if passages:
+            excerpts = "\n\n".join(f"[{i}] {p['title']} — {' '.join(str(p['text']).split())[:700]}"
+                                   for i, p in enumerate(passages, start=1))
+            context = (f"{context}\n\n" if context else "") + (
+                "Extraits de la base de connaissances locale. Appuie-toi dessus quand ils répondent à la question "
+                "et cite-les par leur numéro, par exemple [1]. S'ils ne contiennent pas la réponse, dis-le "
+                "simplement au lieu d'inventer.\n\n" + excerpts)
         messages: list[dict[str, Any]] = [{"role": "system", "content": context}] if context else []
         for turn in (history or [])[-12:]:
             role, content = turn.get("role"), turn.get("content")

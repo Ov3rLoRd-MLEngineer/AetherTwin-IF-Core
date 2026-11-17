@@ -273,6 +273,15 @@ def test_chat_stream_follows_the_same_vram_rules(router: LlmRouter, ollama: Fake
         list(router.chat_stream(USER, model="geant:70b"))
 
 
+def test_unload_a_loaded_model_from_the_dashboard(api, ollama: FakeOllama) -> None:
+    client, daemon = api
+    client.post("/ask", json={"prompt": "x"})
+    assert list(ollama.loaded) == ["gros-a:27b"]
+    assert client.post("/llm/unload", json={"model": "gros-a:27b"}).json() == {"unloaded": "gros-a:27b"}
+    assert ollama.loaded == {} and daemon.inoue.state()["loaded_llms"] == []
+    assert client.post("/llm/unload", json={"model": "gros-b:30b"}).status_code == 404  # pas chargé
+
+
 def test_openai_compatible_streaming(api, ollama: FakeOllama) -> None:
     client, _daemon = api
     response = client.post("/v1/chat/completions", json={"messages": USER, "stream": True, "temperature": 0.2})
@@ -287,6 +296,42 @@ def test_openai_compatible_streaming(api, ollama: FakeOllama) -> None:
     assert ollama.calls[-1][1]["options"]["temperature"] == 0.2
     refused = client.post("/v1/chat/completions", json={"model": "geant:70b", "messages": USER, "stream": True})
     assert "VRAM" in refused.text and refused.text.rstrip().endswith("data: [DONE]")
+
+
+class StubKnowledge:
+    def __init__(self, hits: list[dict]) -> None:
+        self.hits = hits
+
+    def search(self, query: str, k: int = 5, tag: str = "") -> dict:
+        return {"hits": self.hits[:k], "degraded": ""}
+
+    def stop(self) -> None:
+        pass
+
+
+def hit(title: str, score: float, url: str, mode: str = "vecteurs") -> dict:
+    return {"title": title, "url": url, "license": "CC BY-SA 4.0", "text": f"Passage sur {title}.",
+            "score": score, "mode": mode}
+
+
+def test_api_ask_with_knowledge_cites_sources(api, ollama: FakeOllama) -> None:
+    client, daemon = api
+    daemon.knowledge = StubKnowledge([hit("Parsec", 0.81, "https://w/p"), hit("Parsec", 0.79, "https://w/p"),
+                                      hit("Parallaxe", 0.76, "https://w/x"), hit("Kepler", 0.70, "https://w/k"),
+                                      hit("Cuisine", 0.31, "https://w/c")])  # Kepler : trop loin du meilleur
+    lines = [json.loads(line) for line in client.post("/ask/stream", json={
+        "prompt": "Combien vaut un parsec ?", "use_knowledge": True, "with_context": False}).text.splitlines()]
+    assert lines[0]["sources"] == [{"n": 1, "title": "Parsec", "url": "https://w/p", "license": "CC BY-SA 4.0"},
+                                   {"n": 2, "title": "Parallaxe", "url": "https://w/x", "license": "CC BY-SA 4.0"}]
+    system = ollama.calls[-1][1]["messages"][0]
+    assert system["role"] == "system" and "[1] Parsec" in system["content"] and "Cuisine" not in system["content"]
+    assert "dis-le" in system["content"]  # consigne : ne pas inventer si la base ne répond pas
+    daemon.knowledge = StubKnowledge([hit("Gaz parfaits", 0.61, "https://w/g")])  # hors sujet mesuré : 0,55-0,61
+    off = [json.loads(line) for line in client.post("/ask/stream", json={
+        "prompt": "Recette de crêpes ?", "use_knowledge": True}).text.splitlines()]
+    assert off[0]["sources"] == [] and "Extraits" not in str(ollama.calls[-1][1]["messages"])
+    plain = [json.loads(line) for line in client.post("/ask/stream", json={"prompt": "x"}).text.splitlines()]
+    assert "sources" not in plain[0]  # sans la case cochée, rien de la base
 
 
 def test_api_ask_stream(api, ollama: FakeOllama) -> None:

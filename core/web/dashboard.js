@@ -62,6 +62,16 @@ async function refreshHub() {
     }
     const llm = health.llm || {};
     const loaded = (llm.loaded || []).map((m) => (typeof m === "string" ? m : m.name)).join(", ");
+    // modèles en mémoire, déchargeables d'un clic (libérer la VRAM avant de jouer)
+    $("llm-loaded").replaceChildren(...(llm.loaded || []).map((m) => {
+      const button = el("button", { type: "button", class: "ghost" }, "Décharger");
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+        try { await post("/llm/unload", { model: m.name }); } catch (error) { alert(error.message); }
+        refreshHub();
+      });
+      return el("li", {}, `${m.name} — ${m.vram_gb} Go de VRAM, contexte ${m.context} `, button);
+    }));
     $("llm-line").textContent = llm.reachable
       ? `Ollama joignable (${llm.host}) — modèle par défaut : ${llm.default_model}, contexte ${llm.num_ctx}`
         + ` — chargé : ${loaded || "aucun"}`
@@ -298,8 +308,10 @@ $("ask-form").addEventListener("submit", async (event) => {
     // réponse mot à mot : une ligne JSON par morceau ; la conversation précédente est jointe
     const response = await fetch("/ask/stream", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, with_context: $("ask-context").checked, history: chat.history }),
+      body: JSON.stringify({ prompt, with_context: $("ask-context").checked, history: chat.history,
+                             use_knowledge: $("ask-knowledge").checked }),
     });
+    let sources = [];
     if (!response.ok || !response.body) throw new Error(`erreur ${response.status}`);
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -316,7 +328,20 @@ $("ask-form").addEventListener("submit", async (event) => {
           text += msg.text;
           renderMarkdown(out, text);
           $("chat").scrollTop = $("chat").scrollHeight;
+        } else if (msg.sources) {
+          sources = msg.sources;
         } else if (msg.done) {
+          if (sources.length) {
+            const line = el("span", { class: "meta" }, "Sources : ");
+            sources.forEach((s, i) => {
+              if (i) line.append(" · ");
+              line.append(`[${s.n}] `, el("a", { href: s.url, target: "_blank", rel: "noopener" }, s.title),
+                          ` (${s.license})`);
+            });
+            out.append(line);
+          } else if ($("ask-knowledge").checked) {
+            out.append(el("span", { class: "meta" }, "Rien de pertinent dans la base pour cette question."));
+          }
           out.append(el("span", { class: "meta" }, `${msg.done.model}, ${msg.done.seconds} s`));
         } else if (msg.error) {
           throw new Error(msg.error);

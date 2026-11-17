@@ -37,6 +37,7 @@
         <h2>Cartes graphiques</h2>
         <div id="gpus" class="cards"><p class="muted">Mesure en cours…</p></div>
         <p id="llm-line" class="muted"></p>
+        <ul id="llm-loaded" class="links"></ul>
       </section>
       <section>
         <h2>Budget VRAM (Inoue)</h2>
@@ -104,6 +105,7 @@
           <textarea id="ask-prompt" rows="3" placeholder="Pose ta question au modèle local… (Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne)" required></textarea>
           <div class="row">
             <label><input type="checkbox" id="ask-context" checked> avec le contexte des modules actifs (ex. ton jeu)</label>
+            <label><input type="checkbox" id="ask-knowledge"> chercher dans la base de connaissances (sources citées)</label>
             <button id="chat-new" type="button" class="ghost">Nouvelle conversation</button>
             <button type="submit">Envoyer</button>
           </div>

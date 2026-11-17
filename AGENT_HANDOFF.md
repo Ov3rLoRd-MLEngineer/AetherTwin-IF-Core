@@ -11,7 +11,18 @@ Les phrases sont courtes. Rien n'est implicite.
 4. **Ne charge pas tout le dépôt.** Ouvre seulement les fichiers de ta tâche.
 5. N'ouvre jamais `_import/` en entier. `ui.py` fait 93 Ko.
 
-## Où on en est (16/11/2026)
+## Où on en est (mis à jour le 17/11/2026, soir)
+
+- J0 à J7 faits. J8 en cours : installation vérifiée sur un clone vierge, puis améliorations demandées par
+  Jérémy (« vérifier l'installation et améliorer l'existant » avant les documents finaux). Détail dans
+  `PROJECT_STATUS.md` et `logs/CHANGELOG_DEV.md`. 380+ tests verts, 4 tests réels sur GPU ignorés par défaut.
+- **Jérémy fait un retour complet le 18/11 au matin** (tests 15 à 19 de `PROJECT_STATUS.md`, et le jeu, qu'il
+  veut développer après sa propre analyse : ne pas l'étendre sans son retour).
+- HandSegNet/FootSegNet n'ont vu que des images SDXL : les ratés sur des pages de manga sont hors domaine.
+- Restent ensuite : documents finaux (`docs/HARDWARE_FIT.md`, `docs/DEMO_SCRIPT.md`, README,
+  `research/overlord_notes.md`), puis J9 (gel, branche `concours`, tag, scan des secrets de l'historique).
+
+## Historique de cette section (16/11/2026)
 
 1. Le projet s'appelle AetherTwin (I&F Core). C'est un hub d'agents locaux.
 2. Il est présenté au concours ASUS Agent Computer Challenge. Clôture : 25/11/2026.

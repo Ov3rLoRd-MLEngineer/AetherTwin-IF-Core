@@ -694,3 +694,17 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   dans la marge de découpe → « Ce monde » et « Mariage » posés sur l'image. Corrigé aussi côté OCR : la marge
   de découpe est blanchie au-delà d'une petite bordure. Vraie page revenue à 4 bulles, 7 faux positifs écartés.
 - **Tests :** ruff propre ; pytest vert (2 tests de non-régression ajoutés).
+
+## 2026-11-17 — J8 (8) : assistant appuyé sur la base, déchargement d'un modèle, domaine des modèles
+
+- **Agent :** Cloud
+- **Fichiers :** `core/daemon.py` (`ask_messages(passages)`), `core/api.py` (`use_knowledge`, `relevant_passages`,
+  `POST /llm/unload`), `core/web/dashboard.*` (case « chercher dans la base », sources sous la réponse, bouton
+  « Décharger »), `modules/mangastudio/README.md` (domaine SDXL), `AGENT_HANDOFF.md`, tests, suivi.
+- **Calibrage mesuré** sur la base réelle : couvert 0,70-0,81, hors sujet 0,55-0,61 → seuil 0,65 et 0,08 sous le
+  meilleur. Préfixes `search_query:`/`search_document:` essayés sur une copie réindexée : pas de meilleure
+  séparation (hors sujet jusqu'à 0,64), non retenus.
+- **Réel :** « un parsec vaut environ 3,26 années-lumière [1] » avec la page Parsec en source ; question sur les
+  crêpes : aucune source jointe, réponse de culture générale.
+- **Domaine :** HandSegNet/FootSegNet entraînés uniquement sur des images SDXL (précision de Jérémy) : noté.
+- **Tests :** ruff propre ; pytest vert.

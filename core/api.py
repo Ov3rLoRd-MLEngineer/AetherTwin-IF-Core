@@ -104,6 +104,7 @@ class AskRequest(BaseModel):
     model: str | None = None
     with_context: bool = True
     history: list[dict[str, Any]] = []  # échanges précédents de la conversation (le démon les borne)
+    use_knowledge: bool = False  # joindre les passages pertinents de la base de connaissances (à citer)
 
 
 class ChatRequest(BaseModel):
@@ -368,13 +369,42 @@ def create_app(daemon: Daemon) -> FastAPI:
         """La réponse arrive au fil de la génération : une ligne JSON par morceau (`{"text": …}`), puis
         `{"done": {"model", "seconds"}}` ou `{"error": …}`. La génération tourne dans un fil dédié (le verrou du
         routeur est pris et rendu par ce même fil)."""
-        messages, _context = daemon.ask_messages(request.prompt, request.with_context, request.history)
+        passages = relevant_passages(request.prompt) if request.use_knowledge else []
+        messages, _context = daemon.ask_messages(request.prompt, request.with_context, request.history, passages)
 
         def lines() -> Any:
+            if request.use_knowledge:  # les sources d'abord : l'interface les affiche sous la réponse
+                sources = [{"n": i, "title": p["title"], "url": p["url"], "license": p["license"]}
+                           for i, p in enumerate(passages, start=1)]
+                yield json.dumps({"sources": sources}, ensure_ascii=False) + "\n"
             for kind, value in stream_pieces(messages, request.model):
                 yield json.dumps({kind: value}, ensure_ascii=False) + "\n"
 
         return StreamingResponse(lines(), media_type="application/x-ndjson")
+
+    def relevant_passages(question: str, k: int = 3) -> list[dict[str, Any]]:
+        """Passages assez proches de la question, un par page au plus. Base absente ou en erreur : aucun passage
+        (l'assistant répond sans).
+
+        Seuils mesurés le 17/11/2026 sur la base réelle (`nomic-embed-text`, 18 pages Wikipédia) : questions
+        couvertes 0,70 à 0,81 ; hors sujet (cuisine, football, WoW) 0,55 à 0,61. D'où 0,65 en vecteurs, et pas
+        plus de 0,08 sous le meilleur passage. Les préfixes « search_query/search_document » ont été essayés :
+        ils ne séparaient pas mieux (hors sujet jusqu'à 0,64)."""
+        if daemon.knowledge is None:
+            return []
+        try:
+            hits = daemon.knowledge.search(question, k=k * 2)["hits"]
+        except Exception:  # noqa: BLE001 — une recherche ratée ne doit pas empêcher de répondre
+            return []
+        if not hits:
+            return []
+        best = max(h["score"] for h in hits)
+        kept: list[dict[str, Any]] = []
+        for hit in hits:
+            threshold = 0.65 if hit["mode"] == "vecteurs" else 0.6
+            if hit["score"] >= max(threshold, best - 0.08) and all(k_["url"] != hit["url"] for k_ in kept):
+                kept.append(hit)
+        return kept[:k]
 
     def stream_pieces(messages: list[dict[str, Any]], model: str | None, **options: Any) -> Any:
         """(« text », morceau)…, puis (« done », {model, seconds}) ou (« error », message). La génération tourne
@@ -403,6 +433,16 @@ def create_app(daemon: Daemon) -> FastAPI:
             yield kind, value
             if kind != "text":
                 return
+
+    @app.post("/llm/unload")
+    def llm_unload(data: dict[str, Any]) -> dict[str, Any]:
+        """Décharge un modèle de la VRAM (ex. avant de lancer un jeu). Seuls les modèles chargés sont acceptés."""
+        model = str(data.get("model", ""))
+        loaded = [m["name"] for m in llm_call(lambda: {"m": daemon.llm.loaded()})["m"]]
+        if model not in loaded:
+            raise HTTPException(status_code=404, detail=f"modèle non chargé : {model}")
+        llm_call(lambda: daemon.llm.unload(model) or {})
+        return {"unloaded": model}
 
     @app.get("/v1/models")
     def v1_models() -> dict[str, Any]:

@@ -31,6 +31,14 @@ ComfyUI avec les nœuds `ComfyUI_IPAdapter_plus` (IP-Adapter), un modèle SDXL a
 (trait ou pose) et nos nœuds. Les noms de modèles commençant par `A_CHOISIR_` sont à remplacer. Aucune
 image n'a été générée avec ce workflow à ce jour : il est vérifié par sa structure seulement.
 
+## Domaine d'entraînement
+
+HandSegNet et FootSegNet ont été entraînés **uniquement sur des images générées par SDXL** (illustrations
+anime en couleur). Sur une page de manga en noir et blanc, tramée ou photographiée, ils sortent de leur
+domaine : les débordements constatés le 17/11/2026 (masques qui prennent un manteau ou une cape) viennent
+probablement de là, et non d'un défaut du branchement. Pour juger leur qualité, les essayer sur des images
+SDXL, leur domaine. (Précision de Jérémy, 17/11/2026.)
+
 ## Limites connues (d'après les fiches des modèles)
 
 Une boîte par appel ; deux mains = deux boîtes (masques réunis). HandSegNet : IoU de validation 0,888 avec une
