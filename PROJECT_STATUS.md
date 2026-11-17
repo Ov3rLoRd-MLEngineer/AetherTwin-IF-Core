@@ -20,7 +20,12 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 - **J6 terminé** (17/11) : `scantrad`, traduction locale d'une page de manga, essai réel sur la page de test
   (`docs/captures/scantrad_page_test_fr.png`), puis détection refaite pour les vraies pages.
 - **J7 terminé** (17/11) : `mangastudio` (HandSegNet et FootSegNet réels sur GPU, nœuds ComfyUI, onglet
-  Studio) et `if_game` (onglet Éther). Prochaine étape : J8 (documents finaux, `setup.ps1` vérifié).
+  Studio) et `if_game` (onglet Éther).
+- **J8 en cours** (17/11, décision de Jérémy : vérifier l'installation et améliorer l'existant avant les
+  documents finaux) : installation vérifiée sur un clone vierge (`setup.ps1` 75 s, avec `-Gpu` 169 s, toute la
+  suite verte après correction de la carte) ; réponse de l'assistant mot à mot ; jeu en **HD-2D** (pixel art
+  en perspective, lumières, flou de profondeur, portails cliquables). Licence des modèles de segmentation :
+  poids Apache 2.0, code des dépôts d'origine MIT.
 - Décisions de Jérémy : Q4_K_M tant que la VRAM est de 32 Go ; contexte local 32 768 ; pas de push pour l'instant.
 - **Lancement simple** (17/11) : `Lancer AetherTwin.bat` à la racine (raccourci « AetherTwin » sur le bureau)
   démarre le Hub et ouvre le tableau de bord sur `http://127.0.0.1:5750/`, en onglets : Accueil (GPU,
@@ -74,6 +79,9 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | `mangastudio` : nœuds ComfyUI | P2 | J7 | `FAIT-TESTÉ` (hors ComfyUI) | chargés seuls et exécutés avec le vrai modèle ; **jamais chargés dans un vrai ComfyUI** |
 | `mangastudio` : workflow de continuité | P2 | J7 | `FAIT-NON-TESTÉ` | IP-Adapter + ControlNet + masque des mains ; structure vérifiée, aucune image générée |
 | `mangastudio` : onglet Studio | P2 | J7 | `FAIT-TESTÉ` / `FAIT-NON-TESTÉ` | envoi et segmentation réels par l'API ; tracé des boîtes à la souris non essayé |
+| Installation (`scripts/setup.ps1`, `-Gpu`, `-Weights`, `-Shortcut`) | P0 | J8 | `FAIT-TESTÉ` | clone vierge : 75 s sans GPU, 169 s avec PyTorch (cache pip chaud) ; suite complète verte ; `-Weights` et `-Shortcut` non rejoués sur le clone |
+| Assistant : réponse mot à mot (`/ask/stream`) | P1 | J8 | `FAIT-TESTÉ` | **réel** : premier mot à 16 s chargement compris, ~30 morceaux/s ; l'API compatible OpenAI reste sans diffusion |
+| `if_game` : rendu HD-2D | P2 | J8 | `FAIT-TESTÉ` | vérifié à l'œil dans le navigateur (6 ambiances, dont 4 vues), clic réel sur un portail ; fluidité non mesurée sur une autre machine |
 | `if_game` : Fuma & Inoue, onglet Éther | P2 | J7 | `FAIT-TESTÉ` | graine reproductible, propositions du modèle validées (ton calme, formes), sauvegarde ; **réel** : lieu inventé par `qwen3-27b` et réplique de Fuma acceptés |
 | `research/overlord_notes.md`, `docs/HARDWARE_FIT.md`, README final | P0 | J8 | `À FAIRE` | README actuel = version provisoire |
 | Gel, branche `concours`, tag `v0.1.0-concours`, scan de l'historique | P0 | J9 | `À FAIRE` | |
@@ -137,7 +145,9 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 4 | Relais réel, fenêtre courte | `.venv\Scripts\python.exe scripts\relay_orchestrator.py --window-minutes 10 --max-cycles 1 --local-model qwen3-27b:latest` (depuis `cmd.exe`) | à la limite de quota : bascule sur l'agent local, puis retour ; vérifier `logs\relay.log` et `git log` |
 | 5 | Relever le message exact de limite de Claude Code | copier la ligne de `logs\relay.log` | permet d'ajuster `QUOTA_PATTERNS` si besoin |
 | 7 | Hub complet — **OK (Jérémy, 17/11)** ; à refaire avec les onglets | raccourci **AetherTwin** ; onglet **Jeu** : « Lancer WoW Assistant », puis « Fermer » | la fenêtre de WoW Assistant s'ouvre et se ferme depuis le navigateur ; « Ce que l'assistant sait de ton jeu » affiche ton personnage |
-| 8 | Bascule Showcase avec OBS réel | onglet **Jeu**, OBS fermé puis ouvert | l'étiquette passe de « Showcase : inactif » à « Showcase : ACTIF » sans rien toucher (vérifié par Claude avec OBS ouvert, 17/11) |
+| 8 | Bascule Showcase avec OBS réel — **OK (Jérémy, 17/11)** : ouverture, fermeture, forçage | — | — |
+| 15 | Jeu HD-2D | onglet **Éther** : cliquer sur les portails lumineux, « parler à Inoue » | la scène change de décor à chaque lieu, fondu d'arrivée ; note si l'animation saccade |
+| 16 | Assistant mot à mot | onglet **Assistant** : une question | le texte s'écrit au fur et à mesure |
 | 13 | Scantrad sur une de tes pages — 1er essai : bulles ratées, texte non effacé (corrigé le 17/11) | onglet **Scantrad** : choisir l'image, « Traduire » | original et traduction côte à côte, liste des bulles ; note celles qui manquent |
 | 14 | Recherche par vecteurs — **OK (Jérémy, 17/11)** : 377 passages avec vecteurs | — | — |
 | 12 | Professeur — **OK (Jérémy, 17/11)** | — | — |

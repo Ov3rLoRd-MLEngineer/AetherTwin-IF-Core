@@ -630,3 +630,12 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - **Accents de `setup.ps1` :** PowerShell 5.1 lit un `.ps1` sans BOM en ANSI (« SystÃ¨me » dans le journal de
   l'installation vierge) : fichier réenregistré en UTF-8 avec BOM.
 - **Tests :** ruff propre ; pytest vert.
+
+## 2026-11-17 — J8 (3) : vérifications
+
+- **Agent :** Cloud
+- **Professeur, réel** (Hub d'essai, port 5751) : deux réponses fausses (8,33 au lieu de 33,33 et de 50,0) ;
+  les explications ne félicitent plus et montrent l'erreur probable. Correctif du 17/11 confirmé.
+- **Carte d'architecture sur clone neuf** du dernier commit : à jour (l'échec précédent venait d'un commit
+  fait avant régénération). Dossiers de vérification supprimés (environ 3 Go).
+- **Suivi :** `PROJECT_STATUS.md` (J8 en cours, tests 8, 15, 16).
