@@ -299,3 +299,17 @@ réconciliées. La durée reste donc un paramètre : `--window-minutes` (défaut
 `storage.sqlite` n'est plus dans le dossier `.omniroute` : il est dans la corbeille de Windows, et une
 copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont restés. Un `.env` vide a
 été créé. OmniRoute est arrêté. Rien n'a été touché : la suite dépend de ce que Jérémy voulait faire.
+
+---
+
+## 2026-11-17 — OmniRoute : chiffrement activé (hors dépôt, à la demande de Jérémy)
+
+- **Agent :** Cloud. Aucun fichier du dépôt n'est concerné, hors ce journal.
+- Jérémy a restauré `storage.sqlite` depuis la corbeille. Relue en lecture seule : mêmes 5 connexions
+  qu'avant, toujours en clair. OmniRoute arrêté (port 20128 libre, aucun processus).
+- Sauvegarde de `storage.sqlite`, `-wal`, `-shm` et `.env` dans
+  `sauvegarde_avant_chiffrement_2026-11-17_023453` (dossier `.omniroute`).
+- Clé aléatoire de 32 octets écrite dans `.env` (`STORAGE_ENCRYPTION_KEY`), jamais affichée ni consignée.
+- **Non vérifié :** le redémarrage d'OmniRoute avec cette clé, et le fait que les fournisseurs répondent
+  toujours. À faire par Jérémy.
+- **Retour arrière :** OmniRoute arrêté, remettre les quatre fichiers de la sauvegarde à leur place.
