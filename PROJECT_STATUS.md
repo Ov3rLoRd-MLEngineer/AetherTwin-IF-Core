@@ -7,8 +7,8 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 
 ## Où on en est
 
-- Dépôt initialisé : venv Python 3.11, Git, lint, tests, CI, fichiers de suivi. **270 tests** au total :
-  268 passent partout, 2 sont des tests réels sur GPU, activés par `AETHERTWIN_REAL_OLLAMA=1`.
+- Dépôt initialisé : venv Python 3.11, Git, lint, tests, CI, fichiers de suivi. **318 tests** au total (17/11) :
+  315 passent, 3 sont des tests réels sur GPU, activés par `AETHERTWIN_REAL_OLLAMA=1`.
 - Relais Cloud ⇄ Local écrit et testé **en simulation**.
 - **J2 terminé** : moniteur GPU, contrat de module, bus, ordonnanceur, gardiens, démon et API locale.
 - **J3 terminé** (17/11) : WoW Assistant porté dans `modules/gaming_hud/`, interface `GameAdapter`, trois
