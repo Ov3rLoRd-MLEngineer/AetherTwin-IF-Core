@@ -251,6 +251,18 @@ modules/
     manifest.json
     module.py
     tutor.py
+  scantrad/
+    __init__.py
+    __main__.py
+    cli.py
+    detect.py
+    hub_stages.py
+    manifest.json
+    module.py
+    pipeline.py
+    README.md
+    testpage.py
+    typeset.py
 scripts/
   __init__.py
   gen_architecture_map.py
@@ -278,6 +290,9 @@ tests/
     test_module_api.py
   data/
     .gitkeep
+    scantrad/
+      page_test.json
+      page_test.png
   gaming_hud/
     __init__.py
     conftest.py
@@ -289,6 +304,10 @@ tests/
     __init__.py
     test_calculs.py
     test_tutor_module.py
+  scantrad/
+    __init__.py
+    test_scantrad.py
+    test_scantrad_module.py
   test_architecture_map.py
   test_relay_orchestrator.py
   test_repo_hygiene.py
@@ -296,6 +315,7 @@ docs/
   .gitkeep
   captures/
     obs_hud.png
+    scantrad_page_test_fr.png
 research/
   .gitkeep
 assets/
@@ -760,6 +780,96 @@ Professeur Personnel Adaptatif.
   - `def progress(self) -> dict[str, Any]`
 - `def numbers_in(text: str) -> list[float]` — Nombres écrits dans un texte (virgule ou point décimal).
 - `def foreign_numbers(text: str, allowed: list[float], tolerance: float=0.005) -> list[str]` — Nombres du texte absents de la liste admise (à 0,5 % près). Les petits entiers sont toujours admis.
+
+### `modules/scantrad/__init__.py`
+
+*Erreur de syntaxe : invalid non-printable character U+FEFF (ligne 1)*
+
+### `modules/scantrad/__main__.py`
+
+`python -m modules.scantrad` : voir `modules/scantrad/cli.py`.
+
+*(aucun symbole public)*
+
+### `modules/scantrad/cli.py`
+
+Construction de la chaîne et ligne de commande.
+
+- `def series_slug(name: str) -> str` — Nom de fichier sûr pour une série (« Ma Série ! » → « ma-serie ») : aucun chemin ne peut en sortir.
+- `def glossary_for(series: str, data_dir: Path=DEFAULT_DATA) -> Glossary`
+- `def vram_reader()`
+- `def build(settings: dict[str, Any], series: str='', use_llm: bool=True) -> Scantrad`
+- `def read_image(path: Path) -> np.ndarray`
+- `def write_image(path: Path, image: np.ndarray) -> None`
+- `def capture_screen(region: str) -> np.ndarray`
+- `def main(argv: list[str] | None=None) -> int`
+
+### `modules/scantrad/detect.py`
+
+Détection heuristique des bulles (OpenCV) et effacement du texte d'origine (inpainting OpenCV).
+
+- `def detect_bubbles(page: np.ndarray, white_level: int=200, min_area_ratio: float=0.002, max_area_ratio: float=0.25, min_fill: float=0.5, text_ratio: tuple[float, float]=(0.005, 0.45)) -> list[Bubble]`
+- `def reading_key(box: tuple[int, int, int, int], page_height: int) -> tuple[int, int]` — Ordre de lecture du manga : de haut en bas par bandes, et de droite à gauche dans une bande.
+- `def clean_bubbles(page: np.ndarray, bubbles: list[Bubble], radius: int=3, grow: int=2) -> np.ndarray` — Efface le texte de chaque bulle par inpainting (OpenCV, Telea), sans toucher au contour de la bulle.
+
+### `modules/scantrad/hub_stages.py`
+
+OCR et traduction par les modèles locaux, **via le Hub** (API compatible OpenAI sur 127.0.0.1).
+
+- `def hub_chat(hub_api: str='http://127.0.0.1:5750', timeout_s: float=300.0) -> Chat`
+- `def strip_thinking(text: str) -> str`
+- `def bubble_png(page: np.ndarray, bubble: Bubble, pad: int=6, min_side: int=160) -> bytes` — Découpe la bulle (avec une petite marge), agrandie si elle est petite : le modèle lit mieux.
+- `def make_vision_ocr(chat: Chat, model: str='qwen2.5vl:7b', num_ctx: int=4096) -> Callable[..., str]`
+- **`class Glossary`** — Glossaire persistant d'une série : personnages et termes (japonais → français), ton, notes.
+  - `def load(cls, path: Path) -> Glossary`
+  - `def save(self) -> None`
+  - `def relevant(self, texts: list[str]) -> dict[str, str]` — Entrées présentes dans la page (on n'encombre pas le prompt avec tout le glossaire).
+- `def translation_prompt(texts: list[str], glossary: Glossary | None, target: str='français') -> str`
+- `def parse_translations(answer: str, count: int) -> list[str] | None`
+- `def make_translator(chat: Chat, glossary: Glossary | None=None, model: str='', target: str='français') -> Callable[[list[str]], list[str]]`
+
+### `modules/scantrad/module.py`
+
+Module du Hub : traduit une page sur commande.
+
+- **`class ScantradModule(ModuleBase)`**
+  - `def start(self) -> None`
+  - `def stop(self) -> None`
+  - `def health(self) -> Health`
+  - `def handle_event(self, event: Event) -> None`
+
+### `modules/scantrad/pipeline.py`
+
+Chaîne de traduction d'une page : détection → OCR → effacement → traduction → réincrustation.
+
+- **`class Bubble`** — Une bulle : boîte (x, y, l, h) dans la page, masque plein de la bulle et masque du texte (même taille que
+  - `def to_dict(self) -> dict[str, Any]`
+- **`class Detector(Protocol)`**
+- **`class Ocr(Protocol)`**
+- **`class Cleaner(Protocol)`**
+- **`class Translator(Protocol)`**
+- **`class Typesetter(Protocol)`**
+- **`class PageResult`**
+  - `def summary(self) -> dict[str, Any]`
+- **`class Scantrad`**
+  - `def run(self, page: np.ndarray) -> PageResult` — Traduit une page (image BGR, uint8). Sans OCR ou sans traducteur : détection et effacement seuls.
+
+### `modules/scantrad/testpage.py`
+
+Génère la page de test de `tests/data/scantrad/` : dessin simple et répliques **écrites pour le projet**.
+
+- `def jp_font(size: int) -> ImageFont.FreeTypeFont`
+- `def generate(out_dir: Path=OUT_DIR) -> Path`
+
+### `modules/scantrad/typeset.py`
+
+Réincrustation : texte traduit centré dans la bulle, taille ajustée, retours à la ligne automatiques.
+
+- `def font_loader(path: str='') -> FontLoader` — Police choisie (chemin), sinon une police courante du système, sinon celle fournie avec Pillow.
+- `def text_area(bubble: Bubble) -> tuple[int, int, int, int]` — Rectangle d'écriture dans la bulle (coordonnées de la page) : la zone où la bulle est la plus large,
+- `def wrap(text: str, font: ImageFont.FreeTypeFont | ImageFont.ImageFont, width: int, draw: ImageDraw.ImageDraw) -> list[str] | None` — Coupe aux espaces pour tenir dans `width`. `None` si un mot seul est trop large.
+- `def fit(text: str, width: int, height: int, load: FontLoader, draw: ImageDraw.ImageDraw, max_size: int=30, min_size: int=8) -> tuple[int, list[str], int]` — Plus grande taille de police qui fait tenir le texte : (taille, lignes, hauteur de ligne).
+- `def make_typesetter(font_path: str='', color: tuple[int, int, int]=(0, 0, 0)) -> Callable[..., np.ndarray]`
 
 ### `scripts/gen_architecture_map.py`
 

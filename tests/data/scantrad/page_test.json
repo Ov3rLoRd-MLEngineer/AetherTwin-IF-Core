@@ -1,0 +1,55 @@
+{
+  "licence": "page générée par modules/scantrad/testpage.py pour AetherTwin, répliques originales (Apache-2.0)",
+  "bubbles": [
+    {
+      "index": 1,
+      "box": [
+        470,
+        75,
+        340,
+        190
+      ],
+      "text": "おはよう！今日はいい天気だね。"
+    },
+    {
+      "index": 2,
+      "box": [
+        110,
+        250,
+        300,
+        160
+      ],
+      "text": "うん、海に行こうか？"
+    },
+    {
+      "index": 3,
+      "box": [
+        530,
+        685,
+        280,
+        150
+      ],
+      "text": "星がきれいだよ。"
+    },
+    {
+      "index": 4,
+      "box": [
+        80,
+        600,
+        320,
+        200
+      ],
+      "text": "ちょっと待って、カメラを持ってくる！"
+    },
+    {
+      "index": 5,
+      "box": [
+        450,
+        1080,
+        300,
+        140
+      ],
+      "text": "また明日ね。"
+    }
+  ]
+}

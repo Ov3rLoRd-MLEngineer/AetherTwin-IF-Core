@@ -26,8 +26,10 @@ logs/aider_model_settings.yml
 .aider*
 
 # Données d'exécution des modules
-cache/
-data/
+/cache/
+/data/
+# caches des modules (dont l'instantané du personnage de WoW Assistant)
+modules/**/cache/
 *.sqlite
 chroma/
 settings.json

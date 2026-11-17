@@ -92,6 +92,24 @@ def test_hub_api_and_night_task(tmp_path: Path) -> None:
     assert client.get("/health").json()["knowledge"]["stats"]["documents"] == 1
 
 
+def test_ingestion_catches_up_vectors_once_the_model_exists(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    working = service.store.embedder
+
+    def missing(texts):
+        from core.knowledge.store import KnowledgeError
+        raise KnowledgeError("embedding indisponible (modèle absent)")
+
+    service.store.embedder = missing
+    assert service.start_ingestion()
+    assert wait_for(lambda: not service.running() and "reindex_error" in service.last_report)
+    assert service.store.stats()["vectorized"] == 0
+    service.store.embedder = working  # `ollama pull` fait : la collecte suivante rattrape les vecteurs
+    assert service.start_ingestion()
+    assert wait_for(lambda: not service.running() and service.last_report.get("reindexed") == 1)
+    assert service.last_report["unchanged"] == 1 and service.store.stats()["vectorized"] == 1
+
+
 def test_api_without_knowledge_is_503(tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
 

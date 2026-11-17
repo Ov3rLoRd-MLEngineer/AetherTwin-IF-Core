@@ -1,0 +1,17 @@
+{
+  "name": "scantrad",
+  "version": "0.1.0",
+  "description": "Traduction locale de pages de manga : bulles, OCR, effacement, traduction, réincrustation",
+  "entry": "modules.scantrad.module:ScantradModule",
+  "vram_min_gb": 0,
+  "vram_comfort_gb": 0,
+  "python_deps": ["opencv-python-headless", "numpy", "pillow"],
+  "optional_deps": [],
+  "triggers": {
+    "processes": [],
+    "windows": [],
+    "ports": []
+  },
+  "network": [],
+  "experimental": false
+}

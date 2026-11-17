@@ -56,6 +56,10 @@ class ChatRequest(BaseModel):
     model: str | None = None
     messages: list[dict[str, Any]]
     stream: bool = False
+    temperature: float | None = None
+    # Extensions du Hub (ignorées par les clients OpenAI ordinaires) :
+    num_ctx: int | None = None  # contexte plus court pour un petit modèle (vision : 4096)
+    think: bool | None = None   # désactive le raisonnement des modèles qui en ont un
 
 
 def create_app(daemon: Daemon) -> FastAPI:
@@ -159,7 +163,11 @@ def create_app(daemon: Daemon) -> FastAPI:
     def v1_chat(request: ChatRequest) -> dict[str, Any]:
         if request.stream:
             raise HTTPException(status_code=400, detail="la diffusion mot à mot (stream) n'est pas prise en charge")
-        result = llm_call(lambda: daemon.llm.chat(openai_to_ollama(request.messages), model=request.model))
+        if request.num_ctx is not None and not 512 <= request.num_ctx <= 131072:
+            raise HTTPException(status_code=400, detail="num_ctx hors bornes (512 à 131072)")
+        options = {"temperature": request.temperature} if request.temperature is not None else None
+        result = llm_call(lambda: daemon.llm.chat(openai_to_ollama(request.messages), model=request.model,
+                                                  num_ctx=request.num_ctx, think=request.think, options=options))
         return {
             "id": f"chatcmpl-aethertwin-{int(time.time() * 1000)}", "object": "chat.completion",
             "created": int(time.time()), "model": result["model"],

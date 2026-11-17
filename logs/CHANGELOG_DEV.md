@@ -496,3 +496,23 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - **Tests :** ruff propre ; pytest vert. **Réel** : 18 pages Wikipédia FR collectées depuis le tableau de bord
   (robots.txt respecté, 5 s d'écart), 377 passages ; recherche pertinente sur 5 sujets ; Professeur avec
   sources citées et explication de `qwen3-27b`. **Non vérifié** : vecteurs réels (aucun modèle d'embedding).
+
+## 2026-11-17 — J6 : scantrad, traduction locale de manga
+
+- **Agent :** Cloud
+- **Fichiers :** `modules/scantrad/{__init__,__main__,cli,detect,hub_stages,module,pipeline,testpage,typeset}.py`,
+  `modules/scantrad/{manifest.json,README.md}`, `tests/scantrad/`, `tests/data/scantrad/page_test.{png,json}`,
+  `docs/captures/scantrad_page_test_fr.png`, `core/api.py` (`num_ctx`, `think`, `temperature` sur
+  `/v1/chat/completions`), `requirements.txt` (opencv-python-headless 5.0.0.93, numpy 2.4.6),
+  `Lancer AetherTwin.bat` (entrée 4), `.gitignore`, `core/knowledge/service.py`, suivi.
+- **Choix :** OCR par le modèle de vision local via le Hub plutôt que manga-ocr (pas de PyTorch) ; détection et
+  effacement OpenCV (repli prévu par le prompt maître) ; un appel de traduction par page avec glossaire filtré ;
+  chaque étape est un objet remplaçable de `Scantrad`.
+- **Problèmes :** 1) `data/` dans `.gitignore` excluait aussi `tests/data/` → règles ancrées `/data/`, `/cache/` ;
+  2) cela rendait visible le cache de WoW Assistant (instantané du personnage) → `modules/**/cache/` exclu,
+  vérifié par `git check-ignore` ; 3) un commentaire en fin de ligne de `.gitignore` fait partie du motif →
+  commentaire sur sa propre ligne ; 4) une collecte après l'installation du modèle d'embedding n'aurait jamais
+  calculé les vecteurs des pages inchangées → rattrapage automatique, testé.
+- **Tests :** ruff propre ; pytest vert. **Réel** : page de test, 5 bulles dans l'ordre manga, OCR exact,
+  traduction naturelle, 23,6 s, VRAM au plus haut 26 153 MiB. Sans Hub : message clair, code 2.
+  **Non vérifié** : vraie page scannée ; entrée 4 du lanceur jouée de bout en bout.

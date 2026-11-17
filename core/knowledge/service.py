@@ -106,7 +106,14 @@ class KnowledgeService:
         self.last_run = {"started_at": self._now(), "sources": len(sources)}
 
         def work() -> None:
-            self.last_report = ingest(self.store, self.fetcher, sources, self._stop)
+            report = ingest(self.store, self.fetcher, sources, self._stop)
+            stats = self.store.stats()
+            if self.store.embedder is not None and stats["vectorized"] < stats["chunks"]:
+                try:  # passages gardés sans vecteur (modèle installé depuis) : on rattrape
+                    report["reindexed"] = self.store.reindex()
+                except KnowledgeError as exc:
+                    report["reindex_error"] = str(exc)
+            self.last_report = report
             self.last_run["finished_at"] = self._now()
 
         self._thread = threading.Thread(target=work, name="knowledge-ingest", daemon=True)

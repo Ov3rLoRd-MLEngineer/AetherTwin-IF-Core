@@ -25,8 +25,9 @@ Les phrases sont courtes. Rien n'est implicite.
 8. Les tests passent : 268 tests, plus 2 tests réels sur GPU ignorés par défaut. WoW Assistant v9 a reçu des correctifs le 17/11 (`tests/wow_assistant_v9/`).
    Les mêmes fichiers sont dans `D:\Hermes-Agent\wow_assistant_v9`, la copie que Jérémy utilise.
 9. Le poste a 2 GPU visibles : RTX 5080 16 Go et RTX 5060 Ti 16 Go. Les modèles restent en Q4_K_M.
-10. Le jalon J4 est fait aussi (overlay OBS). J5 est fait à moitié : `modules/genesis_lab/` existe
-    (tâches D et E). **Prochaine tâche : J5-A, la base vectorielle** (voir « J5 » plus bas), puis B et C.
+10. J4 (overlay OBS), J5 (`genesis_lab`, `core/knowledge/`) et J6 (`modules/scantrad/`) sont faits (17/11).
+    Lanceur double-clic : `Lancer AetherTwin.bat` (raccourci « AetherTwin » sur le bureau), tableau de bord
+    sur `http://127.0.0.1:5750/`. **Prochaine tâche : J7** (voir « J7 » plus bas) : `mangastudio`, puis `if_game`.
 
 ## Commandes exactes
 
@@ -53,9 +54,12 @@ N'utilise jamais `python` seul. Le `python` du PATH est une autre version (3.10)
 | WoW Assistant (fenêtre Pygame) | `.venv\Scripts\python.exe -m modules.gaming_hud` | fait, testé en réel |
 | `gaming_hud` dans le Hub | daemon lancé, puis `curl -X POST http://127.0.0.1:5750/modules/gaming_hud/activate` | fait, testé en réel |
 | Question à l'assistant local | `curl -X POST http://127.0.0.1:5750/ask -H "Content-Type: application/json" -d "{\"prompt\":\"bonjour\",\"model\":\"qwen3-27b:latest\"}"` | fait, testé en réel |
-| Daemon + API | `.venv\Scripts\python.exe -m core.daemon` puis ouvrir `http://127.0.0.1:5750/health` | fait, testé |
+| Daemon + tableau de bord | `Lancer AetherTwin.bat` (ou `.venv\Scripts\python.exe -m core.daemon --open`) | fait, testé en réel |
 | Daemon sans API | `.venv\Scripts\python.exe -m core.daemon --no-api` | fait |
-| Autres modules | — | n'existent pas encore |
+| Professeur (`genesis_lab`) | tableau de bord, section Professeur (module à lancer d'abord) | fait, testé en réel |
+| Base de connaissances | tableau de bord, « Collecter maintenant » ; `GET /knowledge/search?q=…` | fait, testé en réel (sans vecteurs) |
+| `scantrad` | `.venv\Scripts\python.exe -m modules.scantrad PAGE.png --series demo` (Hub lancé) | fait, testé en réel sur la page de test |
+| `mangastudio`, `if_game` | — | n'existent pas encore (J7) |
 
 ## Recette locale validée par Jérémy (Ollama + Aider)
 
@@ -131,12 +135,35 @@ Comment appeler un modèle local : toujours par `core/llm_router.py` (`LlmRouter
 | 6 | Ordonnanceur GPU | `core/scheduler.py` | File d'attente unique pour les tâches vision/diffusion |
 | 7 | Daemon minimal | `core/daemon.py`, `tests/core/test_daemon.py` | Démarre sans GPU. Charge et décharge un module de test. Détecte le lancement et l'arrêt d'un processus de test. API FastAPI sur `127.0.0.1` : `/health`, `/modules`, `/events`, `/gpu`, `/ask` |
 
-### J5 — en cours (P1) : D et E faits le 17/11, restent A, B, C
+### J7 — à faire (P2) : `mangastudio` puis `if_game`
 
-Notes pour A : aucun modèle d'embedding n'est installé dans Ollama (`ollama pull nomic-embed-text` à
-faire par Jérémy). Écris donc le magasin avec une fonction d'embedding injectable et teste avec de faux
-vecteurs. Le Professeur attend une fonction `search(texte) -> [{"title", "url", "snippet"}]`
-(`modules/genesis_lab/tutor.py`, paramètre `search`) : c'est le point de branchement.
+Lis d'abord les sections 6.4 et 6.6 du prompt maître (fichier privé, hors dépôt) ou leur résumé ci-dessous.
+PyTorch et ComfyUI ne sont **pas** installés : tout ce qui en dépend est optionnel et testé par import et
+signature seulement. Les poids HandSegNet/FootSegNet ne sont pas sur le poste (chemins dans `config/local.yaml`,
+section `mangastudio`) : mode dégradé avec message clair. N'annonce aucun résultat visuel non produit.
+
+| # | Tâche | Fichiers | Terminé quand |
+|---|---|---|---|
+| A | Squelette `mangastudio` | `modules/mangastudio/{manifest.json,module.py}` | Démarre sans PyTorch ni poids : `health()` dégradé, message clair |
+| B | Nœud ComfyUI | `modules/mangastudio/comfyui_nodes/__init__.py` | `NODE_CLASS_MAPPINGS` présent ; test d'import et de signature sans ComfyUI |
+| C | Workflow de continuité | `modules/mangastudio/workflows/continuity.json` | JSON valide (ControlNet + IP-Adapter), test de structure |
+| D | UI standalone en simulation | `modules/mangastudio/ui.py` | Démarre en mode simulation (`SDL_VIDEODRIVER=dummy` ou page web locale) |
+| E | `if_game` | `modules/if_game/` | Monde en JSON validé par le code (le LLM propose, le code applique), graine reproductible, sauvegarde locale ; LLM factice dans les tests |
+
+### J6 — `scantrad` — **fait le 17/11/2026**
+
+Chaîne détection (OpenCV) → OCR (`qwen2.5vl:7b` via le Hub) → effacement (inpainting OpenCV) → traduction
+(modèle par défaut, glossaire par série) → réincrustation (Pillow). Page de test générée :
+`tests/data/scantrad/`. Mesures et limites : `modules/scantrad/README.md`. Reste : une vraie page scannée.
+
+### J5 — **fait le 17/11/2026**
+
+`core/knowledge/` : base vectorielle (SQLite, embedder injectable), collecte polie, service d'ingestion
+(tâche de nuit récurrente de Fuma). Le Professeur cite ses sources via `/knowledge/search`. Aucun modèle
+d'embedding installé : la recherche tourne en mode dégradé par mots pondérés tant que
+`ollama pull nomic-embed-text` n'est pas fait ; ensuite, `KnowledgeStore.reindex()` (ou une nouvelle collecte).
+Non fait : la recherche DuckDuckGo demandée par le prompt maître (section 6.5) ; à évaluer (robots.txt de
+DuckDuckGo et conditions d'utilisation) avant de l'ajouter.
 
 | # | Tâche | Fichiers | Terminé quand |
 |---|---|---|---|

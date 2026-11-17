@@ -1,0 +1,153 @@
+"""scantrad : détection et effacement sur la page de test réelle, chaîne complète avec OCR et LLM factices."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from modules.scantrad.cli import main, read_image, series_slug, write_image
+from modules.scantrad.detect import clean_bubbles, detect_bubbles
+from modules.scantrad.hub_stages import (
+    Glossary,
+    make_translator,
+    make_vision_ocr,
+    parse_translations,
+    translation_prompt,
+)
+from modules.scantrad.pipeline import Scantrad
+from modules.scantrad.typeset import fit, font_loader, make_typesetter
+
+DATA = Path(__file__).resolve().parents[1] / "data" / "scantrad"
+TRUTH = json.loads((DATA / "page_test.json").read_text(encoding="utf-8"))["bubbles"]
+
+
+@pytest.fixture(scope="module")
+def page() -> np.ndarray:
+    return read_image(DATA / "page_test.png")
+
+
+def iou(a, b) -> float:
+    ax, ay, aw, ah = a
+    bx, by, bw, bh = b
+    ix, iy = max(0, min(ax + aw, bx + bw) - max(ax, bx)), max(0, min(ay + ah, by + bh) - max(ay, by))
+    inter = ix * iy
+    return inter / (aw * ah + bw * bh - inter)
+
+
+def test_detects_every_bubble_in_reading_order(page) -> None:
+    bubbles = detect_bubbles(page)
+    assert len(bubbles) == len(TRUTH) == 5
+    for found, expected in zip(bubbles, TRUTH, strict=True):
+        assert iou(found.box, expected["box"]) > 0.9, (found.box, expected)  # ordre manga : droite puis gauche
+
+
+def test_blank_page_and_drawing_without_text_give_nothing() -> None:
+    blank = np.full((400, 300, 3), 255, np.uint8)
+    assert detect_bubbles(blank) == []
+    drawn = np.full((400, 300, 3), 170, np.uint8)
+    drawn[100:200, 80:220] = 255  # zone claire fermée, mais sans texte
+    assert detect_bubbles(drawn) == []
+
+
+def test_cleaning_removes_text_but_keeps_outline_and_background(page) -> None:
+    bubbles = detect_bubbles(page)
+    cleaned = clean_bubbles(page, bubbles)
+    for bubble in bubbles:
+        x, y, w, h = bubble.box
+        inside = cleaned[y:y + h, x:x + w][bubble.text_mask > 0]
+        assert (inside.min(axis=1) > 200).mean() > 0.97  # le texte est devenu blanc
+    outside = np.ones(page.shape[:2], bool)
+    for bubble in bubbles:
+        x, y, w, h = bubble.box
+        outside[y:y + h, x:x + w] &= bubble.mask == 0
+    assert np.array_equal(cleaned[outside], page[outside])  # rien d'autre n'a bougé
+
+
+def test_fit_wraps_and_shrinks_text() -> None:
+    from PIL import Image, ImageDraw
+
+    draw = ImageDraw.Draw(Image.new("RGB", (10, 10)))
+    load = font_loader()
+    size, lines, line_height = fit("Attends, je vais chercher mon appareil photo !", 200, 90, load, draw)
+    assert len(lines) >= 2 and len(lines) * line_height <= 90
+    assert all(draw.textlength(line, font=load(size)) <= 200 for line in lines)
+    small, _, _ = fit("Un texte bien trop long pour une toute petite bulle de rien du tout", 60, 30, load, draw)
+    assert small < size
+
+
+def fake_chat(log: list):
+    """Faux Hub : OCR = texte de vérité selon la position, traduction = JSON numéroté."""
+    by_size = {}
+
+    def chat(messages, extra):
+        log.append(extra)
+        content = messages[0]["content"]
+        if isinstance(content, list):  # OCR : on reconnaît la bulle à la taille de l'image envoyée
+            return "「" + by_size.setdefault(len(log), TRUTH[(len(log) - 1) % 5]["text"]) + "」"
+        count = sum(1 for line in content.splitlines() if line[:1].isdigit() and ". " in line)
+        return "<think>…</think>" + json.dumps({str(i): f"Réplique {i}" for i in range(1, count + 1)})
+    return chat
+
+
+def test_full_pipeline_with_fake_models(page, tmp_path: Path) -> None:
+    log: list = []
+    chat = fake_chat(log)
+    glossary = Glossary(tmp_path / "g.json", characters={"ユキ": "Yuki"}, terms={"海": "la mer"})
+    pipeline = Scantrad(detect_bubbles, make_vision_ocr(chat), clean_bubbles, make_translator(chat, glossary),
+                        make_typesetter(), vram_used_mib=lambda: 1234)
+    result = pipeline.run(page)
+    assert [b.source for b in result.bubbles] == [t["text"] for t in TRUTH]  # guillemets japonais retirés
+    assert [b.translation for b in result.bubbles] == [f"Réplique {i}" for i in range(1, 6)]
+    assert log[0] == {"model": "qwen2.5vl:7b", "num_ctx": 4096, "temperature": 0}  # vision : contexte court
+    assert log[-1]["think"] is False
+    assert result.metrics["steps"] == ["detection", "ocr", "effacement", "traduction", "incrustation"]
+    assert result.metrics["vram_peak_mib"] == 1234 and result.metrics["bubbles"] == 5
+    assert not np.array_equal(result.image, page)
+    write_image(tmp_path / "accentué é" / "sortie.png", result.image)  # chemins accentués sous Windows
+    assert read_image(tmp_path / "accentué é" / "sortie.png").shape == page.shape
+
+
+def test_translation_prompt_uses_only_relevant_glossary(tmp_path: Path) -> None:
+    glossary = Glossary(tmp_path / "g.json", characters={"ユキ": "Yuki", "ケン": "Ken"}, terms={"海": "la mer"})
+    prompt = translation_prompt(["ユキ、海に行こう！"], glossary)
+    assert "ユキ = Yuki" in prompt and "海 = la mer" in prompt and "Ken" not in prompt
+    glossary.save()
+    assert Glossary.load(tmp_path / "g.json").characters == {"ユキ": "Yuki", "ケン": "Ken"}
+
+
+@pytest.mark.parametrize("answer, expected", [
+    ('{"1": "Salut", "2": "Ça va ?"}', ["Salut", "Ça va ?"]),
+    ('Voici : ```json\n{"1": "Salut", "2": "Ça va ?"}\n```', ["Salut", "Ça va ?"]),
+    ('{"1": "Salut"}', None),  # une bulle manquante : repli
+    ("pas de json", None),
+])
+def test_parse_translations(answer, expected) -> None:
+    assert parse_translations(answer, 2) == expected
+
+
+def test_translator_falls_back_bubble_by_bubble() -> None:
+    calls = []
+
+    def chat(messages, extra):
+        calls.append(messages[0]["content"])
+        return "Bonjour" if len(calls) > 1 else "réponse illisible"
+    assert make_translator(chat)(["こんにちは", "さようなら"]) == ["Bonjour", "Bonjour"]
+    assert len(calls) == 3
+
+
+def test_cli_no_llm_and_glossary(tmp_path: Path, monkeypatch, capsys) -> None:
+    from core import config
+
+    monkeypatch.setattr(config, "section", lambda name, path=None: {"data_dir": str(tmp_path)})
+    out = tmp_path / "sortie.png"
+    assert main([str(DATA / "page_test.png"), "--no-llm", "--out", str(out)]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["metrics"]["bubbles"] == 5 and out.is_file()
+    assert main(["--glossary", "Ma Série !", "--add", "ユキ=Yuki"]) == 0
+    assert json.loads((tmp_path / "glossaires" / "ma-serie.json").read_text(encoding="utf-8"))["terms"] == {
+        "ユキ": "Yuki"}
+    assert series_slug("../../Windows") == "windows"  # aucun chemin ne sort du dossier des glossaires
+    with pytest.raises(ValueError):
+        series_slug("ユキ")  # que des caractères non latins : refus clair plutôt qu'un fichier vide

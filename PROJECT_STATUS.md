@@ -16,7 +16,9 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 - Essai réel de bout en bout réussi : démon → module → données du jeu → modèle local → réponse correcte.
 - **J4 terminé** (17/11) : overlay OBS local avec monitoring des GPU, logo, capture de rendu réelle.
 - **J5 terminé** (17/11) : `genesis_lab`, base vectorielle, collecte web polie, ingestion nocturne, sources
-  citées par le Professeur. Prochaine étape : J6 (`scantrad`).
+  citées par le Professeur.
+- **J6 terminé** (17/11) : `scantrad`, traduction locale d'une page de manga, essai réel sur la page de test
+  (`docs/captures/scantrad_page_test_fr.png`). Prochaine étape : J7 (`mangastudio`, `if_game`).
 - Décisions de Jérémy : Q4_K_M tant que la VRAM est de 32 Go ; contexte local 32 768 ; pas de push pour l'instant.
 - **Lancement simple** (17/11) : `Lancer AetherTwin.bat` à la racine (raccourci « AetherTwin » sur le bureau)
   ouvre un tableau de bord local sur `http://127.0.0.1:5750/` : GPU, modules, assistant, Professeur.
@@ -62,7 +64,8 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | `genesis_lab` : calculs bio, astro, chimie | P1 | J5 | `FAIT-TESTÉ` | code déterministe, comparé à des valeurs de référence (année sidérale, ISS, Sirius, Proxima, masses molaires, volume molaire, pH de l'acide acétique…). Biopython non requis, comparaison croisée non faite |
 | `genesis_lab` : Professeur adaptatif | P1 | J5 | `FAIT-TESTÉ` | session guidée scriptée (LLM factice) + **essai réel** avec `qwen3-27b` à deux niveaux : le vocabulaire s'adapte, la valeur calculée par le code est conservée. L'essai a montré que le modèle invente des calculs intermédiaires faux : un garde-fou rejette désormais tout nombre non fourni par le code. Essai réel limité à un exercice. Sources : branchement prévu, base vectorielle non faite |
 | `genesis_lab` : module du Hub | P1 | J5 | `FAIT-TESTÉ` | calcul demandé sur le bus et rendu par le module dans son processus (démon réel) ; liste blanche d'outils |
-| `scantrad` | P1 | J6 | `À FAIRE` | |
+| `scantrad` : chaîne complète | P1 | J6 | `FAIT-TESTÉ` | tests (vraie page de test + modèles factices) et **essai réel** : 5 bulles détectées dans l'ordre manga, OCR exact par `qwen2.5vl:7b`, traduction `qwen3-27b`, 23,6 s, VRAM au plus haut 26 153 MiB. Une seule page, synthétique : vraie page scannée non essayée |
+| `scantrad` : module du Hub + entrée du lanceur | P1 | J6 | `FAIT-TESTÉ` / `FAIT-NON-TESTÉ` | module piloté par le démon (test réel de processus, sans modèle) ; l'entrée 4 du lanceur n'a pas été jouée de bout en bout |
 | `mangastudio`, `if_game` | P2 | J7 | `À FAIRE` | |
 | `research/overlord_notes.md`, `docs/HARDWARE_FIT.md`, README final | P0 | J8 | `À FAIRE` | README actuel = version provisoire |
 | Gel, branche `concours`, tag `v0.1.0-concours`, scan de l'historique | P0 | J9 | `À FAIRE` | |
@@ -127,6 +130,8 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 5 | Relever le message exact de limite de Claude Code | copier la ligne de `logs\relay.log` | permet d'ajuster `QUOTA_PATTERNS` si besoin |
 | 7 | Hub complet | raccourci **AetherTwin** du bureau, choix 2 ; le tableau de bord s'ouvre sur `http://127.0.0.1:5750/` | GPU, modules `gaming_hud` et `genesis_lab` « actif » ; lien « Derniers événements » : un `module.gaming_hud.state` avec ton personnage |
 | 8 | Bascule Showcase avec OBS réel | Hub lancé (choix 2), démarrer OBS, rouvrir « Derniers événements » | `module.gaming_hud.showcase` `{"on": true}`, puis un état sans chemin ni compte, or arrondi |
+| 13 | Scantrad sur une de tes pages | Hub lancé ; raccourci **AetherTwin**, choix 4, glisser l'image dans la fenêtre | image `_fr.png` à côté de l'original ; note les bulles ratées (vraie page scannée jamais essayée) |
+| 14 | Recherche par vecteurs | `ollama pull nomic-embed-text`, relancer le Hub, « Collecter maintenant » | ligne Connaissances : « avec vecteurs (nomic-embed-text) » |
 | 12 | Professeur | tableau de bord, section Professeur : « Nouvel exercice », répondre, « Corriger » | correction, explication rédigée par le modèle local (10 à 40 s au premier appel), niveau qui évolue |
 | 9 | Assistant de l'appli via le Hub | dans WoW Assistant : Paramètres > Assistant IA, Endpoint `http://127.0.0.1:5750`, puis « Charger la liste des modèles » | la liste des modèles d'Ollama s'affiche ; les réponses passent par le Hub |
 | 11 | Overlay dans OBS | Hub lancé et `gaming_hud` actif ; dans OBS : Sources > + > Navigateur, URL `http://127.0.0.1:5757/obs-hud`, largeur 420, hauteur 600 | l'overlay apparaît sur fond transparent, les jauges GPU bougent, aucun chemin ni nom de compte visible |

@@ -8,3 +8,5 @@ uvicorn==0.54.0
 pygame==2.6.1             # interface de WoW Assistant / gaming_hud
 pillow==13.0.0            # captures d'écran et presse-papier image
 nvidia-ml-py==13.615.71   # lecture NVML (pynvml). Absent ou sans GPU : repli nvidia-smi, puis « inconnu »
+opencv-python-headless==5.0.0.93  # scantrad : détection des bulles, effacement (inpainting)
+numpy==2.4.6              # requis par OpenCV
