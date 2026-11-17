@@ -137,6 +137,9 @@ tests/
   test_architecture_map.py
   test_relay_orchestrator.py
   test_repo_hygiene.py
+  wow_assistant_v9/
+    conftest.py
+    test_ui_fixes.py
 docs/
   .gitkeep
 research/

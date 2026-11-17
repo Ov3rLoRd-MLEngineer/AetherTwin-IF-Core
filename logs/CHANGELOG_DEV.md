@@ -172,3 +172,50 @@ réconciliées. La durée reste donc un paramètre : `--window-minutes` (défaut
 - **Non fait :** détection de fenêtres, interface générée à la volée, pilotage d'Ollama par Inoue ;
   `AGENT_HANDOFF.md`, `README.md`, `THIRD_PARTY.md` et `logs/relay_tasks.md` ne reflètent pas encore
   cette seconde moitié (compte de tests, licences de fastapi/uvicorn/psutil/httpx).
+  → Rattrapé dans le commit `docs:` suivant.
+
+---
+
+## 2026-11-17 — correctifs de WoW Assistant v9 (demande de Jérémy, avant J3)
+
+- **Agent :** Cloud
+- **Fichiers :** `_import/wow_assistant_v9/` : `ui.py`, `webhost.py`, `clipboard.py` (nouveau), `README.md` ;
+  `tests/wow_assistant_v9/conftest.py`, `tests/wow_assistant_v9/test_ui_fixes.py` ; `CLAUDE.md`,
+  `requirements.txt`, `THIRD_PARTY.md`, fichiers de suivi.
+  Copie des fichiers corrigés (plus `main.py` et `widgets_builtin.py`) dans
+  `D:\Hermes-Agent\wow_assistant_v9`, avec sauvegarde des originaux dans
+  `_sauvegarde_avant_correctifs_2026-11-17/`.
+- **Constat préalable :** la copie d'usage de Jérémy (`D:\Hermes-Agent`, 16/11 20 h 01) était plus ancienne
+  que `_import/` (16/11 20 h 49). `_import/` contenait déjà la barre d'outils élargie et les textes d'aide
+  replacés ; une partie des défauts signalés venait donc de la version utilisée.
+- **Tests :** `pytest` → 132 réussis (dont 22 nouveaux, headless) ; `ruff check .` propre.
+- **Vérifications réelles :**
+  - Fermeture : vraies fenêtres SDL, overlay ouvert puis fermé, `WM_CLOSE` envoyé à la fenêtre principale.
+    Ancienne version : l'appli reste ouverte. Nouvelle : elle se ferme. Refait sur le dossier Hermes-Agent.
+  - Widgets web : `webhost.py` lancé avec pywebview 6.2.1 (Python 3.10) sur une page locale. Ancienne
+    version : `WS_EX_NOACTIVATE` présent. Nouvelle : absent.
+  - Rendu : captures des 8 pages de Paramètres, du menu contextuel et de l'overlay, relues à l'œil.
+- **Non vérifié :** la frappe réelle dans Open WebUI et YouTube, la conservation des sessions entre deux
+  lancements, le comportement avec le jeu ouvert.
+
+### Causes et corrections
+
+1. **Fermeture impossible après l'overlay.** Avec deux fenêtres SDL (l'overlay reste créé, seulement
+   masqué), la croix envoie `WINDOWCLOSE` et non `QUIT`. Le code ignorait `WINDOWCLOSE` pour toutes les
+   fenêtres. Désormais : fenêtre principale → quitter ; fenêtre overlay → fermer l'overlay.
+2. **Pas de clavier dans les widgets web.** `focus=False` fait poser `WS_EX_NOACTIVATE` par pywebview.
+   Passé à `focus=True`. Contrepartie : le widget prend la saisie à son ouverture.
+3. **Saisie.** `pygame.key.set_repeat(400, 35)` ; curseur (flèches, Début, Fin, Suppr, clic) ; Ctrl+A/C/X/V,
+   Maj+Inser ; menu du clic droit ; défilement du texte long. La répétition est ignorée hors d'un champ et
+   pour Échap/Entrée (sinon Échap maintenu fermerait la modale puis l'appli). AltGr (Ctrl+Alt) n'est pas
+   pris pour un raccourci, pour que « @ » reste saisissable en AZERTY.
+
+### Décisions
+
+1. **Sélection « tout ou rien »** (Ctrl+A), pas de sélection partielle : suffisant pour copier une adresse
+   ou une clé, et bien plus simple.
+2. **Un champ masqué n'est jamais copié ni coupé** (clé API) ; y coller reste possible.
+3. **`_import/` n'est plus figé** : il suit les correctifs demandés, reportés dans `D:\Hermes-Agent`.
+4. **Modèles 3D : non entrepris.** Le jeu ne fournit pas de rendu du personnage à un addon, et afficher
+   les modèles demande soit d'extraire et de rendre les fichiers du jeu (moteur 3D complet), soit une page
+   web tierce. Piste réaliste : un widget web pointant vers une visionneuse en ligne, à étudier après J3.

@@ -13,6 +13,7 @@ import webbrowser
 
 import pygame
 
+import clipboard
 import mousepos
 import overlay as overlay_win
 import tabs
@@ -96,6 +97,19 @@ class UI:
         self._clip = None
         self._scrollbar = None
         self.ctx = None
+        # saisie : curseur, « tout sélectionner », répétition des touches, menu du clic droit
+        self._caret = (None, 0)          # (champ, position du curseur dans le texte)
+        self._focus_prev = None          # champ qui avait la saisie à l'image précédente
+        self.select_all = None           # champ dont tout le texte est sélectionné (Ctrl+A)
+        self._keys_down = set()          # touches enfoncées : distingue un appui d'une répétition
+        self._input_rects = {}           # champ -> (fenêtre, rect, image, début affiché) pour le clic droit / le clic
+        self._masked = set()             # champs masqués (clés API) : jamais copiés
+        self._frame = 0
+        self._menu = None                # menu contextuel : {"win", "key", "rect"}
+        try:
+            pygame.key.set_repeat(400, 35)   # rester appuyé répète la touche (effacer, flèches, lettres)
+        except pygame.error:
+            pass
 
     # ================================================================== ressources
     def _load_fonts(self):
@@ -310,14 +324,139 @@ class UI:
         pygame.draw.rect(self.screen, (10, 10, 14), rect, border_radius=4)
         pygame.draw.rect(self.screen, C["gold"] if focused else C["frame"], rect, 1, border_radius=4)
         value = self.inputs.get(key, "")
-        if value or focused:
-            shown = ("•" * len(value) if mask else value) + ("|" if focused and (pygame.time.get_ticks() // 500) % 2 == 0 else "")
+        (self._masked.add if mask else self._masked.discard)(key)
+        shown = "•" * len(value) if mask else value
+        start = 0
+        if focused and self._focus_prev != key:      # le champ vient de recevoir la saisie (clic, pré-remplissage) :
+            self._caret = (key, len(value))          # curseur à la fin
+            self._focus_prev = key
+        elif not focused and self._focus_prev == key:
+            self._focus_prev = None
+        if focused:
+            # le texte défile pour que le curseur reste visible, même dans un champ plus court que le texte
+            font, inner = self.fonts["small"], rect.w - 18
+            width = lambda s: font.size(self._glyphs(s))[0]
+            caret = self._caret_pos(key)
+            while start < caret and width(shown[start:caret]) > inner:
+                start += 1
+            end = len(shown)
+            while end > caret and width(shown[start:end]) > inner:
+                end -= 1
+            visible = shown[start:end]
+            mid = rect.y + rect.h // 2
+            if self.select_all == key and visible:
+                pygame.draw.rect(self.screen, (58, 78, 120), (rect.x + 6, rect.y + 5, width(visible) + 4, rect.h - 10), border_radius=3)
+            if visible:
+                self.text(visible, "small", "text", (rect.x + 8, mid), anchor="midleft")
+            if (pygame.time.get_ticks() // 500) % 2 == 0:
+                cx = rect.x + 8 + width(shown[start:caret])
+                pygame.draw.line(self.screen, C["gold"], (cx, rect.y + 6), (cx, rect.bottom - 7), 1)
+        elif value:
             self.text(self.fit(shown, "small", rect.w - 16), "small", "text", (rect.x + 8, rect.y + rect.h // 2),
                       anchor="midleft")
         else:
             self.text(placeholder, "small", "gray", (rect.x + 8, rect.y + rect.h // 2), anchor="midleft")
-        self.click(rect, lambda k=key: setattr(self, "focus", k))
+        self._input_rects[key] = (self.cur, rect.copy(), self._frame, start)
+        self.click(rect, lambda k=key: self._focus_input(k, self.mouse_pos()[0]))
         return value.strip().lower()
+
+    # ------------------------------------------------------------------ saisie : curseur, presse-papier, menu
+    def _caret_pos(self, key):
+        """Position du curseur dans le champ (à la fin du texte si le champ vient de recevoir la saisie)."""
+        text = self.inputs.get(key, "")
+        if self._caret[0] != key:
+            self._caret = (key, len(text))
+        return max(0, min(self._caret[1], len(text)))
+
+    def _focus_input(self, key, mouse_x=None):
+        """Donne la saisie au champ ; un clic place le curseur à l'endroit cliqué."""
+        self.focus = key
+        self.select_all = None
+        text = self.inputs.get(key, "")
+        index = len(text)
+        entry = self._input_rects.get(key)
+        if mouse_x is not None and entry:
+            _win, rect, _frame, start = entry
+            shown = "•" * len(text) if key in self._masked else text
+            font = self.fonts["small"]
+            index = start
+            while index < len(shown):
+                left = font.size(self._glyphs(shown[start:index]))[0]
+                right = font.size(self._glyphs(shown[start:index + 1]))[0]
+                if rect.x + 8 + (left + right) / 2 >= mouse_x:
+                    break
+                index += 1
+        self._caret = (key, index)
+        self._focus_prev = key
+
+    def _input_limit(self, key):
+        return 400 if key == "llm_msg" else 200
+
+    def _set_input(self, key, text, caret):
+        self.inputs[key] = text
+        self._caret = (key, max(0, min(caret, len(text))))
+        self.select_all = None
+        self.scroll.clear()
+
+    def edit_action(self, action, key=None):
+        """Couper / Copier / Coller / Tout sélectionner sur un champ (raccourcis clavier et menu du clic droit)."""
+        key = key or self.focus
+        if not key:
+            return
+        self.focus = key
+        text = self.inputs.get(key, "")
+        caret = self._caret_pos(key)
+        if action == "select_all":
+            self.select_all = key if text else None
+        elif action in ("copy", "cut"):
+            if text and key not in self._masked:          # un champ masqué (clé API) n'est jamais copié
+                clipboard.set_text(text)
+                if action == "cut":
+                    self._set_input(key, "", 0)
+        elif action == "paste":
+            pasted = "".join(ch if ch.isprintable() else " " for ch in clipboard.get_text().replace("\r\n", "\n")).strip()
+            if not pasted:
+                return
+            if self.select_all == key:
+                text, caret = "", 0
+            pasted = pasted[:max(0, self._input_limit(key) - len(text))]
+            self._set_input(key, text[:caret] + pasted + text[caret:], caret + len(pasted))
+
+    _MENU_ITEMS = (("Couper", "cut"), ("Copier", "copy"), ("Coller", "paste"), ("Tout sélectionner", "select_all"))
+
+    def _open_menu(self, pos):
+        """Clic droit : ouvre le menu Couper / Copier / Coller sur le champ de saisie visé. True si un champ est visé."""
+        for key, (win, rect, frame, _start) in self._input_rects.items():
+            if win == self.cur and frame >= self._frame - 1 and rect.collidepoint(pos):
+                if self.focus != key:
+                    self._focus_input(key)
+                w, h = 196, 8 + 28 * len(self._MENU_ITEMS)
+                x = max(4, min(pos[0], self.W - w - 4))
+                y = max(4, min(pos[1], self.H - h - 4))
+                self._menu = {"win": self.cur, "key": key, "rect": pygame.Rect(x, y, w, h)}
+                return True
+        self._menu = None
+        return False
+
+    def _draw_menu(self):
+        m = self._menu
+        if not m or m["win"] != self.cur:
+            return
+        rect, key = m["rect"], m["key"]
+        self.screen.set_clip(None)
+        pygame.draw.rect(self.screen, (18, 18, 24), rect, border_radius=6)
+        pygame.draw.rect(self.screen, C["gold"], rect, 1, border_radius=6)
+        self.click(rect, lambda: None)                       # un clic dans le menu ne traverse pas vers ce qui est dessous
+        has_text = bool(self.inputs.get(key, ""))
+        mouse = self.mouse_pos()
+        for i, (label, action) in enumerate(self._MENU_ITEMS):
+            item = pygame.Rect(rect.x + 4, rect.y + 4 + i * 28, rect.w - 8, 28)
+            enabled = (action == "paste" or (has_text and (action == "select_all" or key not in self._masked)))
+            if enabled and item.collidepoint(mouse):
+                pygame.draw.rect(self.screen, (48, 48, 60), item, border_radius=4)
+            self.text(label, "small", "text" if enabled else "gray", (item.x + 10, item.centery), anchor="midleft")
+            if enabled:
+                self.click(item, lambda a=action, k=key: self.edit_action(a, k))
 
     # ------------------------------------------------------------------ graphique
     def chart(self, rect, points, color, fmt, title):
@@ -588,8 +727,9 @@ class UI:
             if self.modal:
                 self._buttons, self._tips, self._scroll_regions, self._scrollbars = [], [], [], []
                 self._draw_modal()
+            self._draw_menu()
             for rect, tip in reversed(self._tips):
-                if rect.collidepoint(mouse):
+                if rect.collidepoint(mouse) and not self._menu:
                     self._draw_tip(tip() if callable(tip) else tip, mouse)
                     break
             self._present_overlay()
@@ -611,6 +751,7 @@ class UI:
     # ================================================================== image complète
     def draw(self, ctx):
         self.ctx = ctx
+        self._frame += 1
         self.screen.blit(self.background, (0, 0))
         self._buttons, self._tips, self._scroll_regions = [], [], []
         self._clip = None
@@ -632,8 +773,9 @@ class UI:
         if self.modal:
             self._buttons, self._tips, self._scroll_regions, self._scrollbars = [], [], [], []
             self._draw_modal()
+        self._draw_menu()
         for rect, tip in reversed(self._tips):
-            if rect.collidepoint(mouse):
+            if rect.collidepoint(mouse) and not self._menu:
                 self._draw_tip(tip() if callable(tip) else tip, mouse)
                 break
 
@@ -999,8 +1141,15 @@ class UI:
             for event in events:
                 if event.type == pygame.QUIT:
                     return False
-                if event.type in (getattr(pygame, "WINDOWCLOSE", -1),):
-                    continue                    # fermer l'overlay ne quitte pas l'application
+                if event.type == getattr(pygame, "WINDOWCLOSE", -1):
+                    # Dès que l'overlay a existé (même masqué), SDL gère deux fenêtres : la croix de la fenêtre
+                    # principale n'envoie plus QUIT mais WINDOWCLOSE. Il faut donc quitter ici.
+                    if self._event_context(event) == "overlay":
+                        self.close_overlay()    # fermer l'overlay ne quitte pas l'application
+                        continue
+                    return False
+                if event.type == getattr(pygame, "WINDOWFOCUSLOST", -1):
+                    self._keys_down.clear()     # les relâchements de touches ne nous parviendront pas
                 name = self._event_context(event)
                 if name == "overlay":
                     if event.type == pygame.MOUSEMOTION or event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
@@ -1021,12 +1170,28 @@ class UI:
             self.use("app")
 
     def _handle_event(self, event):
-        if (self.mode == "overlay" and self.manager and not self.modal
+        in_menu = (self._menu is not None and self._menu["win"] == self.cur and hasattr(event, "pos")
+                   and self._menu["rect"].collidepoint(event.pos))
+        if (self.mode == "overlay" and self.manager and not self.modal and not in_menu
                 and event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP)
                 and self.manager.on_event(event, self)):
             return True
 
+        if event.type == pygame.KEYUP:
+            self._keys_down.discard(event.key)
+            return True
+
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
+            self._open_menu(event.pos)          # clic droit sur un champ : Couper / Copier / Coller
+            return True
+
         if event.type == pygame.KEYDOWN:
+            repeated = event.key in self._keys_down
+            self._keys_down.add(event.key)
+            self._menu = None
+            # la répétition ne sert qu'à l'édition d'un champ : jamais pour Échap / Entrée ni hors saisie
+            if repeated and not (self.focus and event.key not in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_KP_ENTER)):
+                return True
             if self.focus:
                 self._type(event)
                 return True
@@ -1054,12 +1219,15 @@ class UI:
 
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             self.focus = None   # un clic ailleurs ferme la saisie (le champ la rouvre s'il est cliqué)
-            if self._start_scrollbar_drag(event.pos):
+            self.select_all = None
+            if not in_menu and self._start_scrollbar_drag(event.pos):
+                self._menu = None
                 return True
             for rect, fn in reversed(self._buttons):
                 if rect.collidepoint(event.pos):
                     fn()
                     break
+            self._menu = None   # tout clic referme le menu contextuel
 
         elif event.type == pygame.MOUSEMOTION and self._drag:
             self._drag_scrollbar(event.pos[1])
@@ -1088,19 +1256,55 @@ class UI:
     def _type(self, event):
         key = self.focus
         text = self.inputs.get(key, "")
-        if event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_KP_ENTER):
+        caret = self._caret_pos(key)
+        selected = self.select_all == key
+        mods = getattr(event, "mod", 0) or 0
+        # AltGr est vu comme Ctrl+Alt sous Windows : AltGr+0 (« @ » en AZERTY) n'est pas un raccourci
+        ctrl = bool(mods & pygame.KMOD_CTRL) and not mods & pygame.KMOD_ALT
+        shift = bool(mods & pygame.KMOD_SHIFT)
+        k = event.key
+        if k in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_KP_ENTER):
             self.focus = None
+            self.select_all = None
             callback = self.on_submit.get(key)
-            if callback and event.key != pygame.K_ESCAPE:
+            if callback and k != pygame.K_ESCAPE:
                 callback()
                 if key == "chat_msg":
                     self.focus = key      # on garde la main sur le champ pour enchaîner les messages
-        elif event.key == pygame.K_BACKSPACE:
-            self.inputs[key] = text[:-1]
-            self.scroll.clear()
-        elif event.unicode and event.unicode.isprintable() and len(text) < (400 if key == "llm_msg" else 200):
-            self.inputs[key] = text + event.unicode
-            self.scroll.clear()
+        elif ctrl and k == pygame.K_a:
+            self.edit_action("select_all", key)
+        elif ctrl and k == pygame.K_c:
+            self.edit_action("copy", key)
+        elif ctrl and k == pygame.K_x:
+            self.edit_action("cut", key)
+        elif (ctrl and k == pygame.K_v) or (shift and k == pygame.K_INSERT):
+            self.edit_action("paste", key)
+        elif ctrl:
+            pass                           # autre raccourci Ctrl : ne rien écrire dans le champ
+        elif k == pygame.K_BACKSPACE:
+            if selected:
+                self._set_input(key, "", 0)
+            elif caret > 0:
+                self._set_input(key, text[:caret - 1] + text[caret:], caret - 1)
+        elif k == pygame.K_DELETE:
+            if selected:
+                self._set_input(key, "", 0)
+            elif caret < len(text):
+                self._set_input(key, text[:caret] + text[caret + 1:], caret)
+        elif k in (pygame.K_LEFT, pygame.K_HOME, pygame.K_RIGHT, pygame.K_END):
+            if k == pygame.K_HOME or (selected and k == pygame.K_LEFT):
+                caret = 0
+            elif k == pygame.K_END or (selected and k == pygame.K_RIGHT):
+                caret = len(text)
+            else:
+                caret += -1 if k == pygame.K_LEFT else 1
+            self._caret = (key, max(0, min(caret, len(text))))
+            self.select_all = None
+        elif event.unicode and event.unicode.isprintable():
+            if selected:
+                text, caret = "", 0
+            if len(text) < self._input_limit(key):
+                self._set_input(key, text[:caret] + event.unicode + text[caret:], caret + len(event.unicode))
 
     # ================================================================== fenêtres modales
     def close_modal(self):

@@ -11,6 +11,8 @@ Liste tenue à jour à chaque ajout de dépendance. Licences relevées dans les 
 | psutil | 7.2.2 | BSD-3-Clause | surveillance des processus (`core/daemon.py`) |
 | fastapi | 0.163.1 | MIT | API HTTP locale (`core/api.py`) |
 | uvicorn | 0.54.0 | BSD-3-Clause | serveur de l'API locale |
+| pygame | 2.6.1 | LGPL-2.1 | interface de WoW Assistant / `gaming_hud` |
+| pillow | 13.0.0 | MIT-CMU | captures d'écran, presse-papier image |
 
 ## Optionnelles
 

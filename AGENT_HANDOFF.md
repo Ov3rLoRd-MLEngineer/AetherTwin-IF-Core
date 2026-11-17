@@ -21,7 +21,8 @@ Les phrases sont courtes. Rien n'est implicite.
 6. Le jalon J2 est fait. `core/` contient : moniteur GPU, contrat de module, bus, lanceur de module,
    ordonnanceur GPU, Inoue, Fuma, daemon, API locale. `modules/` est vide.
 7. Le code de WoW Assistant est dans `_import/wow_assistant_v9/`. Il n'est pas encore porté.
-8. Les tests passent : 110 tests.
+8. Les tests passent : 132 tests. WoW Assistant v9 a reçu des correctifs le 17/11 (`tests/wow_assistant_v9/`).
+   Les mêmes fichiers sont dans `D:\Hermes-Agent\wow_assistant_v9`, la copie que Jérémy utilise.
 9. Le poste a 2 GPU visibles : RTX 5080 16 Go et RTX 5060 Ti 16 Go. Les modèles restent en Q4_K_M.
 10. La prochaine tâche est le jalon J3 : porter WoW Assistant dans `modules/gaming_hud/` (tâche 8).
 

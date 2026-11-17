@@ -75,3 +75,16 @@ layout.json · chat_history.json · wowhead_links.json · recipes.json
   Boutons de la barre : « Fenêtre principale » (la ramène devant), « Fermer l'overlay ».
 - **Voix** : choix du micro (Paramètres > Voix), test du micro avec état en direct, niveau et messages d'erreur précis
   (le message indique la commande pip pour CE Python si `sounddevice` manque).
+
+## Correctifs du 17/11/2026
+- **Fermeture** : la croix de la fenêtre principale ferme bien l'appli, même après avoir ouvert (puis fermé) l'overlay.
+- **Champs de saisie** : rester appuyé sur une touche la répète ; curseur déplaçable (flèches, Début, Fin, clic), touche Suppr ;
+  **Ctrl+A / Ctrl+C / Ctrl+X / Ctrl+V** (et Maj+Inser) ; **clic droit** = menu Couper / Copier / Coller / Tout sélectionner.
+  Un texte plus long que le champ défile pour garder le curseur visible. Un champ masqué (clé API) n'est jamais copié.
+  La sélection est « tout ou rien » (pas de sélection partielle à la souris).
+- **Widgets web** : on peut taper au clavier dans Open WebUI et le lecteur vidéo (la fenêtre n'était pas activable).
+  En contrepartie, un widget web prend la saisie quand il s'ouvre : cliquez dans le jeu pour la lui rendre.
+  Les sessions sont conservées dans `cache/web/<widget>/`.
+- **Mise en page** : textes d'aide des Paramètres replacés sous leurs boutons ; barre d'outils de l'overlay élargie
+  automatiquement pour que tous les boutons tiennent (libellés raccourcis : « Fenêtre », « Fermer », « Focus : auto »).
+- Nouveau fichier : `clipboard.py` (presse-papier Windows, sans dépendance).

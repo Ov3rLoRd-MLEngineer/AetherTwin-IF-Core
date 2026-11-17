@@ -52,8 +52,10 @@ def main():
                                  "ALLOW_FILE_URLS": False, "OPEN_DEVTOOLS_IN_DEBUG": False})
     except Exception:
         pass
+    # focus=True est indispensable : avec focus=False, pywebview rend la fenêtre « non activable »
+    # (WS_EX_NOACTIVATE) et aucune frappe au clavier ne lui parvient jamais (identifiants, recherche...).
     options = dict(x=x, y=y, width=w, height=h, frameless=True, on_top=True, easy_drag=False, resizable=False,
-                   text_select=True, focus=False)
+                   text_select=True, focus=True)
     try:
         window = webview.create_window(args.title, args.url, **options)
     except TypeError:                       # versions plus anciennes : sans certains paramètres
