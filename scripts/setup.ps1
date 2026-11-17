@@ -1,5 +1,10 @@
-# Installation reproductible : venv Python 3.11 dans le dépôt + dépendances épinglées.
-#   .\scripts\setup.ps1
+﻿# Installation reproductible d'AetherTwin (I&F Core) sous Windows.
+#   .\scripts\setup.ps1              # venv Python 3.11 + dépendances + config + vérifications
+#   .\scripts\setup.ps1 -Gpu         # + PyTorch CUDA et segment-anything (mangastudio), environ 3 Go
+#   .\scripts\setup.ps1 -Weights     # + poids HandSegNet / FootSegNet (2 × 375 Mo, Hugging Face)
+#   .\scripts\setup.ps1 -Shortcut    # + raccourci « AetherTwin » sur le bureau
+# Le script ne touche à rien en dehors du dossier du projet, sauf le raccourci demandé par -Shortcut.
+param([switch]$Gpu, [switch]$Weights, [switch]$Shortcut)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
@@ -16,12 +21,60 @@ if (-not (Test-Path ".venv\Scripts\python.exe")) {
 $py = Join-Path $root ".venv\Scripts\python.exe"
 & $py -m pip install --quiet --upgrade pip
 & $py -m pip install --quiet -r requirements-dev.txt
-if (-not $?) { throw "Installation des dépendances impossible." }
+if ($LASTEXITCODE -ne 0) { throw "Installation des dépendances impossible." }
+
+if ($Gpu) {
+    Write-Host "Dépendances GPU (PyTorch CUDA 12.8, segment-anything) : quelques minutes..."
+    & $py -m pip install --quiet -r requirements-gpu.txt
+    if ($LASTEXITCODE -ne 0) { throw "Installation des dépendances GPU impossible (git est-il installé ?)." }
+}
+
+if ($Weights) {
+    $dir = Join-Path $root "models\mangastudio"
+    New-Item -ItemType Directory -Force $dir | Out-Null
+    foreach ($name in "handsegnet", "footsegnet") {
+        $file = Join-Path $dir "${name}_vit_b_best.safetensors"
+        if (Test-Path $file) { Write-Host "$name : déjà présent"; continue }
+        Write-Host "Téléchargement de $name (375 Mo)..."
+        curl.exe -L --fail -s -o $file "https://huggingface.co/Ov3rLoRd-MLEngineer/$name-anime-sdxl/resolve/main/${name}_vit_b_best.safetensors"
+        if ($LASTEXITCODE -ne 0) { Remove-Item -Force -ErrorAction SilentlyContinue $file; throw "Téléchargement de $name impossible." }
+    }
+}
 
 if (-not (Test-Path "config\local.yaml")) {
     Copy-Item "config\local.example.yaml" "config\local.yaml"
     Write-Host "config\local.yaml créé depuis l'exemple (ignoré par Git)."
 }
 
+if ($Shortcut) {
+    $desktop = [Environment]::GetFolderPath("Desktop")
+    $link = (New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $desktop "AetherTwin.lnk"))
+    $link.TargetPath = Join-Path $root "Lancer AetherTwin.bat"
+    $link.WorkingDirectory = $root
+    $link.Description = "AetherTwin (I&F Core) - Hub local"
+    $link.Save()
+    Write-Host "Raccourci « AetherTwin » créé sur le bureau."
+}
+
+# Vérifications (informatives : rien n'est installé ni modifié ici)
+Write-Host ""
+Write-Host "--- Vérifications ---"
 & $py --version
-Write-Host "Prêt. Tests : .\.venv\Scripts\python.exe -m pytest"
+& $py -m core.hardware.gpu_monitor | Select-String '"backend"|"gpu_count"|"vram_total_mib"'
+$ollama = Get-Command ollama -ErrorAction SilentlyContinue
+if (-not $ollama) {
+    Write-Host "Ollama introuvable : l'assistant, le Professeur, scantrad et le jeu tourneront sans modèle (modes dégradés)."
+} else {
+    $models = (& ollama list 2>$null) -join "`n"
+    foreach ($m in @(@("qwen3-27b", "assistant et traductions (modèle par défaut)"),
+                     @("qwen2.5vl", "lecture des bulles (scantrad)"),
+                     @("nomic-embed-text", "recherche par vecteurs (connaissances)"))) {
+        if ($models -match [regex]::Escape($m[0])) { Write-Host "Ollama : $($m[0]) présent — $($m[1])" }
+        else { Write-Host "Ollama : $($m[0]) absent — $($m[1]). Pour l'ajouter : ollama pull $($m[0])" }
+    }
+}
+$gpuDeps = & $py -c "import importlib.util as u; print(all(u.find_spec(m) for m in ('torch', 'segment_anything')))"
+Write-Host "mangastudio : $(if ($gpuDeps -eq 'True') { 'PyTorch présent' } else { 'simulation (relance avec -Gpu pour les vrais modèles)' })"
+Write-Host ""
+Write-Host "Prêt. Lancer : double-clic sur « Lancer AetherTwin.bat » (ou le raccourci du bureau)."
+Write-Host "Tests : .\.venv\Scripts\python.exe -m pytest"
