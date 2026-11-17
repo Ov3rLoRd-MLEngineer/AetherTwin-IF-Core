@@ -84,6 +84,8 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | `scantrad` : correction à la main et réincrustation | P1 | J8 | `FAIT-TESTÉ` | page nettoyée et bulles gardées à côté de la traduction ; tests par l'API ; pas encore essayé par Jérémy |
 | `mangastudio` : détection automatique des mains/pieds | P2 | J8 | `FAIT-TESTÉ` | **réel** : `qwen2.5vl:7b` propose 5 boîtes en 2,6 s, HandSegNet en fait 5 masques ; 2 débordent (manteau, cape) : boîtes à vérifier |
 | Assistant : conversation (historique, Markdown) | P1 | J8 | `FAIT-TESTÉ` | **réel** : la 2e question retrouve le nom et la classe donnés à la 1re (1,8 s) ; listes et gras rendus sans HTML injecté |
+| API compatible OpenAI : `stream: true` (SSE) | P1 | J8 | `FAIT-TESTÉ` | format `chat.completion.chunk` puis `[DONE]` ; **réel** avec `qwen3-27b` par `curl` ; non essayé depuis un client tiers (Open WebUI, WoW Assistant) |
+| Professeur : laboratoire FASTA dans le navigateur | P1 | J5/J8 | `FAIT-TESTÉ` | **réel** : exemple GFP, 178 bases, GC 40,449 %, 1 ORF de 53 acides aminés (MASKGEELFTGVV…) |
 | Fermeture douce de WoW Assistant | P1 | J8 | `FAIT-TESTÉ` | **réel** : fermée par demande de fenêtre en 2 s, sans forcer ; repli forcé au bout de 6 s |
 | Journal du Hub (`logs/hub.log`) | P1 | J8 | `FAIT-TESTÉ` | démarrages, arrêts, erreurs, alertes, applications ; jamais les états du jeu ; 1 Mo × 3 |
 | Jeu : ambiance sonore générée | P2 | J8 | `FAIT-NON-TESTÉ` | Web Audio, nappes par ambiance + carillon d'arrivée ; s'active sans erreur, **jamais écoutée** |

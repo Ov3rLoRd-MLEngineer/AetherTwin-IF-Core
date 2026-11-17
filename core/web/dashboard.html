@@ -135,6 +135,18 @@
         </div>
         <div id="prof-result" class="answer" hidden></div>
       </section>
+      <section>
+        <h2>Laboratoire : analyse FASTA</h2>
+        <p class="muted">Colle une ou plusieurs séquences au format FASTA. Longueur, composition, GC %, cadres de
+          lecture ouverts (ORF) et protéine traduite : tout est calculé par le code, aucun modèle n'intervient.</p>
+        <textarea id="lab-fasta" rows="6" spellcheck="false" placeholder=">ma_sequence description&#10;ATGGCC…"></textarea>
+        <div class="row">
+          <label>ORF d'au moins <input id="lab-min" type="number" value="30" min="1" max="3000"> acides aminés</label>
+          <button id="lab-example" type="button" class="ghost">Exemple</button>
+          <button id="lab-run" type="button">Analyser</button>
+        </div>
+        <div id="lab-result"></div>
+      </section>
     </div>
 
     <!-- Connaissances -->

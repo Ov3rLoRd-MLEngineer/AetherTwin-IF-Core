@@ -351,34 +351,40 @@ def create_app(daemon: Daemon) -> FastAPI:
         `{"done": {"model", "seconds"}}` ou `{"error": …}`. La génération tourne dans un fil dédié (le verrou du
         routeur est pris et rendu par ce même fil)."""
         messages, _context = daemon.ask_messages(request.prompt, request.with_context, request.history)
+
+        def lines() -> Any:
+            for kind, value in stream_pieces(messages, request.model):
+                yield json.dumps({kind: value}, ensure_ascii=False) + "\n"
+
+        return StreamingResponse(lines(), media_type="application/x-ndjson")
+
+    def stream_pieces(messages: list[dict[str, Any]], model: str | None, **options: Any) -> Any:
+        """(« text », morceau)…, puis (« done », {model, seconds}) ou (« error », message). La génération tourne
+        dans un fil dédié : le verrou du routeur est pris et rendu par ce même fil, quel que soit le client."""
         pieces: queue.Queue[tuple[str, Any]] = queue.Queue()
 
         def worker() -> None:
             started = time.perf_counter()
             try:
-                for piece in daemon.llm.chat_stream(messages, model=request.model):
+                for piece in daemon.llm.chat_stream(messages, model=model, **options):
                     pieces.put(("text", piece))
-                pieces.put(("done", {"model": request.model or daemon.llm.config.default_model,
+                pieces.put(("done", {"model": model or daemon.llm.config.default_model,
                                      "seconds": round(time.perf_counter() - started, 2)}))
             except LlmRefused as exc:
                 pieces.put(("error", f"VRAM : {exc}"))
             except LlmError as exc:
                 pieces.put(("error", str(exc)))
 
-        threading.Thread(target=worker, name="ask-stream", daemon=True).start()
-
-        def lines() -> Any:
-            while True:
-                try:
-                    kind, value = pieces.get(timeout=daemon.llm.config.timeout_s)
-                except queue.Empty:
-                    yield json.dumps({"error": "délai dépassé"}, ensure_ascii=False) + "\n"
-                    return
-                yield json.dumps({kind: value}, ensure_ascii=False) + "\n"
-                if kind != "text":
-                    return
-
-        return StreamingResponse(lines(), media_type="application/x-ndjson")
+        threading.Thread(target=worker, name="llm-stream", daemon=True).start()
+        while True:
+            try:
+                kind, value = pieces.get(timeout=daemon.llm.config.timeout_s)
+            except queue.Empty:
+                yield "error", "délai dépassé"
+                return
+            yield kind, value
+            if kind != "text":
+                return
 
     @app.get("/v1/models")
     def v1_models() -> dict[str, Any]:
@@ -386,12 +392,32 @@ def create_app(daemon: Daemon) -> FastAPI:
         return {"object": "list", "data": [{"id": m["name"], "object": "model", "owned_by": "ollama"} for m in models]}
 
     @app.post("/v1/chat/completions")
-    def v1_chat(request: ChatRequest) -> dict[str, Any]:
-        if request.stream:
-            raise HTTPException(status_code=400, detail="la diffusion mot à mot (stream) n'est pas prise en charge")
+    def v1_chat(request: ChatRequest) -> Any:
         if request.num_ctx is not None and not 512 <= request.num_ctx <= 131072:
             raise HTTPException(status_code=400, detail="num_ctx hors bornes (512 à 131072)")
         options = {"temperature": request.temperature} if request.temperature is not None else None
+        if request.stream:  # format OpenAI : événements SSE `data: {chunk}`, puis `data: [DONE]`
+            chunk_id, created = f"chatcmpl-aethertwin-{int(time.time() * 1000)}", int(time.time())
+            model = request.model or daemon.llm.config.default_model
+
+            def chunk(delta: dict[str, Any], finish: str | None = None) -> str:
+                body = {"id": chunk_id, "object": "chat.completion.chunk", "created": created, "model": model,
+                        "choices": [{"index": 0, "delta": delta, "finish_reason": finish}]}
+                return f"data: {json.dumps(body, ensure_ascii=False)}\n\n"
+
+            def events() -> Any:
+                yield chunk({"role": "assistant"})
+                for kind, value in stream_pieces(openai_to_ollama(request.messages), request.model,
+                                                 num_ctx=request.num_ctx, think=request.think, options=options):
+                    if kind == "text":
+                        yield chunk({"content": value})
+                    elif kind == "done":
+                        yield chunk({}, "stop")
+                    else:
+                        yield f"data: {json.dumps({'error': {'message': value}}, ensure_ascii=False)}\n\n"
+                yield "data: [DONE]\n\n"
+
+            return StreamingResponse(events(), media_type="text/event-stream")
         result = llm_call(lambda: daemon.llm.chat(openai_to_ollama(request.messages), model=request.model,
                                                   num_ctx=request.num_ctx, think=request.think, options=options))
         return {

@@ -666,3 +666,12 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   correcte ; journal écrit au démarrage et à l'arrêt par le bouton. Son : activé et coupé sans erreur dans la
   console, mais pas écouté.
 - **Tests :** ruff propre ; pytest : 370 réussis, 4 réels ignorés par défaut.
+
+## 2026-11-17 — J8 (6) : flux OpenAI, laboratoire FASTA
+
+- **Agent :** Cloud
+- **Fichiers :** `core/api.py` (`stream_pieces` partagé, `/v1/chat/completions` avec `stream: true` en SSE),
+  `core/web/dashboard.*` (laboratoire FASTA dans l'onglet Professeur), `tests/core/test_llm_router.py`, suivi.
+- **Réel :** flux SSE de `qwen3-27b` reçu par `curl` (rôle, contenu, fin, `[DONE]`) ; analyse FASTA de
+  l'exemple (début du gène de la GFP, séquence publique) : 1 ORF de 53 acides aminés, protéine correcte.
+  L'exemple avait d'abord été décrit à tort comme « écrit pour le projet » : commentaire corrigé.

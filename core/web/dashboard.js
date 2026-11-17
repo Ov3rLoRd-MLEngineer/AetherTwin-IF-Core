@@ -405,6 +405,41 @@ $("prof-progress").addEventListener("click", async (event) => {
     .join("\n");
 });
 
+// ---------- laboratoire FASTA (calcul déterministe de genesis_lab) ----------
+// Exemple : début du gène de la GFP (séquence publique), suivi d'un codon stop, entouré de quelques bases.
+const LAB_EXAMPLE = ">exemple_gfp debut du gene de la GFP (sequence publique)\n"
+  + "CCTTAGATGGCTAGCAAAGGAGAAGAACTTTTCACTGGAGTTGTCCCAATTCTTGTTGAATTAGATGGTGATGTTAATGGGCACAAATTTTCTGTC\n"
+  + "AGTGGAGAGGGTGAAGGTGATGCTACATACGGAAAGCTTACCCTTAAATTTATTTGCACTACTGGAAAATGATAACGGCCTT";
+
+$("lab-example").addEventListener("click", () => { $("lab-fasta").value = LAB_EXAMPLE; $("lab-min").value = 30; });
+
+$("lab-run").addEventListener("click", async (event) => {
+  const box = $("lab-result");
+  box.replaceChildren(el("p", { class: "muted" }, "Calcul…"));
+  const records = await professor("compute", {
+    tool: "bio.analyze_fasta",
+    args: { text: $("lab-fasta").value, min_orf_aa: Number($("lab-min").value) || 30 },
+  }, event.currentTarget);
+  if (!records) { box.replaceChildren(el("p", { class: "warn" }, $("prof-result").textContent)); return; }
+  box.replaceChildren(...records.map((r) => {
+    const counts = Object.entries(r.base_counts).map(([b, n]) => `${b} ${n}`).join(" · ");
+    const orfs = el("table", {}, el("thead", {}, el("tr", {}, ...["Brin", "Cadre", "Début", "Fin", "Acides aminés"]
+      .map((h) => el("th", {}, h)))));
+    const rows = el("tbody");
+    for (const o of r.orfs) {
+      rows.append(el("tr", {}, el("td", {}, o.strand), el("td", {}, String(o.frame)), el("td", {}, String(o.start)),
+                      el("td", {}, String(o.end)), el("td", {}, String(o.protein.length))));
+    }
+    orfs.append(rows);
+    return el("div", { class: "lab-record" },
+      el("h3", {}, `${r.name}${r.description ? ` — ${r.description}` : ""}`),
+      el("p", {}, `${r.length} bases · GC ${r.gc_percent} % · ${counts} · ${r.orf_count} ORF`),
+      ...(r.orfs.length ? [orfs] : [el("p", { class: "muted" }, "Aucun ORF de cette longueur.")]),
+      ...(r.longest_protein ? [el("p", { class: "muted" }, "Protéine du plus long ORF :"),
+                                el("div", { class: "protein" }, r.longest_protein)] : []));
+  }));
+});
+
 // ---------- connaissances ----------
 async function refreshKnowledge() {
   try {

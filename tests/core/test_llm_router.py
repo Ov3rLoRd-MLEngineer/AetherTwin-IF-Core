@@ -242,7 +242,6 @@ def test_api_ask_and_openai_compatible_endpoints(api, ollama: FakeOllama) -> Non
     health = client.get("/health").json()["llm"]
     assert health["reachable"] and [m["name"] for m in health["loaded"]] == ["gros-b:30b"]
     assert client.post("/v1/chat/completions", json={"model": "geant:70b", "messages": USER}).status_code == 409
-    assert client.post("/v1/chat/completions", json={"messages": USER, "stream": True}).status_code == 400
     assert client.post("/ask", json={"prompt": "x", "model": "inexistant:1b"}).status_code == 503
 
 
@@ -272,6 +271,22 @@ def test_chat_stream_follows_the_same_vram_rules(router: LlmRouter, ollama: Fake
     assert router.measured_vram_gb["gros-b:30b"] == pytest.approx(19.2)
     with pytest.raises(LlmRefused):
         list(router.chat_stream(USER, model="geant:70b"))
+
+
+def test_openai_compatible_streaming(api, ollama: FakeOllama) -> None:
+    client, _daemon = api
+    response = client.post("/v1/chat/completions", json={"messages": USER, "stream": True, "temperature": 0.2})
+    assert response.headers["content-type"].startswith("text/event-stream")
+    events = [line[6:] for line in response.text.splitlines() if line.startswith("data: ")]
+    assert events[-1] == "[DONE]"
+    chunks = [json.loads(e) for e in events[:-1]]
+    assert chunks[0]["choices"][0]["delta"] == {"role": "assistant"}
+    text = "".join(c["choices"][0]["delta"].get("content", "") for c in chunks)
+    assert text == "Bonjour Jérémy" and chunks[-1]["choices"][0]["finish_reason"] == "stop"
+    assert all(c["object"] == "chat.completion.chunk" for c in chunks)
+    assert ollama.calls[-1][1]["options"]["temperature"] == 0.2
+    refused = client.post("/v1/chat/completions", json={"model": "geant:70b", "messages": USER, "stream": True})
+    assert "VRAM" in refused.text and refused.text.rstrip().endswith("data: [DONE]")
 
 
 def test_api_ask_stream(api, ollama: FakeOllama) -> None:
