@@ -67,7 +67,20 @@ def test_cosine_and_lexical() -> None:
     assert cosine([1, 0], [1, 0]) == pytest.approx(1.0)
     assert cosine([1, 0], [0, 1]) == 0.0
     assert cosine([0, 0], [1, 1]) == 0.0
-    assert lexical_score("vitesse libération", "La VITESSE de liberation") == 1.0
+    assert lexical_score("vitesse libération", "La VITESSE de liberation") == pytest.approx(0.8)
+    assert lexical_score("vitesse libération", "La VITESSE de liberation", title="Vitesse de libération") == 1.0
+    assert _words("Le pH et le Ka de la solution") == {"ph", "ka", "solution"}  # mots courts gardés, vides retirés
+
+
+def test_rare_words_weigh_more_in_degraded_mode(tmp_path) -> None:
+    plain = KnowledgeStore(tmp_path / "p.sqlite")
+    plain.add_document("https://exemple.org/code", "Code génétique", "Un acide aminé faible ou fort, selon le codon. "
+                       "Chaque acide aminé est codé par un triplet.", "CC0")
+    plain.add_document("https://exemple.org/ph", "Potentiel hydrogène", "Le pH d'un acide faible dépend de son Ka.",
+                       "CC0")
+    plain.add_document("https://exemple.org/autre", "Autre", "Un acide fort se dissocie totalement.", "CC0")
+    assert plain.search("pH acide faible Ka", k=1)[0].url == "https://exemple.org/ph"
+    plain.close()
 
 
 def test_vector_search_finds_the_right_source(store) -> None:
@@ -121,9 +134,13 @@ def test_degraded_mode_without_embedder_or_when_it_fails(tmp_path) -> None:
         raise KnowledgeError("embedding indisponible (test)")
 
     plain.embedder, plain.embedder_name = broken, "cassé"
-    with pytest.raises(KnowledgeError):  # à l'écriture : rien n'est stocké à moitié
-        plain.add_document("https://exemple.org/bio", "GC", BIO, "CC BY-SA 4.0")
-    assert plain.stats()["documents"] == 1
+    result = plain.add_document("https://exemple.org/bio", "GC", BIO, "CC BY-SA 4.0")
+    assert result["vectorized"] is False and "indisponible" in result["embed_error"]  # texte gardé, sans vecteur
+    assert plain.stats()["documents"] == 2 and plain.stats()["vectorized"] == 0
+    assert plain.search("guanine cytosine")[0].mode == "mots"
+    plain.embedder, plain.embedder_name = fake_embedder(), "faux-v1"  # le modèle revient : on rattrape
+    assert plain.reindex() == 2 and plain.stats()["vectorized"] == 2
+    assert plain.search("guanine cytosine")[0].mode == "vecteurs"
     plain.close()
 
 

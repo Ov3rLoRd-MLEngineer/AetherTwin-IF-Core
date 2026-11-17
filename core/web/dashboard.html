@@ -67,6 +67,17 @@
     </section>
 
     <section>
+      <h2>Connaissances</h2>
+      <p id="kb-line" class="muted">…</p>
+      <form id="kb-form" class="row">
+        <input id="kb-query" autocomplete="off" required placeholder="Chercher dans la base locale">
+        <button type="submit">Chercher</button>
+        <button id="kb-ingest" type="button" class="ghost">Collecter maintenant</button>
+      </form>
+      <div id="kb-result" class="answer" hidden></div>
+    </section>
+
+    <section>
       <h2>Liens utiles</h2>
       <ul class="links">
         <li><a href="http://127.0.0.1:5757/obs-hud" target="_blank" rel="noopener">Overlay OBS</a> <span class="muted">(gaming_hud actif ; source navigateur 1920×1080 dans OBS)</span></li>

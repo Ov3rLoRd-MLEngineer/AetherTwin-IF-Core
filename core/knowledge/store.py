@@ -9,7 +9,8 @@ Tout tient dans un seul fichier SQLite (bibliothèque standard), sans dépendanc
 - L'embedding est **injectable** (`Embedder`) : les tests passent de faux vecteurs, le Hub passe
   `ollama_embedder()` (modèle local, ex. `nomic-embed-text`, à installer par `ollama pull`).
 - Sans embedder, ou si le modèle d'embedding est injoignable, la recherche retombe sur un score par mots
-  communs (**mode dégradé**, signalé dans le résultat). On n'invente jamais un vecteur.
+  communs (**mode dégradé**, signalé dans le résultat). On n'invente jamais un vecteur : un texte ajouté
+  pendant que l'embedding est indisponible est gardé sans vecteur, et `reindex()` les calcule plus tard.
 - La base retient le nom du modèle d'embedding : mélanger deux modèles rendrait les distances absurdes,
   donc c'est refusé (`KnowledgeError`), il faut réindexer.
 - Chaque passage garde sa source (URL, titre, licence, date) pour être cité.
@@ -100,14 +101,35 @@ def cosine(a: Iterable[float], b: Iterable[float]) -> float:
     return dot / math.sqrt(na * nb) if na and nb else 0.0
 
 
+STOPWORDS = frozenset(
+    "le la les un une des de du au aux et ou en dans par pour sur avec sans est sont qui que quoi dont ce cet cette "
+    "ces son sa ses leur leurs il elle ils elles on se ne pas plus comme quel quelle quels quelles the of and to in "
+    "is are for with on by an as at".split())
+
+
 def _words(text: str) -> set[str]:
+    """Mots normalisés (sans accents), deux lettres au moins (pH, Ka, GC comptent), mots vides retirés."""
     plain = unicodedata.normalize("NFKD", text.lower()).encode("ascii", "ignore").decode("ascii")
-    return {w for w in re.findall(r"[a-z0-9]{3,}", plain)}
+    return {w for w in re.findall(r"[a-z0-9]{2,}", plain) if w not in STOPWORDS}
 
 
-def lexical_score(query: str, text: str) -> float:
-    q, t = _words(query), _words(text)
-    return len(q & t) / len(q) if q else 0.0
+def lexical_score(query: str, text: str, idf: dict[str, float] | None = None, title: str = "") -> float:
+    """Part des mots de la requête présents dans le texte, pondérée par leur rareté (idf) ; bonus s'ils sont
+    dans le titre. Résultat entre 0 et 1."""
+    q, t, ti = _words(query), _words(text), _words(title)
+    if not q:
+        return 0.0
+    weight = {w: (idf or {}).get(w, 1.0) for w in q}
+    total = sum(weight.values())
+    found = sum(weight[w] for w in q & t)
+    in_title = sum(weight[w] for w in q & ti)
+    return min(1.0, (0.8 * found + 0.2 * in_title) / total) if total else 0.0
+
+
+def idf_table(query: str, texts: list[str]) -> dict[str, float]:
+    n = len(texts) or 1
+    sets = [_words(text) for text in texts]
+    return {w: math.log(1 + n / (1 + sum(1 for s in sets if w in s))) for w in _words(query)}
 
 
 def _pack(vector: list[float]) -> bytes:
@@ -185,9 +207,13 @@ class KnowledgeStore:
             if row and row[1] == content_hash:
                 return {"url": url, "status": "unchanged", "chunks": 0}
             vectors: list[list[float]] | None = None
+            embed_error = ""
             if self.embedder is not None and chunks:
-                self._check_embedder()
-                vectors = self.embedder(chunks)  # KnowledgeError remonte : rien n'est écrit à moitié
+                self._check_embedder()  # mélange de modèles : refus net
+                try:
+                    vectors = self.embedder(chunks)
+                except KnowledgeError as exc:  # modèle absent ou Ollama arrêté : texte gardé, vecteurs plus tard
+                    embed_error = str(exc)
             with self._db:
                 if row:
                     self._db.execute("DELETE FROM documents WHERE id = ?", (row[0],))
@@ -202,7 +228,8 @@ class KnowledgeStore:
                 if vectors:
                     self._db.execute("INSERT OR REPLACE INTO meta VALUES ('embedder', ?)", (self.embedder_name,))
                     self._db.execute("INSERT OR REPLACE INTO meta VALUES ('dimension', ?)", (str(len(vectors[0])),))
-        return {"url": url, "status": "replaced" if row else "added", "chunks": len(chunks)}
+        return {"url": url, "status": "replaced" if row else "added", "chunks": len(chunks),
+                "vectorized": vectors is not None, "embed_error": embed_error}
 
     def remove(self, url: str) -> bool:
         with self._lock, self._db:
@@ -243,14 +270,16 @@ class KnowledgeStore:
             except KnowledgeError as exc:
                 self.last_degraded_reason = str(exc)
         hits: list[Hit] = []
+        lexical_rows = [f"{r[3]} {r[0]}" for r in rows if query_vector is None or r[1] is None]
+        idf = idf_table(query, lexical_rows) if lexical_rows else {}
         for text, blob, url, title, license_ in rows:
             if query_vector is not None and blob is not None:
                 vector = _unpack(blob)
                 if len(vector) != len(query_vector):
                     continue
                 hits.append(Hit(url, title, license_, text, round(cosine(query_vector, vector), 4), "vecteurs"))
-            elif query_vector is None:
-                score = lexical_score(query, f"{title} {text}")
+            else:  # pas de vecteur (base ou requête) : mots communs ; minorés à côté de vrais vecteurs
+                score = lexical_score(query, text, idf, title) * (0.5 if query_vector is not None else 1.0)
                 if score > 0:
                     hits.append(Hit(url, title, license_, text, round(score, 4), "mots"))
         hits.sort(key=lambda h: h.score, reverse=True)

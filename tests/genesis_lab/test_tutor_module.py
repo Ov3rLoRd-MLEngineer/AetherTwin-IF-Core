@@ -51,7 +51,8 @@ def test_guided_session(tmp_path: Path) -> None:
 
     def search(query: str) -> list[dict[str, str]]:
         return [{"title": "Cours : " + query, "url": "https://exemple.invalid/cours", "snippet": "…"},
-                {"title": "sans adresse", "url": ""}]
+                {"title": "sans adresse", "url": ""},
+                {"title": "doublon", "url": "https://exemple.invalid/cours"}]  # même page : citée une fois
 
     profile = tmp_path / "eleve.json"
     tutor = Tutor(profile, llm=llm, search=search, seed=42)

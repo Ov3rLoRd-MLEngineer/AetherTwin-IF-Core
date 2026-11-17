@@ -1,0 +1,26 @@
+# Sources publiques de la base de connaissances (ingestion polie, de nuit ou à la demande).
+# Chaque entrée : url (https, domaine présent dans web_domains de allowlist.yaml), licence obligatoire, tags.
+# Wikipédia : textes sous CC BY-SA 4.0 — citer le titre et l'URL, ce que fait le Professeur.
+
+sources:
+  # Astrophysique
+  - {url: "https://fr.wikipedia.org/wiki/Vitesse_de_lib%C3%A9ration", license: "CC BY-SA 4.0", tags: [astro]}
+  - {url: "https://fr.wikipedia.org/wiki/Lois_de_Kepler", license: "CC BY-SA 4.0", tags: [astro]}
+  - {url: "https://fr.wikipedia.org/wiki/Rayon_de_Schwarzschild", license: "CC BY-SA 4.0", tags: [astro]}
+  - {url: "https://fr.wikipedia.org/wiki/Parallaxe", license: "CC BY-SA 4.0", tags: [astro]}
+  - {url: "https://fr.wikipedia.org/wiki/Parsec", license: "CC BY-SA 4.0", tags: [astro]}
+  - {url: "https://fr.wikipedia.org/wiki/Magnitude_absolue", license: "CC BY-SA 4.0", tags: [astro]}
+  - {url: "https://fr.wikipedia.org/wiki/Vitesse_orbitale", license: "CC BY-SA 4.0", tags: [astro]}
+  # Génétique et bio-informatique
+  - {url: "https://fr.wikipedia.org/wiki/Taux_de_GC", license: "CC BY-SA 4.0", tags: [bio]}
+  - {url: "https://fr.wikipedia.org/wiki/Code_g%C3%A9n%C3%A9tique", license: "CC BY-SA 4.0", tags: [bio]}
+  - {url: "https://fr.wikipedia.org/wiki/Transcription_(biologie)", license: "CC BY-SA 4.0", tags: [bio]}
+  - {url: "https://fr.wikipedia.org/wiki/Alignement_de_s%C3%A9quences", license: "CC BY-SA 4.0", tags: [bio]}
+  - {url: "https://fr.wikipedia.org/wiki/Cadre_de_lecture", license: "CC BY-SA 4.0", tags: [bio]}
+  # Génie chimique
+  - {url: "https://fr.wikipedia.org/wiki/Masse_molaire", license: "CC BY-SA 4.0", tags: [chem]}
+  - {url: "https://fr.wikipedia.org/wiki/Quantit%C3%A9_de_mati%C3%A8re", license: "CC BY-SA 4.0", tags: [chem]}
+  - {url: "https://fr.wikipedia.org/wiki/Loi_des_gaz_parfaits", license: "CC BY-SA 4.0", tags: [chem]}
+  - {url: "https://fr.wikipedia.org/wiki/Potentiel_hydrog%C3%A8ne", license: "CC BY-SA 4.0", tags: [chem]}
+  - {url: "https://fr.wikipedia.org/wiki/Solution_tampon", license: "CC BY-SA 4.0", tags: [chem]}
+  - {url: "https://fr.wikipedia.org/wiki/Constante_d%27%C3%A9quilibre", license: "CC BY-SA 4.0", tags: [chem]}

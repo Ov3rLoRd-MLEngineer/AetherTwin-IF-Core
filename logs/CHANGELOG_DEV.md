@@ -477,3 +477,22 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - **Tests :** ruff propre ; pytest vert. **Essai réel** : Hub lancé avec `gaming_hud` et `genesis_lab`,
   tableau de bord affichant les deux GPU réels, exercice de GC % corrigé, explication rédigée par
   `qwen3-27b` (~30 s, chargement compris).
+
+## 2026-11-17 — J5 (2/2) : base vectorielle, collecte web polie, ingestion nocturne
+
+- **Agent :** Cloud
+- **Fichiers :** `core/knowledge/{__init__,store,fetcher,service}.py`, `config/knowledge_sources.yaml`,
+  `config/allowlist.yaml` (`web_domains: wikipedia.org`), `config/local.example.yaml` (section `knowledge`),
+  `core/guardians/fuma.py` (tâches de nuit récurrentes), `core/daemon.py`, `core/api.py` (`/knowledge`,
+  `/knowledge/search`, `/knowledge/ingest`), `core/web/dashboard.*` (encadré Connaissances),
+  `modules/genesis_lab/{module,tutor}.py` (`hub_search`, sources dédoublonnées), `.gitignore`, tests.
+- **Choix :** SQLite et bibliothèque standard (pas de numpy ni de base externe) ; embedding par Ollama local,
+  injectable ; un texte ajouté sans embedding est gardé sans vecteur et `reindex()` rattrape ; ingestion dans un
+  fil séparé pour ne jamais bloquer le tour du démon.
+- **Problèmes :** 1) l'extraction gardait les bandeaux de Wikipédia → filtre par classes ; 2) ce filtre, en
+  sous-chaîne, masquait toute la page (`vector-toc-available`) → comparaison jeton par jeton, test ajouté ;
+  3) en mode dégradé, « Code génétique » sortait pour « pH acide faible » → pondération idf, mots de 2 lettres,
+  mots vides, bonus de titre ; 4) une même page citée deux fois → dédoublonnage.
+- **Tests :** ruff propre ; pytest vert. **Réel** : 18 pages Wikipédia FR collectées depuis le tableau de bord
+  (robots.txt respecté, 5 s d'écart), 377 passages ; recherche pertinente sur 5 sujets ; Professeur avec
+  sources citées et explication de `qwen3-27b`. **Non vérifié** : vecteurs réels (aucun modèle d'embedding).

@@ -107,6 +107,24 @@ def create_app(daemon: Daemon) -> FastAPI:
         except TimeoutError as exc:
             raise HTTPException(status_code=504, detail=str(exc)) from exc
 
+    def knowledge_or_503() -> Any:
+        if daemon.knowledge is None:
+            raise HTTPException(status_code=503, detail="base de connaissances non configurée")
+        return daemon.knowledge
+
+    @app.get("/knowledge")
+    def knowledge_state() -> dict[str, Any]:
+        return knowledge_or_503().state()
+
+    @app.get("/knowledge/search")
+    def knowledge_search(q: str, k: int = 5, tag: str = "") -> dict[str, Any]:
+        return knowledge_or_503().search(q, k=max(1, min(k, 20)), tag=tag)
+
+    @app.post("/knowledge/ingest")
+    def knowledge_ingest() -> dict[str, Any]:
+        started = knowledge_or_503().start_ingestion()
+        return {"started": started, "detail": "ingestion lancée en arrière-plan" if started else "déjà en cours"}
+
     @app.get("/", include_in_schema=False)
     def dashboard() -> Response:
         return static("dashboard.html")

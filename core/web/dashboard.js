@@ -192,7 +192,51 @@ $("prof-progress").addEventListener("click", async (event) => {
     .join("\n");
 });
 
+async function refreshKnowledge() {
+  try {
+    const kb = await api("/knowledge");
+    const s = kb.stats;
+    const run = kb.running ? " — collecte en cours…" : "";
+    const report = kb.last_report && kb.last_report.added !== undefined
+      ? ` — dernière collecte : ${kb.last_report.added} ajoutés, ${kb.last_report.unchanged} inchangés, `
+        + `${kb.last_report.refused.length} refusés, ${kb.last_report.errors.length} erreurs` : "";
+    const vectors = s.vectorized ? `${s.vectorized} avec vecteurs (${s.embedder})` : "sans vecteurs : recherche par mots";
+    $("kb-line").textContent = `${s.documents} documents, ${s.chunks} passages, ${vectors}${run}${report}`;
+  } catch (error) {
+    $("kb-line").textContent = `Base indisponible : ${error.message}`;
+  }
+}
+
+$("kb-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const box = $("kb-result");
+  box.hidden = false;
+  try {
+    const result = await api(`/knowledge/search?q=${encodeURIComponent($("kb-query").value)}&k=3`);
+    box.replaceChildren();
+    if (result.degraded) box.append(el("p", { class: "muted" }, `Mode dégradé : ${result.degraded}`));
+    if (!result.hits.length) box.append(el("p", {}, "Aucun passage trouvé."));
+    for (const hit of result.hits) {
+      const link = el("a", { href: hit.url, target: "_blank", rel: "noopener" }, hit.title);
+      box.append(el("p", {}, link, el("span", { class: "muted" }, ` — ${hit.license}, score ${hit.score} (${hit.mode})`)),
+        el("p", {}, `${hit.text.slice(0, 400)}…`));
+    }
+  } catch (error) {
+    box.textContent = `Erreur : ${error.message}`;
+  }
+});
+
+$("kb-ingest").addEventListener("click", async () => {
+  try {
+    const result = await api("/knowledge/ingest", { method: "POST" });
+    $("kb-line").textContent = result.detail;
+  } catch (error) {
+    $("kb-line").textContent = `Erreur : ${error.message}`;
+  }
+});
+
 function refreshAll() {
+  refreshKnowledge();
   refreshHub();
   refreshGpus();
   refreshModules();

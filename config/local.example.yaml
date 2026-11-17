@@ -36,6 +36,13 @@ gaming_hud:
   gold: "round"            # en Showcase : round (arrondi) | hide (masqué) | keep
   obs_hud_port: 5757
 
+knowledge:
+  db: "data/knowledge.sqlite"              # base vectorielle locale (ignorée par Git)
+  embed_model: "nomic-embed-text"          # à installer : ollama pull nomic-embed-text ; vide = recherche par mots
+  sources_file: "config/knowledge_sources.yaml"
+  min_delay_s: 5                           # délai entre deux requêtes vers un même site
+  nightly: true                            # Fuma relance l'ingestion chaque nuit (23 h → 7 h)
+
 genesis_lab:
   profile: "data/genesis_lab/eleve.json"   # progression de l'élève (ignorée par Git)
   hub_api: "http://127.0.0.1:5750"          # explications rédigées par le modèle local, via le Hub ; vide = types

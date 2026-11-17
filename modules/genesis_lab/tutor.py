@@ -244,7 +244,13 @@ class Tutor:
             found = self.search(exercise.topic)
         except Exception:  # noqa: BLE001 — une recherche ratée ne doit pas empêcher la correction
             return []
-        return [{"title": str(s.get("title", "")), "url": str(s.get("url", ""))} for s in found[:3] if s.get("url")]
+        sources: list[dict[str, str]] = []
+        for s in found:  # une page citée une seule fois, trois au plus
+            if s.get("url") and all(str(s["url"]) != known["url"] for known in sources):
+                sources.append({"title": str(s.get("title", "")), "url": str(s["url"])})
+            if len(sources) == 3:
+                break
+        return sources
 
     def _explain(self, exercise: Exercise, given: Any, correct: bool, level: int) -> str:
         expected = f"{exercise.answer} {exercise.unit}".strip()

@@ -47,6 +47,7 @@ class _NightTask:
     run: Callable[[], Any]
     done: bool = False
     error: str = ""
+    recurring: bool = False
 
 
 @dataclass
@@ -127,13 +128,19 @@ class Fuma:
             return False
         return start <= hour < end if start < end else hour >= start or hour < end
 
-    def schedule_night_task(self, name: str, run: Callable[[], Any]) -> None:
-        """Planifie une tâche lourde pour la nuit (ingestion vectorielle, indexation…)."""
-        self._night_tasks.append(_NightTask(name, run))
+    def schedule_night_task(self, name: str, run: Callable[[], Any], recurring: bool = False) -> None:
+        """Planifie une tâche lourde pour la nuit (ingestion vectorielle, indexation…).
+
+        `recurring` : la tâche est réarmée en journée et tourne donc une fois **chaque** nuit.
+        """
+        self._night_tasks.append(_NightTask(name, run, recurring=recurring))
 
     def run_night_tasks(self, force: bool = False) -> list[str]:
         """Exécute les tâches en attente si c'est la nuit (ou si `force`). Retourne celles qui ont tourné."""
         if not (force or self.is_night()):
+            for task in self._night_tasks:
+                if task.recurring and task.done:
+                    task.done = False
             return []
         ran = []
         for task in self._night_tasks:

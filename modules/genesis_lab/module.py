@@ -19,6 +19,7 @@ Configuration (section `genesis_lab` de `config/local.yaml`), tout est facultati
 from __future__ import annotations
 
 import json
+import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path
@@ -84,6 +85,17 @@ def hub_llm(hub_api: str, model: str = "", timeout_s: float = 300.0) -> Callable
     return call
 
 
+def hub_search(hub_api: str, k: int = 3, timeout_s: float = 60.0) -> Callable[[str], list[dict[str, str]]]:
+    """Recherche de sources dans la base de connaissances **du Hub** (`/knowledge/search`)."""
+    def search(query: str) -> list[dict[str, str]]:
+        url = f"{hub_api.rstrip('/')}/knowledge/search?{urllib.parse.urlencode({'q': query, 'k': k})}"
+        with urllib.request.urlopen(url, timeout=timeout_s) as response:  # noqa: S310 — API locale du Hub
+            data = json.loads(response.read().decode("utf-8"))
+        return [{"title": str(h.get("title", "")), "url": str(h.get("url", "")), "license": str(h.get("license", ""))}
+                for h in data.get("hits", [])]
+    return search
+
+
 class GenesisLabModule(ModuleBase):
     """Calculs déterministes et Professeur adaptatif, pilotés par le bus."""
 
@@ -95,10 +107,11 @@ class GenesisLabModule(ModuleBase):
 
     def start(self) -> None:
         profile = Path(str(self.config.get("profile") or "data/genesis_lab/eleve.json"))
-        llm = None
+        llm = search = None
         if self.config.get("hub_api"):
             llm = hub_llm(str(self.config["hub_api"]), str(self.config.get("model", "")))
-        self.tutor = Tutor(profile, llm=llm)
+            search = hub_search(str(self.config["hub_api"]))  # une recherche ratée n'empêche pas la correction
+        self.tutor = Tutor(profile, llm=llm, search=search)
 
     def stop(self) -> None:
         self.tutor = None

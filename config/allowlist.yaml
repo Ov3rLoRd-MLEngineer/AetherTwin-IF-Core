@@ -10,5 +10,7 @@ commands: []
 #     argv: ["nvidia-smi", "--query-gpu=name,memory.used,memory.total", "--format=csv"]
 #     description: "Lecture seule de l'état des GPU."
 
-# Domaines autorisés pour les widgets web isolés et le scraping.
-web_domains: []
+# Domaines autorisés pour la collecte web polie (core/knowledge/fetcher.py) : https, robots.txt respecté,
+# un délai entre deux requêtes. Un sous-domaine est couvert (fr.wikipedia.org par wikipedia.org).
+web_domains:
+  - "wikipedia.org"     # textes sous CC BY-SA 4.0

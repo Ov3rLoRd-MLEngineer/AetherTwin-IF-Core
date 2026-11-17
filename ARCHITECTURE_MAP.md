@@ -165,6 +165,8 @@ core/
     gpu_monitor.py
   knowledge/
     __init__.py
+    fetcher.py
+    service.py
     store.py
   llm_router.py
   module_api.py
@@ -257,6 +259,7 @@ scripts/
 config/
   allowlist.yaml
   hardware_profiles.yaml
+  knowledge_sources.yaml
   local.example.yaml
   local.yaml
 tests/
@@ -268,6 +271,8 @@ tests/
     test_dashboard.py
     test_gpu_monitor.py
     test_guardians.py
+    test_knowledge_fetcher.py
+    test_knowledge_service.py
     test_knowledge_store.py
     test_llm_router.py
     test_module_api.py
@@ -377,7 +382,7 @@ Fuma — gardien de la stabilité et du mode nocturne.
   - `def revive(self, name: str) -> None` — Remet à zéro les essais d'un module mis au repos (action manuelle).
   - `def check_gpus(self, gpus: list[GpuInfo]) -> list[Alert]`
   - `def is_night(self) -> bool` — Vrai dans la plage de nuit. Une plage qui passe minuit (23 h → 7 h) est gérée.
-  - `def schedule_night_task(self, name: str, run: Callable[[], Any]) -> None` — Planifie une tâche lourde pour la nuit (ingestion vectorielle, indexation…).
+  - `def schedule_night_task(self, name: str, run: Callable[[], Any], recurring: bool=False) -> None` — Planifie une tâche lourde pour la nuit (ingestion vectorielle, indexation…).
   - `def run_night_tasks(self, force: bool=False) -> list[str]` — Exécute les tâches en attente si c'est la nuit (ou si `force`). Retourne celles qui ont tourné.
   - `def state(self) -> dict[str, Any]`
 
@@ -428,6 +433,33 @@ Connaissances locales : base vectorielle (`store`) et collecte web polie (`fetch
 
 *(aucun symbole public)*
 
+### `core/knowledge/fetcher.py`
+
+Collecte web **polie** pour la base de connaissances.
+
+- **`class FetchRefused(RuntimeError)`** — La page n'est pas récupérée, et c'est voulu (hors liste, robots.txt, type, taille).
+- **`class Page`**
+- `def urllib_opener(url: str, headers: dict[str, str], timeout: float) -> tuple[int, dict[str, str], bytes]`
+- `def html_to_text(html: str) -> tuple[str, str]` — (titre, texte). Les espaces sont normalisés, les paragraphes séparés par une ligne vide.
+- **`class PoliteFetcher`**
+  - `def check_url(self, url: str) -> str` — Retourne l'hôte si l'URL est autorisée, sinon lève `FetchRefused`.
+  - `def robots_allows(self, url: str) -> bool`
+  - `def fetch(self, url: str, force: bool=False) -> Page`
+
+### `core/knowledge/service.py`
+
+Service de connaissances du Hub : base vectorielle + collecte polie + ingestion (la nuit, ou à la demande).
+
+- `def load_sources(path: Path) -> list[dict[str, Any]]` — Sources déclarées : `url` (https), `license` (obligatoire), `tags`. Les entrées incomplètes sont ignorées.
+- `def allowed_domains(path: Path | None=None) -> list[str]`
+- `def ingest(store: KnowledgeStore, fetcher: PoliteFetcher, sources: list[dict[str, Any]], stop: threading.Event | None=None) -> dict[str, Any]` — Récupère chaque source et l'indexe. Une source en échec est notée, les suivantes continuent.
+- **`class KnowledgeService`**
+  - `def running(self) -> bool`
+  - `def start_ingestion(self) -> bool` — Lance l'ingestion en arrière-plan. `False` si elle tourne déjà.
+  - `def stop(self) -> None`
+  - `def search(self, query: str, k: int=5, tag: str='') -> dict[str, Any]`
+  - `def state(self) -> dict[str, Any]`
+
 ### `core/knowledge/store.py`
 
 Base de connaissances locale : textes découpés, vecteurs d'embedding, recherche par similarité.
@@ -437,7 +469,8 @@ Base de connaissances locale : textes découpés, vecteurs d'embedding, recherch
   - `def to_dict(self) -> dict[str, Any]`
 - `def chunk_text(text: str, max_chars: int=900, overlap: int=150) -> list[str]` — Découpe par paragraphes, en morceaux d'au plus `max_chars`, avec un recouvrement pour garder le contexte.
 - `def cosine(a: Iterable[float], b: Iterable[float]) -> float`
-- `def lexical_score(query: str, text: str) -> float`
+- `def lexical_score(query: str, text: str, idf: dict[str, float] | None=None, title: str='') -> float` — Part des mots de la requête présents dans le texte, pondérée par leur rareté (idf) ; bonus s'ils sont
+- `def idf_table(query: str, texts: list[str]) -> dict[str, float]`
 - `def ollama_embedder(host: str='127.0.0.1:11434', model: str='nomic-embed-text', timeout_s: float=120.0) -> Embedder` — Embeddings par le serveur Ollama local (`/api/embed`). Lève `KnowledgeError` si indisponible.
 - **`class KnowledgeStore`**
   - `def close(self) -> None`
@@ -700,6 +733,7 @@ Module du Hub : calculs scientifiques à la demande et Professeur adaptatif.
 
 - `def compute(tool: str, args: dict[str, Any] | None=None) -> Any` — Appelle un outil de la liste blanche. Lève `ValueError` pour tout autre nom ou des arguments invalides.
 - `def hub_llm(hub_api: str, model: str='', timeout_s: float=300.0) -> Callable[[list[dict[str, str]]], str]` — Fabrique un appel au modèle local **par le Hub** (API compatible OpenAI), jamais directement.
+- `def hub_search(hub_api: str, k: int=3, timeout_s: float=60.0) -> Callable[[str], list[dict[str, str]]]` — Recherche de sources dans la base de connaissances **du Hub** (`/knowledge/search`).
 - **`class GenesisLabModule(ModuleBase)`** — Calculs déterministes et Professeur adaptatif, pilotés par le bus.
   - `def start(self) -> None`
   - `def stop(self) -> None`

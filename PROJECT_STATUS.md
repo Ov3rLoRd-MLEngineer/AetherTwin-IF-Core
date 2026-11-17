@@ -15,8 +15,8 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
   adaptateurs, module du Hub avec bascule Showcase, routeur LLM. Premier module réel du Hub.
 - Essai réel de bout en bout réussi : démon → module → données du jeu → modèle local → réponse correcte.
 - **J4 terminé** (17/11) : overlay OBS local avec monitoring des GPU, logo, capture de rendu réelle.
-- **J5 en cours** : `genesis_lab` est fait (calculs, Professeur, module). Restent la base vectorielle et la
-  collecte web polie, puis J6 (`scantrad`).
+- **J5 terminé** (17/11) : `genesis_lab`, base vectorielle, collecte web polie, ingestion nocturne, sources
+  citées par le Professeur. Prochaine étape : J6 (`scantrad`).
 - Décisions de Jérémy : Q4_K_M tant que la VRAM est de 32 Go ; contexte local 32 768 ; pas de push pour l'instant.
 - **Lancement simple** (17/11) : `Lancer AetherTwin.bat` à la racine (raccourci « AetherTwin » sur le bureau)
   ouvre un tableau de bord local sur `http://127.0.0.1:5750/` : GPU, modules, assistant, Professeur.
@@ -56,7 +56,9 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | Overlay OBS `http://127.0.0.1:5757/obs-hud` (page, SSE, monitoring GPU) | P0/P1 | J4 | `FAIT-TESTÉ` | rendu vérifié dans un vrai navigateur (Edge piloté par Playwright), capture dans `docs/captures/obs_hud.png` ; essai réel sur les données du jeu et les 2 GPU ; écoute sur 127.0.0.1 vérifiée. **Non testé dans OBS lui-même** |
 | Logo I&F Core (couleur + monochrome) | P1 | J4 | `FAIT-TESTÉ` | SVG géométrique écrit à la main, remplaçable ; la variante monochrome est affichée dans l'overlay |
 | Tableau de bord du Hub (`/`) + lanceur `.bat` + commandes de module (`/modules/{nom}/command/{cmd}`) | P1 | J5 | `FAIT-TESTÉ` | tests (CSP, refus de chemins hors `core/web/`, réponse rattachée par `request_id`) + **essai réel** : GPU réels affichés, exercice du Professeur corrigé avec explication de `qwen3-27b` |
-| Base vectorielle, scraping légal | P1 | J5 | `À FAIRE` | le routeur LLM, lui, est fait (voir plus haut) |
+| Base vectorielle `core/knowledge/store.py` | P1 | J5 | `FAIT-TESTÉ` | SQLite, embedder injectable, licence obligatoire, refus de mélanger deux modèles. Vecteurs testés avec un faux embedder seulement : **aucun modèle d'embedding installé** (`ollama pull nomic-embed-text`). En réel : mode dégradé par mots pondérés (idf + titre), pertinent sur les 5 sujets essayés |
+| Collecte web polie `core/knowledge/fetcher.py` | P1 | J5 | `FAIT-TESTÉ` | https + liste blanche (`wikipedia.org`), robots.txt, 5 s entre deux requêtes, cache 7 j, journal `logs/web_fetch.jsonl`. **Réel** : 18 pages Wikipédia FR collectées, 377 passages, 0 refus |
+| Ingestion nocturne + recherche du Professeur | P1 | J5 | `FAIT-TESTÉ` | tâche récurrente de Fuma (chaque nuit), bouton « Collecter maintenant », `/knowledge/search` ; **réel** : correction du Professeur avec sources Wikipédia citées |
 | `genesis_lab` : calculs bio, astro, chimie | P1 | J5 | `FAIT-TESTÉ` | code déterministe, comparé à des valeurs de référence (année sidérale, ISS, Sirius, Proxima, masses molaires, volume molaire, pH de l'acide acétique…). Biopython non requis, comparaison croisée non faite |
 | `genesis_lab` : Professeur adaptatif | P1 | J5 | `FAIT-TESTÉ` | session guidée scriptée (LLM factice) + **essai réel** avec `qwen3-27b` à deux niveaux : le vocabulaire s'adapte, la valeur calculée par le code est conservée. L'essai a montré que le modèle invente des calculs intermédiaires faux : un garde-fou rejette désormais tout nombre non fourni par le code. Essai réel limité à un exercice. Sources : branchement prévu, base vectorielle non faite |
 | `genesis_lab` : module du Hub | P1 | J5 | `FAIT-TESTÉ` | calcul demandé sur le bus et rendu par le module dans son processus (démon réel) ; liste blanche d'outils |

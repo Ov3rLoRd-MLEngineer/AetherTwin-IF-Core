@@ -186,3 +186,15 @@ def test_night_tasks_wait_for_the_night_and_survive_a_failure() -> None:
     fuma.schedule_night_task("urgente", lambda: done.append("urgente"))
     hour["value"] = 14
     assert fuma.run_night_tasks(force=True) == ["urgente"]
+
+
+def test_recurring_night_task_runs_every_night() -> None:
+    hour = {"value": 2}
+    runs: list[int] = []
+    fuma = Fuma(now=Clock(), local_hour=lambda ts: hour["value"])
+    fuma.schedule_night_task("collecte", lambda: runs.append(hour["value"]), recurring=True)
+    assert fuma.run_night_tasks() == ["collecte"] and fuma.run_night_tasks() == []  # une fois par nuit
+    hour["value"] = 12
+    fuma.run_night_tasks()  # en journée : réarmée
+    hour["value"] = 3
+    assert fuma.run_night_tasks() == ["collecte"] and runs == [2, 3]

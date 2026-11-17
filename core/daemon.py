@@ -86,7 +86,7 @@ class Daemon:
     def __init__(self, modules_root: Path | None = None, monitor: GpuMonitor | None = None,
                  process_names: Callable[[], set[str] | None] = psutil_process_names,
                  now: Callable[[], float] = time.time, python: str = sys.executable,
-                 llm: LlmRouter | None = None) -> None:
+                 llm: LlmRouter | None = None, knowledge: Any = None) -> None:
         self.modules_root = modules_root or REPO_ROOT / "modules"
         self.monitor = monitor or GpuMonitor()
         self.bus = EventBus()
@@ -106,6 +106,9 @@ class Daemon:
         self._now = now
         self.process_watch_degraded = False
         self._pending: dict[str, tuple[threading.Event, dict[str, Any]]] = {}
+        self.knowledge = knowledge  # core.knowledge.service.KnowledgeService, ou None (pas de base)
+        if knowledge is not None and getattr(knowledge, "nightly", False):
+            self.fuma.schedule_night_task("ingestion des connaissances", knowledge.start_ingestion, recurring=True)
 
     # -- cycle de vie
     def start(self) -> None:
@@ -120,6 +123,8 @@ class Daemon:
         self.bus.publish(Event("hub.shutdown"))
         for name in list(self.modules):
             self.deactivate(name)
+        if self.knowledge is not None:
+            self.knowledge.stop()
         self.scheduler.shutdown()
         self.bus.stop()
 
@@ -295,6 +300,7 @@ class Daemon:
             "fuma": self.fuma.state(),
             "scheduler": self.scheduler.state(),
             "llm": self.llm.state(),
+            "knowledge": self.knowledge.state() if self.knowledge is not None else None,
             "manifest_errors": self.manifest_errors,
         }
 
@@ -340,7 +346,9 @@ def main(argv: list[str] | None = None) -> int:
             webbrowser.open(url)
         return 0
 
-    daemon = Daemon()
+    from core.knowledge.service import KnowledgeService
+
+    daemon = Daemon(knowledge=KnowledgeService(config.section("knowledge")))
     daemon.start()
     print(f"AetherTwin — démon démarré. OS : {daemon.os_name}. GPU : {daemon.monitor.backend_name}. "
           f"Modules : {', '.join(sorted(daemon.modules)) or 'aucun'}.")
