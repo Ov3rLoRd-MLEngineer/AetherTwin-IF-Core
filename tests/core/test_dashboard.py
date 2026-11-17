@@ -76,7 +76,8 @@ def test_desktop_app_start_stop_and_notify(tmp_path) -> None:
         assert client.post("/modules/demo/app/start").json() == {"running": True, "started": True}
         assert client.post("/modules/demo/app/start").json()["started"] is False  # une seule instance
         assert client.get("/modules").json()[0]["app_running"] is True
-        assert client.post("/modules/demo/app/stop").json() == {"running": False}
+        # la fausse appli n'a pas de fenêtre : la demande douce échoue, la fermeture est forcée au bout du délai
+        assert client.post("/modules/demo/app/stop").json()["running"] is False
         assert client.get("/modules").json()[0]["app_running"] is False
         assert client.post("/modules/demo/app/explose").status_code == 404
         seen = []
@@ -139,6 +140,31 @@ def test_studio_upload_and_confined_files(client, tmp_path, monkeypatch) -> None
     assert client.get("/mangastudio/files/sorties/..%2Fentrees.png").status_code == 404
     status = client.get("/mangastudio/status").json()
     assert set(status["models"]) == {"hand", "foot"}
+
+
+def test_hub_journal_keeps_events_but_not_game_state(tmp_path) -> None:
+    from core.daemon import setup_journal
+    from core.module_api import Event
+    from tests.core.test_daemon import wait_for
+
+    (tmp_path / "modules").mkdir()
+    daemon = Daemon(tmp_path / "modules", monitor=GpuMonitor(UnknownBackend()), process_names=lambda: set(),
+                    llm=LlmRouter(transport=ollama_stopped))
+    path = tmp_path / "logs" / "hub.log"
+    logger = setup_journal(daemon, path)
+    daemon.start()
+    try:
+        daemon.bus.publish(Event("module.gaming_hud.state", {"context": "Personnage secret, 123456 po"}))
+        daemon.bus.publish(Event("module.scantrad.error", {"error": "image illisible"}))
+        assert wait_for(lambda: path.is_file() and "image illisible" in path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
+        assert "WARNING module.scantrad.error" in text and "hub.started" in text
+        assert "Personnage secret" not in text  # les états des modules ne sont pas journalisés
+    finally:
+        daemon.stop()
+        for handler in list(logger.handlers):
+            handler.close()
+            logger.removeHandler(handler)
 
 
 def test_port_in_use_detects_free_port() -> None:

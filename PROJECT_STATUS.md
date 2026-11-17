@@ -1,4 +1,4 @@
-# PROJECT_STATUS — AetherTwin (I&F Core)
+﻿# PROJECT_STATUS — AetherTwin (I&F Core)
 
 Dernière mise à jour : **16/11/2026** (J0–J1) · Clôture du concours : **25/11/2026** · Reste : 9 jours.
 
@@ -7,8 +7,8 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 
 ## Où on en est
 
-- Dépôt initialisé : venv Python 3.11, Git, lint, tests, CI, fichiers de suivi. **373 tests** au total (17/11) :
-  369 passent, 4 sont des tests réels sur GPU, activés par `AETHERTWIN_REAL_OLLAMA=1`.
+- Dépôt initialisé : venv Python 3.11, Git, lint, tests, CI, fichiers de suivi. **374 tests** au total (17/11) :
+  370 passent, 4 sont des tests réels sur GPU, activés par `AETHERTWIN_REAL_OLLAMA=1`.
 - Relais Cloud ⇄ Local écrit et testé **en simulation**.
 - **J2 terminé** : moniteur GPU, contrat de module, bus, ordonnanceur, gardiens, démon et API locale.
 - **J3 terminé** (17/11) : WoW Assistant porté dans `modules/gaming_hud/`, interface `GameAdapter`, trois
@@ -83,6 +83,10 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | Assistant : réponse mot à mot (`/ask/stream`) | P1 | J8 | `FAIT-TESTÉ` | **réel** : premier mot à 16 s chargement compris, ~30 morceaux/s ; l'API compatible OpenAI reste sans diffusion |
 | `scantrad` : correction à la main et réincrustation | P1 | J8 | `FAIT-TESTÉ` | page nettoyée et bulles gardées à côté de la traduction ; tests par l'API ; pas encore essayé par Jérémy |
 | `mangastudio` : détection automatique des mains/pieds | P2 | J8 | `FAIT-TESTÉ` | **réel** : `qwen2.5vl:7b` propose 5 boîtes en 2,6 s, HandSegNet en fait 5 masques ; 2 débordent (manteau, cape) : boîtes à vérifier |
+| Assistant : conversation (historique, Markdown) | P1 | J8 | `FAIT-TESTÉ` | **réel** : la 2e question retrouve le nom et la classe donnés à la 1re (1,8 s) ; listes et gras rendus sans HTML injecté |
+| Fermeture douce de WoW Assistant | P1 | J8 | `FAIT-TESTÉ` | **réel** : fermée par demande de fenêtre en 2 s, sans forcer ; repli forcé au bout de 6 s |
+| Journal du Hub (`logs/hub.log`) | P1 | J8 | `FAIT-TESTÉ` | démarrages, arrêts, erreurs, alertes, applications ; jamais les états du jeu ; 1 Mo × 3 |
+| Jeu : ambiance sonore générée | P2 | J8 | `FAIT-NON-TESTÉ` | Web Audio, nappes par ambiance + carillon d'arrivée ; s'active sans erreur, **jamais écoutée** |
 | Accueil : budget VRAM d'Inoue | P1 | J8 | `FAIT-TESTÉ` | vérifié sur le Hub de Jérémy (6,39 Go réservés sur 28,66) |
 | `if_game` : rendu HD-2D | P2 | J8 | `FAIT-TESTÉ` | vérifié à l'œil dans le navigateur (6 ambiances, dont 4 vues), clic réel sur un portail ; fluidité non mesurée sur une autre machine |
 | `if_game` : Fuma & Inoue, onglet Éther | P2 | J7 | `FAIT-TESTÉ` | graine reproductible, propositions du modèle validées (ton calme, formes), sauvegarde ; **réel** : lieu inventé par `qwen3-27b` et réplique de Fuma acceptés |
@@ -152,7 +156,8 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 15 | Jeu HD-2D | onglet **Éther** : cliquer sur les portails lumineux, « parler à Inoue » | la scène change de décor à chaque lieu, fondu d'arrivée ; note si l'animation saccade |
 | 17 | Corriger une traduction | onglet **Scantrad**, après une traduction : modifier une ligne, « Réincruster mes corrections » | la page traduite se met à jour en une ou deux secondes |
 | 18 | Mains automatiques | onglet **Studio** : image, « Détecter automatiquement », vérifier les boîtes, « Créer le masque » | boîtes proposées puis masques teintés |
-| 16 | Assistant mot à mot | onglet **Assistant** : une question | le texte s'écrit au fur et à mesure |
+| 19 | Ambiance sonore du jeu | onglet **Éther**, bouton « Son : coupé », puis changer de lieu | nappe douce, carillon à chaque arrivée ; dis-moi si c'est trop fort ou désagréable |
+| 16 | Assistant mot à mot (et conversation) | onglet **Assistant** : une question | le texte s'écrit au fur et à mesure |
 | 13 | Scantrad sur une de tes pages — 1er essai : bulles ratées, texte non effacé (corrigé le 17/11) | onglet **Scantrad** : choisir l'image, « Traduire » | original et traduction côte à côte, liste des bulles ; note celles qui manquent |
 | 14 | Recherche par vecteurs — **OK (Jérémy, 17/11)** : 377 passages avec vecteurs | — | — |
 | 12 | Professeur — **OK (Jérémy, 17/11)** | — | — |

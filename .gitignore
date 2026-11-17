@@ -18,6 +18,7 @@ config/local.yaml
 # État d'exécution du relais et journaux volatils
 logs/relay_state*.json
 logs/web_fetch*.jsonl
+logs/hub.log*
 logs/relay*.lock
 logs/relay*.log
 logs/relay_local_agent*.log

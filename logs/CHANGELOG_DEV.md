@@ -654,3 +654,15 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   masques débordent sur un manteau et une cape.
 - **Tests :** ruff propre ; pytest : 369 réussis, 4 réels ignorés par défaut. Budget VRAM vérifié sur le Hub
   de Jérémy. **Non vérifié** par Jérémy : correction des traductions, détection automatique.
+
+## 2026-11-17 — J8 (5) : conversation, fermeture douce, journal du Hub, son du jeu
+
+- **Agent :** Cloud
+- **Fichiers :** `core/daemon.py` (`stop_app` doux puis forcé, `ask_messages(history)`, `setup_journal`),
+  `core/api.py` (`history` dans `/ask/stream`, `closed` à l'arrêt d'une application),
+  `core/web/dashboard.*` (conversation, rendu Markdown sans innerHTML, bouton Son),
+  `core/web/ether_scene.js` (`createAudio`), `.gitignore` (`logs/hub.log*`), tests, suivi.
+- **Réel :** WoW Assistant fermé « doucement » en 1,98 s (`taskkill` sans `/F`) ; conversation à deux tours
+  correcte ; journal écrit au démarrage et à l'arrêt par le bouton. Son : activé et coupé sans erreur dans la
+  console, mais pas écouté.
+- **Tests :** ruff propre ; pytest : 370 réussis, 4 réels ignorés par défaut.

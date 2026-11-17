@@ -369,5 +369,82 @@
     };
   }
 
-  window.EtherScene = { create: createScene, themeFor };
+  // ---------- ambiance sonore générée (Web Audio, aucun fichier) ----------
+  // Nappe d'accords lente propre à chaque ambiance, carillon à l'arrivée dans un lieu. Coupée par défaut.
+  const PROGRESSIONS = {
+    grass: [[60, 64, 67, 71], [57, 60, 64, 67], [53, 57, 60, 64], [55, 59, 62, 66]],
+    water: [[62, 66, 69, 73], [59, 62, 66, 69], [55, 59, 62, 66], [57, 61, 64, 68]],
+    wood: [[57, 60, 64, 67], [53, 57, 60, 64], [55, 58, 62, 65], [52, 55, 59, 62]],
+    stone: [[55, 59, 62, 66], [52, 55, 59, 62], [48, 52, 55, 59], [50, 54, 57, 60]],
+    cave: [[50, 53, 57, 60], [46, 50, 53, 57], [48, 51, 55, 58], [45, 48, 52, 55]],
+  };
+  const hz = (midi) => 440 * 2 ** ((midi - 69) / 12);
+
+  function createAudio() {
+    let ctx = null, master = null, voices = [], timer = null, step = 0, floor = "grass", on = false;
+
+    function playChord() {
+      const chord = (PROGRESSIONS[floor] || PROGRESSIONS.grass)[step++ % 4];
+      const now = ctx.currentTime;
+      for (const v of voices) {  // l'accord précédent s'éteint lentement
+        v.gain.gain.cancelScheduledValues(now);
+        v.gain.gain.setTargetAtTime(0, now, 1.2);
+        v.osc.stop(now + 6);
+      }
+      voices = chord.flatMap((note, i) => [-4, 4].map((detune) => {
+        const osc = ctx.createOscillator(), gain = ctx.createGain();
+        osc.type = i === 0 ? "triangle" : "sine";
+        osc.frequency.value = hz(note - (i === 0 ? 12 : 0));
+        osc.detune.value = detune;
+        gain.gain.value = 0;
+        gain.gain.setTargetAtTime(i === 0 ? 0.05 : 0.03, now, 1.5);
+        osc.connect(gain).connect(master);
+        osc.start(now);
+        return { osc, gain };
+      }));
+    }
+
+    function start() {
+      ctx = ctx || new AudioContext();
+      if (!master) {
+        const filter = ctx.createBiquadFilter();
+        filter.type = "lowpass"; filter.frequency.value = 1400;
+        master = ctx.createGain(); master.gain.value = 0.9;
+        master.connect(filter).connect(ctx.destination);
+      }
+      ctx.resume();
+      playChord();
+      timer = setInterval(playChord, 8000);
+    }
+
+    return {
+      toggle() {
+        on = !on;
+        if (on) start();
+        else {
+          clearInterval(timer);
+          for (const v of voices) { v.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.4); v.osc.stop(ctx.currentTime + 2); }
+          voices = [];
+        }
+        return on;
+      },
+      setFloor(name) { floor = name || "grass"; },
+      chime() {
+        if (!on || !ctx) return;
+        const now = ctx.currentTime;
+        [84, 88, 91].forEach((note, i) => {
+          const osc = ctx.createOscillator(), gain = ctx.createGain();
+          osc.type = "sine"; osc.frequency.value = hz(note);
+          gain.gain.setValueAtTime(0, now + i * 0.12);
+          gain.gain.linearRampToValueAtTime(0.06, now + i * 0.12 + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.12 + 1.6);
+          osc.connect(gain).connect(master);
+          osc.start(now + i * 0.12); osc.stop(now + i * 0.12 + 1.7);
+        });
+      },
+      get on() { return on; },
+    };
+  }
+
+  window.EtherScene = { create: createScene, themeFor, createAudio };
 })();

@@ -100,6 +100,7 @@ class AskRequest(BaseModel):
     prompt: str
     model: str | None = None
     with_context: bool = True
+    history: list[dict[str, Any]] = []  # échanges précédents de la conversation (le démon les borne)
 
 
 class ChatRequest(BaseModel):
@@ -185,8 +186,7 @@ def create_app(daemon: Daemon) -> FastAPI:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
             return {"running": True, "started": started}
         if action == "stop":
-            daemon.stop_app(name)
-            return {"running": False}
+            return {"running": False, "closed": daemon.stop_app(name)}
         raise HTTPException(status_code=404, detail="action inconnue")
 
     @app.post("/scantrad/translate")
@@ -350,7 +350,7 @@ def create_app(daemon: Daemon) -> FastAPI:
         """La réponse arrive au fil de la génération : une ligne JSON par morceau (`{"text": …}`), puis
         `{"done": {"model", "seconds"}}` ou `{"error": …}`. La génération tourne dans un fil dédié (le verrou du
         routeur est pris et rendu par ce même fil)."""
-        messages, _context = daemon.ask_messages(request.prompt, request.with_context)
+        messages, _context = daemon.ask_messages(request.prompt, request.with_context, request.history)
         pieces: queue.Queue[tuple[str, Any]] = queue.Queue()
 
         def worker() -> None:

@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import json
+import logging
 import os
 import platform
 import subprocess
@@ -255,13 +257,28 @@ class Daemon:
         self.bus.publish(Event(f"module.{name}.app", {"running": True, "label": spec["label"]}))
         return True
 
-    def stop_app(self, name: str, timeout_s: float = 5.0) -> None:
+    def stop_app(self, name: str, timeout_s: float = 6.0) -> str:
+        """Ferme l'application **doucement** (demande de fermeture de fenêtre : elle enregistre ce qu'elle doit),
+        puis de force si elle ne s'est pas fermée à temps. Rend « douce », « forcée » ou « déjà fermée »."""
         proc = self.apps.pop(name, None)
-        if proc is not None and proc.poll() is None:
-            proc.terminate()
+        if proc is None or proc.poll() is not None:
+            return "déjà fermée"
+        how = "douce"
+        if sys.platform == "win32":  # sans /F, taskkill envoie WM_CLOSE à ses fenêtres
+            with contextlib.suppress(OSError, subprocess.SubprocessError):
+                subprocess.run(["taskkill", "/PID", str(proc.pid), "/T"], capture_output=True,  # noqa: S603, S607
+                               timeout=10, check=False)
+        else:
+            proc.terminate()  # SIGTERM : l'application peut encore enregistrer
+        try:
+            proc.wait(timeout=timeout_s)
+        except subprocess.TimeoutExpired:
+            how = "forcée"
+            proc.kill()
             with contextlib.suppress(subprocess.TimeoutExpired):
-                proc.wait(timeout=timeout_s)
-            self.bus.publish(Event(f"module.{name}.app", {"running": False}))
+                proc.wait(timeout=5)
+        self.bus.publish(Event(f"module.{name}.app", {"running": False, "closed": how}))
+        return how
 
     def notify(self, name: str, command: str, payload: dict[str, Any] | None = None) -> None:
         """Commande sans réponse attendue (ex. `showcase`)."""
@@ -296,12 +313,18 @@ class Daemon:
             self._pending.pop(request_id, None)
 
     # -- assistant
-    def ask_messages(self, prompt: str, with_context: bool = True) -> tuple[list[dict[str, Any]], str]:
-        """Messages pour l'assistant : le contexte publié par les modules actifs (déjà filtré par eux), puis la
-        question."""
+    def ask_messages(self, prompt: str, with_context: bool = True,
+                     history: list[dict[str, Any]] | None = None) -> tuple[list[dict[str, Any]], str]:
+        """Messages pour l'assistant : le contexte publié par les modules actifs (déjà filtré par eux), les
+        derniers échanges de la conversation (rôles `user`/`assistant` seulement, 12 au plus, textes bornés),
+        puis la question."""
         context = "\n".join(self.contexts[name] for name in sorted(self.contexts)
                             if self.modules.get(name) and self.modules[name].active) if with_context else ""
         messages: list[dict[str, Any]] = [{"role": "system", "content": context}] if context else []
+        for turn in (history or [])[-12:]:
+            role, content = turn.get("role"), turn.get("content")
+            if role in ("user", "assistant") and isinstance(content, str) and content.strip():
+                messages.append({"role": role, "content": content[:4000]})
         messages.append({"role": "user", "content": prompt})
         return messages, context
 
@@ -373,6 +396,33 @@ def _manifest_name(directory: Path) -> str | None:
         return None
 
 
+QUIET_TOPICS = (".state", ".health", ".result", ".pong")  # répétitifs ou volumineux : pas dans le journal
+
+
+def setup_journal(daemon: Daemon, path: Path = REPO_ROOT / "logs" / "hub.log") -> logging.Logger:
+    """Journal du Hub (`logs/hub.log`, 1 Mo × 3 fichiers, ignoré par Git) : démarrages, arrêts, erreurs, alertes
+    GPU, applications. Les états des modules n'y sont pas (ils peuvent contenir des données du jeu)."""
+    from logging.handlers import RotatingFileHandler
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    logger = logging.getLogger("aethertwin.hub")
+    logger.setLevel(logging.INFO)
+    if not logger.handlers:
+        handler = RotatingFileHandler(path, maxBytes=1_000_000, backupCount=3, encoding="utf-8")
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s", "%Y-%m-%d %H:%M:%S"))
+        logger.addHandler(handler)
+
+    def record(event: Event) -> None:
+        if event.topic.endswith(QUIET_TOPICS) or ".cmd." in event.topic:
+            return
+        level = logging.WARNING if (".error" in event.topic or "alert" in event.topic) else logging.INFO
+        detail = json.dumps(event.payload, ensure_ascii=False, default=str)
+        logger.log(level, "%s %s", event.topic, detail[:300])
+
+    daemon.bus.subscribe("*", record)
+    return logger
+
+
 def port_in_use(port: int) -> bool:
     import socket
 
@@ -401,7 +451,9 @@ def main(argv: list[str] | None = None) -> int:
     from core.knowledge.service import KnowledgeService
 
     daemon = Daemon(knowledge=KnowledgeService(config.section("knowledge")))
+    journal = setup_journal(daemon)
     daemon.start()
+    journal.info("Hub démarré, port %s, GPU via %s", args.port, daemon.monitor.backend_name)
     print(f"AetherTwin — démon démarré. OS : {daemon.os_name}. GPU : {daemon.monitor.backend_name}. "
           f"Modules : {', '.join(sorted(daemon.modules)) or 'aucun'}.")
     for name in args.activate:
@@ -439,6 +491,7 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         stop.set()
         daemon.stop()
+        journal.info("Hub arrêté")
         print("Démon arrêté.")
     return 0
 

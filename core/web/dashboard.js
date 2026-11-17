@@ -226,23 +226,84 @@ $("overlay-preview").addEventListener("click", () => {
 });
 
 // ---------- assistant ----------
+const chat = { history: [], busy: false };
+
+// Markdown minimal, sans innerHTML : **gras**, *italique*, `code`, listes « - » ou « 1. », titres « # ».
+function inlineMarkdown(text) {
+  const parts = [];
+  const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*\s][^*]*\*)/g;
+  let last = 0;
+  for (const match of text.matchAll(pattern)) {
+    if (match.index > last) parts.push(text.slice(last, match.index));
+    const token = match[0];
+    if (token.startsWith("**")) parts.push(el("strong", {}, token.slice(2, -2)));
+    else if (token.startsWith("`")) parts.push(el("code", {}, token.slice(1, -1)));
+    else parts.push(el("em", {}, token.slice(1, -1)));
+    last = match.index + token.length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
+}
+
+function renderMarkdown(target, text) {
+  const nodes = [];
+  let list = null;
+  for (const raw of text.split("\n")) {
+    const line = raw.trimEnd();
+    const item = line.match(/^\s*(?:[-*•]|\d+[.)])\s+(.*)$/);
+    if (item) {
+      if (!list) { list = el(/^\s*\d/.test(line) ? "ol" : "ul"); nodes.push(list); }
+      list.append(el("li", {}, ...inlineMarkdown(item[1])));
+      continue;
+    }
+    list = null;
+    const title = line.match(/^#{1,4}\s+(.*)$/);
+    if (title) nodes.push(el("strong", { class: "md-title" }, ...inlineMarkdown(title[1])));
+    else if (line.trim()) nodes.push(el("p", {}, ...inlineMarkdown(line)));
+  }
+  target.replaceChildren(...nodes);
+}
+
+function chatBubble(role, text) {
+  const bubble = el("div", { class: `msg ${role}` }, text);
+  $("chat").append(bubble);
+  $("chat").scrollTop = $("chat").scrollHeight;
+  return bubble;
+}
+
+$("chat-new").addEventListener("click", () => {
+  chat.history = [];
+  $("chat").replaceChildren();
+  $("ask-prompt").focus();
+});
+$("ask-prompt").addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    $("ask-form").requestSubmit();
+  }
+});
+
 $("ask-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const button = event.submitter;
-  const out = $("ask-answer");
+  const prompt = $("ask-prompt").value.trim();
+  if (!prompt || chat.busy) return;
+  chat.busy = true;
+  const button = $("ask-form").querySelector("button[type=submit]");
   button.disabled = true;
-  out.hidden = false;
-  out.textContent = "Le modèle local réfléchit… (le premier chargement prend 10 à 20 s)";
+  $("ask-prompt").value = "";
+  chatBubble("user", prompt);
+  const out = chatBubble("assistant", "Le modèle local réfléchit… (le premier chargement prend 10 à 20 s)");
+  let text = "";
   try {
-    // réponse mot à mot : une ligne JSON par morceau
+    // réponse mot à mot : une ligne JSON par morceau ; la conversation précédente est jointe
     const response = await fetch("/ask/stream", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: $("ask-prompt").value, with_context: $("ask-context").checked }),
+      body: JSON.stringify({ prompt, with_context: $("ask-context").checked, history: chat.history }),
     });
     if (!response.ok || !response.body) throw new Error(`erreur ${response.status}`);
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    let buffer = "", text = "", started = false;
+    let buffer = "";
     for (;;) {
       const { value, done } = await reader.read();
       if (done) break;
@@ -252,20 +313,25 @@ $("ask-form").addEventListener("submit", async (event) => {
       for (const line of lines.filter(Boolean)) {
         const msg = JSON.parse(line);
         if (msg.text !== undefined) {
-          if (!started) { out.textContent = ""; started = true; }
           text += msg.text;
-          out.textContent = text;
+          renderMarkdown(out, text);
+          $("chat").scrollTop = $("chat").scrollHeight;
         } else if (msg.done) {
-          out.textContent = `${text}\n\n— ${msg.done.model}, ${msg.done.seconds} s`;
+          out.append(el("span", { class: "meta" }, `${msg.done.model}, ${msg.done.seconds} s`));
         } else if (msg.error) {
           throw new Error(msg.error);
         }
       }
     }
+    chat.history.push({ role: "user", content: prompt }, { role: "assistant", content: text });
+    chat.history = chat.history.slice(-12);
   } catch (error) {
     out.textContent = `Erreur : ${error.message}`;
+    out.classList.add("warn");
   } finally {
+    chat.busy = false;
     button.disabled = false;
+    $("ask-prompt").focus();
   }
 });
 
@@ -625,7 +691,13 @@ const ether = { shown: false, scene: null };
 function etherRender(result, said) {
   if (window.EtherScene) {
     ether.scene = ether.scene || window.EtherScene.create($("ether-canvas"), (direction) => etherAct(direction));
+    const moved = ether.lastPlace !== undefined && ether.lastPlace !== result.place_id;
+    ether.lastPlace = result.place_id;
     ether.scene.update(result);
+    if (ether.audio) {
+      ether.audio.setFloor(ether.scene.themeName());
+      if (moved) ether.audio.chime();
+    }
   }
   const log = $("ether-log");
   if (said) log.append(el("p", { class: "me" }, `> ${said}`));
@@ -677,6 +749,14 @@ $("ether-new").addEventListener("click", async () => {
   } catch (error) {
     $("ether-log").append(el("p", { class: "warn" }, `Erreur : ${error.message}`));
   }
+});
+
+$("ether-sound").addEventListener("click", () => {
+  ether.audio = ether.audio || window.EtherScene.createAudio();
+  if (ether.scene) ether.audio.setFloor(ether.scene.themeName());
+  const on = ether.audio.toggle();
+  $("ether-sound").textContent = on ? "Son : activé" : "Son : coupé";
+  $("ether-sound").setAttribute("aria-pressed", String(on));
 });
 
 async function refreshEther() {

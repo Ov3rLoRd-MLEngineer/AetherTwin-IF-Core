@@ -99,14 +99,15 @@
     <div class="panel" data-panel="assistant" hidden>
       <section>
         <h2>Assistant local</h2>
+        <div id="chat" class="chat" aria-live="polite"></div>
         <form id="ask-form">
-          <textarea id="ask-prompt" rows="4" placeholder="Pose ta question au modèle local…" required></textarea>
+          <textarea id="ask-prompt" rows="3" placeholder="Pose ta question au modèle local… (Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne)" required></textarea>
           <div class="row">
             <label><input type="checkbox" id="ask-context" checked> avec le contexte des modules actifs (ex. ton jeu)</label>
+            <button id="chat-new" type="button" class="ghost">Nouvelle conversation</button>
             <button type="submit">Envoyer</button>
           </div>
         </form>
-        <pre id="ask-answer" class="answer" hidden></pre>
       </section>
     </div>
 
@@ -232,6 +233,7 @@
         <div class="row">
           <input id="ether-seed" type="number" value="42" min="0" aria-label="graine">
           <button id="ether-new" type="button" class="ghost">Nouvelle partie</button>
+          <button id="ether-sound" type="button" class="ghost" aria-pressed="false">Son : coupé</button>
         </div>
       </section>
     </div>
