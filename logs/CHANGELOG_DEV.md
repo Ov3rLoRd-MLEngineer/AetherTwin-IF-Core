@@ -371,3 +371,36 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
    réelle dès la première réponse.
 9. **`screen_ocr` reste marqué expérimental** : un modèle de vision peut se tromper. Les valeurs sont
    validées par type ; une valeur illisible reste absente.
+
+---
+
+## 2026-11-17 — J4 : overlay OBS, monitoring GPU, logo
+
+- **Agent :** Cloud
+- **Fichiers :** `modules/gaming_hud/obs_server.py`, `modules/gaming_hud/web/obs_hud.{html,css,js}`,
+  `assets/logo_if_core.svg`, `assets/logo_if_core_mono.svg`, `tests/gaming_hud/test_obs_hud.py`,
+  `docs/captures/obs_hud.png` ; modifiés : `modules/gaming_hud/module.py`, `pyproject.toml`,
+  `requirements-dev.txt`, `THIRD_PARTY.md`, fichiers de suivi.
+- **Tests :** `pytest` → 218 réussis, 2 ignorés (tests réels sur GPU) ; `ruff check .` propre.
+- **Vérifications réelles :**
+  1. Rendu dans Edge piloté par Playwright : textes, jauges, logo chargé, **fond transparent**, aucune
+     erreur en console ; un nom contenant du HTML hostile est affiché tel quel, jamais interprété.
+  2. Hub lancé, `gaming_hud` activé : `http://127.0.0.1:5757/obs-hud/state` rend le personnage réel et
+     les deux GPU réels (charge, VRAM, température, puissance) ; écoute sur 127.0.0.1 ; aucun chemin,
+     aucun dossier de compte, aucune clé `source_file` dans la réponse ; port libéré à l'arrêt.
+- **Non vérifié :** l'affichage dans OBS lui-même ; la bascule déclenchée par le vrai `obs64.exe`.
+
+### Décisions
+
+1. **Serveur de l'overlay en bibliothèque standard**, dans le processus du module : pas de FastAPI ici,
+   pour que le module reste léger et isolé du démon.
+2. **La page est toujours filtrée en mode Showcase**, même si le module n'y est pas : elle est faite pour
+   être diffusée. Le serveur ne lit qu'une fonction `snapshot()` fournie par le module.
+3. **Liste fermée de fichiers servis** (pas de service de dossier) : aucune traversée de chemin possible.
+4. **Politique de sécurité de page stricte** (`default-src 'none'`, scripts et styles de même origine
+   seulement) et données écrites avec `textContent`.
+5. **SSE plutôt que WebSocket** : unidirectionnel, sans dépendance, reconnexion gérée par le navigateur.
+6. **Playwright pilote le navigateur déjà installé** (Edge ou Chrome) : pas de téléchargement de
+   Chromium. Le test est ignoré si aucun navigateur n'est pilotable.
+7. **Logo** : Yin & Yang géométrique, Inoue claire avec taches calico, Fuma sombre avec rayures
+   argentées. Écrit à la main en SVG, remplaçable par un dessin définitif.

@@ -226,8 +226,13 @@ modules/
       wowhead_links.json
     manifest.json
     module.py
+    obs_server.py
     rules/
       log_tail.example.yaml
+    web/
+      obs_hud.css
+      obs_hud.html
+      obs_hud.js
 scripts/
   __init__.py
   gen_architecture_map.py
@@ -254,16 +259,21 @@ tests/
     conftest.py
     test_adapters.py
     test_module.py
+    test_obs_hud.py
     test_ui_fixes.py
   test_architecture_map.py
   test_relay_orchestrator.py
   test_repo_hygiene.py
 docs/
   .gitkeep
+  captures/
+    obs_hud.png
 research/
   .gitkeep
 assets/
   .gitkeep
+  logo_if_core.svg
+  logo_if_core_mono.svg
 logs/
   CHANGELOG_DEV.md
 .github/
@@ -545,11 +555,23 @@ Module du Hub : lit l'état du jeu par un `GameAdapter` et le publie sur le bus.
 - **`class GamingHudModule(ModuleBase)`** — Publie l'état du jeu ; bascule en mode Showcase quand un logiciel de diffusion est lancé.
   - `def start(self) -> None`
   - `def stop(self) -> None`
+  - `def overlay_snapshot(self) -> dict[str, Any]` — Ce que la page d'overlay affiche. TOUJOURS filtré en mode Showcase, quel que soit le mode du module :
   - `def health(self) -> Health`
   - `def handle_event(self, event: Event) -> None`
   - `def set_showcase(self, on: bool) -> None`
   - `def read(self) -> dict[str, Any]` — Lit l'état et rend ce qui a le droit de sortir du module dans le mode courant.
   - `def publish_state(self, force: bool=False) -> bool` — Publie l'état s'il a changé (ou si `force`). Retourne True si un événement est parti.
+
+### `modules/gaming_hud/obs_server.py`
+
+Overlay pour OBS : une page web locale à fond transparent, à ajouter comme « source navigateur ».
+
+- **`class ObsServer`** — Sert la page d'overlay et son flux d'état.
+  - `def url(self) -> str`
+  - `def start(self) -> str` — Démarre le serveur. Lève `OSError` si le port est déjà pris.
+  - `def stop(self) -> None`
+  - `def payload(self) -> str` — État courant sérialisé. Une erreur de lecture donne un état vide, jamais une exception.
+- `def overlay_view(visible: dict[str, Any], gpus: list[dict[str, Any]], showcase: bool, max_quests: int=4) -> dict[str, Any]` — Réduit un état DÉJÀ FILTRÉ à ce que la page affiche. Ne lit que des champs connus, rien d'autre.
 
 ### `scripts/gen_architecture_map.py`
 

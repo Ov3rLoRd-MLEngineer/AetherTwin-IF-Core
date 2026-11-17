@@ -20,6 +20,8 @@ Configuration (section `gaming_hud` de `config/local.yaml`), tout est facultatif
     showcase_processes: [obs64.exe, obs32.exe, obs.exe]
     hide_character_names: false
     gold: round                    # round | hide | keep
+    obs_hud: true                  # sert la page d'overlay pour OBS
+    obs_hud_port: 5757             # http://127.0.0.1:5757/obs-hud (boucle locale uniquement)
 """
 from __future__ import annotations
 
@@ -28,9 +30,11 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from core.hardware.gpu_monitor import GpuMonitor
 from core.module_api import Event, Health, Manifest, ModuleBase
 from modules.gaming_hud.adapters.base import META_KEY, PRIVACY_OFF, PRIVACY_SHOWCASE, GameAdapter
 from modules.gaming_hud.adapters.privacy import PrivacyOptions
+from modules.gaming_hud.obs_server import DEFAULT_PORT, ObsServer, overlay_view
 
 DEFAULT_SHOWCASE_PROCESSES = ("obs64.exe", "obs32.exe", "obs.exe")
 MAX_SECTION_BYTES = 20_000  # une section plus lourde (collections, hauts faits…) n'est pas publiée sur le bus
@@ -105,6 +109,9 @@ class GamingHudModule(ModuleBase):
         self._last_digest = ""
         self._since_publish = 0.0
         self.last_state: dict[str, Any] = {}
+        self.obs: ObsServer | None = None  # page d'overlay pour OBS (source navigateur)
+        self.obs_error = ""
+        self._gpu: GpuMonitor | None = None
 
     # -- cycle de vie
     def start(self) -> None:
@@ -114,14 +121,35 @@ class GamingHudModule(ModuleBase):
             self.adapter, self.adapter_error = None, f"{type(exc).__name__}: {exc}"
         if self.showcase_processes & running_process_names():
             self.set_showcase(True)  # le logiciel de diffusion tournait déjà au démarrage du module
+        if self.config.get("obs_hud", True):
+            try:
+                self.obs = ObsServer(self.overlay_snapshot, port=int(self.config.get("obs_hud_port", DEFAULT_PORT)))
+                self.obs.start()
+            except (OSError, ValueError) as exc:  # port déjà pris : le module continue sans overlay
+                self.obs, self.obs_error = None, f"overlay OBS indisponible : {exc}"
         self._stop.clear()
         self._thread = threading.Thread(target=self._loop, name="gaming-hud-poll", daemon=True)
         self._thread.start()
 
     def stop(self) -> None:
         self._stop.set()
+        if self.obs is not None:
+            self.obs.stop()
+            self.obs = None
         if self._thread is not None:
             self._thread.join(timeout=5)
+
+    def overlay_snapshot(self) -> dict[str, Any]:
+        """Ce que la page d'overlay affiche. TOUJOURS filtré en mode Showcase, quel que soit le mode du module :
+        cette page est faite pour être diffusée."""
+        if self._gpu is None:
+            self._gpu = GpuMonitor()
+        gpus = self._gpu.report()["gpus"]
+        if self.adapter is None:
+            return overlay_view({}, gpus, showcase=True)
+        with self._lock:
+            raw = self.adapter.read_state()
+        return overlay_view(self.adapter.privacy_filter(raw, PRIVACY_SHOWCASE), gpus, showcase=True)
 
     def health(self) -> Health:
         if self.adapter is None:
@@ -132,7 +160,12 @@ class GamingHudModule(ModuleBase):
         except Exception:  # noqa: BLE001, S110 — detect() ne doit jamais faire échouer le bilan de santé
             pass
         detail = f"adaptateur {self.adapter.id}" + ("" if detected else " — jeu introuvable (mode dégradé)")
-        return Health(ok=True, degraded=not detected, detail=detail + (" — SHOWCASE" if self.showcase else ""))
+        detail += " — SHOWCASE" if self.showcase else ""
+        if self.obs is not None:
+            detail += f" — overlay {self.obs.url}"
+        elif self.obs_error:
+            detail += f" — {self.obs_error}"
+        return Health(ok=True, degraded=not detected, detail=detail)
 
     # -- événements du Hub
     def handle_event(self, event: Event) -> None:

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AetherTwin (I&F Core) — variante monochrome pour l'overlay OBS.
+     Une seule couleur ; la moitié claire et le point de la moitié sombre sont transparents. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-labelledby="t">
+  <title id="t">AetherTwin I&amp;F Core</title>
+  <g fill="#f4f1e8" stroke="none">
+    <!-- moitié sombre (Fuma), percée du point clair -->
+    <path fill-rule="evenodd"
+          d="M50 2 A48 48 0 0 1 50 98 A24 24 0 0 1 50 50 A24 24 0 0 0 50 2 Z
+             M57 74 A7 7 0 1 0 43 74 A7 7 0 1 0 57 74 Z"/>
+    <!-- point sombre dans la moitié claire (Inoue) -->
+    <circle cx="50" cy="26" r="7"/>
+  </g>
+  <circle cx="50" cy="50" r="48" fill="none" stroke="#f4f1e8" stroke-width="3"/>
+</svg>

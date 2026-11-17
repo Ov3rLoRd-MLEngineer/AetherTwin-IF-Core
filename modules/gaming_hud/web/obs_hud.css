@@ -1,0 +1,94 @@
+/* Overlay OBS d'AetherTwin. Fond transparent : seules les cartes sont visibles par-dessus le jeu. */
+:root {
+  --ink: #f4f1e8;
+  --dim: #b9b4a6;
+  --gold: #e8c268;
+  --panel: rgba(12, 13, 18, 0.78);
+  --edge: rgba(232, 194, 104, 0.35);
+  --track: rgba(255, 255, 255, 0.12);
+  --ok: #7fd18b;
+  --warn: #f0b24a;
+  --hot: #f06a5a;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 15px/1.35 "Segoe UI", "Noto Sans", system-ui, sans-serif;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+}
+
+.hud {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  margin: 16px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+}
+
+.logo { flex: none; color: var(--ink); }
+.title { font-weight: 600; letter-spacing: 0.02em; }
+.core { color: var(--gold); font-weight: 400; }
+.status { color: var(--dim); font-size: 12px; }
+
+.card {
+  padding: 8px 12px;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+}
+
+.card[hidden] { display: none; }
+
+h2 {
+  margin: 0 0 4px;
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.name { font-size: 20px; font-weight: 600; overflow-wrap: anywhere; }
+.line { color: var(--dim); overflow-wrap: anywhere; }
+.line.zone { color: var(--ink); }
+
+ul { margin: 0; padding: 0; list-style: none; }
+li { padding: 1px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; }
+dt { color: var(--dim); }
+dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+
+.gpu + .gpu { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--track); }
+.gpu-name { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
+.gpu-name span:last-child { color: var(--dim); font-weight: 400; white-space: nowrap; }
+
+.meter { display: grid; grid-template-columns: 46px 1fr 92px; align-items: center; gap: 8px; margin-top: 3px; font-size: 13px; }
+.meter .label { color: var(--dim); }
+.meter .value { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.track { height: 6px; background: var(--track); border-radius: 3px; overflow: hidden; }
+.fill { height: 100%; width: 0; background: var(--ok); border-radius: 3px; transition: width 0.4s ease; }
+.fill.warn { background: var(--warn); }
+.fill.hot { background: var(--hot); }
+
+.hud.waiting .status { color: var(--warn); }
+.hud.offline .status { color: var(--hot); }
+
+@media (prefers-reduced-motion: reduce) {
+  .fill { transition: none; }
+}

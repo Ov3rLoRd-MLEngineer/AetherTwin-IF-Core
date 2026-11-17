@@ -27,6 +27,7 @@ Liste tenue à jour à chaque ajout de dépendance. Licences relevées dans les 
 | pytest | 9.2.0 | MIT | tests |
 | ruff | 0.17.5 | MIT | lint |
 | httpx | 0.28.1 | BSD-3-Clause | client de test de l'API locale |
+| playwright | 1.65.2 | Apache-2.0 | capture de rendu de l'overlay OBS (test ignoré si aucun navigateur n'est pilotable) |
 
 FastAPI installe aussi `starlette` (BSD-3-Clause) et `pydantic` (MIT).
 

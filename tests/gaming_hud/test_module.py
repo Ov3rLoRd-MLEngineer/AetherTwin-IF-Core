@@ -30,7 +30,7 @@ def game_dir(tmp_path: Path) -> Path:
 
 def make_module(config: dict) -> tuple[GamingHudModule, list[Event]]:
     module = GamingHudModule(load_manifest(PACKAGE_DIR), {"poll_seconds": 3600, "showcase_processes": ["diffusion.exe"],
-                                                          **config})
+                                                          "obs_hud_port": 0, **config})  # port 0 = port libre
     events: list[Event] = []
     module.publish = events.append
     return module, events
@@ -132,6 +132,7 @@ def test_runs_inside_the_real_daemon_and_showcase_hides_private_data(game_dir: P
     config = tmp_path / "local.yaml"
     config.write_text(json.dumps({"gaming_hud": {
         "game_path": str(game_dir), "autodetect": False, "poll_seconds": 0.3, "hide_character_names": True,
+        "obs_hud_port": 0,
         "showcase_processes": ["diffusion-de-test.exe"]}}), encoding="utf-8")  # du JSON est du YAML valide
     monkeypatch.setenv("AETHERTWIN_CONFIG", str(config))
     processes = {"explorer.exe"}

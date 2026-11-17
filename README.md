@@ -21,7 +21,8 @@ Tout s'exécute en local, sous Ollama, sur du matériel NVIDIA grand public.
 | Routeur LLM : un seul gros modèle chargé à la fois, `num_ctx` fixé | fait, testé en réel sur 2 GPU |
 | Module `gaming_hud` : état du jeu en lecture seule, mode Showcase | fait, testé en réel (OBS simulé) |
 | Adaptateurs de jeu : WoW, journal texte, capture d'écran (expérimental) | faits, testés |
-| Page d'overlay OBS, base vectorielle, autres modules | à faire |
+| Overlay OBS local (état du jeu filtré + monitoring des GPU) | fait, rendu vérifié dans un navigateur ; non essayé dans OBS |
+| Base vectorielle, autres modules | à faire |
 | Code d'origine du premier module (WoW Assistant) | présent dans `_import/`, à porter |
 
 ## Installation
@@ -60,6 +61,21 @@ curl.exe -X POST http://127.0.0.1:5750/ask -H "Content-Type: application/json" -
 ```
 
 L'application de jeu d'origine (fenêtre, overlay, voix) se lance seule : `python -m modules.gaming_hud`.
+
+### Overlay pour OBS (mode Showcase)
+
+Quand le module `gaming_hud` est actif, il sert une page à fond transparent, à ajouter dans OBS comme
+source « Navigateur » : `http://127.0.0.1:5757/obs-hud`.
+
+<img src="docs/captures/obs_hud.png" alt="Overlay OBS : personnage, quêtes et jauges des deux GPU" width="300">
+
+*Capture de la page avec des données de démonstration.*
+
+- Ce que la page affiche passe **toujours** par le filtre de confidentialité : ni chemin de fichier, ni nom
+  de compte, ni adresse e-mail, ni clé ; l'or est arrondi ou masqué ; les noms de personnages peuvent
+  être remplacés (`hide_character_names`).
+- Le serveur n'écoute que sur `127.0.0.1`. La page ne charge rien depuis Internet.
+- Lancer OBS fait aussi basculer le module en mode Showcase : ce qu'il publie sur le bus est alors filtré.
 
 ### Mesures réelles (17/11/2026, RTX 5080 16 Go + RTX 5060 Ti 16 Go, Ollama 0.40.16)
 
@@ -132,7 +148,8 @@ Ctrl+C. Aucune clé dans le dépôt : les identifiants viennent de l'environneme
 - Le lancement réel de l'agent local (Claude Code via OmniRoute ; Aider et OpenCode ne sont pas installés).
 - Le backend API face au vrai service Anthropic.
 - La CI GitHub (le dépôt n'est pas encore poussé).
-- La bascule Showcase avec OBS réel (le logiciel de diffusion est simulé par un faux processus).
+- La bascule Showcase avec OBS réel (le logiciel de diffusion est simulé par un faux processus), et
+  l'overlay affiché dans OBS lui-même (vérifié dans Edge piloté par Playwright).
 - Les adaptateurs `log_tail` et `screen_ocr` sur un vrai jeu (testés sur un journal et une image de test).
 
 ## Feuille de route

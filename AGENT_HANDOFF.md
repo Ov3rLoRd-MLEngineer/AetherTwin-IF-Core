@@ -25,7 +25,7 @@ Les phrases sont courtes. Rien n'est implicite.
 8. Les tests passent : 200 tests, plus 2 tests réels sur GPU ignorés par défaut. WoW Assistant v9 a reçu des correctifs le 17/11 (`tests/wow_assistant_v9/`).
    Les mêmes fichiers sont dans `D:\Hermes-Agent\wow_assistant_v9`, la copie que Jérémy utilise.
 9. Le poste a 2 GPU visibles : RTX 5080 16 Go et RTX 5060 Ti 16 Go. Les modèles restent en Q4_K_M.
-10. La prochaine tâche est le jalon J4 : la page `/obs-hud` (voir « J4 » plus bas).
+10. Le jalon J4 est fait aussi (overlay OBS). La prochaine tâche est le jalon J5 (voir « J5 » plus bas).
 
 ## Commandes exactes
 
@@ -130,10 +130,20 @@ Comment appeler un modèle local : toujours par `core/llm_router.py` (`LlmRouter
 | 6 | Ordonnanceur GPU | `core/scheduler.py` | File d'attente unique pour les tâches vision/diffusion |
 | 7 | Daemon minimal | `core/daemon.py`, `tests/core/test_daemon.py` | Démarre sans GPU. Charge et décharge un module de test. Détecte le lancement et l'arrêt d'un processus de test. API FastAPI sur `127.0.0.1` : `/health`, `/modules`, `/events`, `/gpu`, `/ask` |
 
-### J4 — Mode Showcase OBS (P0/P1) — prochaine étape
+### J5 — prochaine étape (P1)
 
-Déjà fait : le filtre de confidentialité (`modules/gaming_hud/adapters/privacy.py`) et la bascule
-automatique (`GamingHudModule.set_showcase`). Il reste :
+| # | Tâche | Fichiers | Terminé quand |
+|---|---|---|---|
+| A | Base vectorielle locale | `core/knowledge/store.py`, `tests/core/test_knowledge_store.py` | Ajout de documents, recherche par similarité, persistance sur disque. Embeddings par Ollama via une fonction injectable (faux embeddings dans les tests) |
+| B | Collecte web polie | `core/knowledge/fetcher.py`, test avec un faux serveur HTTP | Respecte `robots.txt`, limite le débit, `User-Agent` explicite, cache disque, journal des sources. Aucun appel réseau réel dans les tests |
+| C | Ingestion nocturne | `core/knowledge/ingest.py` | Les tâches lourdes passent par `Fuma.schedule_night_task` |
+| D | Calculs de `genesis_lab` | `modules/genesis_lab/` | FASTA (longueur, GC %, ORF, traduction), orbites, bilans de matière. **Code déterministe**, valeurs de référence dans les tests |
+| E | Professeur adaptatif | `modules/genesis_lab/tutor.py` | Session guidée scriptée avec un LLM factice ; progression mémorisée dans un fichier local |
+
+### J4 — Mode Showcase OBS (P0/P1) — **fait le 17/11/2026**
+
+Fichiers : `modules/gaming_hud/obs_server.py`, `modules/gaming_hud/web/`, `assets/logo_if_core*.svg`,
+`tests/gaming_hud/test_obs_hud.py`. Reste : l'essai dans OBS réel, par Jérémy. Tableau d'origine :
 
 | # | Tâche | Fichiers | Terminé quand |
 |---|---|---|---|
@@ -175,6 +185,9 @@ sont dans `tests/gaming_hud/`.
 | Message de commit contenant des guillemets sous PowerShell | Écrire le message dans un fichier, puis `git commit -F fichier` |
 | Un gros modèle Qwen dépasse 16 Go de VRAM | Normal : Ollama le répartit sur 2 GPU. Ne charge jamais deux gros modèles : passe par `LlmRouter` |
 | Les tests réels sur GPU sont ignorés par défaut | `set AETHERTWIN_REAL_OLLAMA=1` pour les activer |
+| La page d'overlay interdit l'évaluation de code (politique de sécurité) | Dans un test Playwright, attendre avec `expect(locator)`, pas avec `wait_for_function("…")` |
+| Le port 5757 est déjà pris | Le module continue sans overlay et le dit dans son bilan de santé. Dans les tests : `obs_hud_port: 0` |
+| Ne jamais mettre de `innerHTML` dans `web/obs_hud.js` | Écrire les données avec `textContent` (un test le vérifie) |
 | `.toc` de l'addon sans `## SavedVariables` | Le jeu n'écrit rien. Ne jamais retirer cette ligne |
 | Widgets : clic sur les poignées | Enregistrer le corps **avant** les poignées |
 | Cache d'instantané | Une section vide n'écrase jamais une section connue |

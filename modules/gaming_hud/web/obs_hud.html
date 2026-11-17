@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AetherTwin — overlay OBS</title>
+  <link rel="stylesheet" href="/obs-hud/style.css">
+</head>
+<body>
+  <main id="hud" class="hud waiting">
+    <header class="brand">
+      <img class="logo" src="/obs-hud/logo.svg" alt="" width="34" height="34">
+      <div>
+        <div class="title">AetherTwin <span class="core">I&amp;F Core</span></div>
+        <div class="status" id="status">en attente des données…</div>
+      </div>
+    </header>
+
+    <section class="card" id="character" hidden>
+      <div class="name" id="char-name"></div>
+      <div class="line" id="char-line"></div>
+      <div class="line zone" id="char-zone"></div>
+      <div class="line" id="char-extra"></div>
+    </section>
+
+    <section class="card" id="quests" hidden>
+      <h2 id="quests-title">Quêtes</h2>
+      <ul id="quests-list"></ul>
+    </section>
+
+    <section class="card" id="fields" hidden>
+      <dl id="fields-list"></dl>
+    </section>
+
+    <section class="card gpus" id="gpus" hidden>
+      <h2>GPU</h2>
+      <div id="gpu-list"></div>
+    </section>
+  </main>
+  <script src="/obs-hud/app.js"></script>
+</body>
+</html>

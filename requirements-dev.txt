@@ -2,4 +2,5 @@
 pytest==9.2.0
 ruff==0.17.5
 httpx==0.28.1   # client de test de l'API locale
+playwright==1.65.2   # optionnel : capture de rendu de l'overlay OBS (pilote Edge/Chrome installé, sinon test ignoré)
 anthropic==2.9.0   # optionnel : backend --backend api du relais, et ses tests

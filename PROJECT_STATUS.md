@@ -14,7 +14,8 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 - **J3 terminé** (17/11) : WoW Assistant porté dans `modules/gaming_hud/`, interface `GameAdapter`, trois
   adaptateurs, module du Hub avec bascule Showcase, routeur LLM. Premier module réel du Hub.
 - Essai réel de bout en bout réussi : démon → module → données du jeu → modèle local → réponse correcte.
-- Prochain jalon : **J4** (page `/obs-hud`, monitoring GPU dans l'overlay, logo).
+- **J4 terminé** (17/11) : overlay OBS local avec monitoring des GPU, logo, capture de rendu réelle.
+- Prochain jalon : **J5** (base vectorielle, scraping légal, `genesis_lab` et son Professeur).
 - Décisions de Jérémy : Q4_K_M tant que la VRAM est de 32 Go ; contexte local 32 768 ; pas de push pour l'instant.
 - Le code de WoW Assistant est dans `_import/wow_assistant_v9/`, intact, non porté.
 
@@ -49,7 +50,8 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | Module du Hub `GamingHudModule` + bascule Showcase | P0 | J3/J4 | `FAIT-TESTÉ` | bout en bout dans le démon réel ; le logiciel de diffusion est **simulé** par un faux processus (OBS réel non testé) |
 | `core/llm_router.py` + `/ask` + API compatible OpenAI | P1 | J5 (avancé) | `FAIT-TESTÉ` | faux Ollama en HTTP, puis **réel** : `qwen3-27b` (16,77 Go) puis `qwen3-coder:30b` (19,69 Go) à `num_ctx` 32 768, un seul en mémoire à la fois. Pas de diffusion mot à mot |
 | Assistant de l'appli branché sur le Hub | P0 | J3 | `FAIT-TESTÉ` | le `LLMClient` d'origine, inchangé, interroge le Hub (liste des modèles et réponse réelles). Contexte fourni par `GameAdapter` ; mode `hermes.exe` conservé, non testé |
-| Mode Showcase OBS, `/obs-hud`, filtre de confidentialité, logo | P0/P1 | J4 | `À FAIRE` | |
+| Overlay OBS `http://127.0.0.1:5757/obs-hud` (page, SSE, monitoring GPU) | P0/P1 | J4 | `FAIT-TESTÉ` | rendu vérifié dans un vrai navigateur (Edge piloté par Playwright), capture dans `docs/captures/obs_hud.png` ; essai réel sur les données du jeu et les 2 GPU ; écoute sur 127.0.0.1 vérifiée. **Non testé dans OBS lui-même** |
+| Logo I&F Core (couleur + monochrome) | P1 | J4 | `FAIT-TESTÉ` | SVG géométrique écrit à la main, remplaçable ; la variante monochrome est affichée dans l'overlay |
 | Base vectorielle, scraping légal | P1 | J5 | `À FAIRE` | le routeur LLM, lui, est fait (voir plus haut) |
 | `genesis_lab` + Professeur | P1 | J5 | `À FAIRE` | |
 | `scantrad` | P1 | J6 | `À FAIRE` | |
@@ -89,8 +91,7 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 ## Reste à faire, par priorité
 
 1. **Restes du J2** : détection de fenêtres, interface générée à la volée depuis `widget_schema()`.
-2. **P0/P1 — J4** : page `/obs-hud` (overlay transparent, SSE), monitoring des GPU dans l'overlay, logo SVG,
-   captures Playwright, essai avec OBS réel. Le filtre de confidentialité et la bascule sont déjà faits.
+2. **Reste du J4** : essai dans OBS réel (test n° 11 ci-dessous), à faire par Jérémy.
 3. **Restes du J3** : essayer `log_tail` et `screen_ocr` sur un vrai jeu ; diffusion mot à mot dans l'API.
 4. **P1 — J5/J6** : base vectorielle, routeur LLM, `genesis_lab`, `scantrad`.
 5. **P2 — J7** : `mangastudio`, `if_game` (squelettes honnêtes si le temps manque).
@@ -119,6 +120,7 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 7 | Hub complet | `.venv\Scripts\python.exe -m core.daemon`, puis dans un autre terminal `curl -X POST http://127.0.0.1:5750/modules/gaming_hud/activate` et ouvrir `http://127.0.0.1:5750/events` | un événement `module.gaming_hud.state` avec ton personnage |
 | 8 | Bascule Showcase avec OBS réel | Hub lancé et `gaming_hud` actif, démarrer OBS, rouvrir `/events` | `module.gaming_hud.showcase` `{"on": true}`, puis un état sans chemin ni compte, or arrondi |
 | 9 | Assistant de l'appli via le Hub | dans WoW Assistant : Paramètres > Assistant IA, Endpoint `http://127.0.0.1:5750`, puis « Charger la liste des modèles » | la liste des modèles d'Ollama s'affiche ; les réponses passent par le Hub |
+| 11 | Overlay dans OBS | Hub lancé et `gaming_hud` actif ; dans OBS : Sources > + > Navigateur, URL `http://127.0.0.1:5757/obs-hud`, largeur 420, hauteur 600 | l'overlay apparaît sur fond transparent, les jauges GPU bougent, aucun chemin ni nom de compte visible |
 | 10 | Tests réels sur GPU | `set AETHERTWIN_REAL_OLLAMA=1` puis `.venv\Scripts\python.exe -m pytest -k real -s` | 2 tests réussis, VRAM affichée |
 | 6 | Topologie 3 GPU, une fois le riser installé | `.venv\Scripts\python.exe -m core.hardware.gpu_monitor` | `gpu_count: 3`, environ 48 900 MiB |
 
