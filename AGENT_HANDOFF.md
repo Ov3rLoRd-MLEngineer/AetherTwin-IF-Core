@@ -22,10 +22,11 @@ Les phrases sont courtes. Rien n'est implicite.
    module, ordonnanceur GPU, Inoue, Fuma, daemon, API locale, configuration, routeur LLM.
 7. `modules/gaming_hud/` est le premier module réel. Son dossier `app/` est le code d'origine de
    WoW Assistant (imports à plat, ne pas reformater). Le dossier `_import/` n'existe plus.
-8. Les tests passent : 200 tests, plus 2 tests réels sur GPU ignorés par défaut. WoW Assistant v9 a reçu des correctifs le 17/11 (`tests/wow_assistant_v9/`).
+8. Les tests passent : 268 tests, plus 2 tests réels sur GPU ignorés par défaut. WoW Assistant v9 a reçu des correctifs le 17/11 (`tests/wow_assistant_v9/`).
    Les mêmes fichiers sont dans `D:\Hermes-Agent\wow_assistant_v9`, la copie que Jérémy utilise.
 9. Le poste a 2 GPU visibles : RTX 5080 16 Go et RTX 5060 Ti 16 Go. Les modèles restent en Q4_K_M.
-10. Le jalon J4 est fait aussi (overlay OBS). La prochaine tâche est le jalon J5 (voir « J5 » plus bas).
+10. Le jalon J4 est fait aussi (overlay OBS). J5 est fait à moitié : `modules/genesis_lab/` existe
+    (tâches D et E). **Prochaine tâche : J5-A, la base vectorielle** (voir « J5 » plus bas), puis B et C.
 
 ## Commandes exactes
 
@@ -130,7 +131,12 @@ Comment appeler un modèle local : toujours par `core/llm_router.py` (`LlmRouter
 | 6 | Ordonnanceur GPU | `core/scheduler.py` | File d'attente unique pour les tâches vision/diffusion |
 | 7 | Daemon minimal | `core/daemon.py`, `tests/core/test_daemon.py` | Démarre sans GPU. Charge et décharge un module de test. Détecte le lancement et l'arrêt d'un processus de test. API FastAPI sur `127.0.0.1` : `/health`, `/modules`, `/events`, `/gpu`, `/ask` |
 
-### J5 — prochaine étape (P1)
+### J5 — en cours (P1) : D et E faits le 17/11, restent A, B, C
+
+Notes pour A : aucun modèle d'embedding n'est installé dans Ollama (`ollama pull nomic-embed-text` à
+faire par Jérémy). Écris donc le magasin avec une fonction d'embedding injectable et teste avec de faux
+vecteurs. Le Professeur attend une fonction `search(texte) -> [{"title", "url", "snippet"}]`
+(`modules/genesis_lab/tutor.py`, paramètre `search`) : c'est le point de branchement.
 
 | # | Tâche | Fichiers | Terminé quand |
 |---|---|---|---|
@@ -188,6 +194,8 @@ sont dans `tests/gaming_hud/`.
 | La page d'overlay interdit l'évaluation de code (politique de sécurité) | Dans un test Playwright, attendre avec `expect(locator)`, pas avec `wait_for_function("…")` |
 | Le port 5757 est déjà pris | Le module continue sans overlay et le dit dans son bilan de santé. Dans les tests : `obs_hud_port: 0` |
 | Ne jamais mettre de `innerHTML` dans `web/obs_hud.js` | Écrire les données avec `textContent` (un test le vérifie) |
+| Le modèle local invente des calculs intermédiaires faux | Ne lui demande jamais un nombre. Le code calcule ; `foreign_numbers` (`tutor.py`) rejette un texte qui contient un nombre non fourni |
+| Une valeur de référence fausse dans un test | Vérifie d'abord le test à la main avant de « corriger » le code (arrivé le 17/11 sur un GC %) |
 | `.toc` de l'addon sans `## SavedVariables` | Le jeu n'écrit rien. Ne jamais retirer cette ligne |
 | Widgets : clic sur les poignées | Enregistrer le corps **avant** les poignées |
 | Cache d'instantané | Une section vide n'écrase jamais une section connue |
