@@ -4,13 +4,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import cv2
 import numpy as np
 import pytest
 
 from modules.scantrad.cli import main, read_image, series_slug, write_image
-from modules.scantrad.detect import clean_bubbles, detect_bubbles
+from modules.scantrad.detect import clean_bubbles, clean_text, detect_bubbles, detect_text_blocks, upscale_small_page
 from modules.scantrad.hub_stages import (
     Glossary,
+    accept_ocr,
     make_translator,
     make_vision_ocr,
     parse_translations,
@@ -41,6 +43,49 @@ def test_detects_every_bubble_in_reading_order(page) -> None:
     assert len(bubbles) == len(TRUTH) == 5
     for found, expected in zip(bubbles, TRUTH, strict=True):
         assert iou(found.box, expected["box"]) > 0.9, (found.box, expected)  # ordre manga : droite puis gauche
+
+
+def test_text_first_detector_on_the_test_page(page) -> None:
+    blocks = detect_text_blocks(page)
+    assert len(blocks) == 5
+    for found, expected in zip(blocks, TRUTH, strict=True):
+        x, y, w, h = found.box
+        ex, ey, ew, eh = expected["box"]
+        assert ex <= x + w / 2 <= ex + ew and ey <= y + h / 2 <= ey + eh  # centre du texte dans sa bulle
+        assert found.area is not None and _contains(expected["box"], found.area, slack=6)
+    cleaned = clean_text(page, blocks)
+    for block in blocks:
+        tx, ty, tw, th = block.text_box
+        assert (cleaned[ty:ty + th, tx:tx + tw][block.text_mask > 0].min(axis=1) > 180).mean() > 0.95
+
+
+def _contains(outer, inner, slack: int = 0) -> bool:
+    ox, oy, ow, oh = outer
+    x, y, w, h = inner
+    return x >= ox - slack and y >= oy - slack and x + w <= ox + ow + slack and y + h <= oy + oh + slack
+
+
+def test_columns_of_one_bubble_are_merged_and_art_is_ignored() -> None:
+    from PIL import Image, ImageDraw
+
+    from modules.scantrad.testpage import jp_font
+
+    try:
+        font = jp_font(30)
+    except SystemExit:
+        pytest.skip("police japonaise absente (machine sans Windows)")
+    image = Image.new("RGB", (700, 1000), (225, 225, 225))  # papier scanné : jamais blanc pur
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((380, 60, 640, 600), fill=(228, 228, 228), outline=(20, 20, 20), width=3)
+    for column, text in ((540, "愛してた"), (480, "結婚して")):  # deux colonnes verticales, une bulle
+        for k, char in enumerate(text):
+            draw.text((column, 150 + k * 40), char, font=font, fill=(25, 25, 25))
+    draw.rectangle((40, 650, 300, 950), fill=(70, 70, 70))  # dessin sombre : rien à détecter
+    page = cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR)
+    blocks = detect_text_blocks(page)
+    assert len(blocks) == 1 and blocks[0].vertical
+    x, y, w, h = blocks[0].box
+    assert x <= 485 and x + w >= 565 and y <= 155 and y + h >= 300
 
 
 def test_blank_page_and_drawing_without_text_give_nothing() -> None:
@@ -125,6 +170,49 @@ def test_translation_prompt_uses_only_relevant_glossary(tmp_path: Path) -> None:
 ])
 def test_parse_translations(answer, expected) -> None:
     assert parse_translations(answer, 2) == expected
+
+
+@pytest.mark.parametrize("raw, expected", [
+    ("「はい、サンジ!!!」", "はい、サンジ!!!"),
+    ("AUCUN", ""),
+    ("Aucun texte.", ""),
+    ("No text here", ""),  # aucun caractère japonais : hallucination écartée
+    ("<think>…</think>サンジ？\nちゃんと", "サンジ？ ちゃんと"),
+])
+def test_accept_ocr(raw, expected) -> None:
+    assert accept_ocr(raw) == expected
+
+
+def test_ocr_second_read_and_rejection_in_pipeline(page) -> None:
+    answers = iter(["AUCUN", "はい…"] + ["AUCUN"] * 20)  # bulle 1 : relue avec plus de contexte ; les autres : rien
+    sent = []
+
+    def chat(messages, extra):
+        sent.append(messages)
+        return next(answers)
+    pipeline = Scantrad(detect_bubbles, make_vision_ocr(chat), clean_bubbles, None, make_typesetter())
+    result = pipeline.run(page)
+    assert [b.source for b in result.bubbles] == ["はい…"] and result.bubbles[0].index == 1
+    assert result.metrics["rejected_by_ocr"] == 4 and len(sent) == 2 + 4 * 2
+
+
+def test_small_pages_are_upscaled() -> None:
+    assert upscale_small_page(np.zeros((451, 443, 3), np.uint8)).shape == (1100, 1080, 3)
+    big = np.zeros((1600, 1000, 3), np.uint8)
+    assert upscale_small_page(big) is big
+
+
+def test_punctuation_never_starts_a_line() -> None:
+    from PIL import Image, ImageDraw
+
+    from modules.scantrad.typeset import wrap
+
+    draw = ImageDraw.Draw(Image.new("RGB", (10, 10)))
+    font = font_loader()(20)
+    width = int(draw.textlength("m'épouser ?", font=font)) + 2
+    lines = wrap("Tu vas m'épouser ?", font, width, draw)
+    assert lines and lines[-1] == "m'épouser ?"  # le « ? » reste collé à son mot
+    assert wrap("Tu vas m'épouser ?", font, width - 10, draw) is None  # trop étroit : `fit` réduira la police
 
 
 def test_translator_falls_back_bubble_by_bubble() -> None:

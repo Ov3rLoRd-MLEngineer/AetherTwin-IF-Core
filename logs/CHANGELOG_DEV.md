@@ -516,3 +516,20 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - **Tests :** ruff propre ; pytest vert. **Réel** : page de test, 5 bulles dans l'ordre manga, OCR exact,
   traduction naturelle, 23,6 s, VRAM au plus haut 26 153 MiB. Sans Hub : message clair, code 2.
   **Non vérifié** : vraie page scannée ; entrée 4 du lanceur jouée de bout en bout.
+
+## 2026-11-17 — scantrad sur une vraie page : détection par le texte
+
+- **Agent :** Cloud
+- **Constat de Jérémy (test 13) :** sur une vraie page, peu de bulles prises et texte d'origine non effacé.
+- **Cause :** l'heuristique cherchait des bulles **fermées** sur fond **blanc** ; sur un scan, le papier est gris
+  (95e centile à 221), les bulles sont ouvertes et le texte est vertical : une seule bulle trouvée, et deux
+  faux positifs (jambe, cheveux) sur lesquels la traduction a été posée.
+- **Fichiers :** `modules/scantrad/{detect,pipeline,hub_stages,typeset,cli}.py`, `README.md`, tests.
+- **Changements :** `detect_text_blocks` (encre de taille « caractère » sur papier clair, densité d'encre,
+  regroupement, fusion des colonnes d'une même bulle), agrandissement des petites pages, l'OCR écarte les faux
+  positifs (« AUCUN », pas de japonais) avec une seconde lecture plus large, effacement de l'encre fine
+  seulement (masque élargi d'un demi-caractère pour la ponctuation), zone d'écriture = plage claire de la
+  bulle, ponctuation française insécable. Une tentative d'élargir les boîtes elles-mêmes a fusionné des
+  bulles voisines et effacé du dessin : annulée, seul le masque d'effacement est élargi.
+- **Tests :** ruff propre ; pytest vert. **Réel** (page de Jérémy, non versionnée) : 4 bulles traduites,
+  7 faux positifs écartés, dessin intact ; ratés : texte manuscrit et texte rogné au bord.

@@ -23,8 +23,20 @@ from modules.scantrad.pipeline import Bubble
 
 Chat = Callable[[list[dict[str, Any]], dict[str, Any]], str]
 
-OCR_PROMPT = ("Transcris exactement le texte japonais écrit dans cette bulle de manga. Réponds uniquement par le "
-              "texte transcrit, sur une ligne, sans traduction, sans commentaire.")
+OCR_PROMPT = ("Transcris exactement le texte japonais écrit dans cette image extraite d'un manga. Le texte peut "
+              "être vertical : lis les colonnes de haut en bas, de la droite vers la gauche. Ignore les petits "
+              "caractères de lecture (furigana) placés à côté des kanji. Réponds uniquement par le texte transcrit, "
+              "sur une ligne, sans traduction, sans commentaire. S'il n'y a pas de texte japonais lisible (dessin, "
+              "décor), réponds exactement : AUCUN")
+JAPANESE = re.compile(r"[぀-ヿ㐀-鿿ｦ-ﾟ]")
+
+
+def accept_ocr(text: str) -> str:
+    """Texte lu, ou "" si le modèle dit qu'il n'y a rien, ou s'il ne rend aucun caractère japonais."""
+    text = " ".join(strip_thinking(text).split()).strip("「」『』\"' ")
+    if not text or "AUCUN" in text.upper() or not JAPANESE.search(text):
+        return ""
+    return text
 
 
 def hub_chat(hub_api: str = "http://127.0.0.1:5750", timeout_s: float = 300.0) -> Chat:
@@ -42,9 +54,11 @@ def strip_thinking(text: str) -> str:
     return re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
 
 
-def bubble_png(page: np.ndarray, bubble: Bubble, pad: int = 6, min_side: int = 160) -> bytes:
-    """Découpe la bulle (avec une petite marge), agrandie si elle est petite : le modèle lit mieux."""
+def bubble_png(page: np.ndarray, bubble: Bubble, pad: int = 0, min_side: int = 224) -> bytes:
+    """Découpe le texte avec une marge (30 % de sa taille : un mot court, découpé au ras, n'est pas reconnu),
+    agrandie si elle est petite : le modèle lit mieux."""
     x, y, w, h = bubble.box
+    pad = pad or max(12, int(0.3 * max(w, h)))
     crop = page[max(0, y - pad):y + h + pad, max(0, x - pad):x + w + pad]
     scale = max(1.0, min_side / max(1, min(crop.shape[:2])))
     if scale > 1:
@@ -56,12 +70,15 @@ def bubble_png(page: np.ndarray, bubble: Bubble, pad: int = 6, min_side: int = 1
 
 
 def make_vision_ocr(chat: Chat, model: str = "qwen2.5vl:7b", num_ctx: int = 4096) -> Callable[..., str]:
-    def ocr(page: np.ndarray, bubble: Bubble) -> str:
-        data_uri = "data:image/png;base64," + base64.b64encode(bubble_png(page, bubble)).decode("ascii")
+    def read(page: np.ndarray, bubble: Bubble, pad: int) -> str:
+        data_uri = "data:image/png;base64," + base64.b64encode(bubble_png(page, bubble, pad)).decode("ascii")
         messages = [{"role": "user", "content": [{"type": "text", "text": OCR_PROMPT},
                                                  {"type": "image_url", "image_url": {"url": data_uri}}]}]
-        text = strip_thinking(chat(messages, {"model": model, "num_ctx": num_ctx, "temperature": 0}))
-        return " ".join(text.split()).strip("「」『』\"' ")
+        return accept_ocr(chat(messages, {"model": model, "num_ctx": num_ctx, "temperature": 0}))
+
+    def ocr(page: np.ndarray, bubble: Bubble) -> str:
+        """Deux lectures au plus : la seconde, plus large, rattrape les mots courts lus « AUCUN » à tort."""
+        return read(page, bubble, 0) or read(page, bubble, max(24, int(0.8 * max(bubble.box[2:]))))
     return ocr
 
 

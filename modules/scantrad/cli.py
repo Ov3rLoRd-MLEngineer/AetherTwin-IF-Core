@@ -21,7 +21,13 @@ from typing import Any
 import cv2
 import numpy as np
 
-from modules.scantrad.detect import clean_bubbles, detect_bubbles
+from modules.scantrad.detect import (
+    clean_bubbles,
+    clean_text,
+    detect_bubbles,
+    detect_text_blocks,
+    upscale_small_page,
+)
 from modules.scantrad.hub_stages import Glossary, hub_chat, make_translator, make_vision_ocr
 from modules.scantrad.pipeline import Scantrad
 from modules.scantrad.typeset import make_typesetter
@@ -60,10 +66,12 @@ def vram_reader():
 def build(settings: dict[str, Any], series: str = "", use_llm: bool = True) -> Scantrad:
     chat = hub_chat(str(settings.get("hub_api", "http://127.0.0.1:5750")))
     glossary = glossary_for(series, Path(settings.get("data_dir") or DEFAULT_DATA)) if series else None
+    closed_bubbles = settings.get("detector") == "bubbles"  # ancienne heuristique : bulles fermées sur fond gris
     return Scantrad(
-        detect=detect_bubbles,
+        detect=detect_bubbles if closed_bubbles else detect_text_blocks,
         ocr=make_vision_ocr(chat, str(settings.get("ocr_model", "qwen2.5vl:7b"))) if use_llm else None,
-        clean=clean_bubbles,
+        clean=clean_bubbles if closed_bubbles else clean_text,
+        prepare=upscale_small_page,
         translate=make_translator(chat, glossary, str(settings.get("model", ""))) if use_llm else None,
         typeset=make_typesetter(str(settings.get("font", ""))),
         vram_used_mib=vram_reader(),

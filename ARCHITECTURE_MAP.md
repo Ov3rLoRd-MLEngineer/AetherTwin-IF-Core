@@ -809,6 +809,12 @@ Construction de la chaîne et ligne de commande.
 Détection heuristique des bulles (OpenCV) et effacement du texte d'origine (inpainting OpenCV).
 
 - `def detect_bubbles(page: np.ndarray, white_level: int=200, min_area_ratio: float=0.002, max_area_ratio: float=0.25, min_fill: float=0.5, text_ratio: tuple[float, float]=(0.005, 0.45)) -> list[Bubble]`
+- `def detect_text_blocks(page: np.ndarray, char_min: float=0.011, char_max: float=0.075, bright_drop: int=45, min_chars: int=2) -> list[Bubble]` — Détection **par le texte** (pages réelles : papier gris, bulles ouvertes, texte vertical).
+- `def union_box(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> tuple[int, int, int, int]`
+- `def upscale_small_page(page: np.ndarray, min_height: int=1100) -> np.ndarray` — Agrandit une page trop petite (capture, vignette) : les caractères de 12 px se fondent en taches.
+- `def merge_same_bubble(blocks: list[Bubble], char: float=0.0, paper_id: np.ndarray | None=None) -> list[Bubble]` — Réunit les colonnes d'une même bulle (voir `_same_bubble`), ou deux blocs dont chacun tient dans la zone
+- `def writing_area(bright: np.ndarray, labels: np.ndarray, small: np.ndarray, box: tuple[int, int, int, int], grow: float=0.9, margin: float=0.1) -> tuple[int, int, int, int]` — Plage claire qui entoure le bloc (la bulle), bornée à une fenêtre autour du bloc. Rend (x, y, l, h).
+- `def clean_text(page: np.ndarray, blocks: list[Bubble], grow: int=0, radius: int=3) -> np.ndarray` — Efface l'encre fine de chaque bloc (caractères, ponctuation, furigana) par inpainting ; les contours
 - `def reading_key(box: tuple[int, int, int, int], page_height: int) -> tuple[int, int]` — Ordre de lecture du manga : de haut en bas par bandes, et de droite à gauche dans une bande.
 - `def clean_bubbles(page: np.ndarray, bubbles: list[Bubble], radius: int=3, grow: int=2) -> np.ndarray` — Efface le texte de chaque bulle par inpainting (OpenCV, Telea), sans toucher au contour de la bulle.
 
@@ -816,9 +822,10 @@ Détection heuristique des bulles (OpenCV) et effacement du texte d'origine (inp
 
 OCR et traduction par les modèles locaux, **via le Hub** (API compatible OpenAI sur 127.0.0.1).
 
+- `def accept_ocr(text: str) -> str` — Texte lu, ou "" si le modèle dit qu'il n'y a rien, ou s'il ne rend aucun caractère japonais.
 - `def hub_chat(hub_api: str='http://127.0.0.1:5750', timeout_s: float=300.0) -> Chat`
 - `def strip_thinking(text: str) -> str`
-- `def bubble_png(page: np.ndarray, bubble: Bubble, pad: int=6, min_side: int=160) -> bytes` — Découpe la bulle (avec une petite marge), agrandie si elle est petite : le modèle lit mieux.
+- `def bubble_png(page: np.ndarray, bubble: Bubble, pad: int=0, min_side: int=224) -> bytes` — Découpe le texte avec une marge (30 % de sa taille : un mot court, découpé au ras, n'est pas reconnu),
 - `def make_vision_ocr(chat: Chat, model: str='qwen2.5vl:7b', num_ctx: int=4096) -> Callable[..., str]`
 - **`class Glossary`** — Glossaire persistant d'une série : personnages et termes (japonais → français), ton, notes.
   - `def load(cls, path: Path) -> Glossary`
@@ -867,6 +874,7 @@ Réincrustation : texte traduit centré dans la bulle, taille ajustée, retours 
 
 - `def font_loader(path: str='') -> FontLoader` — Police choisie (chemin), sinon une police courante du système, sinon celle fournie avec Pillow.
 - `def text_area(bubble: Bubble) -> tuple[int, int, int, int]` — Rectangle d'écriture dans la bulle (coordonnées de la page) : la zone où la bulle est la plus large,
+- `def writing_rect(bubble: Bubble, side_margin: float=0.1) -> tuple[int, int, int, int]` — Rectangle d'écriture quand la bulle est connue par sa plage claire (`area`) : toute sa largeur (moins une
 - `def wrap(text: str, font: ImageFont.FreeTypeFont | ImageFont.ImageFont, width: int, draw: ImageDraw.ImageDraw) -> list[str] | None` — Coupe aux espaces pour tenir dans `width`. `None` si un mot seul est trop large.
 - `def fit(text: str, width: int, height: int, load: FontLoader, draw: ImageDraw.ImageDraw, max_size: int=30, min_size: int=8) -> tuple[int, list[str], int]` — Plus grande taille de police qui fait tenir le texte : (taille, lignes, hauteur de ligne).
 - `def make_typesetter(font_path: str='', color: tuple[int, int, int]=(0, 0, 0)) -> Callable[..., np.ndarray]`

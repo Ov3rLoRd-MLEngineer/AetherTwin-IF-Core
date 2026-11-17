@@ -24,9 +24,13 @@ class Bubble:
     text_mask: np.ndarray
     source: str = ""
     translation: str = ""
+    area: tuple[int, int, int, int] | None = None  # zone d'écriture (page) ; None = déduite du masque
+    vertical: bool = False  # texte d'origine en colonnes
+    text_box: tuple[int, int, int, int] | None = None  # cadre de `text_mask` s'il diffère de `box`
 
     def to_dict(self) -> dict[str, Any]:
-        return {"index": self.index, "box": list(self.box), "source": self.source, "translation": self.translation}
+        return {"index": self.index, "box": list(self.box), "source": self.source, "translation": self.translation,
+                "area": list(self.area) if self.area else None}
 
 
 class Detector(Protocol):
@@ -68,11 +72,14 @@ class Scantrad:
     typeset: Typesetter
     vram_used_mib: Callable[[], int | None] = lambda: None
     clock: Callable[[], float] = time.perf_counter
+    prepare: Callable[[np.ndarray], np.ndarray] | None = None  # ex. agrandir une page trop petite
 
     def run(self, page: np.ndarray) -> PageResult:
         """Traduit une page (image BGR, uint8). Sans OCR ou sans traducteur : détection et effacement seuls."""
         times: dict[str, float] = {}
         vram: list[int] = []
+        if self.prepare is not None:
+            page = self.prepare(page)
 
         def stage(name: str, fn: Callable[[], Any]) -> Any:
             start = self.clock()
@@ -84,11 +91,20 @@ class Scantrad:
             return result
 
         bubbles = stage("detection", lambda: self.detect(page))
+        rejected = 0
         if self.ocr is not None:
-            def read_all() -> None:
+            def read_all() -> list[Bubble]:
+                kept = []
                 for bubble in bubbles:
                     bubble.source = self.ocr(page, bubble).strip()  # type: ignore[misc]
-            stage("ocr", read_all)
+                    if bubble.source:  # l'OCR dit « pas de texte » : faux positif de la détection, écarté
+                        kept.append(bubble)
+                for index, bubble in enumerate(kept, start=1):
+                    bubble.index = index
+                return kept
+            detected = len(bubbles)
+            bubbles = stage("ocr", read_all)
+            rejected = detected - len(bubbles)
         cleaned = stage("effacement", lambda: self.clean(page, bubbles))
         output = cleaned
         if self.translate is not None and any(b.source for b in bubbles):
@@ -99,6 +115,7 @@ class Scantrad:
             stage("traduction", translate_all)
             output = stage("incrustation", lambda: self.typeset(cleaned, bubbles))
         metrics = {"seconds": times, "total_s": round(sum(times.values()), 3), "bubbles": len(bubbles),
+                   "rejected_by_ocr": rejected,
                    "vram_peak_mib": max(vram) if vram else None,
                    "steps": list(times)}
         return PageResult(output, bubbles, metrics)

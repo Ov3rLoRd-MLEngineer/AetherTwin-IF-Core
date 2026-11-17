@@ -1,6 +1,7 @@
 """Réincrustation : texte traduit centré dans la bulle, taille ajustée, retours à la ligne automatiques."""
 from __future__ import annotations
 
+import re
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -43,12 +44,31 @@ def text_area(bubble: Bubble) -> tuple[int, int, int, int]:
     return int(x + cx - inner_w / 2), int(y + cy - inner_h / 2), inner_w, inner_h
 
 
+def writing_rect(bubble: Bubble, side_margin: float = 0.1) -> tuple[int, int, int, int]:
+    """Rectangle d'écriture quand la bulle est connue par sa plage claire (`area`) : toute sa largeur (moins une
+    marge), et, pour un texte d'origine vertical, la hauteur des colonnes japonaises, sûres d'être dans la bulle
+    (une bulle en deux lobes est étroite à la jointure)."""
+    ax, ay, aw, ah = bubble.area or bubble.box
+    bx, by, bw, bh = bubble.box
+    x0, x1 = min(ax, bx), max(ax + aw, bx + bw)
+    x0, x1 = int(x0 + side_margin * (x1 - x0)), int(x1 - side_margin * (x1 - x0))
+    if bubble.vertical:
+        y0, y1 = by, by + bh
+    else:
+        y0, y1 = min(ay, by), max(ay + ah, by + bh)
+    return x0, y0, max(1, x1 - x0), max(1, y1 - y0)
+
+
 def wrap(text: str, font: ImageFont.FreeTypeFont | ImageFont.ImageFont, width: int,
          draw: ImageDraw.ImageDraw) -> list[str] | None:
     """Coupe aux espaces pour tenir dans `width`. `None` si un mot seul est trop large."""
     lines: list[str] = []
     current = ""
-    for word in text.split():
+    # ponctuation double du français : jamais seule en début de ligne (espace insécable)
+    text = re.sub(r"\s+([?!:;»]+)", "\u00a0\\1", re.sub(r"([«])\s+", "\\1\u00a0", text))
+    for word in text.split(" "):
+        if not word:
+            continue
         if draw.textlength(word, font=font) > width:
             return None
         attempt = f"{current} {word}".strip()
@@ -84,8 +104,9 @@ def make_typesetter(font_path: str = "", color: tuple[int, int, int] = (0, 0, 0)
         for bubble in bubbles:
             if not bubble.translation:
                 continue
-            ax, ay, aw, ah = text_area(bubble)
-            size, lines, line_height = fit(bubble.translation, aw, ah, load, draw)
+            ax, ay, aw, ah = writing_rect(bubble) if bubble.area else text_area(bubble)
+            size, lines, line_height = fit(bubble.translation, aw, ah, load, draw,
+                                           max_size=max(16, min(56, page.shape[0] // 32)))
             font = load(size)
             top = ay + (ah - len(lines) * line_height) / 2
             for i, line in enumerate(lines):
