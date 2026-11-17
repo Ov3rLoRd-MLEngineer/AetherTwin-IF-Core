@@ -88,3 +88,7 @@ layout.json · chat_history.json · wowhead_links.json · recipes.json
 - **Mise en page** : textes d'aide des Paramètres replacés sous leurs boutons ; barre d'outils de l'overlay élargie
   automatiquement pour que tous les boutons tiennent (libellés raccourcis : « Fenêtre », « Fermer », « Focus : auto »).
 - Nouveau fichier : `clipboard.py` (presse-papier Windows, sans dépendance).
+- **Clés API** : bouton « × » à droite du champ (Paramètres > Assistant IA, et Paramètres > Voix) : efface la clé du champ
+  et de `settings.json` immédiatement.
+- **Lancement** : double-cliquer sur `Lancer WoW Assistant.bat` (Python 3.11). Les widgets web demandent `pywebview`
+  dans CE Python : `py -3.11 -m pip install pywebview`.

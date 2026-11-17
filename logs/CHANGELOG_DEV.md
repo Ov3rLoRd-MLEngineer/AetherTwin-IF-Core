@@ -219,3 +219,34 @@ réconciliées. La durée reste donc un paramètre : `--window-minutes` (défaut
 4. **Modèles 3D : non entrepris.** Le jeu ne fournit pas de rendu du personnage à un addon, et afficher
    les modèles demande soit d'extraire et de rendre les fichiers du jeu (moteur 3D complet), soit une page
    web tierce. Piste réaliste : un widget web pointant vers une visionneuse en ligne, à étudier après J3.
+
+---
+
+## 2026-11-17 — WoW Assistant : effacement de clé API, lancement en Python 3.11
+
+- **Agent :** Cloud
+- **Fichiers :** `_import/wow_assistant_v9/` : `ui.py`, `README.md`, `Lancer WoW Assistant.bat` (nouveau) ;
+  `tests/wow_assistant_v9/test_ui_fixes.py`. Mêmes fichiers copiés dans `D:\Hermes-Agent\wow_assistant_v9`.
+  Hors dépôt : `Lancer OmniRoute.bat` créé sur le bureau de Jérémy (force `OMNIROUTE_SERVER_HOST=127.0.0.1`).
+- **Tests :** `pytest` → 134 réussis ; `ruff check .` propre.
+- **Retour de Jérémy (test réel) :** frappe au clavier dans Open WebUI : OK ; Open WebUI conserve la
+  connexion entre deux lancements ; YouTube s'affiche mais la connexion au compte est refusée (attendu :
+  Google bloque les fenêtres web intégrées) ; fermeture de l'appli : OK.
+- **Python 3.11 :** l'appli ne tournait qu'en 3.10 parce que `pywebview` n'était installé que là.
+  `py -3.11 -m pip install pywebview` fait (pywebview 6.2.1, pythonnet 3.2.1). Vérifié : fenêtre web créée
+  et activable sous 3.11, tous les modules de l'appli s'importent.
+- **Réseau :** Ollama écoute sur `127.0.0.1:11434` (journal du 17/11), OmniRoute sans avertissement.
+
+### Décisions
+
+1. **Clé API : saisie dans l'interface conservée** (choix de Jérémy : plus simple pour un utilisateur).
+   Ajout d'un bouton « × » qui efface la clé du champ et de `settings.json` immédiatement.
+2. **Trois GPU sur une seule machine** (choix de Jérémy) : pas de serveur Ollama séparé pour l'instant.
+   L'adresse d'Ollama reste configurable.
+3. **Modèles 3D : abandonnés pour l'instant** (accord de Jérémy).
+
+### À signaler
+
+- La variable utilisateur `OLLAMA_NUM_CTX=65536` n'apparaît pas dans la configuration lue par Ollama
+  (le journal liste `OLLAMA_CONTEXT_LENGTH:0` et calcule `default_num_ctx=32768`). Elle semble sans effet.
+- OmniRoute signale `STORAGE_ENCRYPTION_KEY` non définie alors qu'une base existe : à traiter par Jérémy.

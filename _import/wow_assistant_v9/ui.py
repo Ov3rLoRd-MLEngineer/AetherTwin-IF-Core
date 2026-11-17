@@ -1466,6 +1466,22 @@ class UI:
         self.inputs["set_game_path"] = str(self.settings.get("game.path", "") or WoWConfig.WOW_PATH)
         self.focus = None
 
+    def _clear_key(self, input_key, path):
+        """Efface une clé API du champ ET de settings.json, tout de suite (sans attendre « Enregistrer »)."""
+        had_key = bool(self.inputs.get(input_key) or self.settings.get(path, ""))
+        self.inputs[input_key] = ""
+        self.settings.set(path, "")
+        self.settings.save()
+        self.focus = None
+        self.notify("Clé API effacée de settings.json" if had_key else "Aucune clé API enregistrée")
+
+    def _clear_key_button(self, rect, input_key, path):
+        """Petit bouton « × » à droite d'un champ de clé API : supprime la clé du fichier de réglages."""
+        rect = pygame.Rect(rect)
+        present = bool(self.inputs.get(input_key) or self.settings.get(path, ""))
+        self.pill(rect, "×", present, lambda: self._clear_key(input_key, path))
+        self.tip(rect, {"rows": [("Effacer la clé API (du champ et de settings.json)", "text", "")]})
+
     def _apply_settings_inputs(self, save):
         m = self.modal
         for key, path in self._SETTINGS_FIELDS:
@@ -1694,7 +1710,8 @@ class UI:
                               lambda n=name: self.inputs.update(set_model=n))
                     px += pw + 6
                 y += 38
-            y = self._field(x, y, "Clé API (facultative)", "set_key", "laisser vide si le serveur n'en demande pas", label_w, field_w, mask=True)
+            self._clear_key_button((x + label_w + field_w - 38, y, 38, 34), "set_key", "llm.api_key")
+            y = self._field(x, y, "Clé API (facultative)", "set_key", "laisser vide si le serveur n'en demande pas", label_w, field_w - 46, mask=True)
         else:
             y = self._field(x, y, "Exécutable", "set_exe", "hermes.exe  (ou chemin complet)", label_w, field_w)
             y = self._field(x, y, "Arguments", "set_args", "{prompt}   (sans {prompt} : envoyé sur l'entrée standard)", label_w, field_w)
@@ -1876,7 +1893,8 @@ class UI:
         if backend == "api":
             y = self._field(x, y, "Endpoint (…/v1)", "set_v_stt_endpoint", "http://127.0.0.1:8000/v1  (Open WebUI, faster-whisper-server…)", 270, 640)
             y = self._field(x, y, "Modèle / clé API", "set_v_stt_model", "whisper-1", 270, 300)
-            self.input_box((x + 270 + 310, y - 44, 330, 34), "set_v_stt_key", "clé API (facultative)", mask=True)
+            self.input_box((x + 270 + 310, y - 44, 284, 34), "set_v_stt_key", "clé API (facultative)", mask=True)
+            self._clear_key_button((x + 270 + 310 + 292, y - 44, 38, 34), "set_v_stt_key", "voice.stt.api_key")
         elif backend == "exe":
             y = self._field(x, y, "Programme", "set_v_stt_exe", "whisper-cli.exe (whisper.cpp) ou chemin complet", 270, 640)
             y = self._field(x, y, "Arguments", "set_v_stt_args", "-m modele.bin -f {audio} -l fr -nt", 270, 640)

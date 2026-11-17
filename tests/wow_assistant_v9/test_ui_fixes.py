@@ -212,6 +212,28 @@ def test_click_places_the_cursor(field) -> None:
     assert ui._caret == ("champ", 3)
 
 
+# --------------------------------------------------------------------------- clés API
+@pytest.mark.parametrize(("page", "field_key", "path"), [("llm", "set_key", "llm.api_key"),
+                                                         ("voice", "set_v_stt_key", "voice.stt.api_key")])
+def test_clear_button_removes_the_api_key_from_the_settings_file(app, page: str, field_key: str, path: str) -> None:
+    import json
+
+    app.settings.set(path, "cle-de-test-a-effacer")
+    app.settings.save()
+    assert "cle-de-test-a-effacer" in Path(app.settings.path).read_text(encoding="utf-8")
+    app.open_settings(page)
+    app.draw(app.test_ctx)
+    app.draw(app.test_ctx)
+    _win, field_rect, _frame, _start = app._input_rects[field_key]
+    button = next(rect for rect, _fn in app._buttons
+                  if rect.y == field_rect.y and rect.x > field_rect.right and rect.w < 50)
+    assert button.x - field_rect.right < 20  # le bouton « × » est collé au champ de la clé
+    app._handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=button.center))
+    assert app.inputs[field_key] == "" and app.settings.get(path, "") == ""
+    stored = Path(app.settings.path).read_text(encoding="utf-8")
+    assert "cle-de-test-a-effacer" not in stored and json.loads(stored)  # effacée du fichier, sans « Enregistrer »
+
+
 # --------------------------------------------------------------------------- mise en page
 @pytest.mark.parametrize("page", SETTINGS_PAGES)
 def test_settings_pages_have_no_text_cut_or_overflowing(app, page: str) -> None:

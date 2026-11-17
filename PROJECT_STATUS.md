@@ -7,7 +7,7 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 
 ## Où on en est
 
-- Dépôt initialisé : venv Python 3.11, Git, lint, tests, CI, fichiers de suivi. **132 tests** au total.
+- Dépôt initialisé : venv Python 3.11, Git, lint, tests, CI, fichiers de suivi. **134 tests** au total.
 - Relais Cloud ⇄ Local écrit et testé **en simulation**.
 - **J2 terminé** : moniteur GPU, contrat de module, bus, ordonnanceur, gardiens, démon et API locale.
 - Aucun module du Hub n'existe encore. `modules/` est vide. Prochain jalon : J3.
@@ -35,7 +35,7 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | `core/daemon.py` + `core/module_runner.py` | P0 | J2 | `FAIT-TESTÉ` | module de test lancé dans un vrai processus séparé, arrêté proprement, relancé par Fuma après un plantage ; déclencheur de processus simulé (faux `obs64.exe`). Démon réel lancé le 16/11 : 2 GPU, budget 28,66 Go |
 | `core/api.py` — `/health`, `/modules`, `/events`, `/gpu`, `/ask` | P0 | J2 | `FAIT-TESTÉ` | écoute vérifiée sur 127.0.0.1 ; **`/ask` répond 503** tant que le routeur LLM n'existe pas (J5) |
 | Détection de fenêtres (`pygetwindow`), interface générée à la volée (`widget_schema`) | P0 | J2→J3 | `À FAIRE` | reporté avec le port de `ui.py` |
-| Correctifs de WoW Assistant v9 (17/11) : fermeture, saisie, presse-papier, clic droit, widgets web, mise en page | P0 | avant J3 | `FAIT-TESTÉ` | 22 tests headless ; fermeture vérifiée avec de vraies fenêtres ; fenêtre web vérifiée activable avec pywebview. **Non vérifié** : frappe réelle dans Open WebUI / YouTube, persistance des sessions, comportement en jeu |
+| Correctifs de WoW Assistant v9 (17/11) : fermeture, saisie, presse-papier, clic droit, widgets web, mise en page | P0 | avant J3 | `FAIT-TESTÉ` | 24 tests headless ; fermeture vérifiée avec de vraies fenêtres ; fenêtre web vérifiée activable (Python 3.10 et 3.11). **Testé par Jérémy le 17/11** : frappe dans Open WebUI, sessions conservées, fermeture. Connexion YouTube refusée par Google (limite connue). Bouton « × » d'effacement de clé API ajouté |
 | Modèles 3D à la place des silhouettes | P2 | — | `À FAIRE` | non entrepris : voir le changelog du 17/11 |
 | Port de WoW Assistant → `modules/gaming_hud/` | P0 | J3 | `À FAIRE` | code d'origine lu, non porté |
 | `GameAdapter` + `wow_retail` + `log_tail` + `screen_ocr` | P0 | J3 | `À FAIRE` | |
