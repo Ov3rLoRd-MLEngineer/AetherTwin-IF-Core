@@ -404,3 +404,38 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
    Chromium. Le test est ignoré si aucun navigateur n'est pilotable.
 7. **Logo** : Yin & Yang géométrique, Inoue claire avec taches calico, Fuma sombre avec rayures
    argentées. Écrit à la main en SVG, remplaçable par un dessin définitif.
+
+---
+
+## 2026-11-17 — J5 (première partie) : genesis_lab
+
+- **Agent :** Cloud
+- **Fichiers :** `modules/genesis_lab/{__init__,bio,astro,chem,tutor,module}.py`, `manifest.json`,
+  `tests/genesis_lab/test_calculs.py`, `test_tutor_module.py`, fichiers de suivi.
+- **Tests :** `pytest` → 266 réussis, 2 ignorés ; `ruff check .` propre.
+- **Vérifié :** chaque calcul contre une valeur de référence connue — année sidérale (365,2569 j), période
+  de Mars, orbite géostationnaire (42 164 km), vitesse et période de l'ISS, vitesse de libération
+  terrestre, rayon de Schwarzschild du Soleil, magnitudes absolues du Soleil et de Sirius, distance de
+  Proxima ; masses molaires (H2O, CO2, glucose, Ca(OH)2, Al2(SO4)3…), volume molaire (22,414 L), pH de
+  l'acide acétique 0,1 mol/L (2,875), K pour ΔG° = −RT ln 10 ; code génétique (64 codons, 3 stops),
+  distance de Hamming et alignement de Needleman-Wunsch sur des exemples classiques.
+  Module lancé dans le démon réel : calcul demandé sur le bus, résultat rendu.
+- **Non vérifié :** le Professeur avec le modèle local réel (LLM factice dans les tests) ; la comparaison
+  croisée avec Biopython ; la recherche de sources (aucune base vectorielle encore).
+- **Erreur de test corrigée en route :** une valeur de référence de GC % était fausse dans mon test
+  (9 bases G/C comptées au lieu de 10). Le code était juste ; le test a été corrigé, pas le code.
+
+### Décisions
+
+1. **Le code calcule, le LLM explique.** Les énoncés, les réponses et la correction viennent des fonctions
+   déterministes. Le LLM reçoit la réponse déjà calculée, avec la consigne de ne pas la recalculer ; un
+   garde-fou réinsère la valeur calculée si le texte du modèle l'omet.
+2. **Aucune dépendance** pour les calculs (Biopython reste optionnel et n'est pas utilisé).
+3. **Liste blanche d'outils** dans le module (`TOOLS`) : un nom d'outil venu d'un LLM ne peut désigner
+   aucune autre fonction. Pas de `getattr` sur un nom reçu.
+4. **L'énoncé d'un exercice est envoyé sans sa réponse** ; l'exercice est reconstruit côté module à partir
+   de (domaine, niveau, graine) pour corriger.
+5. **Adaptation simple et lisible** : deux réussites d'affilée font monter d'un niveau, deux échecs font
+   descendre ; trois niveaux (débutant, intermédiaire, avancé) règlent le vocabulaire demandé au LLM.
+6. **Unités dans les noms de fonctions** (`_m`, `_s`, `_kg`, `_pa`, `_k`, `_mol`) et refus des valeurs non
+   physiques (négatives, nulles, non finies).

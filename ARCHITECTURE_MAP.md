@@ -233,6 +233,14 @@ modules/
       obs_hud.css
       obs_hud.html
       obs_hud.js
+  genesis_lab/
+    __init__.py
+    astro.py
+    bio.py
+    chem.py
+    manifest.json
+    module.py
+    tutor.py
 scripts/
   __init__.py
   gen_architecture_map.py
@@ -261,6 +269,10 @@ tests/
     test_module.py
     test_obs_hud.py
     test_ui_fixes.py
+  genesis_lab/
+    __init__.py
+    test_calculs.py
+    test_tutor_module.py
   test_architecture_map.py
   test_relay_orchestrator.py
   test_repo_hygiene.py
@@ -572,6 +584,106 @@ Overlay pour OBS : une page web locale à fond transparent, à ajouter comme « 
   - `def stop(self) -> None`
   - `def payload(self) -> str` — État courant sérialisé. Une erreur de lecture donne un état vide, jamais une exception.
 - `def overlay_view(visible: dict[str, Any], gpus: list[dict[str, Any]], showcase: bool, max_quests: int=4) -> dict[str, Any]` — Réduit un état DÉJÀ FILTRÉ à ce que la page affiche. Ne lit que des champs connus, rien d'autre.
+
+### `modules/genesis_lab/__init__.py`
+
+genesis_lab — laboratoire scientifique et Professeur Personnel Adaptatif.
+
+*(aucun symbole public)*
+
+### `modules/genesis_lab/astro.py`
+
+Astrophysique : mécanique orbitale, magnitudes, conversions. Code déterministe, unités du SI.
+
+- `def orbital_period_s(semi_major_axis_m: float, gm_m3_s2: float=GM_SUN) -> float` — Troisième loi de Kepler : T = 2π √(a³ / GM). `gm` = G × (masse centrale + masse du satellite).
+- `def semi_major_axis_m(period_s: float, gm_m3_s2: float=GM_SUN) -> float` — Inverse de la troisième loi de Kepler : a = (GM T² / 4π²)^(1/3).
+- `def circular_speed_m_s(radius_m: float, gm_m3_s2: float=GM_EARTH) -> float` — Vitesse sur une orbite circulaire : v = √(GM / r).
+- `def vis_viva_speed_m_s(radius_m: float, semi_major_axis_m: float, gm_m3_s2: float=GM_SUN) -> float` — Équation de la vis-viva : v = √(GM (2/r − 1/a)), à la distance r sur une orbite de demi-grand axe a.
+- `def escape_speed_m_s(radius_m: float, gm_m3_s2: float=GM_EARTH) -> float` — Vitesse de libération : v = √(2 GM / r).
+- `def schwarzschild_radius_m(mass_kg: float) -> float` — Rayon de Schwarzschild : r = 2 G M / c².
+- `def absolute_magnitude(apparent_magnitude: float, distance_pc: float) -> float` — M = m − 5 log10(d / 10 pc).
+- `def distance_pc_from_magnitudes(apparent_magnitude: float, absolute_magnitude_value: float) -> float` — d = 10^((m − M + 5) / 5), en parsecs (module de distance, sans extinction).
+- `def distance_pc_from_parallax(parallax_arcsec: float) -> float` — d (pc) = 1 / parallaxe (secondes d'arc).
+- `def flux_ratio(magnitude_1: float, magnitude_2: float) -> float` — Rapport des flux F1/F2 = 10^(−0,4 (m1 − m2)) : 5 magnitudes d'écart = un facteur 100.
+- `def au_to_m(value_au: float) -> float`
+- `def m_to_au(value_m: float) -> float`
+- `def pc_to_ly(value_pc: float) -> float`
+- `def ly_to_pc(value_ly: float) -> float`
+- `def seconds_to_days(value_s: float) -> float`
+
+### `modules/genesis_lab/bio.py`
+
+Bio-informatique : lecture et analyse de séquences FASTA. Code déterministe, sans dépendance.
+
+- **`class SequenceError(ValueError)`** — Séquence ou fichier FASTA invalide.
+- **`class FastaRecord`**
+  - `def to_dict(self) -> dict[str, Any]`
+- **`class Orf`**
+  - `def to_dict(self) -> dict[str, Any]`
+- `def parse_fasta(text: str) -> list[FastaRecord]` — Lit un texte FASTA (un ou plusieurs enregistrements). Lève `SequenceError` s'il est mal formé.
+- `def base_counts(sequence: str) -> dict[str, int]`
+- `def gc_percent(sequence: str) -> float` — Pourcentage de G et C parmi les bases déterminées (les N sont exclus du dénominateur).
+- `def reverse_complement(sequence: str) -> str`
+- `def transcribe(sequence: str) -> str` — ADN (brin codant) → ARN messager.
+- `def translate(sequence: str, to_stop: bool=False) -> str` — Traduit en protéine depuis la première base. Codon contenant N : « X ». Bases en trop : ignorées.
+- `def find_orfs(sequence: str, min_aa: int=30, both_strands: bool=True) -> list[Orf]` — Cadres de lecture ouverts ATG…stop, sur les 3 cadres (et les 2 brins). Triés du plus long au plus court.
+- `def melting_temperature_wallace(sequence: str) -> float` — Tm d'un oligonucléotide court (règle de Wallace, valable jusqu'à ~14 bases) : 2(A+T) + 4(G+C), en °C.
+- `def hamming_distance(a: str, b: str) -> int` — Nombre de positions différentes entre deux séquences de même longueur.
+- `def global_alignment(a: str, b: str, match: int=1, mismatch: int=-1, gap: int=-1) -> dict[str, Any]` — Alignement global (Needleman-Wunsch) de deux séquences courtes. Coût en O(len(a) × len(b)).
+- `def analyze_fasta(text: str, min_orf_aa: int=30) -> list[dict[str, Any]]` — Analyse complète de chaque enregistrement : longueur, composition, GC %, ORF, protéine du plus long ORF.
+
+### `modules/genesis_lab/chem.py`
+
+Génie chimique : masses molaires, gaz parfait, bilans de matière, équilibres. Code déterministe.
+
+- **`class ChemistryError(ValueError)`** — Formule, composition ou grandeur invalide.
+- `def parse_formula(formula: str) -> dict[str, int]` — Composition atomique d'une formule brute, parenthèses comprises : « Al2(SO4)3 » → {Al: 2, S: 3, O: 12}.
+- `def molar_mass_g_mol(formula: str) -> float`
+- `def moles_from_mass(mass_g: float, formula: str) -> float`
+- `def mass_g_from_moles(amount_mol: float, formula: str) -> float`
+- `def mass_fractions(formula: str) -> dict[str, float]` — Fraction massique de chaque élément dans le composé (la somme vaut 1).
+- `def ideal_gas_volume_m3(amount_mol: float, temperature_k: float, pressure_pa: float) -> float` — V = n R T / P.
+- `def ideal_gas_moles(pressure_pa: float, volume_m3: float, temperature_k: float) -> float` — n = P V / (R T).
+- `def celsius_to_kelvin(temperature_c: float) -> float`
+- `def mix_streams(streams: list[dict[str, Any]]) -> dict[str, Any]` — Mélangeur en régime permanent, sans réaction.
+- `def dilution_volume(c1: float, v1: float, c2: float) -> float` — Dilution C1 V1 = C2 V2 : volume final V2, dans l'unité de V1. C2 doit être inférieure ou égale à C1.
+- `def balance_closure(inputs_kg_h: list[float], outputs_kg_h: list[float]) -> dict[str, float]` — Fermeture d'un bilan global : écart entre entrées et sorties, en kg/h et en pourcentage des entrées.
+- `def ph_strong_acid(concentration_mol_l: float) -> float` — pH d'un monoacide fort : −log10(C). Valable tant que C reste grand devant 10⁻⁷ mol/L.
+- `def ph_strong_base(concentration_mol_l: float, pkw: float=14.0) -> float` — pH d'une monobase forte à 25 °C : pKe + log10(C).
+- `def ph_weak_acid(concentration_mol_l: float, ka: float) -> float` — pH d'un monoacide faible : résolution exacte de Ka = x² / (C − x), sans l'approximation x ≪ C.
+- `def ph_buffer(pka: float, base_mol_l: float, acid_mol_l: float) -> float` — Équation de Henderson-Hasselbalch : pH = pKa + log10([base] / [acide]).
+- `def equilibrium_constant(delta_g_j_mol: float, temperature_k: float=298.15) -> float` — K = exp(−ΔG° / (R T)).
+
+### `modules/genesis_lab/module.py`
+
+Module du Hub : calculs scientifiques à la demande et Professeur adaptatif.
+
+- `def compute(tool: str, args: dict[str, Any] | None=None) -> Any` — Appelle un outil de la liste blanche. Lève `ValueError` pour tout autre nom ou des arguments invalides.
+- `def hub_llm(hub_api: str, model: str='', timeout_s: float=300.0) -> Callable[[list[dict[str, str]]], str]` — Fabrique un appel au modèle local **par le Hub** (API compatible OpenAI), jamais directement.
+- **`class GenesisLabModule(ModuleBase)`** — Calculs déterministes et Professeur adaptatif, pilotés par le bus.
+  - `def start(self) -> None`
+  - `def stop(self) -> None`
+  - `def health(self) -> Health`
+  - `def handle_event(self, event: Event) -> None`
+
+### `modules/genesis_lab/tutor.py`
+
+Professeur Personnel Adaptatif.
+
+- **`class Exercise`**
+  - `def to_dict(self, with_answer: bool=False) -> dict[str, Any]`
+- `def make_exercise(domain: str, level: int, seed: int) -> Exercise` — Exercice reproductible : mêmes domaine, niveau et graine → même exercice.
+- `def check_answer(exercise: Exercise, given: Any) -> bool` — Décide si la réponse est juste. Nombre : tolérance relative. Texte : comparaison sans casse ni espaces.
+- **`class LearnerProfile`**
+  - `def load(cls, path: Path) -> LearnerProfile`
+  - `def save(self, path: Path) -> None`
+- **`class Tutor`** — Évalue le niveau, propose des exercices, corrige, explique et mémorise la progression.
+  - `def placement_questions(self, domain: str) -> list[Exercise]` — Trois questions de difficulté croissante pour situer l'élève.
+  - `def submit_placement(self, domain: str, answers: list[Any]) -> int` — Niveau retenu = nombre de bonnes réponses consécutives depuis la plus facile (au moins 1).
+  - `def level(self, domain: str) -> int`
+  - `def next_exercise(self, domain: str) -> Exercise`
+  - `def answer(self, exercise: Exercise, given: Any) -> dict[str, Any]` — Corrige une réponse, adapte le niveau, mémorise, et rend l'explication avec ses sources.
+  - `def progress(self) -> dict[str, Any]`
 
 ### `scripts/gen_architecture_map.py`
 
