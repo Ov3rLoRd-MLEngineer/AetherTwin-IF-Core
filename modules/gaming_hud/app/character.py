@@ -50,6 +50,7 @@ class Character:
         self.name = ""
         self.title_name = ""    # nom + titre, comme en haut de la fenêtre de personnage
         self.realm = ""
+        self.region = ""        # « EU », « US »… (addon 1.7) : règle l'API Battle.net
         self.level = 1
         self.class_name = ""
         self.class_file = ""
@@ -91,6 +92,7 @@ class Character:
             "name": data.get("name", self.name),
             "title_name": data.get("titleName", self.title_name),
             "realm": data.get("realm", self.realm),
+            "region": data.get("region", self.region),
             "level": data.get("level", self.level),
             "class_name": data.get("class", self.class_name),
             "class_file": data.get("classFile", self.class_file),

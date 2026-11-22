@@ -856,3 +856,28 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   remercie » → « Bon appétit ». Aussi dans la consigne de Scantrad (plus : onomatopées par un équivalent court).
 - **Glossaire :** texte d'explication et exemple dans le champ « Ton ».
 - **Tests :** suite verte.
+## 2026-11-22 nuit (6) — WoW Assistant : Hôtel des ventes, addons existants, rendus officiels, Mythique+
+
+- **Agent :** Cloud (champ libre donné par Jérémy)
+- **Fichiers :** `modules/gaming_hud/app/` : `bnet.py`, `media.py`, `addon_data.py`, `tabs_market.py` (nouveaux),
+  `ui.py`, `tabs.py`, `tabs_collections.py`, `tabs_data.py`, `game_connection.py`, `gamedata.py`,
+  `character.py`, `main.py`, `README.md` ; addon `HermesAssistant` 1.7 ; tests `tests/gaming_hud/test_market.py`,
+  `test_addon_lua.py` ; `requirements-dev.txt` (lupa), `THIRD_PARTY.md`.
+- **Modèles 3D :** le 17/11, abandonnés faute de source. Source trouvée : l'**API Battle.net** de Blizzard
+  (officielle, client gratuit) donne le rendu du personnage tel qu'il est équipé et l'image des montures. Branchée
+  à la place des silhouettes (téléchargement en arrière-plan, cache, erreur affichée sans planter). Un modèle qui
+  tourne demanderait d'extraire les fichiers du jeu (outil tiers comme wow.export, puis un moteur 3D dans l'appli)
+  ou une visionneuse web tierce : écarté pour l'instant (lourd, et zone grise vis-à-vis des droits de Blizzard).
+- **Hôtel des ventes :** nouvel onglet. Prix de trois sources : Battle.net (marchandises de la région + objets du
+  royaume connecté, prix « du marché » = moyenne des 15 % les moins chers), TradeSkillMaster (données de
+  l'application TSM), Auctionator (scans, avec historique). Valeur des sacs et des banques, recherche, courbe,
+  conseil de vente par Hermes.
+- **Addons existants :** lecteurs dédiés TSM et Auctionator (formats déduits de leurs fichiers, lecteurs tolérants,
+  **non vérifiés sur de vraies données** : Jérémy n'a que HermesAssistant et ElitePlayerFrame) ; explorateur
+  générique des SavedVariables de n'importe quel addon, vérifié en réel sur ses deux addons.
+- **Fonction oubliée :** Mythique+ (cote, clé, donjons, semaine) exporté par l'addon 1.7 et affiché dans l'onglet
+  Instances ; la région du compte aussi (règle Battle.net). L'addon est maintenant **compilé à chaque lancement de
+  la suite** et sa collecte M+ exécutée contre de fausses API du jeu (lupa) : on le modifiait sans pouvoir le lancer.
+- **Bogue trouvé par les tests :** les rendus de Blizzard viennent de `render.worldofwarcraft.com`, refusé par la
+  première liste d'hôtes.
+- **Tests :** 13 nouveaux ; suite verte ; ruff propre.

@@ -76,6 +76,24 @@ layout.json · chat_history.json · wowhead_links.json · recipes.json
 - **Voix** : choix du micro (Paramètres > Voix), test du micro avec état en direct, niveau et messages d'erreur précis
   (le message indique la commande pip pour CE Python si `sounddevice` manque).
 
+## Nouveautés du 22/11/2026
+- **Onglet « Hôtel des ventes »** : valeur estimée des sacs et des banques, recherche du prix d'un objet (avec
+  l'historique Auctionator en courbe), « Conseil de vente (Hermes) ». Trois sources de prix, lues sans jamais rien
+  écrire : **API Battle.net** (HdV officiel, mis à jour chaque heure), **TradeSkillMaster** (données téléchargées
+  par l'application TSM : `TradeSkillMaster_AppHelper/AppData.lua`), **Auctionator** (vos scans).
+- **Données des addons** (même onglet) : tous les addons installés et ce qu'ils enregistrent (SavedVariables),
+  consultables en arbre ; « Expliquer (Hermes) ». Marche avec n'importe quel addon, sans code dédié.
+- **Rendu officiel du personnage** à la place de la silhouette « Modèle 3D », et **image des montures** dans les
+  Collections, par l'API Battle.net. Ce sont des images (pas un modèle qui tourne), mais ce sont les vraies :
+  équipement et transmogrification actuels.
+- **API Battle.net** : facultative ; un client gratuit créé sur https://develop.battle.net (client ID + secret, à
+  saisir dans l'onglet Hôtel des ventes ; gardés dans `settings.json` sur ce PC). Cache dans `cache/bnet/`.
+- **Mythique+** (onglet Instances et Chambre) : cote, clé en poche, meilleur niveau par donjon (vert : dans les
+  temps), clés de la semaine, « Conseils M+ (Hermes) ». Demande l'**addon 1.7** (copiez le dossier
+  `HermesAssistant` dans `Interface/AddOns`, puis /reload) ; l'addon exporte aussi la région du compte, qui
+  règle l'API Battle.net seule.
+- Plusieurs serveurs IA enregistrés (actif / inactif, fournisseur), modèles de tous les serveurs actifs.
+
 ## Correctifs du 17/11/2026
 - **Fermeture** : la croix de la fenêtre principale ferme bien l'appli, même après avoir ouvert (puis fermé) l'overlay.
 - **Champs de saisie** : rester appuyé sur une touche la répète ; curseur déplaçable (flèches, Début, Fin, clic), touche Suppr ;

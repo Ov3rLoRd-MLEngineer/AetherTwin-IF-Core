@@ -300,11 +300,50 @@ def _vault_level_text(kind, level):
     return f"Palier {level}"
 
 
+def _draw_mythic_plus(ui, rect, mp):
+    """Cote Mythique+, clé en poche, meilleur niveau par donjon (vert : dans les temps), clés de la semaine."""
+    x, y, w, h = rect
+    ui.frame(rect, "Mythique+")
+    if not mp["dungeons"] and not mp["score"]:
+        message(ui, rect, ["Pas encore de données Mythique+",
+                           "(addon HermesAssistant 1.7 : copiez-le dans le jeu, puis /reload)"])
+        return
+    ui.text(f"Cote : {mp['score']}", "large", "gold", (x + 16, y + 44), shadow=True)
+    key = mp["keystone"]
+    ui.text(ui.fit(f"Clé en poche : {key['name']} +{key['level']}" if key else "Pas de clé en poche", "medium",
+                   w - 280), "medium", "text" if key else "gray", (x + 240, y + 50))
+    week = mp["week"]
+    if week:
+        best = max(r["level"] for r in week)
+        done = sum(1 for r in week if r["completed"])
+        ui.text(f"Cette semaine : {len(week)} clés, {done} terminées, meilleure +{best}", "small", "light_gray",
+                (x + 240, y + 76))
+    dungeons = sorted(mp["dungeons"], key=lambda d: (-d["level"], d["name"]))
+    col_w = (w - 40) // 2
+    for n, d in enumerate(dungeons[:8]):
+        cx = x + 16 + (n % 2) * (col_w + 8)
+        cy = y + 104 + (n // 2) * 26
+        color = "gray" if not d["level"] else ("green" if d["inTime"] else "orange")
+        ui.text(ui.fit(d["name"], "small", col_w - 120), "small", "text", (cx, cy))
+        ui.text(f"+{d['level']}" if d["level"] else "—", "small", color, (cx + col_w - 70, cy), anchor="topright")
+        ui.text(str(d["score"]) if d["score"] else "", "small", "light_gray", (cx + col_w - 8, cy), anchor="topright")
+    context = "\n".join([f"Cote Mythique+ : {mp['score']}",
+                         f"Clé : {key['name']} +{key['level']}" if key else "Pas de clé"]
+                        + [f"{d['name']} : +{d['level']} ({'dans les temps' if d['inTime'] else 'hors temps'}), "
+                           f"score {d['score']}" for d in dungeons])
+    ui.pill((x + w - 226, y + h - 44, 210, 30), "Conseils M+ (Hermes)", False,
+            lambda: ui.ask_assistant("Mythique+", context,
+                                     suggestions=["Quel donjon pousser pour monter ma cote ?",
+                                                  "Que faire de ma clé cette semaine ?"]))
+
+
 def draw_instances(ui, ctx, rect):
     x, y, w, h = rect
     data = ctx.data
-    left = (x, y, 800, h)
+    mythic_h = 250
+    left = (x, y, 800, h - mythic_h - 12)
     right = (x + 816, y, w - 816, h)
+    _draw_mythic_plus(ui, (x, y + h - mythic_h, 800, mythic_h), data.mythicPlus)
 
     # ---------------- verrouillages
     instances, bosses = data.lockouts["instances"], data.lockouts["worldBosses"]

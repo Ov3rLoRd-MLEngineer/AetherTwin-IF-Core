@@ -28,6 +28,8 @@ from widgets_builtin import ChatState, build_specs
 from settings import Settings
 from llm import LLMClient
 from snapcache import SnapshotCache
+from bnet import BattleNet
+from media import MediaStore
 
 
 def resolve_game_path(settings):
@@ -78,6 +80,8 @@ def main():
     ui.vision, ui.voice = vision, voice
     webhost = WebHost(settings)
     ui.webhost = webhost
+    # API Battle.net (facultative) : rendus officiels, images des montures, prix de l'Hôtel des ventes
+    ui.media = MediaStore(BattleNet(settings, os.path.join(WoWConfig.BASE_DIR, "cache", "bnet")))
     focus = FocusManager(settings)
     monitor = CombatMonitor(os.path.join(WoWConfig.WOW_PATH, "Logs"), settings.get("focus.quiet_seconds", 5))
     hotkeys = Hotkeys()

@@ -135,6 +135,7 @@ function A:CollectCharacter()
         name = name,
         titleName = try(UnitPVPName, "player") or name,   -- nom + titre, comme dans la fenêtre de personnage
         realm = try(GetRealmName) or "",
+        region = (GetCurrentRegionName and try(GetCurrentRegionName)) or "",   -- « EU », « US »… (API Battle.net)
         level = try(UnitLevel, "player") or 1,
         race = race or "",
         raceFile = raceFile or "",
@@ -748,6 +749,40 @@ function A:CollectLockouts()
     return out, true
 end
 
+-- Mythique+ : cote globale, clé en poche, meilleurs résultats par donjon, donjons faits cette semaine.
+-- Chaque appel est protégé : si une API manque (autre version du jeu), la section reste simplement vide.
+function A:CollectMythicPlus()
+    local out = { score = 0, keystone = nil, dungeons = {}, week = {} }
+    if not (C_ChallengeMode and C_MythicPlus) then return out, false end
+    out.score = try(C_ChallengeMode.GetOverallDungeonScore) or 0
+    local keyMap = try(C_MythicPlus.GetOwnedKeystoneChallengeMapID)
+    local keyLevel = try(C_MythicPlus.GetOwnedKeystoneLevel)
+    if keyMap and keyLevel then
+        local name = try(C_ChallengeMode.GetMapUIInfo, keyMap)
+        out.keystone = { mapID = keyMap, name = name or "", level = keyLevel }
+    end
+    local maps = try(C_ChallengeMode.GetMapTable)
+    for _, mapID in ipairs(type(maps) == "table" and maps or {}) do
+        local name = try(C_ChallengeMode.GetMapUIInfo, mapID)
+        local best, level, score = nil, 0, 0
+        if C_MythicPlus.GetSeasonBestAffixScoreInfoForMap then
+            local affixScores, overall = try(C_MythicPlus.GetSeasonBestAffixScoreInfoForMap, mapID)
+            score = overall or 0
+            for _, a in ipairs(type(affixScores) == "table" and affixScores or {}) do
+                if (a.level or 0) > level then level, best = a.level or 0, a end
+            end
+        end
+        out.dungeons[#out.dungeons + 1] = { mapID = mapID, name = name or "", level = level, score = score,
+                                            inTime = best and not best.overTime or false }
+    end
+    local runs = C_MythicPlus.GetRunHistory and try(C_MythicPlus.GetRunHistory, false, true)
+    for _, r in ipairs(type(runs) == "table" and runs or {}) do
+        local name = try(C_ChallengeMode.GetMapUIInfo, r.mapChallengeModeID or 0)
+        out.week[#out.week + 1] = { name = name or "", level = r.level or 0, completed = r.completed and true or false }
+    end
+    return out, #out.dungeons > 0
+end
+
 function A:CollectVault()
     local out = { activities = {}, canClaim = false, hasRewards = false }
     if not (C_WeeklyRewards and C_WeeklyRewards.GetActivities) then return out end
@@ -1118,9 +1153,10 @@ local LAZY = {
     factions = "CollectFactions",
     lockouts = "CollectLockouts",
     vault = "CollectVault",
+    mythicPlus = "CollectMythicPlus",
 }
 A.dirty = { talents = true, spellbook = true, achievements = true, collections = true,
-            currencies = true, factions = true, lockouts = true, vault = true }
+            currencies = true, factions = true, lockouts = true, vault = true, mythicPlus = true }
 
 local EVENT_DIRTY = {
     PLAYER_TALENT_UPDATE = { "talents", "spellbook" },
@@ -1135,6 +1171,9 @@ local EVENT_DIRTY = {
     NEW_TOY_ADDED = { "collections" },
     HEIRLOOMS_UPDATED = { "collections" },
     CURRENCY_DISPLAY_UPDATE = { "currencies" },
+    CHALLENGE_MODE_COMPLETED = { "mythicPlus", "vault" },
+    CHALLENGE_MODE_MAPS_UPDATE = { "mythicPlus" },
+    BAG_UPDATE_DELAYED = { "mythicPlus" },   -- la clé change de main ou de niveau
     UPDATE_FACTION = { "factions" },
     MAJOR_FACTION_RENOWN_LEVEL_CHANGED = { "factions" },
     UPDATE_INSTANCE_INFO = { "lockouts" },
@@ -1347,6 +1386,7 @@ local optionalEvents = {
     "UPDATE_INSTANCE_INFO", "WEEKLY_REWARDS_UPDATE",
     "QUEST_WATCH_LIST_CHANGED", "SUPER_TRACKING_CHANGED", "QUEST_TURNED_IN", "PLAYER_DEAD",
     "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "GUILDBANKFRAME_OPENED", "GUILDBANKBAGSLOTS_CHANGED",
+    "CHALLENGE_MODE_COMPLETED", "CHALLENGE_MODE_MAPS_UPDATE",
 }
 for _, ev in ipairs(optionalEvents) do
     pcall(frame.RegisterEvent, frame, ev)

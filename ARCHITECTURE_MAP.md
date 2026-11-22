@@ -196,6 +196,8 @@ modules/
         HermesAssistant.lua
         HermesAssistant.toc
     app/
+      addon_data.py
+      bnet.py
       character.py
       clipboard.py
       config.py
@@ -211,6 +213,7 @@ modules/
       llm.py
       lua_parser.py
       main.py
+      media.py
       mousepos.py
       overlay.py
       quests.py
@@ -222,6 +225,7 @@ modules/
       tabs.py
       tabs_collections.py
       tabs_data.py
+      tabs_market.py
       tabutil.py
       theme.py
       ui.py
@@ -316,6 +320,8 @@ tests/
     __init__.py
     conftest.py
     test_adapters.py
+    test_addon_lua.py
+    test_market.py
     test_module.py
     test_obs_hud.py
     test_ui_fixes.py

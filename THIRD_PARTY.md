@@ -35,6 +35,13 @@ FastAPI installe aussi `starlette` (BSD-3-Clause) et `pydantic` (MIT).
 |---|---|---|---|
 | onnxruntime | 1.32.0 | MIT | exécute LaMa sur le processeur (Scantrad) |
 | faster-whisper (facultatif, `-Voice`) | 1.2.1 | MIT | reconnaissance vocale locale (onglet Traduction) |
+| lupa (développement seulement) | 2.8 | MIT | tests : compile l'addon HermesAssistant et exécute ses fonctions sur un faux jeu |
+
+Services en ligne facultatifs (désactivés tant que l'utilisateur n'y met pas ses identifiants) :
+
+| Service | Conditions | Usage |
+|---|---|---|
+| API Battle.net (Blizzard) | conditions d'utilisation des API de Blizzard (développeur gratuit) | WoW Assistant : rendus du personnage, images des montures, prix de l'Hôtel des ventes |
 
 Modèles téléchargés (non versionnés, dans `models/` ou le cache Hugging Face) :
 

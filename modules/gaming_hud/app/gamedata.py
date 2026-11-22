@@ -29,6 +29,7 @@ _DEFAULTS = {
     "factions": [],
     "lockouts": {"instances": [], "worldBosses": []},
     "vault": {"activities": [], "canClaim": False, "hasRewards": False},
+    "mythicPlus": {"score": 0, "keystone": None, "dungeons": [], "week": []},
     "warbandBank": {"updated": 0, "money": 0, "tabs": []},
     "guildBank": {"guild": "", "money": 0, "updated": 0, "tabs": []},
     "log": [],

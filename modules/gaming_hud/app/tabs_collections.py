@@ -84,10 +84,16 @@ def _two_columns(ui, area, scroll_key, entries, view, keyfn, draw_cell):
     ui.scroll_end()
 
 
-def _detail(ui, rect, caption, tint, shape, title, title_color, lines, url, llm_title, llm_context):
+def _detail(ui, rect, caption, tint, shape, title, title_color, lines, url, llm_title, llm_context, media=None):
+    """`media` : (clé, fonction qui rend le chemin de l'image) pour une image Battle.net à la place du modèle."""
     x, y, w, h = rect
     ui.frame(rect, "Détail")
-    ui.model_placeholder((x + 16, y + 46, w - 32, 300), caption, tint, shape)
+    box = (x + 16, y + 46, w - 32, 300)
+    if media and ui.media is not None and ui.media.available():
+        ui.media.request(*media)
+        ui.media_view(box, media[0], caption, tint, shape)
+    else:
+        ui.model_placeholder(box, caption, tint, shape)
     ry = y + 360
     ui.text(ui.fit(title, "large", w - 32), "large", title_color, (x + 16, ry), shadow=True)
     ry += 38
@@ -166,7 +172,8 @@ def _mounts(ui, ctx, rect):
     _detail(ui, right, "Modèle 3D de la monture", (40, 44, 60), "object", m["name"], C["gold"],
             [("Obtenue" if m["collected"] else "Pas encore obtenue", C["green"] if m["collected"] else C["orange"]),
              (source, C["light_gray"]), (desc, C["gray"])], url, f"Monture : {m['name']}",
-            _context("Monture", m["name"], "obtenue" if m["collected"] else "pas encore obtenue", [f"Source : {source}", desc], url))
+            _context("Monture", m["name"], "obtenue" if m["collected"] else "pas encore obtenue", [f"Source : {source}", desc], url),
+            media=(f"mount:{m['id']}", lambda mid=m["id"]: ui.media.bnet.mount_image(mid)))
 
 
 # ===========================================================================

@@ -21,6 +21,7 @@ import voice as voice_mod
 from character import EQUIPMENT_LAYOUT, Character, format_duration
 from config import WoWConfig
 from llm import PROVIDERS, enabled_servers, guess_provider, list_models_at
+from media import fit_image
 from quests import QuestTracker
 from theme import C, QUALITY_COLORS, clean_wow_text, hex_to_rgb
 from wowhead import IconCache, LinkResolver
@@ -31,7 +32,7 @@ SLOT_SHORT = {1: "Tête", 2: "Cou", 3: "Épaul.", 15: "Dos", 5: "Torse", 4: "Che
 
 TAB_NAMES = ["Personnage", "Talents et grimoire", "Journal des quêtes", "Sacs", "Métiers",
              "Hauts Faits", "Collections du bataillon", "Historique d'activité",
-             "Réputations et monnaies", "Instances et Chambre"]
+             "Réputations et monnaies", "Instances et Chambre", "Hôtel des ventes"]
 
 
 class UI:
@@ -66,6 +67,8 @@ class UI:
         self.icons = icons or IconCache()
         self.settings = settings
         self.llm = llm
+        self.media = None                 # MediaStore (rendus Battle.net), branché par main.py
+        self.market = None                # Market (prix HdV : Battle.net, TSM, Auctionator), branché par main.py
         self.manager = None               # WidgetManager (mode overlay)
         self.chat = None                  # ChatState (widget Assistant)
         self.webhost = None               # WebHost (widgets web dans des processus isolés)
@@ -987,9 +990,37 @@ class UI:
 
     def _draw_model_placeholder(self, rect, c):
         tint = tuple(int(v * 0.16) + 18 for v in c.class_color)
+        if c.name and c.realm and self.media is not None and self.media.available():
+            key = f"char:{c.realm}:{c.name}"
+            self.media.request(key, lambda: self.media.bnet.character_render(c.realm, c.name))
+            if self.media_view(rect, key, "Rendu officiel du personnage", tint, "person"):
+                return
         self.model_placeholder(rect, "Modèle 3D", tint, shape="person")
 
-    def model_placeholder(self, rect, caption="Modèle 3D", tint=(40, 40, 46), shape="object"):
+    def media_view(self, rect, key, caption, tint, shape="object"):
+        """Image Battle.net dans un emplacement de modèle ; False si elle n'est pas affichable (placeholder alors
+        dessiné ici avec l'état : chargement ou erreur)."""
+        x, y, w, h = rect
+        image = self.media.surface(key)
+        if image is None:
+            state = self.media.state(key)
+            self.model_placeholder(rect, caption, tint, shape,
+                                   note="chargement…" if state in ("en cours", "absente") else "indisponible")
+            if state == "erreur":
+                self.tip(pygame.Rect(rect), {"rows": [(self.media.error(key), C["orange"], "")],
+                                             "footer": "Clic : réessayer"})
+                self.click(pygame.Rect(rect), lambda: self.media.retry(key))
+            return True
+        pygame.draw.rect(self.screen, (8, 8, 11), rect, border_radius=4)
+        cached = self._cache.get(("media", key, w, h))
+        if cached is None:
+            cached = self._cache[("media", key, w, h)] = fit_image(image, w - 8, h - 8)
+        self.screen.blit(cached, (x + (w - cached.get_width()) // 2, y + (h - cached.get_height()) // 2))
+        pygame.draw.rect(self.screen, C["frame_lo"], rect, 1, border_radius=4)
+        self.text("Rendu Battle.net", "tiny", "gray", (x + w - 6, y + h - 4), anchor="bottomright")
+        return True
+
+    def model_placeholder(self, rect, caption="Modèle 3D", tint=(40, 40, 46), shape="object", note="à venir"):
         """Emplacement réservé au futur modèle 3D (personnage, monture, mascotte, objet...)."""
         x, y, w, h = rect
         pygame.draw.rect(self.screen, (8, 8, 11), rect, border_radius=4)
@@ -1007,7 +1038,7 @@ class UI:
             pygame.draw.circle(self.screen, tint, (cx, cy), r)
             pygame.draw.circle(self.screen, tuple(min(255, v + 14) for v in tint), (cx, cy), r, 3)
         self.text(caption, "medium", "gray", (cx, y + h - 46), anchor="center")
-        self.text("à venir", "small", "gray", (cx, y + h - 24), anchor="center")
+        self.text(note, "small", "gray", (cx, y + h - 24), anchor="center")
 
     def detail_buttons(self, x, y, url, title, context):
         """Deux boutons standard : ouvrir sur Wowhead / envoyer à l'assistant (Hermes)."""

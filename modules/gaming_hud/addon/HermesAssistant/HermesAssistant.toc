@@ -2,7 +2,7 @@
 ## Title: Hermes Assistant
 ## Notes: Exporte personnage, équipement, sacs, quêtes, métiers, talents, hauts faits et collections pour WoW Assistant
 ## Author: Jérémy
-## Version: 1.6.0
+## Version: 1.7.0
 ## SavedVariables: HermesAssistantCharDB
 
 HermesAssistant.lua

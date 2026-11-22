@@ -157,6 +157,18 @@ def _normalize_vault(raw):
             "hasRewards": bool(raw.get("hasRewards"))}
 
 
+def _normalize_mythic(raw):
+    """Mythique+ (addon 1.7) : cote, clé en poche, meilleurs résultats par donjon, clés de la semaine."""
+    raw = _as_dict(raw)
+    key = _as_dict(raw.get("keystone"))
+    return {"score": _int(raw.get("score")),
+            "keystone": {"name": str(key.get("name", "")), "level": _int(key.get("level"))} if key.get("level") else None,
+            "dungeons": [{"name": str(d.get("name", "")), "level": _int(d.get("level")), "score": _int(d.get("score")),
+                          "inTime": bool(d.get("inTime"))} for d in _dict_list(raw.get("dungeons"))],
+            "week": [{"name": str(r.get("name", "")), "level": _int(r.get("level")), "completed": bool(r.get("completed"))}
+                     for r in _dict_list(raw.get("week"))]}
+
+
 def _normalize_talents(raw):
     raw = _as_dict(raw)
     return {
@@ -361,6 +373,7 @@ class GameConnection:
             "factions": _dict_list(db.get("factions")),
             "lockouts": _normalize_lockouts(db.get("lockouts")),
             "vault": _normalize_vault(db.get("vault")),
+            "mythicPlus": _normalize_mythic(db.get("mythicPlus")),
             "warbandBank": _normalize_bank(db.get("warbandBank")),
             "guildBank": _normalize_guild_bank(db.get("guildBank")),
             "log": _dict_list(db.get("log")),
