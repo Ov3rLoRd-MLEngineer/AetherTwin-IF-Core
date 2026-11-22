@@ -106,6 +106,16 @@ class Inoue:
                 self._queue.append(_Waiting(name, min_gb, comfort))
             return Decision(Verdict.QUEUED, 0.0, f"{free:.1f} Go libres sur {budget:.1f}, {min_gb:.1f} demandés")
 
+    def adopt(self, name: str, gb: float, llm: str | None = None) -> Decision:
+        """Enregistre ce qui est **déjà** en VRAM (un modèle chargé par un autre programme sur le même Ollama) :
+        rien à réserver, sa place est déjà dans la mesure. Sans cela, il était compté deux fois et refusé
+        (essai réel du 22/11 : modèle de vision déjà chargé, « 1,8 Go libres, 6,4 demandés »)."""
+        with self._lock:
+            self._allocations[name] = gb
+            if llm is not None:
+                self._llms[llm] = gb
+            return Decision(Verdict.GRANTED, gb, "déjà en mémoire")
+
     def release(self, name: str) -> list[tuple[str, Decision]]:
         """Libère l'attribution d'un module, puis sert la file d'attente dans l'ordre d'arrivée."""
         with self._lock:

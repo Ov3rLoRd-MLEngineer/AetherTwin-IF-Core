@@ -12,6 +12,7 @@ DEFAULTS = {
     "llm": {
         "mode": "api",                       # "api" (compatible OpenAI : Ollama, LM Studio, vLLM, Open WebUI, Omniroute...) ou "exe"
         "endpoint": "",                      # ex. http://127.0.0.1:11434/v1
+        "servers": [],                       # serveurs enregistrés : [{"url", "api_key", "enabled"}] ; l'actif reste "endpoint"
         "model": "",
         "api_key": "",
         "exe_path": "hermes.exe",

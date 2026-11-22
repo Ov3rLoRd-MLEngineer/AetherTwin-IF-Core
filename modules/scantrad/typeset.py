@@ -109,8 +109,11 @@ def make_typesetter(font_path: str = "", color: tuple[int, int, int] = (0, 0, 0)
                                            max_size=max(16, min(56, page.shape[0] // 32)))
             font = load(size)
             top = ay + (ah - len(lines) * line_height) / 2
+            # texte posé sur le dessin (zone annexe) : blanc cerné de noir, lisible sans effacer l'image
+            style = ({"fill": (255, 255, 255), "stroke_width": max(2, size // 7), "stroke_fill": (0, 0, 0)}
+                     if bubble.outline else {"fill": color})
             for i, line in enumerate(lines):
                 left = ax + (aw - draw.textlength(line, font=font)) / 2
-                draw.text((left, top + i * line_height), line, font=font, fill=color)
+                draw.text((left, top + i * line_height), line, font=font, **style)
         return cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR)
     return typeset

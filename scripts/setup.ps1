@@ -3,8 +3,13 @@
 #   .\scripts\setup.ps1 -Gpu         # + PyTorch CUDA et segment-anything (mangastudio), environ 3 Go
 #   .\scripts\setup.ps1 -Weights     # + poids HandSegNet / FootSegNet (2 × 375 Mo, Hugging Face)
 #   .\scripts\setup.ps1 -Shortcut    # + raccourci « AetherTwin » sur le bureau
+#   .\scripts\setup.ps1 -Voice       # + reconnaissance vocale locale (faster-whisper) pour l'onglet Traduction ;
+#                                    #   le modèle « small » (~480 Mo, Hugging Face) se télécharge au premier message
+# Si Windows refuse d'exécuter le script (« l'exécution de scripts est désactivée »), passe par
+# `Installer AetherTwin.bat` à la racine : il autorise ce script pour ce lancement seulement, sans changer le
+# réglage de Windows.
 # Le script ne touche à rien en dehors du dossier du projet, sauf le raccourci demandé par -Shortcut.
-param([switch]$Gpu, [switch]$Weights, [switch]$Shortcut)
+param([switch]$Gpu, [switch]$Weights, [switch]$Shortcut, [switch]$Voice)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
@@ -27,6 +32,12 @@ if ($Gpu) {
     Write-Host "Dépendances GPU (PyTorch CUDA 12.8, segment-anything) : quelques minutes..."
     & $py -m pip install --quiet -r requirements-gpu.txt
     if ($LASTEXITCODE -ne 0) { throw "Installation des dépendances GPU impossible (git est-il installé ?)." }
+}
+
+if ($Voice) {
+    Write-Host "Reconnaissance vocale locale (faster-whisper)..."
+    & $py -m pip install --quiet -r requirements-voice.txt
+    if ($LASTEXITCODE -ne 0) { throw "Installation de faster-whisper impossible." }
 }
 
 if ($Weights) {

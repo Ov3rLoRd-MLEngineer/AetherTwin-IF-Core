@@ -327,3 +327,45 @@ def test_toolbar_shows_every_button_entirely(app) -> None:
     labels_right = max(rect.right for rect, _fn in app._ctx_store["overlay"]["_buttons"] if rect.y < bar["y"] + 40
                        and rect.y >= bar["y"])
     assert labels_right <= bar["x"] + bar["w"], "un bouton de la barre d'outils dépasse de la barre"
+
+
+def test_several_ai_servers_can_be_saved_toggled_and_queried(app, monkeypatch) -> None:
+    """Plusieurs serveurs IA : liste enregistrée, actif / inactif, modèles de chaque serveur actif ; choisir un
+    modèle sélectionne aussi son serveur (demande de Jérémy, 22/11)."""
+    import llm
+    import ui as ui_mod
+
+    asked = []
+
+    def fake_list(url, key=""):
+        asked.append(url)
+        return ({"http://127.0.0.1:5750": ["qwen3-27b:latest"], "http://127.0.0.1:11434/v1": ["llava:34b"]}
+                .get(url, []), "" if "5750" in url or "11434" in url else "injoignable")
+
+    monkeypatch.setattr(ui_mod, "list_models_at", fake_list)
+    app.open_settings("llm")
+    app.inputs["set_endpoint"] = "http://127.0.0.1:5750"
+    app._add_server()
+    app.inputs["set_endpoint"] = "http://127.0.0.1:11434/v1"
+    app._add_server()
+    app._add_server()  # déjà présent : pas de doublon
+    app.inputs["set_endpoint"] = "http://127.0.0.1:9999"
+    app._add_server()
+    assert [s["url"] for s in app.settings.get("llm.servers")] == [
+        "http://127.0.0.1:5750", "http://127.0.0.1:11434/v1", "http://127.0.0.1:9999"]
+    app._toggle_server(2)  # le serveur 9999 n'est plus interrogé
+    app.inputs["set_endpoint"] = "http://127.0.0.1:5750"
+    app._load_models()
+    while not app.modal["bg"]["done"]:
+        pass
+    app.draw(app.test_ctx)
+    assert sorted(asked) == ["http://127.0.0.1:11434/v1", "http://127.0.0.1:5750"]
+    assert ("llava:34b", "http://127.0.0.1:11434/v1", "") in app.modal["models"]
+    assert "2 serveur(s)" in app.modal["status"]
+    app.draw(app.test_ctx)
+    shot(app, "settings_llm_servers")
+    app._use_server(1)
+    assert app.inputs["set_endpoint"] == "http://127.0.0.1:11434/v1"
+    app._remove_server(2)
+    assert len(app.settings.get("llm.servers")) == 2
+    assert llm.enabled_servers(app.settings, "http://127.0.0.1:5750/")[0]["url"] == "http://127.0.0.1:5750"

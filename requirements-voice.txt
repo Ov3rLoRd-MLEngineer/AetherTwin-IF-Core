@@ -1,0 +1,2 @@
+# Reconnaissance vocale locale de l'onglet Traduction (facultatif) : scripts\setup.ps1 -Voice
+faster-whisper==1.2.1

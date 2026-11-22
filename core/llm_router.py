@@ -167,6 +167,15 @@ class LlmRouter:
             return
         self.sync()
         need = self.estimate_vram_gb(model)
+        loaded = {m["name"]: m["vram_gb"] for m in self.loaded()}
+        if model in loaded:  # déjà chargé (par ce Hub ou un autre client d'Ollama) : rien de neuf à placer
+            big = need >= self.config.big_model_gb
+            state = self.inoue.state()
+            if (big and model in state["loaded_llms"]) or f"llm-small:{model}" in state["allocations"]:
+                return
+            self.inoue.adopt(f"llm:{model}" if big else f"llm-small:{model}", loaded[model] or need,
+                             llm=model if big else None)
+            return
         if need < self.config.big_model_gb:  # petit modèle (vision 7 B, embeddings) : simple attribution
             decision = self.inoue.request(f"llm-small:{model}", need)
             if decision.verdict is not Verdict.GRANTED:

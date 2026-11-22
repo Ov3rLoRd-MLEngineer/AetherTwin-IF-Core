@@ -38,16 +38,14 @@ import numpy as np
 
 from core.module_api import Event, Health, ModuleBase
 from modules.scantrad import manual
-from modules.scantrad.cli import DEFAULT_DATA, build, glossary_for, read_image, write_image
+from modules.scantrad.cli import DEFAULT_DATA, LAYOUTS, build, glossary_for, read_image, write_image
 from modules.scantrad.hub_stages import (
-    MANUAL_OCR_COLUMN,
-    MANUAL_OCR_HORIZONTAL,
-    MANUAL_OCR_VERTICAL,
     hub_chat,
     make_translator,
     make_vision_ocr,
     read_by_columns,
 )
+from modules.scantrad.languages import language, ocr_prompt
 from modules.scantrad.pipeline import Bubble
 from modules.scantrad.typeset import make_typesetter, text_area
 
@@ -87,7 +85,8 @@ def retypeset(output: Path, translations: dict[str, str], font: str = "") -> lis
         x, y, w, h = row["box"]
         bubbles.append(Bubble(row["index"], tuple(row["box"]), np.full((h, w), 255, np.uint8),
                               np.zeros((h, w), np.uint8), row["source"], row["translation"],
-                              area=tuple(row["area"]), vertical=bool(row.get("vertical"))))
+                              area=tuple(row["area"]), vertical=bool(row.get("vertical")),
+                              kind=str(row.get("kind") or "bulle"), outline=bool(row.get("outline"))))
     write_image(output, make_typesetter(font)(read_image(clean_path), bubbles))
     job_path.write_text(json.dumps(job, ensure_ascii=False, indent=1), encoding="utf-8")
     return job["bubbles"]
@@ -97,13 +96,21 @@ MANUAL_COMMANDS = ("suggest", "read", "translate", "erase", "compose")
 
 
 def compose(source: Path, output: Path, rows: Any, font: str = "", auto_erase: bool = True,
-            series: str = "") -> list[dict[str, Any]]:
+            series: str = "", lang: str = "ja") -> list[dict[str, Any]]:
     """Page traduite du mode manuel : bulles = boîtes posées à la main ; base = page gommée si elle existe
-    (sinon l'original), puis, sauf refus, effacement automatique du texte restant dans les boîtes."""
+    (sinon l'original), puis, sauf refus, effacement automatique du texte restant dans les boîtes.
+
+    Zones annexes (`"kind": "annexe"` : onomatopée, panneau, texte hors bulle), deux façons de réincruster :
+    - `"style": "contour"` (défaut) : le dessin n'est pas touché ; le français est écrit en blanc cerné de noir
+      par-dessus, comme le font les traducteurs pour les onomatopées ;
+    - `"style": "efface"` : comme une bulle (effacement automatique et gomme), utile sur fond uni."""
     page = read_image(source)
+    spec = language(lang)
     if not isinstance(rows, list):
         raise ValueError("`bubbles` : liste de {box, source, translation}")
     boxes = manual.parse_boxes([r.get("box") if isinstance(r, dict) else None for r in rows], page.shape)
+    kinds = ["annexe" if r.get("kind") == "annexe" else "bulle" for r in rows]
+    outlined = [k == "annexe" and rows[i].get("style", "contour") != "efface" for i, k in enumerate(kinds)]
     clean_path, _job_path = work_paths(output)
     cleaned = page
     if clean_path.is_file():
@@ -111,19 +118,21 @@ def compose(source: Path, output: Path, rows: Any, font: str = "", auto_erase: b
         if cleaned.shape != page.shape:
             raise ValueError("la page gommée n'a pas la taille de l'original")
     if auto_erase:
-        cleaned = manual.erase_in_boxes(cleaned, boxes)
+        cleaned = manual.erase_in_boxes(cleaned, [b for b, keep in zip(boxes, outlined, strict=True) if not keep])
     bubbles = manual.bubbles_from_boxes(boxes)
-    for bubble, row in zip(bubbles, rows, strict=True):
+    for i, (bubble, row) in enumerate(zip(bubbles, rows, strict=True)):
         bubble.source = str(row.get("source") or "")[:MAX_TRANSLATION]
         text = row.get("translation") or ""
         if not isinstance(text, str) or len(text) > MAX_TRANSLATION:
             raise ValueError(f"traduction de la bulle {bubble.index} invalide (texte de {MAX_TRANSLATION} car. max)")
         bubble.translation = " ".join(text.split())
+        bubble.kind, bubble.outline = kinds[i], outlined[i]
         x, y, w, h = bubble.box
-        bubble.vertical = manual.is_vertical(page[y:y + h, x:x + w])
-        bubble.area = manual.widen_area(cleaned, bubble.box)  # une colonne étroite s'élargit dans sa bulle
+        bubble.vertical = spec.vertical and manual.is_vertical(page[y:y + h, x:x + w])
+        # une colonne étroite s'élargit dans sa bulle ; une zone annexe garde son cadre (le dessin l'entoure)
+        bubble.area = bubble.box if bubble.outline else manual.widen_area(cleaned, bubble.box)
     # les zones posées à la main sont une vérité de terrain : `manual.evaluate` y mesure la détection automatique
-    save_work(output, cleaned, bubbles, {"mode": "manuel", "source": source.name, "series": series,
+    save_work(output, cleaned, bubbles, {"mode": "manuel", "source": source.name, "series": series, "lang": spec.code,
                                          "page_size": [int(page.shape[1]), int(page.shape[0])]})
     return retypeset(output, {}, font)
 
@@ -178,21 +187,26 @@ class ScantradModule(ModuleBase):
         return hub_chat(str(self.config.get("hub_api", "http://127.0.0.1:5750")))
 
     def _manual_suggest(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return {"boxes": manual.suggest_boxes(read_image(self._source(payload)))}
+        spec = language(payload.get("lang"))
+        layout = str(payload.get("layout") or "auto")
+        if layout not in LAYOUTS:
+            raise ValueError(f"mise en page inconnue : {layout!r}")
+        return {"boxes": manual.suggest_boxes(read_image(self._source(payload)), spec.right_to_left, LAYOUTS[layout])}
 
     def _manual_read(self, payload: dict[str, Any]) -> dict[str, Any]:
         page = read_image(self._source(payload))
+        spec = language(payload.get("lang"))
         bubbles = manual.bubbles_from_boxes(manual.parse_boxes(payload.get("boxes"), page.shape))
         model = str(self.config.get("ocr_model", "qwen2.5vl:7b"))
         chat = self._chat()
-        whole_vertical = make_vision_ocr(chat, model, prompt=MANUAL_OCR_VERTICAL)
-        horizontal = make_vision_ocr(chat, model, prompt=MANUAL_OCR_HORIZONTAL)
-        one_column = make_vision_ocr(chat, model, prompt=MANUAL_OCR_COLUMN)
+        whole_vertical = make_vision_ocr(chat, model, prompt=ocr_prompt(spec, "vertical"), lang=spec.code)
+        horizontal = make_vision_ocr(chat, model, prompt=ocr_prompt(spec, "horizontal"), lang=spec.code)
+        one_column = make_vision_ocr(chat, model, prompt=ocr_prompt(spec, "column"), lang=spec.code)
         sources, vertical = [], []
         for bubble in bubbles:
             x, y, w, h = bubble.box
             crop = page[y:y + h, x:x + w]
-            column = manual.is_vertical(crop)
+            column = spec.vertical and manual.is_vertical(crop)
             vertical.append(column)
             if not column:
                 sources.append(horizontal(page, bubble).strip())
@@ -210,7 +224,8 @@ class ScantradModule(ModuleBase):
         todo = [i for i, text in enumerate(texts) if text.strip()]
         out = [""] * len(texts)
         if todo:
-            translate = make_translator(self._chat(), glossary, str(self.config.get("model", "")))
+            translate = make_translator(self._chat(), glossary, str(self.config.get("model", "")),
+                                        lang=language(payload.get("lang")).code)
             for i, text in zip(todo, translate([texts[i].strip() for i in todo]), strict=True):
                 out[i] = text.strip()
         return {"translations": out}
@@ -224,7 +239,8 @@ class ScantradModule(ModuleBase):
     def _manual_compose(self, payload: dict[str, Any]) -> dict[str, Any]:
         output = Path(str(payload["output"]))
         bubbles = compose(self._source(payload), output, payload.get("bubbles"), str(self.config.get("font", "")),
-                          auto_erase=payload.get("auto_erase") is not False, series=str(payload.get("series", "")))
+                          auto_erase=payload.get("auto_erase") is not False, series=str(payload.get("series", "")),
+                          lang=language(payload.get("lang")).code)
         self.pages += 1
         return {"bubbles": bubbles, "output": str(output)}
 
@@ -234,7 +250,8 @@ class ScantradModule(ModuleBase):
             raise ValueError(f"fichier introuvable : {source}")
         data_dir = Path(self.config.get("data_dir") or DEFAULT_DATA)
         output = Path(str(payload.get("output") or data_dir / "sorties" / f"{source.stem}_fr.png"))
-        result = build(self.config, str(payload.get("series", "")), use_llm=not payload.get("no_llm")).run(
+        result = build(self.config, str(payload.get("series", "")), use_llm=not payload.get("no_llm"),
+                       lang=str(payload.get("lang") or "ja"), layout=str(payload.get("layout") or "auto")).run(
             read_image(source))
         write_image(output, result.image)
         if result.cleaned is not None:

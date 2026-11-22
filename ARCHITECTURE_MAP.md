@@ -172,6 +172,7 @@ core/
   module_api.py
   module_runner.py
   scheduler.py
+  translate.py
   web/
     dashboard.css
     dashboard.html
@@ -271,6 +272,7 @@ modules/
     cli.py
     detect.py
     hub_stages.py
+    languages.py
     manifest.json
     manual.py
     module.py
@@ -303,6 +305,7 @@ tests/
     test_knowledge_store.py
     test_llm_router.py
     test_module_api.py
+    test_translate.py
   data/
     .gitkeep
     scantrad/
@@ -452,6 +455,7 @@ Inoue — gardienne de l'énergie et de la VRAM.
   - `def measured_gb(self) -> float` — VRAM occupée d'après les cartes (0 sans mesure).
   - `def available_gb(self) -> float` — Place libre : budget moins le plus grand du prévu (attributions) et du réel (mesure).
   - `def request(self, name: str, min_gb: float, comfort_gb: float | None=None) -> Decision` — Demande de VRAM. Accorde le confortable s'il tient, sinon le minimum, sinon met en file.
+  - `def adopt(self, name: str, gb: float, llm: str | None=None) -> Decision` — Enregistre ce qui est **déjà** en VRAM (un modèle chargé par un autre programme sur le même Ollama) :
   - `def release(self, name: str) -> list[tuple[str, Decision]]` — Libère l'attribution d'un module, puis sert la file d'attente dans l'ordre d'arrivée.
   - `def plan_llm_load(self, model: str, vram_gb: float) -> tuple[Decision, list[str]]` — Prépare le chargement d'un gros modèle de langage.
   - `def confirm_llm_unloaded(self, model: str) -> list[tuple[str, Decision]]`
@@ -598,6 +602,18 @@ File d'attente GPU unique pour les tâches de vision et de diffusion (scantrad, 
   - `def submit(self, name: str, vram_gb: float, fn: Callable[[], Any]) -> Future[Any]` — Met une tâche en file. Le résultat (ou l'erreur) arrive par le `Future` retourné.
   - `def state(self) -> dict[str, Any]`
   - `def shutdown(self) -> None`
+
+### `core/translate.py`
+
+Traduction générale vers le français : texte, image (capture, photo) ou message vocal.
+
+- `def detect_language(text: str) -> str` — Langue devinée à l'écriture : hangul → coréen, kana → japonais, idéogrammes seuls → chinois, latin →
+- `def translation_messages(text: str, lang: str) -> list[dict[str, str]]`
+- `def translate_text(chat: Chat, text: str, lang: str='auto', model: str | None=None) -> dict[str, Any]`
+- `def image_prompt(lang: str) -> str`
+- `def read_image(chat: Chat, image: bytes, lang: str='auto', model: str='qwen2.5vl:7b') -> str` — Texte d'une image (PNG, JPEG ou WebP), lu par le modèle de vision. L'image est réduite à ~1,3 Mpx : au-delà,
+- `def voice_available() -> bool`
+- `def transcribe(audio: bytes, lang: str='auto', model_name: str='small') -> dict[str, str]` — Message vocal → texte, sur cette machine (faster-whisper, sur le processeur en int8 : la VRAM reste aux
 
 ### `modules/gaming_hud/__init__.py`
 
@@ -936,7 +952,7 @@ Construction de la chaîne et ligne de commande.
 - `def series_slug(name: str) -> str` — Nom de fichier sûr pour une série (« Ma Série ! » → « ma-serie ») : aucun chemin ne peut en sortir.
 - `def glossary_for(series: str, data_dir: Path=DEFAULT_DATA) -> Glossary`
 - `def vram_reader()`
-- `def build(settings: dict[str, Any], series: str='', use_llm: bool=True) -> Scantrad`
+- `def build(settings: dict[str, Any], series: str='', use_llm: bool=True, lang: str='ja', layout: str='auto') -> Scantrad` — Chaîne complète. `lang` : langue source (ja, zh, ko, en) ; `layout` : page simple, double page, ou devinée.
 - `def read_image(path: Path) -> np.ndarray`
 - `def write_image(path: Path, image: np.ndarray) -> None`
 - `def capture_screen(region: str) -> np.ndarray`
@@ -953,7 +969,7 @@ Détection heuristique des bulles (OpenCV) et effacement du texte d'origine (inp
 - `def merge_same_bubble(blocks: list[Bubble], char: float=0.0, paper_id: np.ndarray | None=None) -> list[Bubble]` — Réunit les colonnes d'une même bulle (voir `_same_bubble`), ou deux blocs dont chacun tient dans la zone
 - `def writing_area(bright: np.ndarray, labels: np.ndarray, small: np.ndarray, box: tuple[int, int, int, int], grow: float=0.9, margin: float=0.1) -> tuple[int, int, int, int]` — Plage claire qui entoure le bloc (la bulle), bornée à une fenêtre autour du bloc. Rend (x, y, l, h).
 - `def clean_text(page: np.ndarray, blocks: list[Bubble], grow: int=0, radius: int=3) -> np.ndarray` — Efface l'encre fine de chaque bloc (caractères, ponctuation, furigana) par inpainting ; les contours
-- `def sort_reading(bubbles: list[Bubble], page_height: int, page_width: int) -> list[Bubble]` — Ordre de lecture du manga : page de droite puis page de gauche (double page) ; dans une page, rangées de
+- `def sort_reading(bubbles: list[Bubble], page_height: int, page_width: int, right_to_left: bool=True, spread: bool | None=None) -> list[Bubble]` — Ordre de lecture : première page puis seconde (double page) ; dans une page, rangées de haut en bas, et
 - `def reading_key(box: tuple[int, int, int, int], page_height: int, page_width: int=0) -> tuple[int, int, int]` — Ordre de lecture du manga : de haut en bas par bandes, et de droite à gauche dans une bande. Une double
 - `def clean_bubbles(page: np.ndarray, bubbles: list[Bubble], radius: int=3, grow: int=2) -> np.ndarray` — Efface le texte de chaque bulle par inpainting (OpenCV, Telea), sans toucher au contour de la bulle.
 
@@ -961,20 +977,28 @@ Détection heuristique des bulles (OpenCV) et effacement du texte d'origine (inp
 
 OCR et traduction par les modèles locaux, **via le Hub** (API compatible OpenAI sur 127.0.0.1).
 
-- `def accept_ocr(text: str) -> str` — Texte lu, ou "" si le modèle dit qu'il n'y a rien, ou s'il ne rend aucun caractère japonais.
+- `def accept_ocr(text: str, lang: str='ja') -> str` — Texte lu, ou "" si le modèle dit qu'il n'y a rien, ou s'il ne rend aucun caractère de la langue attendue.
 - `def hub_chat(hub_api: str='http://127.0.0.1:5750', timeout_s: float=300.0) -> Chat`
 - `def strip_thinking(text: str) -> str`
 - `def bubble_png(page: np.ndarray, bubble: Bubble, pad: int=0, min_side: int=224) -> bytes` — Découpe le texte avec une marge (30 % de sa taille : un mot court, découpé au ras, n'est pas reconnu),
-- `def make_vision_ocr(chat: Chat, model: str='qwen2.5vl:7b', num_ctx: int=4096, prompt: str=OCR_PROMPT) -> Callable[..., str]`
+- `def make_vision_ocr(chat: Chat, model: str='qwen2.5vl:7b', num_ctx: int=4096, prompt: str=OCR_PROMPT, lang: str='ja') -> Callable[..., str]`
 - `def read_by_columns(column_ocr: Callable[..., str], page: np.ndarray, box: tuple[int, int, int, int]) -> str` — Texte vertical de `box` lu colonne par colonne, de droite à gauche, puis recollé ("" si aucune colonne).
-- `def make_column_aware_ocr(chat: Chat, model: str='qwen2.5vl:7b') -> Callable[..., str]` — OCR du mode automatique : une première lecture décide s'il y a du texte (« AUCUN » écarte les faux positifs
-- **`class Glossary`** — Glossaire persistant d'une série : personnages et termes (japonais → français), ton, notes.
+- `def make_column_aware_ocr(chat: Chat, model: str='qwen2.5vl:7b', lang: str='ja') -> Callable[..., str]` — OCR du mode automatique : une première lecture décide s'il y a du texte (« AUCUN » écarte les faux positifs
+- **`class Glossary`** — Glossaire persistant d'une série : personnages et termes (langue source → français), ton, notes.
   - `def load(cls, path: Path) -> Glossary`
   - `def save(self) -> None`
   - `def relevant(self, texts: list[str]) -> dict[str, str]` — Entrées présentes dans la page (on n'encombre pas le prompt avec tout le glossaire).
-- `def translation_prompt(texts: list[str], glossary: Glossary | None, target: str='français') -> str`
+- `def translation_prompt(texts: list[str], glossary: Glossary | None, target: str='français', lang: str='ja') -> str`
 - `def parse_translations(answer: str, count: int) -> list[str] | None`
-- `def make_translator(chat: Chat, glossary: Glossary | None=None, model: str='', target: str='français') -> Callable[[list[str]], list[str]]`
+- `def make_translator(chat: Chat, glossary: Glossary | None=None, model: str='', target: str='français', lang: str='ja') -> Callable[[list[str]], list[str]]`
+
+### `modules/scantrad/languages.py`
+
+Langues sources prises en charge (vers le français) : japonais, chinois, coréen, anglais.
+
+- **`class Language`**
+- `def language(code: str | None) -> Language` — Langue demandée ; le japonais par défaut. Refuse un code inconnu (au lieu de deviner).
+- `def ocr_prompt(lang: Language, mode: str='auto') -> str` — Consigne d'OCR.
 
 ### `modules/scantrad/manual.py`
 
@@ -989,7 +1013,7 @@ Mode manuel : les zones de texte sont posées à la main, dans l'ordre de lectur
 - `def erase_in_boxes(page: np.ndarray, boxes: list[tuple[int, int, int, int]], radius: int=3) -> np.ndarray` — Efface le texte à l'intérieur des boîtes : un premier passage, la gomme finit le travail.
 - `def cover(a: list[int] | tuple[int, ...], b: list[int] | tuple[int, ...]) -> float` — Part de la boîte `a` recouverte par la boîte `b` (0 à 1).
 - `def evaluate(data_dir: Path) -> dict[str, Any]` — Mesure la détection automatique sur les pages faites en mode manuel (vérité de terrain) :
-- `def suggest_boxes(page: np.ndarray) -> list[list[int]]` — Boîtes de la détection automatique, comme point de départ à corriger (coordonnées de la page reçue).
+- `def suggest_boxes(page: np.ndarray, right_to_left: bool=True, spread: bool | None=None) -> list[list[int]]` — Boîtes de la détection automatique, dans l'ordre de lecture, comme point de départ à corriger
 
 ### `modules/scantrad/module.py`
 
@@ -998,7 +1022,7 @@ Module du Hub : traduit une page sur commande, et réincruste des traductions co
 - `def work_paths(output: Path) -> tuple[Path, Path]` — Fichiers de travail d'une page traduite : (image nettoyée, description des bulles).
 - `def save_work(output: Path, cleaned: np.ndarray, bubbles: list[Bubble], extra: dict[str, Any] | None=None) -> None`
 - `def retypeset(output: Path, translations: dict[str, str], font: str='') -> list[dict[str, Any]]` — Réincruste des traductions corrigées sur la page nettoyée. Rend les bulles mises à jour.
-- `def compose(source: Path, output: Path, rows: Any, font: str='', auto_erase: bool=True, series: str='') -> list[dict[str, Any]]` — Page traduite du mode manuel : bulles = boîtes posées à la main ; base = page gommée si elle existe
+- `def compose(source: Path, output: Path, rows: Any, font: str='', auto_erase: bool=True, series: str='', lang: str='ja') -> list[dict[str, Any]]` — Page traduite du mode manuel : bulles = boîtes posées à la main ; base = page gommée si elle existe
 - **`class ScantradModule(ModuleBase)`**
   - `def start(self) -> None`
   - `def stop(self) -> None`

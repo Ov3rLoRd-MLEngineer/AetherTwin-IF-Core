@@ -814,3 +814,14 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   réel, vecteurs, test 15, liste « Reste à faire ») ; README provisoire : tableau d'état, lancement, vérifié /
   non vérifié ; AGENT_HANDOFF : situation au 22/11. Le changelog, historique, n'est pas réécrit.
 - **Tests :** 404 (400 verts, 4 réels ignorés) ; ruff propre.
+## 2026-11-22 nuit (3) — Langues, annexes, export texte, onglet Traduction, serveurs IA multiples
+
+- **Agent :** Cloud
+- **Quoi :** Scantrad en japonais, chinois, coréen, anglais (`modules/scantrad/languages.py`), type de page
+  simple / double, « Gommer les bulles (1 clic) », zones annexes (contour blanc ou effacement), export .txt ;
+  onglet **Traduction** (`core/translate.py`, `/translate/{text,image,voice}`) ; WoW Assistant : liste de serveurs
+  IA actifs / inactifs ; `Installer AetherTwin.bat` (Bypass pour ce lancement seulement) et `setup.ps1 -Voice` ;
+  interface plus aérée ; Inoue ne compte plus deux fois un modèle déjà chargé par un autre client (trouvé en réel).
+- **Réel :** traduction japonais et coréen, image de manga lue puis traduite (la consigne « AUCUN » retirée).
+  Non essayés : pages chinoises / coréennes / anglaises, voix (faster-whisper non installé), boutons d'export.
+- **Tests :** 419 (415 verts, 4 réels ignorés) ; ruff propre.

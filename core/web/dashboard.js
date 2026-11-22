@@ -560,7 +560,8 @@ $("scan-form").addEventListener("submit", async (event) => {
     thumb.addEventListener("click", () => showPage(i));
     return thumb;
   }));
-  const query = new URLSearchParams({ series: $("scan-series").value.trim(), no_llm: $("scan-nollm").checked });
+  const query = new URLSearchParams({ series: $("scan-series").value.trim(), no_llm: $("scan-nollm").checked,
+                                      lang: $("scan-lang").value, layout: $("scan-layout").value });
   let done = 0, failed = 0;
   const started = performance.now();
   for (const [i, file] of files.entries()) {
@@ -592,6 +593,35 @@ $("scan-form").addEventListener("submit", async (event) => {
       + "Clique sur une vignette pour la revoir ou la corriger.";
   if (files.length === 1 && last && last.error) $("scan-line").textContent = `Erreur : ${last.error}`;
   button.disabled = false;
+});
+
+// texte d'une page : chaque bulle, son texte d'origine et sa traduction, dans l'ordre de lecture
+function pageText(name, bubbles) {
+  const lines = [`=== ${name} ===`];
+  for (const b of bubbles || []) {
+    const tag = b.kind === "annexe" ? " (annexe)" : "";
+    lines.push(`${b.index}${tag}. ${b.source || "—"}`, `   → ${b.translation || "—"}`);
+  }
+  return lines.join("\n");
+}
+
+function saveText(text, originalName) {
+  const stem = (originalName || "page").replace(/\.[^.]+$/, "").replace(/[^\w\-. ]+/g, "_");
+  const url = URL.createObjectURL(new Blob([`${text}\n`], { type: "text/plain;charset=utf-8" }));
+  const link = el("a", { href: url, download: `${stem}_fr.txt` });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+$("scan-text").addEventListener("click", () => {
+  const page = chapter.pages[chapter.current];
+  if (page && page.bubbles) saveText(pageText(page.name, page.bubbles), page.name);
+});
+$("scan-text-all").addEventListener("click", () => {
+  const done = chapter.pages.filter((p) => p.bubbles);
+  if (done.length) saveText(done.map((p) => pageText(p.name, p.bubbles)).join("\n\n"), `${done[0].name}_chapitre`);
 });
 
 $("scan-save").addEventListener("click", () => {
@@ -705,14 +735,17 @@ function drawManual() {
     boxes.push([Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1)]);
   }
   for (const [i, [x, y, w, h]] of boxes.entries()) {
-    ctx.strokeStyle = manual.tool === "brush" ? "rgba(122,140,255,0.45)" : "#7a8cff";
+    const zone = manual.zones[i];
+    const annex = zone ? zone.kind === "annexe" : manual.tool === "annex";
+    const color = annex ? "#ff9f43" : "#7a8cff";  // annexes en orange
+    ctx.strokeStyle = manual.tool === "brush" ? `${color}73` : color;
     ctx.strokeRect(x, y, w, h);
-    const label = String(i + 1);
+    const label = annex ? `${i + 1} annexe` : String(i + 1);
     const pad = unit * 2;
     const tw = ctx.measureText(label).width + 2 * pad;
     const th = unit * 9 + 2 * pad;
     const ly = y >= th ? y - th : y;  // le numéro au-dessus de la zone : il ne cache pas le texte à lire
-    ctx.fillStyle = "#7a8cff";
+    ctx.fillStyle = color;
     ctx.fillRect(x, ly, tw, th);
     ctx.fillStyle = "#fff";
     ctx.fillText(label, x + pad, ly + pad);
@@ -762,11 +795,13 @@ function paintAt(from, to) {
 function setTool(tool) {
   manual.tool = tool;
   $("man-tool-zones").setAttribute("aria-pressed", String(tool === "zones"));
+  $("man-tool-annex").setAttribute("aria-pressed", String(tool === "annex"));
   $("man-tool-brush").setAttribute("aria-pressed", String(tool === "brush"));
   $("man-canvas").style.cursor = tool === "brush" ? "none" : "crosshair";
   drawManual();
 }
 $("man-tool-zones").addEventListener("click", () => setTool("zones"));
+$("man-tool-annex").addEventListener("click", () => setTool("annex"));
 $("man-tool-brush").addEventListener("click", () => setTool("brush"));
 
 function loadBase(url) {
@@ -842,7 +877,8 @@ window.addEventListener("mouseup", () => {
   manual.drag = null;
   if (Math.abs(x2 - x1) > 8 && Math.abs(y2 - y1) > 8) {
     manual.zones.push({ box: [Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1)],
-                        source: "", translation: "" });
+                        source: "", translation: "", kind: manual.tool === "annex" ? "annexe" : "bulle",
+                        style: "contour" });
     manual.undo.push({ kind: "zone" });
     renderManualRows();
   }
@@ -896,8 +932,18 @@ function renderManualRows() {
       renderManualRows();
       drawManual();
     });
-    body.append(el("tr", {}, el("td", {}, String(i + 1)), el("td", { class: "nowrap" }, up, down, remove),
-                   el("td", {}, source), el("td", {}, target)));
+    const number = el("td", {}, String(i + 1));
+    const cells = [number, el("td", { class: "nowrap" }, up, down, remove), el("td", {}, source), el("td", {}, target)];
+    if (zone.kind === "annexe") {  // onomatopée, texte hors bulle : réécrite par-dessus, ou effacée comme une bulle
+      const style = el("select", { "aria-label": `réincrustation de l'annexe ${i + 1}` },
+        el("option", { value: "contour" }, "par-dessus le dessin (contour)"),
+        el("option", { value: "efface" }, "effacer puis écrire"));
+      style.value = zone.style || "contour";
+      style.addEventListener("change", () => { zone.style = style.value; });
+      number.append(el("br"), el("span", { class: "annex" }, "annexe"));
+      cells[3].append(style);
+    }
+    body.append(el("tr", {}, ...cells));
   }
   box.append(el("table", { class: "bubble-edit" },
     el("thead", {}, el("tr", {}, el("th", {}, "#"), el("th", {}, "Ordre"), el("th", {}, "Texte lu"),
@@ -917,8 +963,9 @@ async function manualStep(button, waiting, fn) {
   }
 }
 
-async function manualCall(command, body) {
-  const reply = await post(`/scantrad/manual/${command}`, body);
+async function manualCall(command, body) {  // langue, type de page et série : ceux choisis en haut de l'onglet
+  const reply = await post(`/scantrad/manual/${command}`, {
+    lang: $("scan-lang").value, layout: $("scan-layout").value, series: $("scan-series").value.trim(), ...body });
   if (!reply.ok) throw new Error(reply.error || "échec");
   return reply;
 }
@@ -926,7 +973,7 @@ async function manualCall(command, body) {
 $("man-suggest").addEventListener("click", (event) => manualStep(event.currentTarget,
   "Détection automatique…", async () => {
     const reply = await manualCall("suggest", { image: manual.name });
-    manual.zones = reply.result.boxes.map((box) => ({ box, source: "", translation: "" }));
+    manual.zones = reply.result.boxes.map((box) => ({ box, source: "", translation: "", kind: "bulle", style: "contour" }));
     manual.undo = manual.undo.filter((u) => u.kind !== "zone");
     renderManualRows();
     drawManual();
@@ -934,17 +981,19 @@ $("man-suggest").addEventListener("click", (event) => manualStep(event.currentTa
   }));
 
 $("man-erase").addEventListener("click", (event) => manualStep(event.currentTarget,
-  "Effacement du texte dans les zones…", async () => {
-    if (!manual.zones.length) throw new Error("trace d'abord des zones");
-    const reply = await manualCall("erase", { image: manual.name, boxes: manual.zones.map((z) => z.box) });
+  "Effacement du texte dans les bulles…", async () => {
+    // seulement les bulles (et les annexes réglées sur « effacer ») : une annexe « par-dessus » garde son dessin
+    const boxes = manual.zones.filter((z) => z.kind !== "annexe" || z.style === "efface").map((z) => z.box);
+    if (!boxes.length) throw new Error("trace d'abord des bulles");
+    const reply = await manualCall("erase", { image: manual.name, boxes });
     const erased = await loadBase(`${reply.cleaned_url}?t=${Date.now()}`);
     pushPaintUndo();
     // la gomme déjà passée est gardée : on ne recopie que l'intérieur des zones
     const ctx = manual.base.getContext("2d");
-    for (const [x, y, w, h] of manual.zones.map((z) => z.box)) ctx.drawImage(erased, x, y, w, h, x, y, w, h);
+    for (const [x, y, w, h] of boxes) ctx.drawImage(erased, x, y, w, h, x, y, w, h);
     manual.painted = true;
     drawManual();
-    manualLine("Texte effacé dans les zones. Passe la gomme sur ce qui reste.");
+    manualLine("Texte effacé dans les bulles (« Annuler » le remet). Passe la gomme sur ce qui reste.");
   }));
 
 $("man-read").addEventListener("click", (event) => manualStep(event.currentTarget,
@@ -964,8 +1013,7 @@ $("man-translate").addEventListener("click", (event) => manualStep(event.current
   "Traduction… Pendant ce temps, tu peux passer la gomme.", async () => {
     const zones = [...manual.zones];
     if (!zones.some((z) => z.source.trim())) throw new Error("aucun texte à traduire : lis d'abord le texte");
-    const reply = await manualCall("translate", { texts: zones.map((z) => z.source),
-                                                  series: $("scan-series").value.trim() });
+    const reply = await manualCall("translate", { texts: zones.map((z) => z.source) });
     reply.result.translations.forEach((text, i) => { if (text) zones[i].translation = text; });
     renderManualRows();
     manualLine("Traduit. Vérifie, puis « Réincruster ».");
@@ -980,7 +1028,6 @@ $("man-compose").addEventListener("click", (event) => manualStep(event.currentTa
         method: "POST", body: blob, headers: { "Content-Type": "image/png" } });
     }
     const reply = await manualCall("compose", { image: manual.name, auto_erase: $("man-auto").checked,
-                                                series: $("scan-series").value.trim(),
                                                 bubbles: manual.zones });
     $("man-result").hidden = false;
     manual.outputUrl = reply.output_url;
@@ -989,6 +1036,97 @@ $("man-compose").addEventListener("click", (event) => manualStep(event.currentTa
   }));
 
 $("man-save").addEventListener("click", () => { if (manual.outputUrl) saveImage(manual.outputUrl, manual.fileName); });
+$("man-text").addEventListener("click", () => {
+  const rows = manual.zones.map((z, i) => ({ index: i + 1, kind: z.kind, source: z.source, translation: z.translation }));
+  if (rows.length) saveText(pageText(manual.fileName || "page", rows), manual.fileName);
+});
+
+// ---------- traduction générale (texte, image, voix) ----------
+const translator = { recorder: null, chunks: [], last: null };
+
+function trLine(text) { $("tr-line").textContent = text; }
+
+function showTranslation(reply) {
+  translator.last = reply;
+  $("tr-source").value = reply.source;
+  $("tr-result").textContent = reply.translation;
+  trLine(`Traduit du ${reply.language}${reply.seconds ? ` en ${reply.seconds} s` : ""}`
+    + `${reply.model ? ` par ${reply.model}` : ""}.`);
+}
+
+async function trRun(waiting, fn) {
+  trLine(waiting);
+  $("tr-result").textContent = "";
+  try {
+    showTranslation(await fn());
+  } catch (error) {
+    trLine(`Erreur : ${error.message}`);
+  }
+}
+
+$("tr-text").addEventListener("click", () => trRun("Traduction…", () =>
+  post("/translate/text", { text: $("tr-source").value, lang: $("tr-lang").value })));
+
+async function translateImage(blob) {
+  $("tr-preview").src = URL.createObjectURL(blob);
+  $("tr-preview").hidden = false;
+  await trRun("Lecture de l'image par le modèle de vision, puis traduction…", () =>
+    api(`/translate/image?lang=${encodeURIComponent($("tr-lang").value)}`, {
+      method: "POST", body: blob, headers: { "Content-Type": blob.type || "image/png" } }));
+}
+$("tr-file").addEventListener("change", () => { const f = $("tr-file").files[0]; if (f) translateImage(f); });
+// coller une capture d'écran (Ctrl+V) quand l'onglet Traduction est affiché
+document.addEventListener("paste", (event) => {
+  if (currentTab() !== "traduction" || document.activeElement === $("tr-source")) return;
+  const item = [...(event.clipboardData || {}).items || []].find((i) => i.type.startsWith("image/"));
+  if (item) { event.preventDefault(); translateImage(item.getAsFile()); }
+});
+
+async function refreshVoice() {
+  try {
+    const voice = await api("/translate/voice");
+    $("tr-voice-state").textContent = voice.available ? ""
+      : "reconnaissance vocale non installée (scripts\\setup.ps1 -Voice)";
+    $("tr-record").disabled = !voice.available;
+  } catch (error) {
+    $("tr-voice-state").textContent = "";
+  }
+}
+
+$("tr-record").addEventListener("click", async () => {
+  if (translator.recorder) { translator.recorder.stop(); return; }  // second clic : fin de l'enregistrement
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    translator.chunks = [];
+    translator.recorder = new MediaRecorder(stream);
+    translator.recorder.addEventListener("dataavailable", (e) => translator.chunks.push(e.data));
+    translator.recorder.addEventListener("stop", () => {
+      stream.getTracks().forEach((t) => t.stop());
+      translator.recorder = null;
+      $("tr-record").textContent = "🎙 Enregistrer un message";
+      $("tr-record").setAttribute("aria-pressed", "false");
+      const audio = new Blob(translator.chunks, { type: translator.chunks[0] ? translator.chunks[0].type : "audio/webm" });
+      trRun("Reconnaissance de la voix (sur cette machine), puis traduction…", () =>
+        api(`/translate/voice?lang=${encodeURIComponent($("tr-lang").value)}`, {
+          method: "POST", body: audio, headers: { "Content-Type": "application/octet-stream" } }));
+    });
+    translator.recorder.start();
+    $("tr-record").textContent = "⏹ Arrêter et traduire";
+    $("tr-record").setAttribute("aria-pressed", "true");
+    trLine("Enregistrement… parle, puis clique sur « Arrêter et traduire ».");
+  } catch (error) {
+    trLine(`Micro indisponible : ${error.message}`);
+  }
+});
+
+$("tr-copy").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText($("tr-result").textContent); trLine("Traduction copiée."); }
+  catch (error) { trLine(`Copie impossible : ${error.message}`); }
+});
+$("tr-save").addEventListener("click", () => {
+  if (!translator.last) return;
+  saveText(`${translator.last.source}\n\n→ ${translator.last.translation}`, "traduction");
+});
 
 // ---------- studio (mangastudio) ----------
 const studio = { image: null, name: "", boxes: [], drag: null };
@@ -1261,6 +1399,7 @@ function refreshAll() {
   if (tab === "journal") refreshEvents();
   if (tab === "studio" && !studio.statusShown) { studio.statusShown = true; refreshStudio(); }
   if (tab === "ether" && !ether.shown) { ether.shown = true; refreshEther(); }
+  if (tab === "traduction") refreshVoice();
 }
 showTab(currentTab());
 setInterval(refreshAll, 3000);

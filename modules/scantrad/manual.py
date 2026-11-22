@@ -14,7 +14,8 @@ from typing import Any
 import cv2
 import numpy as np
 
-from modules.scantrad.detect import detect_text_blocks, upscale_small_page
+from modules.scantrad.detect import detect_text_blocks, sort_reading, upscale_small_page
+from modules.scantrad.languages import LANGUAGES
 from modules.scantrad.pipeline import Bubble
 
 MAX_BOXES = 200
@@ -224,8 +225,11 @@ def evaluate(data_dir: Path) -> dict[str, Any]:
         source = data_dir / "entrees" / str(job.get("source", ""))
         if job.get("mode") != "manuel" or not source.is_file():
             continue
-        truth = [b["box"] for b in job["bubbles"]]
-        found = suggest_boxes(read_image(source))
+        truth = [b["box"] for b in job["bubbles"] if b.get("kind", "bulle") == "bulle"]  # annexes : hors mesure
+        if not truth:
+            continue
+        lang = LANGUAGES.get(str(job.get("lang", "ja")), LANGUAGES["ja"])
+        found = suggest_boxes(read_image(source), lang.right_to_left)
         best = [max(range(len(found)), key=lambda i, t=t: cover(t, found[i])) if found else -1 for t in truth]
         hit = [i >= 0 and cover(t, found[i]) >= 0.5 for t, i in zip(truth, best, strict=True)]
         false_pos = sum(1 for f in found if max((cover(f, t) for t in truth), default=0) < 0.3)
@@ -242,12 +246,13 @@ def evaluate(data_dir: Path) -> dict[str, Any]:
             "per_page": pages}
 
 
-def suggest_boxes(page: np.ndarray) -> list[list[int]]:
-    """Boîtes de la détection automatique, comme point de départ à corriger (coordonnées de la page reçue)."""
+def suggest_boxes(page: np.ndarray, right_to_left: bool = True, spread: bool | None = None) -> list[list[int]]:
+    """Boîtes de la détection automatique, dans l'ordre de lecture, comme point de départ à corriger
+    (coordonnées de la page reçue)."""
     big = upscale_small_page(page)
     scale = page.shape[0] / big.shape[0]
     boxes = []
-    for bubble in detect_text_blocks(big):
+    for bubble in sort_reading(detect_text_blocks(big), big.shape[0], big.shape[1], right_to_left, spread):
         x, y, w, h = bubble.box
         boxes.append([int(x * scale), int(y * scale), max(1, int(w * scale)), max(1, int(h * scale))])
     return boxes

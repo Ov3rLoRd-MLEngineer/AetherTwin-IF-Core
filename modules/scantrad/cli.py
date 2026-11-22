@@ -27,9 +27,11 @@ from modules.scantrad.detect import (
     clean_text,
     detect_bubbles,
     detect_text_blocks,
+    sort_reading,
     upscale_small_page,
 )
 from modules.scantrad.hub_stages import Glossary, hub_chat, make_column_aware_ocr, make_translator, make_vision_ocr
+from modules.scantrad.languages import LANGUAGES, language, ocr_prompt
 from modules.scantrad.pipeline import Scantrad
 from modules.scantrad.typeset import make_typesetter
 
@@ -64,17 +66,31 @@ def vram_reader():
     return used
 
 
-def build(settings: dict[str, Any], series: str = "", use_llm: bool = True) -> Scantrad:
+LAYOUTS = {"auto": None, "simple": False, "double": True}
+
+
+def build(settings: dict[str, Any], series: str = "", use_llm: bool = True, lang: str = "ja",
+          layout: str = "auto") -> Scantrad:
+    """Chaîne complète. `lang` : langue source (ja, zh, ko, en) ; `layout` : page simple, double page, ou devinée."""
+    spec = language(lang)
+    if layout not in LAYOUTS:
+        raise ValueError(f"mise en page inconnue : {layout!r} (auto, simple, double)")
     chat = hub_chat(str(settings.get("hub_api", "http://127.0.0.1:5750")))
     glossary = glossary_for(series, Path(settings.get("data_dir") or DEFAULT_DATA)) if series else None
     closed_bubbles = settings.get("detector") == "bubbles"  # ancienne heuristique : bulles fermées sur fond gris
+    model = str(settings.get("ocr_model", "qwen2.5vl:7b"))
+    base_detect = detect_bubbles if closed_bubbles else detect_text_blocks
+
+    def detect(page: np.ndarray) -> list:
+        return sort_reading(base_detect(page), page.shape[0], page.shape[1], spec.right_to_left, LAYOUTS[layout])
+
     return Scantrad(
-        detect=detect_bubbles if closed_bubbles else detect_text_blocks,
-        ocr=(make_vision_ocr(chat, str(settings.get("ocr_model", "qwen2.5vl:7b"))) if closed_bubbles
-             else make_column_aware_ocr(chat, str(settings.get("ocr_model", "qwen2.5vl:7b")))) if use_llm else None,
+        detect=detect,
+        ocr=(make_vision_ocr(chat, model, prompt=ocr_prompt(spec, "auto"), lang=spec.code) if closed_bubbles
+             else make_column_aware_ocr(chat, model, spec.code)) if use_llm else None,
         clean=clean_bubbles if closed_bubbles else clean_text,
         prepare=upscale_small_page,
-        translate=make_translator(chat, glossary, str(settings.get("model", ""))) if use_llm else None,
+        translate=make_translator(chat, glossary, str(settings.get("model", "")), lang=spec.code) if use_llm else None,
         typeset=make_typesetter(str(settings.get("font", ""))),
         vram_used_mib=vram_reader(),
     )
@@ -113,6 +129,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--series", default="", help="nom de la série (glossaire persistant)")
     parser.add_argument("--out", type=Path, help="image traduite (défaut : <page>_fr.png)")
     parser.add_argument("--no-llm", action="store_true", help="détection et effacement seulement")
+    parser.add_argument("--lang", default="ja", choices=sorted(LANGUAGES), help="langue source (défaut : ja)")
+    parser.add_argument("--layout", default="auto", choices=sorted(LAYOUTS), help="page simple, double, ou devinée")
     parser.add_argument("--glossary", help="série dont on modifie le glossaire")
     parser.add_argument("--add", action="append", default=[], metavar="JP=FR", help="entrée de glossaire")
     parser.add_argument("--evaluate", action="store_true",
@@ -144,7 +162,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         parser.error("donne une image ou --screen")
     try:
-        result = build(settings, args.series, use_llm=not args.no_llm).run(page)
+        result = build(settings, args.series, use_llm=not args.no_llm, lang=args.lang, layout=args.layout).run(page)
     except urllib.error.URLError as exc:  # Hub arrêté (ou modèle refusé : 409 VRAM, 503 Ollama)
         print(f"Le Hub ne répond pas ou refuse la demande ({exc}). Lance AetherTwin (raccourci du bureau), "
               "ou utilise --no-llm pour la détection et l'effacement seuls.", file=sys.stderr)

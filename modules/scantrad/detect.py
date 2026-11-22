@@ -266,13 +266,19 @@ def clean_text(page: np.ndarray, blocks: list[Bubble], grow: int = 0, radius: in
     return cv2.inpaint(page, mask, radius, cv2.INPAINT_TELEA) if np.count_nonzero(mask) else page.copy()
 
 
-def sort_reading(bubbles: list[Bubble], page_height: int, page_width: int) -> list[Bubble]:
-    """Ordre de lecture du manga : page de droite puis page de gauche (double page) ; dans une page, rangées de
-    haut en bas, et de droite à gauche dans une rangée. Une rangée réunit les bulles qui se recouvrent au moins
-    à moitié en hauteur : des bandes fixes coupaient deux bulles côte à côte (mesuré sur la page de Jérémy)."""
+def sort_reading(bubbles: list[Bubble], page_height: int, page_width: int, right_to_left: bool = True,
+                 spread: bool | None = None) -> list[Bubble]:
+    """Ordre de lecture : première page puis seconde (double page) ; dans une page, rangées de haut en bas, et
+    dans une rangée de droite à gauche (manga) ou de gauche à droite (manhwa, manhua, comic). Une rangée réunit
+    les bulles qui se recouvrent au moins à moitié en hauteur : des bandes fixes coupaient deux bulles côte à
+    côte (mesuré sur la page de Jérémy). `spread` : double page imposée (True), page simple (False), ou devinée
+    à la forme de l'image (None : plus large que haute)."""
+    double = page_width > 1.25 * page_height if spread is None else spread
+
     def side(b: Bubble) -> int:
         x, _y, w, _h = b.box
-        return 1 if page_width > 1.25 * page_height and x + w / 2 < page_width / 2 else 0
+        on_left = x + w / 2 < page_width / 2
+        return 0 if not double else (int(on_left) if right_to_left else int(not on_left))
 
     def span(b: Bubble) -> tuple[int, int]:  # hauteur de la bulle (plage claire) si connue, sinon du texte
         box = b.area or b.box
@@ -292,7 +298,7 @@ def sort_reading(bubbles: list[Bubble], page_height: int, page_width: int) -> li
             else:
                 rows.append([bubble])
         for row in rows:
-            ordered.extend(sorted(row, key=lambda b: -(b.box[0] + b.box[2])))
+            ordered.extend(sorted(row, key=lambda b: -(b.box[0] + b.box[2]) if right_to_left else b.box[0]))
     for index, bubble in enumerate(ordered, start=1):
         bubble.index = index
     return ordered

@@ -11,8 +11,8 @@ Les documents finaux et le gel J9 attendent sa demande.
 
 ## Où on en est
 
-- Dépôt initialisé : venv Python 3.11, Git, lint, tests, CI, fichiers de suivi. **404 tests** au total (22/11) :
-  400 passent, 4 sont des tests réels sur GPU, activés par `AETHERTWIN_REAL_OLLAMA=1`.
+- Dépôt initialisé : venv Python 3.11, Git, lint, tests, CI, fichiers de suivi. **419 tests** au total (22/11) :
+  415 passent, 4 sont des tests réels sur GPU, activés par `AETHERTWIN_REAL_OLLAMA=1`.
 - Relais Cloud ⇄ Local écrit et testé **en simulation**.
 - **J2 terminé** : moniteur GPU, contrat de module, bus, ordonnanceur, gardiens, démon et API locale.
 - **J3 terminé** (17/11) : WoW Assistant porté dans `modules/gaming_hud/`, interface `GameAdapter`, trois
@@ -105,6 +105,11 @@ Les documents finaux et le gel J9 attendent sa demande.
 | `if_game` : Fuma & Inoue, onglet Éther | P2 | J7 | `FAIT-TESTÉ` | graine reproductible, propositions du modèle validées (ton calme, formes), sauvegarde ; **réel** : lieu inventé par `qwen3-27b` et réplique de Fuma acceptés |
 | `scantrad` : mode manuel (zones à la souris, gomme, réincrustation) | P1 | J8 | `FAIT-TESTÉ` | demande de Jérémy (test 17). **Réel** sur sa page dans le navigateur : 2 zones tracées dans l'ordre de lecture, lues par `qwen2.5vl:7b` (96 s à froid, 1 s ensuite), traduites, gomme et annulation, page propre. Un bloc horizontal de 3 lignes était lu « AUCUN » : consigne d'OCR propre au mode manuel. Effacement par la couleur du papier (l'inpainting laissait un fantôme gris) |
 | `scantrad` : lecture par colonnes, ordre des doubles pages, mesure par les zones manuelles, enregistrement | P1 | J8 | `FAIT-TESTÉ` | 22/11. Texte vertical découpé en colonnes lues une à une (manuel et automatique) ; double page lue page de droite d'abord, rangées par recouvrement réel ; fusion de bulles bornée. Chaque page faite en manuel sert de vérité de terrain : `python -m modules.scantrad --evaluate` mesure la détection automatique. **Réel** sur la double page de Jérémy : ordre 4/7 → 7/7, 8 bulles sur 8 lues justes en automatique ; le texte automatique peut encore déborder sur le dessin. Boutons « Enregistrer » (page, chapitre, manuel) non cliqués dans un vrai navigateur |
+| `scantrad` : chinois, coréen, anglais ; page simple/double ; annexes ; export .txt | P1 | J8 | `FAIT-TESTÉ` (tests) / `FAIT-NON-TESTÉ` (réel) | 22/11, demandes de Jérémy. Consignes d'OCR et tri des lectures par langue, ordre de lecture de gauche à droite hors japonais, type de page imposable ; zones annexes (onomatopées, texte hors bulle) réécrites par-dessus le dessin en blanc cerné de noir, ou effacées ; « Gommer les bulles (1 clic) » ; export texte page / chapitre. Testé par la suite automatique ; **aucune page chinoise, coréenne ou anglaise essayée en réel** |
+| Onglet Traduction (texte, image, voix → français) | P1 | J8 | `FAIT-TESTÉ` / `FAIT-NON-TESTÉ` (voix) | 22/11, demande de Jérémy. **Réel** : japonais (12 s, chargement compris) et coréen (1 s) ; image : page de manga lue puis traduite. La consigne d'image ne propose plus « AUCUN » (le modèle la choisissait sur une page entière). Voix : faster-whisper local, **non installé** (`Installer AetherTwin.bat -Voice`, modèle ~480 Mo au premier message) |
+| Inoue : modèle déjà chargé par un autre client | P0 | J8 | `FAIT-TESTÉ` | trouvé à l'essai réel : un modèle déjà en VRAM (chargé par un autre programme sur le même Ollama) était compté deux fois et refusé. Désormais repris tel quel |
+| WoW Assistant : plusieurs serveurs IA | P1 | J8 | `FAIT-TESTÉ` (rendu headless) | liste de serveurs enregistrés (actif / inactif, utiliser, retirer) ; les modèles de tous les serveurs actifs, chacun avec son serveur. Rendu vérifié hors écran ; pas encore essayé par Jérémy |
+| Installation : `Installer AetherTwin.bat`, option `-Voice` | P0 | J8 | `FAIT-NON-TESTÉ` | le `.bat` lance `setup.ps1` avec `-ExecutionPolicy Bypass` pour ce lancement seulement (le réglage de Windows ne change pas) : Windows refusait le script (capture de Jérémy) |
 | `research/overlord_notes.md`, `docs/HARDWARE_FIT.md`, README final | P0 | J8 | `À FAIRE` | README actuel = version provisoire |
 | Gel, branche `concours`, tag `v0.1.0-concours`, scan de l'historique | P0 | J9 | `À FAIRE` | |
 
@@ -168,8 +173,15 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 3 | Agent local seul : Ollama et OmniRoute lancés | `set ANTHROPIC_BASE_URL=http://127.0.0.1:20128/v1` · `set ANTHROPIC_AUTH_TOKEN=ollama` · `set ANTHROPIC_API_KEY=` puis `echo Lis AGENT_HANDOFF.md et resume-le en 3 lignes \| claude -p --model "ollama/qwen3-27b:latest"` | une réponse du modèle local, sans erreur de contexte |
 | 4 | Relais réel, fenêtre courte | `.venv\Scripts\python.exe scripts\relay_orchestrator.py --window-minutes 10 --max-cycles 1 --local-model qwen3-27b:latest` (depuis `cmd.exe`) | à la limite de quota : bascule sur l'agent local, puis retour ; vérifier `logs\relay.log` et `git log` |
 | 5 | Relever le message exact de limite de Claude Code | copier la ligne de `logs\relay.log` | permet d'ajuster `QUOTA_PATTERNS` si besoin |
+| 6 | Topologie 3 GPU, une fois le riser installé | `.venv\Scripts\python.exe -m core.hardware.gpu_monitor` | `gpu_count: 3`, environ 48 900 MiB |
 | 7 | Hub complet — **OK (Jérémy, 17/11)** ; à refaire avec les onglets | raccourci **AetherTwin** ; onglet **Jeu** : « Lancer WoW Assistant », puis « Fermer » | la fenêtre de WoW Assistant s'ouvre et se ferme depuis le navigateur ; « Ce que l'assistant sait de ton jeu » affiche ton personnage |
 | 8 | Bascule Showcase avec OBS réel — **OK (Jérémy, 17/11)** : ouverture, fermeture, forçage | — | — |
+| 9 | Assistant de l'appli via le Hub — **OK (Jérémy, 22/11, capture)** : 18 modèles listés par le Hub | — | demande : plusieurs serveurs enregistrés, activables → test 29 |
+| 10 | Tests réels sur GPU — **fait par Claude le 22/11** : tous verts (`qwen3-27b` 16,77 Go en 9,4 s, `qwen3-coder:30b` 19,69 Go en 14,8 s, un seul gros modèle à la fois ; vecteurs `nomic-embed-text` ; `screen_ocr` ; masque HandSegNet) | — | — |
+| 11 | Overlay dans OBS — **OK (Jérémy, 17/11, capture)** | — | — |
+| 12 | Professeur — **OK (Jérémy, 17/11)** | — | — |
+| 13 | Scantrad sur une de tes pages — 1er essai : bulles ratées, texte non effacé (corrigé le 17/11) ; repris par les tests 17, 20 et 24 | — | — |
+| 14 | Recherche par vecteurs — **OK (Jérémy, 17/11)** : 377 passages avec vecteurs | — | — |
 | 15 | Jeu, premier rendu HD-2D (remplacé depuis) — **OK (Jérémy, 22/11)** : pas de saccade ; joué au texte surtout | — | — |
 | 16 | Assistant mot à mot — **OK (Jérémy, 22/11)** | — | — |
 | 17 | Corriger une traduction — **fonctionne, détection limitée (Jérémy, 22/11)** | — | demande : mode manuel (zones posées à la souris dans l'ordre de lecture, gomme blanche, réincrustation) |
@@ -180,14 +192,12 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 21 | Jeu, nouvelle vue — **OK (Jérémy, 22/11)** : déplacement, ramassage, carte | — | Espace ne faisait pas parler Inoue (impossible de lui faire face) → elle suit désormais à distance |
 | 22 | Sons par lieu et volume — **OK (Jérémy, 22/11)** | — | — |
 | 23 | Alerte VRAM d'Inoue — **OK (Jérémy, 22/11)** : « hors réservations » affiché ; charge répartie sur les deux GPU | — | — |
-| 13 | Scantrad sur une de tes pages — 1er essai : bulles ratées, texte non effacé (corrigé le 17/11) ; repris par les tests 17, 20 et 24 | — | — |
-| 24 | Scantrad, mode automatique sur une double page + enregistrement | onglet **Scantrad** : ta double page OPM en automatique, puis « Enregistrer cette page traduite » ; en manuel, « Enregistrer l'image » | bulles dans l'ordre (page de droite d'abord), les deux bulles du bas séparées ; l'image arrive dans tes téléchargements sous `<nom>_fr.png`. Le texte peut encore déborder sur le dessin en automatique : c'est là que le mode manuel sert |
-| 14 | Recherche par vecteurs — **OK (Jérémy, 17/11)** : 377 passages avec vecteurs | — | — |
-| 12 | Professeur — **OK (Jérémy, 17/11)** | — | — |
-| 9 | Assistant de l'appli via le Hub | dans WoW Assistant : Paramètres > Assistant IA, Endpoint `http://127.0.0.1:5750`, puis « Charger la liste des modèles » | la liste des modèles d'Ollama s'affiche ; les réponses passent par le Hub |
-| 11 | Overlay dans OBS — **OK (Jérémy, 17/11, capture)** | — | — |
-| 10 | Tests réels sur GPU — **fait par Claude le 22/11** : tous verts (`qwen3-27b` 16,77 Go en 9,4 s, `qwen3-coder:30b` 19,69 Go en 14,8 s, un seul gros modèle à la fois ; vecteurs `nomic-embed-text` ; `screen_ocr` ; masque HandSegNet) | — | — |
-| 6 | Topologie 3 GPU, une fois le riser installé | `.venv\Scripts\python.exe -m core.hardware.gpu_monitor` | `gpu_count: 3`, environ 48 900 MiB |
+| 24 | Scantrad, automatique sur une double page + enregistrement — **OK (Jérémy, 22/11)** | — | demandes : page simple / double au chargement, gommer en un clic, zones annexes, export .txt, langues → tests 25 à 27 |
+| 25 | Scantrad : langue et type de page | onglet **Scantrad** : choisir « Langue » et « Pages » (simple, double, deviner) avant « Traduire » ; une page de manhwa ou de comic en anglais si tu en as | ordre de lecture de gauche à droite pour le coréen, le chinois et l'anglais ; une double page imposée est lue page par page |
+| 26 | Scantrad manuel : gommer en un clic, annexes | mode manuel : « Gommer les bulles (1 clic) » ; outil **Annexe** autour d'une onomatopée ou d'un texte hors bulle, puis dans le tableau « par-dessus le dessin (contour) » ou « effacer puis écrire » | les bulles s'effacent d'un coup (« Annuler » les remet) ; une annexe « contour » garde le dessin, le français est écrit en blanc cerné de noir |
+| 27 | Scantrad : export texte | « Texte de cette page (.txt) », « Texte du chapitre (.txt) », et « Texte (.txt) » en manuel | un fichier `<nom>_fr.txt` avec, pour chaque bulle, le texte d'origine et sa traduction |
+| 28 | Onglet Traduction | onglet **Traduction** : un texte (japonais, chinois, coréen ou anglais), puis une image (fichier ou Ctrl+V d'une capture) ; la voix après `Installer AetherTwin.bat -Voice` | traduction en quelques secondes ; l'image est lue puis traduite ; la voix : après installation, « Enregistrer un message » |
+| 29 | WoW Assistant : plusieurs serveurs IA | Paramètres > Assistant IA : « Ajouter l'endpoint ci-dessus à la liste » pour chaque serveur (Hub, Ollama, Open WebUI, OmniRoute…), « actif / inactif », puis « Charger la liste des modèles » | les modèles de tous les serveurs actifs, chacun avec son serveur ; en cliquer un sélectionne aussi son serveur. **Dans la copie du dépôt** (`modules/gaming_hud/app`), pas encore dans `D:\Hermes-Agent\wow_assistant_v9` |
 
 ## Points attendus de Jérémy
 

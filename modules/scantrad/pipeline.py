@@ -27,10 +27,13 @@ class Bubble:
     area: tuple[int, int, int, int] | None = None  # zone d'écriture (page) ; None = déduite du masque
     vertical: bool = False  # texte d'origine en colonnes
     text_box: tuple[int, int, int, int] | None = None  # cadre de `text_mask` s'il diffère de `box`
+    kind: str = "bulle"  # « bulle », ou « annexe » (onomatopée, texte hors bulle : mode manuel)
+    outline: bool = False  # texte blanc cerné de noir, posé sur le dessin sans l'effacer
 
     def to_dict(self) -> dict[str, Any]:
         return {"index": self.index, "box": list(self.box), "source": self.source, "translation": self.translation,
-                "area": list(self.area) if self.area else None, "vertical": self.vertical}
+                "area": list(self.area) if self.area else None, "vertical": self.vertical, "kind": self.kind,
+                "outline": self.outline}
 
 
 class Detector(Protocol):

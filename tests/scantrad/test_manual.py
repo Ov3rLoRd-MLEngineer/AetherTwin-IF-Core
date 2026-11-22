@@ -155,3 +155,47 @@ def test_auto_ocr_rereads_vertical_blocks_column_by_column() -> None:
     calls.clear()
     empty = make_column_aware_ocr(lambda m, e: "AUCUN")(page, bubble)
     assert empty == ""  # faux positif de la détection : écarté sans relecture
+
+
+def test_languages_accept_their_own_script_only() -> None:
+    from modules.scantrad.hub_stages import accept_ocr
+    from modules.scantrad.languages import language, ocr_prompt
+
+    assert accept_ocr("안녕하세요", "ko") == "안녕하세요" and accept_ocr("こんにちは", "ko") == ""
+    assert accept_ocr("你好", "zh") == "你好" and accept_ocr("HELLO THERE!", "en") == "HELLO THERE!"
+    assert accept_ocr("AUCUN", "en") == "" and accept_ocr("…", "en") == ""
+    assert "coréen" in ocr_prompt(language("ko")) and "manhwa" in ocr_prompt(language("ko"))
+    assert "colonnes" not in ocr_prompt(language("en"))  # l'anglais n'est jamais vertical
+    with pytest.raises(ValueError):
+        language("de")
+
+
+def test_left_to_right_reading_and_forced_layout() -> None:
+    from modules.scantrad.detect import sort_reading
+    from modules.scantrad.pipeline import Bubble
+
+    def bubble(x: int, y: int) -> Bubble:
+        return Bubble(0, (x, y, 50, 50), np.zeros((1, 1), np.uint8), np.zeros((1, 1), np.uint8))
+
+    row = [bubble(500, 10), bubble(10, 10)]
+    assert [b.box[0] for b in sort_reading(row, 400, 600, right_to_left=True)] == [500, 10]
+    assert [b.box[0] for b in sort_reading(row, 400, 600, right_to_left=False)] == [10, 500]
+    # une page large déclarée « simple » n'est pas coupée en deux pages : rangées de haut en bas seulement
+    spread = [bubble(900, 300), bubble(100, 10)]
+    assert [b.box[1] for b in sort_reading(spread, 400, 1000, spread=False)] == [10, 300]
+    assert [b.box[1] for b in sort_reading(spread, 400, 1000)] == [300, 10]  # devinée double : droite d'abord
+
+
+def test_an_annex_zone_keeps_the_art_and_gets_outlined_text(tmp_path: Path) -> None:
+    source = tmp_path / "page.png"
+    page = bubble_page()
+    page[230:280, 20:120] = 90  # « dessin » gris sous l'onomatopée
+    write_image(source, page)
+    rows = [{"box": [45, 75, 210, 150], "translation": "Salut"},
+            {"box": [10, 225, 120, 60], "translation": "BAM", "kind": "annexe"}]
+    bubbles = compose(source, tmp_path / "page_fr.png", rows)
+    assert bubbles[1]["kind"] == "annexe" and bubbles[1]["outline"] is True
+    out = read_image(tmp_path / "page_fr.png")
+    zone = out[225:285, 10:130]
+    assert (zone == 255).all(axis=2).sum() > 20  # texte blanc posé par-dessus
+    assert (np.abs(out[275, 115].astype(int) - 90) < 5).all()  # le dessin autour n'est pas effacé

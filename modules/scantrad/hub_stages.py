@@ -19,39 +19,28 @@ from typing import Any
 import cv2
 import numpy as np
 
+from modules.scantrad.languages import LANGUAGES, language, ocr_prompt
 from modules.scantrad.pipeline import Bubble
 
 Chat = Callable[[list[dict[str, Any]], dict[str, Any]], str]
 
-OCR_PROMPT = ("Transcris exactement le texte japonais écrit dans cette image extraite d'un manga. Le texte peut "
-              "être vertical : lis les colonnes de haut en bas, de la droite vers la gauche. Ignore les petits "
-              "caractères de lecture (furigana) placés à côté des kanji. Réponds uniquement par le texte transcrit, "
-              "sur une ligne, sans traduction, sans commentaire. S'il n'y a pas de texte japonais lisible (dessin, "
-              "décor), réponds exactement : AUCUN")
-# Mode manuel : la zone a été posée à la main, il y a du texte. Sans l'échappatoire « AUCUN », que le modèle
-# choisissait à tort pour un bloc horizontal de trois lignes (essai réel du 22/11).
-MANUAL_OCR_PROMPT = ("Transcris exactement le texte japonais de cette image extraite d'un manga. Il peut être "
-                     "horizontal, ou vertical (colonnes de haut en bas, de la droite vers la gauche). Ignore les "
-                     "furigana. Réponds uniquement par le texte transcrit, sur une ligne, sans traduction ni "
-                     "commentaire.")
-# Sens connu (mesuré sur l'encre de la zone, voir `manual.is_vertical`) : laissé au choix, le modèle lisait une
-# bulle de 4 colonnes ligne par ligne, d'où un texte dans le désordre (essai de Jérémy du 22/11).
-MANUAL_OCR_VERTICAL = ("Transcris exactement le texte japonais de cette image extraite d'un manga. Le texte est "
-                       "VERTICAL, en plusieurs colonnes : lis chaque colonne de haut en bas, en commençant par la "
-                       "colonne la plus à DROITE, puis celle à sa gauche, et ainsi de suite. Ignore les furigana. "
-                       "Réponds uniquement par le texte transcrit, sur une ligne, sans traduction ni commentaire.")
-MANUAL_OCR_COLUMN = ("Transcris exactement le texte japonais de cette image : une seule colonne verticale, à lire "
-                     "de haut en bas. Réponds uniquement par le texte transcrit, sans traduction ni commentaire.")
-MANUAL_OCR_HORIZONTAL = ("Transcris exactement le texte japonais de cette image extraite d'un manga. Le texte est "
-                         "HORIZONTAL : lis les lignes de gauche à droite, de haut en bas. Ignore les furigana. "
-                         "Réponds uniquement par le texte transcrit, sur une ligne, sans traduction ni commentaire.")
-JAPANESE = re.compile(r"[぀-ヿ㐀-鿿ｦ-ﾟ]")
+# Consignes d'OCR, propres à chaque langue (voir `languages.py`). Celles du japonais restent nommées ici.
+# - Mode manuel : la zone a été posée à la main, il y a du texte ; sans l'échappatoire « AUCUN », que le modèle
+#   choisissait à tort pour un bloc horizontal de trois lignes (essai réel du 22/11).
+# - Sens connu (mesuré sur l'encre, voir `manual.is_vertical`) : laissé au choix, le modèle lisait une bulle de
+#   4 colonnes ligne par ligne, d'où un texte dans le désordre (essai de Jérémy du 22/11).
+OCR_PROMPT = ocr_prompt(LANGUAGES["ja"], "auto")
+MANUAL_OCR_PROMPT = ocr_prompt(LANGUAGES["ja"], "manual")
+MANUAL_OCR_VERTICAL = ocr_prompt(LANGUAGES["ja"], "vertical")
+MANUAL_OCR_COLUMN = ocr_prompt(LANGUAGES["ja"], "column")
+MANUAL_OCR_HORIZONTAL = ocr_prompt(LANGUAGES["ja"], "horizontal")
+JAPANESE = LANGUAGES["ja"].script
 
 
-def accept_ocr(text: str) -> str:
-    """Texte lu, ou "" si le modèle dit qu'il n'y a rien, ou s'il ne rend aucun caractère japonais."""
+def accept_ocr(text: str, lang: str = "ja") -> str:
+    """Texte lu, ou "" si le modèle dit qu'il n'y a rien, ou s'il ne rend aucun caractère de la langue attendue."""
     text = " ".join(strip_thinking(text).split()).strip("「」『』\"' ")
-    if not text or "AUCUN" in text.upper() or not JAPANESE.search(text):
+    if not text or "AUCUN" in text.upper() or not language(lang).script.search(text):
         return ""
     return text
 
@@ -94,12 +83,12 @@ def bubble_png(page: np.ndarray, bubble: Bubble, pad: int = 0, min_side: int = 2
 
 
 def make_vision_ocr(chat: Chat, model: str = "qwen2.5vl:7b", num_ctx: int = 4096,
-                    prompt: str = OCR_PROMPT) -> Callable[..., str]:
+                    prompt: str = OCR_PROMPT, lang: str = "ja") -> Callable[..., str]:
     def read(page: np.ndarray, bubble: Bubble, pad: int) -> str:
         data_uri = "data:image/png;base64," + base64.b64encode(bubble_png(page, bubble, pad)).decode("ascii")
         messages = [{"role": "user", "content": [{"type": "text", "text": prompt},
                                                  {"type": "image_url", "image_url": {"url": data_uri}}]}]
-        return accept_ocr(chat(messages, {"model": model, "num_ctx": num_ctx, "temperature": 0}))
+        return accept_ocr(chat(messages, {"model": model, "num_ctx": num_ctx, "temperature": 0}), lang)
 
     def ocr(page: np.ndarray, bubble: Bubble) -> str:
         """Deux lectures au plus : la seconde, plus large, rattrape les mots courts lus « AUCUN » à tort."""
@@ -119,18 +108,20 @@ def read_by_columns(column_ocr: Callable[..., str], page: np.ndarray, box: tuple
     return re.sub(r"\s+", "", "".join(parts))
 
 
-def make_column_aware_ocr(chat: Chat, model: str = "qwen2.5vl:7b") -> Callable[..., str]:
+def make_column_aware_ocr(chat: Chat, model: str = "qwen2.5vl:7b", lang: str = "ja") -> Callable[..., str]:
     """OCR du mode automatique : une première lecture décide s'il y a du texte (« AUCUN » écarte les faux positifs
-    de la détection) ; un bloc vertical de plusieurs colonnes est ensuite relu colonne par colonne."""
+    de la détection) ; un bloc vertical de plusieurs colonnes (japonais, chinois) est ensuite relu colonne par
+    colonne."""
     from modules.scantrad.manual import is_vertical, split_columns
 
-    first = make_vision_ocr(chat, model)
-    column = make_vision_ocr(chat, model, prompt=MANUAL_OCR_COLUMN)
+    spec = language(lang)
+    first = make_vision_ocr(chat, model, prompt=ocr_prompt(spec, "auto"), lang=lang)
+    column = make_vision_ocr(chat, model, prompt=ocr_prompt(spec, "column"), lang=lang)
 
     def ocr(page: np.ndarray, bubble: Bubble) -> str:
         text = first(page, bubble)
-        if not text:
-            return ""
+        if not text or not spec.vertical:
+            return text
         x, y, w, h = bubble.box  # cadre du texte, élargi un peu : l'encre ne doit pas toucher le bord
         pad = max(6, int(0.05 * max(w, h)))
         x0, y0 = max(0, x - pad), max(0, y - pad)
@@ -144,7 +135,7 @@ def make_column_aware_ocr(chat: Chat, model: str = "qwen2.5vl:7b") -> Callable[.
 
 @dataclass
 class Glossary:
-    """Glossaire persistant d'une série : personnages et termes (japonais → français), ton, notes."""
+    """Glossaire persistant d'une série : personnages et termes (langue source → français), ton, notes."""
 
     path: Path
     characters: dict[str, str] = field(default_factory=dict)
@@ -171,8 +162,10 @@ class Glossary:
         return {jp: fr for jp, fr in {**self.characters, **self.terms}.items() if jp in joined}
 
 
-def translation_prompt(texts: list[str], glossary: Glossary | None, target: str = "français") -> str:
-    lines = [f"Tu traduis une page de manga du japonais vers le {target}.",
+def translation_prompt(texts: list[str], glossary: Glossary | None, target: str = "français",
+                       lang: str = "ja") -> str:
+    spec = language(lang)
+    lines = [f"Tu traduis une page de {spec.work} du {spec.name} vers le {target}.",
              f"Ton : {glossary.tone if glossary else 'naturel et oral'}.",
              "Les bulles sont dans l'ordre de lecture ; garde la cohérence entre elles.",
              "Traduction courte, qui tient dans une bulle. N'ajoute aucune explication."]
@@ -200,19 +193,19 @@ def parse_translations(answer: str, count: int) -> list[str] | None:
 
 
 def make_translator(chat: Chat, glossary: Glossary | None = None, model: str = "",
-                    target: str = "français") -> Callable[[list[str]], list[str]]:
+                    target: str = "français", lang: str = "ja") -> Callable[[list[str]], list[str]]:
     extra: dict[str, Any] = {"think": False, "temperature": 0.3}
     if model:
         extra["model"] = model
 
     def translate(texts: list[str]) -> list[str]:
-        answer = chat([{"role": "user", "content": translation_prompt(texts, glossary, target)}], extra)
+        answer = chat([{"role": "user", "content": translation_prompt(texts, glossary, target, lang)}], extra)
         parsed = parse_translations(answer, len(texts))
         if parsed is not None:
             return parsed
         single = []  # repli : une bulle à la fois, la réponse brute est la traduction
         for text in texts:
-            reply = chat([{"role": "user", "content": translation_prompt([text], glossary, target)}], extra)
+            reply = chat([{"role": "user", "content": translation_prompt([text], glossary, target, lang)}], extra)
             one = parse_translations(reply, 1)
             single.append(one[0] if one else strip_thinking(reply).splitlines()[0].strip())
         return single

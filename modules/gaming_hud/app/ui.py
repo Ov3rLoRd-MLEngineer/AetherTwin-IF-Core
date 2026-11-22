@@ -20,6 +20,7 @@ import tabs
 import voice as voice_mod
 from character import EQUIPMENT_LAYOUT, Character, format_duration
 from config import WoWConfig
+from llm import enabled_servers, list_models_at
 from quests import QuestTracker
 from theme import C, QUALITY_COLORS, clean_wow_text, hex_to_rgb
 from wowhead import IconCache, LinkResolver
@@ -1521,13 +1522,22 @@ class UI:
             self.actions["settings_changed"]()
 
     def _load_models(self):
+        """Modèles de tous les serveurs actifs (liste « Serveurs enregistrés » + endpoint en cours) : chaque
+        modèle garde son serveur, le choisir sélectionne aussi le serveur."""
         m = self.modal
         self._apply_settings_inputs(False)
         m["bg"] = {"done": False, "models": [], "error": ""}
         job = m["bg"]
+        servers = enabled_servers(self.settings, self.inputs.get("set_endpoint", ""), self.inputs.get("set_key", ""))
 
         def work():
-            job["models"], job["error"] = self.llm.list_models()
+            errors = []
+            for server in servers:
+                names, error = list_models_at(server["url"], server["api_key"])
+                job["models"] += [(name, server["url"], server["api_key"]) for name in names]
+                if error and not names:
+                    errors.append(f"{server['url']} : {error}")
+            job["error"] = " ; ".join(errors) or ("aucun serveur actif" if not servers else "")
             job["done"] = True
         threading.Thread(target=work, daemon=True).start()
         m["status"], m["status_ok"] = "Recherche des modèles…", True
@@ -1554,8 +1564,10 @@ class UI:
         if m["bg"] and m["bg"]["done"]:
             job, m["bg"] = m["bg"], None
             m["models"] = job["models"]
-            m["status"], m["status_ok"] = (f"{len(job['models'])} modèle(s) trouvé(s)." if job["models"]
-                                           else f"Aucun modèle : {job['error']}"), bool(job["models"])
+            hosts = len({url for _name, url, _key in job["models"]})
+            m["status"], m["status_ok"] = ((f"{len(job['models'])} modèle(s) trouvé(s) sur {hosts} serveur(s)."
+                                            + (f"  Injoignable : {job['error']}" if job["error"] else ""))
+                                           if job["models"] else f"Aucun modèle : {job['error']}"), bool(job["models"])
         if m["test"] and m["test"].done:
             job, m["test"] = m["test"], None
             m["status"], m["status_ok"] = ((f"Réponse reçue : {job.text[:80]}" if not job.error else f"Échec : {job.error[:120]}"),
@@ -1701,17 +1713,21 @@ class UI:
         y += 48
         if m["mode"] == "api":
             y = self._field(x, y, "Endpoint API", "set_endpoint", "http://127.0.0.1:11434/v1   (ou Open WebUI / Omniroute)", label_w, field_w)
+            y = self._settings_servers(x, y, label_w, rect)
             y = self._field(x, y, "Modèle", "set_model", "nom du modèle (ex. claude-sonnet, llama3…)", label_w, field_w)
             self.pill((x + label_w, y, 230, 30), "Charger la liste des modèles", False, self._load_models)
             y += 38
             if m["models"]:
                 px = x + label_w
-                for name in m["models"][:18]:
-                    pw = self.fonts["small"].size(name)[0] + 24
+                several = len({url for _n, url, _k in m["models"]}) > 1
+                for name, url, key in m["models"][:24]:
+                    label = f"{name}  · {self._server_label(url)}" if several else name
+                    pw = self.fonts["small"].size(label)[0] + 24
                     if px + pw > rect.right - 24:
                         px, y = x + label_w, y + 32
-                    self.pill((px, y, pw, 28), name, self.inputs.get("set_model") == name,
-                              lambda n=name: self.inputs.update(set_model=n))
+                    chosen = self.inputs.get("set_model") == name and self.inputs.get("set_endpoint", "").rstrip("/") == url
+                    self.pill((px, y, pw, 28), label, chosen,
+                              lambda n=name, u=url, k=key: self.inputs.update(set_model=n, set_endpoint=u, set_key=k))
                     px += pw + 6
                 y += 38
             self._clear_key_button((x + label_w + field_w - 38, y, 38, 34), "set_key", "llm.api_key")
@@ -1731,6 +1747,65 @@ class UI:
         self.pill((x, y, 440, 32), "Icônes en ligne (Wowhead) : " + ("activées" if m["icons"] else "désactivées"), m["icons"],
                   lambda: m.update(icons=not m["icons"]))
         self.text("Désactivez pour ne faire aucune requête vers Wowhead (icônes déjà en cache conservées).", "tiny", "gray", (x, y + 42))
+
+    @staticmethod
+    def _server_label(url):
+        """Nom court d'un serveur pour les boutons : « 127.0.0.1:5750 »."""
+        return url.split("://", 1)[-1].split("/", 1)[0]
+
+    def _servers(self):
+        return [dict(s) for s in (self.settings.get("llm.servers", []) or []) if isinstance(s, dict)]
+
+    def _save_servers(self, servers):
+        self.settings.set("llm.servers", servers)
+        self.settings.save()
+
+    def _add_server(self):
+        url = self.inputs.get("set_endpoint", "").strip().rstrip("/")
+        if not url:
+            self.notify("Renseignez d'abord l'endpoint")
+            return
+        servers = self._servers()
+        if any(s.get("url", "").rstrip("/") == url for s in servers):
+            self.notify("Ce serveur est déjà dans la liste")
+            return
+        servers.append({"url": url, "api_key": self.inputs.get("set_key", "").strip(), "enabled": True})
+        self._save_servers(servers)
+        self.notify("Serveur ajouté à la liste")
+
+    def _toggle_server(self, index):
+        servers = self._servers()
+        servers[index]["enabled"] = not servers[index].get("enabled", True)
+        self._save_servers(servers)
+
+    def _remove_server(self, index):
+        servers = self._servers()
+        del servers[index]
+        self._save_servers(servers)
+
+    def _use_server(self, index):
+        server = self._servers()[index]
+        self.inputs.update(set_endpoint=server.get("url", ""), set_key=server.get("api_key", ""))
+
+    def _settings_servers(self, x, y, label_w, rect):
+        """Serveurs enregistrés : plusieurs endpoints gardés en mémoire, chacun actif ou non ; « Charger la liste
+        des modèles » interroge tous les serveurs actifs. L'endpoint utilisé pour répondre reste celui du champ."""
+        servers = self._servers()
+        self.text("Serveurs enregistrés", "small", "gray", (x, y + 6))
+        self.pill((x + label_w, y, 300, 28), "Ajouter l'endpoint ci-dessus à la liste", False, self._add_server)
+        y += 36
+        for i, server in enumerate(servers[:5]):
+            on = server.get("enabled", True)
+            self.pill((x + label_w, y, 70, 26), "actif" if on else "inactif", on, lambda i=i: self._toggle_server(i))
+            self.text(self.fit(server.get("url", ""), "small", rect.right - x - label_w - 330), "small",
+                      "text" if on else "gray", (x + label_w + 80, y + 3))
+            self.pill((rect.right - 24 - 160, y, 100, 26), "Utiliser", False, lambda i=i: self._use_server(i))
+            self.pill((rect.right - 24 - 52, y, 52, 26), "×", False, lambda i=i: self._remove_server(i))
+            y += 32
+        if len(servers) > 5:
+            self.text(f"… et {len(servers) - 5} autre(s) dans settings.json", "tiny", "gray", (x + label_w, y))
+            y += 22
+        return y + 6
 
     def _settings_overlay(self, m, x, y, rect):
         self.text("Overlay : fenêtre transparente au premier plan", "medium", "gold", (x, y), shadow=True)

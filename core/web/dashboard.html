@@ -25,6 +25,7 @@
     <button role="tab" data-tab="professeur">Professeur</button>
     <button role="tab" data-tab="connaissances">Connaissances</button>
     <button role="tab" data-tab="scantrad">Scantrad</button>
+    <button role="tab" data-tab="traduction">Traduction</button>
     <button role="tab" data-tab="studio">Studio</button>
     <button role="tab" data-tab="ether">Éther</button>
     <button role="tab" data-tab="journal">Journal</button>
@@ -177,13 +178,30 @@
           <input id="scan-file" type="file" accept="image/png,image/jpeg,image/webp" multiple required
                  aria-label="pages à traduire (plusieurs possibles : un chapitre)">
           <input id="scan-series" placeholder="Série (glossaire, facultatif)" autocomplete="off">
-          <label><input type="checkbox" id="scan-nollm"> détection et effacement seuls</label>
           <button type="submit">Traduire</button>
         </form>
+        <div class="row">
+          <label>Langue
+            <select id="scan-lang" aria-label="langue de la page">
+              <option value="ja">japonais (manga)</option>
+              <option value="zh">chinois (manhua)</option>
+              <option value="ko">coréen (manhwa)</option>
+              <option value="en">anglais (comic)</option>
+            </select></label>
+          <label>Pages
+            <select id="scan-layout" aria-label="page simple ou double page">
+              <option value="auto">deviner (plus large que haute = double)</option>
+              <option value="simple">page simple</option>
+              <option value="double">double page</option>
+            </select></label>
+          <label><input type="checkbox" id="scan-nollm"> détection et effacement seuls</label>
+        </div>
         <p id="scan-line" class="muted"></p>
         <div class="row" id="scan-save-row" hidden>
           <button id="scan-save" type="button" class="ghost">Enregistrer cette page traduite</button>
           <button id="scan-save-all" type="button" class="ghost">Enregistrer tout le chapitre</button>
+          <button id="scan-text" type="button" class="ghost">Texte de cette page (.txt)</button>
+          <button id="scan-text-all" type="button" class="ghost">Texte du chapitre (.txt)</button>
         </div>
         <div id="scan-gallery" class="gallery"></div>
         <div id="scan-images" class="compare" hidden>
@@ -195,18 +213,21 @@
       <section>
         <h2>Mode manuel : zones posées à la main</h2>
         <p class="muted">Pour une page où la détection rate des bulles. <b>1.</b> Trace une boîte autour de chaque
-          bulle, <b>dans l'ordre de lecture</b> (le numéro s'affiche). <b>2.</b> « Lire le texte », puis
-          « Traduire » ; pendant la traduction, passe à la <b>gomme</b> pour blanchir ce qui doit disparaître.
-          <b>3.</b> « Réincruster ». Le texte resté dans les boîtes est aussi effacé automatiquement.</p>
+          bulle, <b>dans l'ordre de lecture</b> (le numéro s'affiche). Les onomatopées et le texte hors bulle se
+          posent avec l'outil <b>Annexe</b> (facultatif). <b>2.</b> « Lire le texte », puis « Traduire » ; pendant
+          la traduction, <b>gomme</b> ce qui doit disparaître. <b>3.</b> « Réincruster ». La langue et le type de
+          page sont ceux choisis plus haut.</p>
         <div class="row">
           <input id="man-file" type="file" accept="image/png,image/jpeg,image/webp" aria-label="page à traduire">
           <button id="man-suggest" type="button" class="ghost">Partir de la détection automatique</button>
         </div>
         <div class="row" role="toolbar" aria-label="outils">
-          <button id="man-tool-zones" type="button" class="ghost" aria-pressed="true">Zones</button>
+          <button id="man-tool-zones" type="button" class="ghost" aria-pressed="true">Bulles</button>
+          <button id="man-tool-annex" type="button" class="ghost" aria-pressed="false"
+                  title="onomatopée, panneau, texte hors bulle">Annexe</button>
           <button id="man-tool-brush" type="button" class="ghost" aria-pressed="false">Gomme</button>
+          <button id="man-erase" type="button" class="ghost" title="efface le texte de toutes les bulles posées">Gommer les bulles (1 clic)</button>
           <label>taille <input id="man-brush" type="range" min="4" max="120" value="24"></label>
-          <button id="man-erase" type="button" class="ghost">Aperçu de l'effacement</button>
           <button id="man-undo" type="button" class="ghost">Annuler</button>
           <button id="man-clear" type="button" class="ghost">Retirer les zones</button>
         </div>
@@ -220,12 +241,13 @@
         <p id="man-line" class="muted"></p>
         <div id="man-rows"></div>
         <figure id="man-result" hidden><figcaption>Page traduite
-          <button id="man-save" type="button" class="ghost small">Enregistrer l'image</button></figcaption>
+          <button id="man-save" type="button" class="ghost small">Enregistrer l'image</button>
+          <button id="man-text" type="button" class="ghost small">Texte (.txt)</button></figcaption>
           <img id="man-after" alt="page traduite"></figure>
       </section>
       <section>
         <h2>Glossaire d'une série</h2>
-        <p class="muted">Une entrée par ligne : <code>japonais = français</code>. Seules les entrées présentes
+        <p class="muted">Une entrée par ligne : <code>langue d'origine = français</code>. Seules les entrées présentes
           dans la page sont données au modèle.</p>
         <div class="row">
           <input id="glo-series" placeholder="Nom de la série" autocomplete="off">
@@ -237,6 +259,41 @@
         </div>
         <label>Ton<input id="glo-tone" class="full" autocomplete="off"></label>
         <div class="row"><button id="glo-save" type="button">Enregistrer</button><span id="glo-line" class="muted"></span></div>
+      </section>
+    </div>
+
+    <!-- Traduction générale -->
+    <div class="panel" data-panel="traduction" hidden>
+      <section>
+        <h2>Traduire vers le français</h2>
+        <p class="muted">Japonais, chinois, coréen ou anglais : un texte, une image (capture, photo, Ctrl+V pour
+          coller une capture) ou un message vocal. Tout reste sur cette machine.</p>
+        <div class="row">
+          <label>Langue d'origine
+            <select id="tr-lang">
+              <option value="auto">détecter</option>
+              <option value="ja">japonais</option>
+              <option value="zh">chinois</option>
+              <option value="ko">coréen</option>
+              <option value="en">anglais</option>
+            </select></label>
+        </div>
+        <label for="tr-source" class="block-label">Texte d'origine</label>
+        <textarea id="tr-source" rows="5" placeholder="Colle ou écris le texte à traduire…"></textarea>
+        <div class="row">
+          <button id="tr-text" type="button">Traduire le texte</button>
+          <input id="tr-file" type="file" accept="image/png,image/jpeg,image/webp" aria-label="image à traduire">
+          <button id="tr-record" type="button" class="ghost" aria-pressed="false">🎙 Enregistrer un message</button>
+          <span id="tr-voice-state" class="muted"></span>
+        </div>
+        <p id="tr-line" class="muted"></p>
+        <img id="tr-preview" class="tr-preview" alt="image envoyée" hidden>
+        <label for="tr-result" class="block-label">Traduction</label>
+        <div id="tr-result" class="answer" aria-live="polite"></div>
+        <div class="row">
+          <button id="tr-copy" type="button" class="ghost">Copier la traduction</button>
+          <button id="tr-save" type="button" class="ghost">Enregistrer (.txt)</button>
+        </div>
       </section>
     </div>
 

@@ -25,6 +25,36 @@ class Job:
         self.error = ""
 
 
+class _FixedSettings:
+    """Réglages figés sur un serveur donné : interroge un serveur de la liste sans toucher aux réglages actifs."""
+
+    def __init__(self, endpoint, api_key=""):
+        self.values = {"llm.endpoint": endpoint, "llm.api_key": api_key}
+
+    def get(self, key, default=""):
+        return self.values.get(key, default)
+
+
+def list_models_at(endpoint, api_key=""):
+    """(liste de noms, message d'erreur) pour un serveur précis (liste « Serveurs enregistrés »)."""
+    return LLMClient(_FixedSettings(endpoint, api_key)).list_models()
+
+
+def enabled_servers(settings, current_endpoint="", current_key=""):
+    """Serveurs à interroger : ceux de la liste cochés « actifs », plus l'endpoint en cours s'il n'y est pas.
+    Chaque serveur : {"url", "api_key"}."""
+    out, seen = [], set()
+    for server in settings.get("llm.servers", []) or []:
+        url = str(server.get("url", "")).strip().rstrip("/")
+        if url and server.get("enabled", True) and url not in seen:
+            seen.add(url)
+            out.append({"url": url, "api_key": str(server.get("api_key", ""))})
+    current = (current_endpoint or "").strip().rstrip("/")
+    if current and current not in seen:
+        out.insert(0, {"url": current, "api_key": current_key})
+    return out
+
+
 class LLMClient:
     TIMEOUT = 180
 

@@ -209,11 +209,13 @@ def create_app(daemon: Daemon) -> FastAPI:
         raise HTTPException(status_code=404, detail="action inconnue")
 
     @app.post("/scantrad/translate")
-    async def scantrad_translate(request: Request, series: str = "", no_llm: bool = False) -> dict[str, Any]:
+    async def scantrad_translate(request: Request, series: str = "", no_llm: bool = False, lang: str = "ja",
+                                 layout: str = "auto") -> dict[str, Any]:
         source = await save_upload(request, SCANTRAD_DIR / "entrees")
         output = SCANTRAD_DIR / "sorties" / f"{source.stem}_fr.png"
         reply = await run_in_threadpool(module_call, "scantrad", "page", {
-            "input": str(source), "output": str(output), "series": series, "no_llm": no_llm})
+            "input": str(source), "output": str(output), "series": series, "no_llm": no_llm, "lang": lang,
+            "layout": layout})
         if reply.get("ok"):
             reply["input_url"] = f"/scantrad/files/entrees/{source.name}"
             reply["output_url"] = f"/scantrad/files/sorties/{output.name}"
@@ -261,12 +263,14 @@ def create_app(daemon: Daemon) -> FastAPI:
     async def scantrad_manual(command: str, data: dict[str, Any]) -> dict[str, Any]:
         if command not in ("suggest", "read", "translate", "erase", "compose"):
             raise HTTPException(status_code=404, detail="commande inconnue")
+        common = {"lang": str(data.get("lang") or "ja"), "layout": str(data.get("layout") or "auto"),
+                  "series": str(data.get("series", ""))}
         if command == "translate":
-            payload: dict[str, Any] = {"texts": data.get("texts"), "series": str(data.get("series", ""))}
+            payload: dict[str, Any] = {"texts": data.get("texts"), **common}
         else:
             source, cleaned, output = manual_paths(str(data.get("image", "")))
             payload = {"input": str(source), "boxes": data.get("boxes"), "bubbles": data.get("bubbles"),
-                       "auto_erase": data.get("auto_erase") is not False, "series": str(data.get("series", "")),
+                       "auto_erase": data.get("auto_erase") is not False, **common,
                        "output": str(cleaned if command == "erase" else output)}
         reply = await run_in_threadpool(module_call, "scantrad", command, payload)
         if reply.get("ok") and command == "erase":
@@ -301,6 +305,58 @@ def create_app(daemon: Daemon) -> FastAPI:
             result["mask_url"] = f"/mangastudio/files/sorties/{Path(result.pop('mask')).name}"
             result["preview_url"] = f"/mangastudio/files/sorties/{Path(result.pop('preview')).name}"
         return reply
+
+    # ---------- Traduction générale vers le français (texte, image, voix) ----------
+    def translate_or_400(fn: Any) -> dict[str, Any]:
+        try:
+            return llm_call(fn)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/translate/text")
+    def translate_text(data: dict[str, Any]) -> dict[str, Any]:
+        from core import translate
+
+        return translate_or_400(lambda: translate.translate_text(daemon.llm.chat, str(data.get("text", "")),
+                                                                 str(data.get("lang") or "auto")))
+
+    @app.post("/translate/image")
+    async def translate_image(request: Request, lang: str = "auto") -> dict[str, Any]:
+        from core import translate
+
+        if IMAGE_TYPES.get(request.headers.get("content-type", "").split(";")[0].strip().lower()) is None:
+            raise HTTPException(status_code=415, detail="image PNG, JPEG ou WebP attendue")
+        body = await request.body()
+        if not body or len(body) > MAX_UPLOAD:
+            raise HTTPException(status_code=413, detail="image vide ou de plus de 25 Mo")
+        model = str(config.section("scantrad").get("ocr_model") or "qwen2.5vl:7b")
+
+        def run() -> dict[str, Any]:
+            text = translate.read_image(daemon.llm.chat, body, lang, model)
+            return translate.translate_text(daemon.llm.chat, text, lang)
+        return await run_in_threadpool(translate_or_400, run)
+
+    @app.get("/translate/voice")
+    def translate_voice_status() -> dict[str, Any]:
+        from core import translate
+
+        return {"available": translate.voice_available()}
+
+    @app.post("/translate/voice")
+    async def translate_voice(request: Request, lang: str = "auto") -> dict[str, Any]:
+        from core import translate
+
+        body = await request.body()
+        if not body or len(body) > MAX_UPLOAD:
+            raise HTTPException(status_code=413, detail="enregistrement vide ou de plus de 25 Mo")
+
+        def run() -> dict[str, Any]:
+            try:
+                heard = translate.transcribe(body, lang)
+            except RuntimeError as exc:
+                raise HTTPException(status_code=503, detail=str(exc)) from exc
+            return translate.translate_text(daemon.llm.chat, heard["text"], heard["lang"])
+        return await run_in_threadpool(translate_or_400, run)
 
     @app.post("/mangastudio/detect")
     def mangastudio_detect(data: dict[str, Any]) -> dict[str, Any]:

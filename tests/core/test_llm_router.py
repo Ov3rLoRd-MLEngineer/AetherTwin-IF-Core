@@ -368,3 +368,20 @@ def test_real_ollama_one_large_model_at_a_time() -> None:
         assert [m["name"] for m in loaded if m["vram_gb"] >= 8] == [model]
     router.unload(second)
     assert all(m["vram_gb"] < 8 for m in router.loaded())
+
+
+def test_a_model_already_loaded_by_another_client_is_not_counted_twice(ollama: FakeOllama) -> None:
+    """Un modèle déjà chargé dans Ollama (par Open WebUI, un autre Hub…) est déjà dans la VRAM mesurée : on
+    l'utilise sans le réserver une seconde fois (sinon : « 1,8 Go libres, 6,4 demandés », essai du 22/11)."""
+    class Busy:
+        name = "factice"
+
+        def read(self) -> list[GpuInfo]:  # 27 Go mesurés sur 28,8 de budget
+            return [GpuInfo(0, "A", 16 * 1024, 15 * 1024), GpuInfo(1, "B", 16 * 1024, 12 * 1024)]
+
+    router = LlmRouter(Inoue(GpuMonitor(Busy())), LlmConfig(host=ollama.host))
+    ollama.loaded["petit-vision:7b"] = ollama.installed["petit-vision:7b"] * 1.2
+    assert router.chat(USER, model="petit-vision:7b")["content"] == "réponse de petit-vision:7b"
+    assert "llm-small:petit-vision:7b" in router.inoue.state()["allocations"]
+    with pytest.raises(LlmRefused, match="en file"):  # un modèle absent, lui, doit trouver sa place
+        router.chat(USER, model="gros-a:27b")
