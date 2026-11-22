@@ -750,3 +750,24 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - **Réel :** Hub relancé ; à vide 1,9 Go mesurés (bureau) ; `qwen3-27b` chargé par `/ask` : 18,0 Go réservés,
   19,0 mesurés, 9,6 Go libres annoncés.
 - **Tests :** 1 nouveau ; suite verte.
+## 2026-11-22 soir — Jeu : vue RPG 16 bits, chats, minicarte, sons par lieu (carte blanche de Jérémy)
+
+- **Agent :** Cloud
+- **Fichiers :** `core/web/ether_scene.js` (réécrit), `core/web/dashboard.{html,js}`, `modules/if_game/world.py`,
+  `tests/if_game/test_if_game.py`
+- **Demande :** que le jeu ressemble davantage à FF6, Chrono Trigger ou Seiken Densetsu (style seulement : rien
+  n'est repris, tout est dessiné par le code), Fuma et Inoue en chats, minicarte (les mondes sont fixés par la
+  graine), ambiance sonore propre à chaque type de lieu, réglage du volume, graine expliquée.
+- **Moteur :** chaque lieu a une case `[x, y, niveau]` ; un chemin vers une case déjà connue y mène (dans les
+  deux sens) au lieu d'en recréer une ; un nouveau lieu se raccorde à ses voisins. `view()` donne `map`, `pos`
+  et `bag` (sac regroupé : « Une plume de nuage » = « plume de nuage »). Anciennes sauvegardes : positions
+  déduites des chemins (sur la partie de Jérémy : 50 lieux, 2 chemins historiques non alignés, sans perte).
+- **Rendu :** vue de dessus 320×180 ×3, tuiles 16 px, 11 décors choisis par le premier mot-clé du nom
+  (« Jardin des Larmes de Lune » est un jardin), jour / crépuscule / nuit, lumières (réverbères, cristaux,
+  queue d'Inoue selon son énergie), eau animée, particules, bannière du lieu, fenêtre de dialogue, étiquettes
+  des sorties, minicarte (M). Fuma : flèches / ZQSD ou clic ; Inoue suit ; Espace lit une stèle ou parle à Inoue.
+- **Son :** 11 ambiances (accords, timbre, motif, bruits) + carillon ; volume (curseur, retenu localement).
+- **Vérifié :** dans le navigateur, 7 décors, déplacement au clavier et à la souris, passage nord vers un lieu
+  inventé par `qwen3-27b`, son activé sur 7 ambiances sans erreur (pas écouté). La partie de Jérémy a été
+  sauvegardée avant l'essai et restaurée à l'identique (empreinte vérifiée).
+- **Tests :** 3 nouveaux (grille, conversion des sauvegardes, carte et sac) ; suite verte.

@@ -1104,12 +1104,15 @@ const ether = { shown: false, scene: null };
 
 function etherRender(result, said) {
   if (window.EtherScene) {
-    ether.scene = ether.scene || window.EtherScene.create($("ether-canvas"), (direction) => etherAct(direction));
+    ether.scene = ether.scene || window.EtherScene.create($("ether-canvas"), (text) => etherAct(text, false), {
+      riddle: () => { $("ether-input").value = "répondre "; },
+      map: (on) => $("ether-map").setAttribute("aria-pressed", String(on)),
+    });
     const moved = ether.lastPlace !== undefined && ether.lastPlace !== result.place_id;
     ether.lastPlace = result.place_id;
     ether.scene.update(result);
     if (ether.audio) {
-      ether.audio.setFloor(ether.scene.themeName());
+      ether.audio.setTheme(ether.scene.themeName(), ether.scene.mood());
       if (moved) ether.audio.chime();
     }
   }
@@ -1118,8 +1121,12 @@ function etherRender(result, said) {
   if (result.narration) log.append(el("p", {}, result.narration));
   log.scrollTop = log.scrollHeight;
   $("ether-place").textContent = result.place;
+  const bag = result.bag || [];
+  const count = bag.reduce((n, [, k]) => n + k, 0);
+  const shownBag = bag.slice(0, 6).map(([item, k]) => (k > 1 ? `${item} ×${k}` : item)).join(", ");
   $("ether-stats").textContent = `tour ${result.turn} · lumière d'Inoue ${result.energy}/${result.max_energy}`
-    + ` · ${result.explored} lieux · ${result.riddles_solved} énigmes · sac : ${result.inventory.join(", ") || "vide"}`
+    + ` · ${result.explored} lieux · ${result.riddles_solved} énigmes · sac : `
+    + (count ? `${count} objets (${shownBag}${bag.length > 6 ? `, et ${bag.length - 6} autres sortes` : ""})` : "vide")
     + (result.origin === "modèle local" ? " · lieu inventé par le modèle local" : "");
   const exits = $("ether-exits");
   exits.replaceChildren();
@@ -1137,15 +1144,17 @@ async function etherCall(command, payload) {
   return reply.result;
 }
 
-async function etherAct(text) {
+// `typed` : action tapée dans le champ (on y laisse le curseur) ; sinon elle vient de la scène, qui garde le clavier
+async function etherAct(text, typed = true) {
   $("ether-input").disabled = true;
   try {
     etherRender(await etherCall("act", { text }), text);
   } catch (error) {
     $("ether-log").append(el("p", { class: "warn" }, `Erreur : ${error.message}`));
+    if (ether.scene) ether.scene.failed();
   } finally {
     $("ether-input").disabled = false;
-    $("ether-input").focus();
+    if (typed) $("ether-input").focus();
   }
 }
 
@@ -1167,10 +1176,24 @@ $("ether-new").addEventListener("click", async () => {
 
 $("ether-sound").addEventListener("click", () => {
   ether.audio = ether.audio || window.EtherScene.createAudio();
-  if (ether.scene) ether.audio.setFloor(ether.scene.themeName());
+  ether.audio.setVolume(Number($("ether-volume").value) / 100);
+  if (ether.scene) ether.audio.setTheme(ether.scene.themeName(), ether.scene.mood());
   const on = ether.audio.toggle();
   $("ether-sound").textContent = on ? "Son : activé" : "Son : coupé";
   $("ether-sound").setAttribute("aria-pressed", String(on));
+});
+try {  // volume retenu d'une visite à l'autre (préférence de ce navigateur seulement)
+  const saved = localStorage.getItem("ether-volume");
+  if (saved !== null) $("ether-volume").value = saved;
+} catch (error) { /* stockage indisponible : volume par défaut */ }
+$("ether-volume").addEventListener("input", () => {
+  if (ether.audio) ether.audio.setVolume(Number($("ether-volume").value) / 100);
+  try { localStorage.setItem("ether-volume", $("ether-volume").value); } catch (error) { /* sans importance */ }
+});
+$("ether-map").addEventListener("click", () => {
+  const on = $("ether-map").getAttribute("aria-pressed") !== "true";
+  $("ether-map").setAttribute("aria-pressed", String(on));
+  if (ether.scene) ether.scene.setMap(on);
 });
 
 async function refreshEther() {

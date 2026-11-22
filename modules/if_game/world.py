@@ -58,6 +58,7 @@ class Place:
     items: list[str] = field(default_factory=list)
     riddle: dict[str, Any] | None = None  # {"question", "answers", "solved", "hint"}
     origin: str = "procédural"  # « procédural » ou « modèle local »
+    pos: list[int] | None = None  # [x, y, niveau] sur la carte du monde (nord = y − 1, haut = niveau + 1)
 
 
 @dataclass
@@ -79,7 +80,7 @@ class World:
             "sanctuaire", "Sanctuaire de l'Éther",
             "Un cercle de pierres claires où Inoue, gardienne de la lumière, et Fuma, gardien du repos, "
             "veillent ensemble. Des chemins s'ouvrent dans plusieurs directions.",
-            exits={"nord": "", "est": "", "ouest": ""}, items=["lanterne tiède"])
+            exits={"nord": "", "est": "", "ouest": ""}, items=["lanterne tiède"], pos=[0, 0, 0])
         return world
 
     def to_dict(self) -> dict[str, Any]:
@@ -91,7 +92,12 @@ class World:
         world = cls(**{k: v for k, v in data.items() if k != "places"})
         world.places = places
         world.validate()
+        if any(p.pos is None for p in places.values()):
+            assign_positions(world)  # sauvegarde d'avant la carte : positions déduites des chemins
         return world
+
+    def at(self, pos: list[int]) -> Place | None:
+        return next((p for p in self.places.values() if p.pos == pos), None)
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -124,6 +130,56 @@ class World:
     def log(self, text: str) -> str:
         self.journal = (self.journal + [text])[-60:]
         return text
+
+
+# -- carte du monde : chaque lieu a une case ; aller au nord puis au sud ramène au même lieu ----------------------
+VECTORS = {"nord": (0, -1, 0), "sud": (0, 1, 0), "est": (1, 0, 0), "ouest": (-1, 0, 0), "haut": (0, 0, 1),
+           "bas": (0, 0, -1)}
+
+
+def step(pos: list[int], direction: str) -> list[int]:
+    dx, dy, dz = VECTORS[direction]
+    return [pos[0] + dx, pos[1] + dy, pos[2] + dz]
+
+
+def free_near(world: World, pos: list[int]) -> list[int]:
+    """Case libre la plus proche (même niveau), pour une ancienne sauvegarde dont deux lieux se chevauchent."""
+    taken = {tuple(p.pos) for p in world.places.values() if p.pos is not None}
+    for radius in range(0, 50):
+        for dx in range(-radius, radius + 1):
+            for dy in range(-radius, radius + 1):
+                if max(abs(dx), abs(dy)) == radius and (pos[0] + dx, pos[1] + dy, pos[2]) not in taken:
+                    return [pos[0] + dx, pos[1] + dy, pos[2]]
+    raise ValueError("carte pleine")
+
+
+def assign_positions(world: World) -> None:
+    """Positions déduites des chemins (parcours en largeur depuis le sanctuaire)."""
+    for place in world.places.values():
+        place.pos = None
+    start = "sanctuaire" if "sanctuaire" in world.places else next(iter(world.places))
+    world.places[start].pos = [0, 0, 0]
+    queue = [start]
+    while queue:
+        place = world.places[queue.pop(0)]
+        for direction, target in place.exits.items():
+            other = world.places.get(target) if target else None
+            if other is not None and other.pos is None:
+                other.pos = free_near(world, step(place.pos, direction))
+                queue.append(other.id)
+    for place in world.places.values():
+        if place.pos is None:
+            place.pos = free_near(world, [0, 0, 0])
+
+
+def link_neighbours(world: World, place: Place) -> None:
+    """Un nouveau lieu se raccorde aux voisins déjà connus qui ont un chemin inexploré vers sa case."""
+    for direction in DIRECTIONS:
+        neighbour = world.at(step(place.pos, direction))
+        back = DIRECTIONS[direction]
+        if neighbour is not None and neighbour.exits.get(back) == "":
+            neighbour.exits[back] = place.id
+            place.exits[direction] = neighbour.id
 
 
 # -- génération des lieux ------------------------------------------------------------------------------------------
@@ -292,10 +348,17 @@ def act(world: World, text: str, propose: Propose | None = None, talk: Propose |
             return world.log("Inoue vacille doucement. Fuma propose une pause : tape « repos ».")
         target = place.exits[arg]
         if not target:
-            new = create_place(world, arg, propose)
-            world.places[new.id] = new
-            place.exits[arg] = new.id
-            target = new.id
+            existing = world.at(step(place.pos, arg))
+            if existing is not None:  # la case est déjà un lieu connu : le chemin y mène, dans les deux sens
+                existing.exits[DIRECTIONS[arg]] = place.id
+                target = existing.id
+            else:
+                new = create_place(world, arg, propose)
+                new.pos = step(place.pos, arg)
+                world.places[new.id] = new
+                link_neighbours(world, new)
+                target = new.id
+            place.exits[arg] = target
         world.here = target
         world.energy -= 1
         world.validate()
@@ -319,4 +382,19 @@ def view(world: World) -> dict[str, Any]:
             "exits": place.exits, "items": place.items, "energy": world.energy, "max_energy": MAX_ENERGY,
             "inventory": world.inventory, "riddles_solved": world.riddles_solved, "explored": len(world.places),
             "riddle": place.riddle["question"] if place.riddle and not place.riddle["solved"] else "",
-            "journal": world.journal[-12:]}
+            "journal": world.journal[-12:], "pos": place.pos, "bag": bag(world.inventory),
+            "map": [{"id": p.id, "name": p.name, "pos": p.pos, "exits": {d: bool(t) for d, t in p.exits.items()},
+                     "riddle": bool(p.riddle and not p.riddle["solved"])} for p in world.places.values()]}
+
+
+def bag(inventory: list[str]) -> list[list[Any]]:
+    """Inventaire regroupé : [[objet, nombre]], du plus fréquent au plus rare (l'ordre d'arrivée départage).
+    « Une plume de nuage » et « plume de nuage » sont le même objet."""
+    names: dict[str, str] = {}
+    counts: dict[str, int] = {}
+    for item in inventory:
+        bare = re.sub(r"^(?:(?:une?|le|la|les|des)\s+|l['’]\s*)", "", item.strip(), flags=re.I)
+        key = plain(bare)
+        names.setdefault(key, bare[:1].lower() + bare[1:])
+        counts[key] = counts.get(key, 0) + 1
+    return [[names[key], n] for key, n in sorted(counts.items(), key=lambda kv: -kv[1])]

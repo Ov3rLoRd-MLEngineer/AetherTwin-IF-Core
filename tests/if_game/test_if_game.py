@@ -13,6 +13,7 @@ from modules.if_game.world import (
     World,
     act,
     parse_action,
+    step,
     validate_proposal,
     view,
 )
@@ -155,3 +156,49 @@ def test_view_hides_the_riddle_answer() -> None:
     world.place.riddle = {"question": "Qui ?", "answers": ["lune"], "solved": False, "hint": "L"}
     shown = json.dumps(view(world), ensure_ascii=False)
     assert "Qui ?" in shown and "lune" not in shown
+
+
+def test_the_world_is_a_grid_and_paths_come_back() -> None:
+    """Nord puis sud ramène au même lieu ; une case déjà connue n'est jamais recréée (minicarte cohérente)."""
+    world = World.new(7)
+    act(world, "nord")
+    north = world.here
+    assert world.place.pos == [0, -1, 0]
+    act(world, "sud")
+    assert world.here == "sanctuaire"
+    assert world.places["sanctuaire"].exits["nord"] == north
+    # un tour : est, nord, ouest ramène au lieu du nord s'il est atteignable par ce chemin
+    seen = {tuple(p.pos) for p in world.places.values()}
+    for _ in range(40):
+        place = world.place
+        unexplored = [d for d, t in place.exits.items() if not t and d in ("nord", "sud", "est", "ouest")]
+        act(world, unexplored[0] if unexplored else "repos")
+        if world.energy == 0:
+            act(world, "repos")
+        seen = [tuple(p.pos) for p in world.places.values()]
+        assert len(seen) == len(set(seen))  # jamais deux lieux sur la même case
+    for place in world.places.values():
+        for direction, target in place.exits.items():
+            if target:
+                assert world.places[target].pos == step(place.pos, direction)
+
+
+def test_old_saves_get_positions(tmp_path: Path) -> None:
+    world = World.new(3)
+    act(world, "nord")
+    act(world, "sud")
+    act(world, "est")
+    data = world.to_dict()
+    for place in data["places"].values():
+        place.pop("pos")
+    restored = World.from_dict(data)
+    assert restored.places["sanctuaire"].pos == [0, 0, 0]
+    assert sorted(tuple(p.pos) for p in restored.places.values()) == sorted({(0, 0, 0), (0, -1, 0), (1, 0, 0)})
+
+
+def test_view_has_the_map_and_a_grouped_bag() -> None:
+    world = World.new(1)
+    world.inventory = ["Une plume de nuage", "plume de nuage", "lanterne tiède"]
+    data = view(world)
+    assert data["bag"] == [["plume de nuage", 2], ["lanterne tiède", 1]]
+    assert data["map"][0]["pos"] == [0, 0, 0] and data["map"][0]["exits"]["nord"] is False

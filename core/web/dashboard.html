@@ -265,8 +265,11 @@
         <h2>Fuma &amp; Inoue : Les Gardiens de l'Éther</h2>
         <p class="muted">Exploration calme, sans combat. Le modèle local invente les lieux et les répliques ; le
           jeu vérifie tout avant de l'accepter.</p>
-        <canvas id="ether-canvas" class="ether-canvas" width="960" height="540"
-                aria-label="vue du lieu : clique sur un portail lumineux pour t'y rendre"></canvas>
+        <canvas id="ether-canvas" class="ether-canvas" width="960" height="540" tabindex="0"
+                aria-label="vue du lieu : clique pour y déplacer Fuma, ou utilise les flèches"></canvas>
+        <p class="muted">Clique dans la scène, puis <b>flèches</b> ou <b>ZQSD</b> pour guider Fuma (Inoue le suit),
+          ou clique sur une case. Les chemins de bord mènent aux autres lieux, les escaliers montent ou descendent.
+          <b>Espace</b> : lire une stèle ou parler à Inoue. <b>M</b> : carte. Marcher sur une lueur ramasse l'objet.</p>
         <div class="row">
           <span id="ether-place" class="question">—</span>
           <span id="ether-stats" class="muted"></span>
@@ -278,9 +281,12 @@
           <button type="submit">Agir</button>
         </form>
         <div class="row">
-          <input id="ether-seed" type="number" value="42" min="0" aria-label="graine">
+          <label title="Une même graine donne toujours le même monde">Graine du monde
+            <input id="ether-seed" type="number" value="42" min="0"></label>
           <button id="ether-new" type="button" class="ghost">Nouvelle partie</button>
           <button id="ether-sound" type="button" class="ghost" aria-pressed="false">Son : coupé</button>
+          <label>Volume <input id="ether-volume" type="range" min="0" max="100" value="60"></label>
+          <button id="ether-map" type="button" class="ghost" aria-pressed="true">Carte</button>
         </div>
       </section>
     </div>

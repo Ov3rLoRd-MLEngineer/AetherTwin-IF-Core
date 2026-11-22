@@ -844,12 +844,17 @@ Module du Hub : le jeu « Fuma & Inoue : Les Gardiens de l'Éther ».
   - `def new(cls, seed: int) -> World`
   - `def to_dict(self) -> dict[str, Any]`
   - `def from_dict(cls, data: dict[str, Any]) -> World`
+  - `def at(self, pos: list[int]) -> Place | None`
   - `def save(self, path: Path) -> None`
   - `def load(cls, path: Path) -> World`
   - `def validate(self) -> None` — Invariants du monde ; lève `ValueError` si une sauvegarde est incohérente.
   - `def place(self) -> Place`
   - `def rng(self, salt: str) -> random.Random`
   - `def log(self, text: str) -> str`
+- `def step(pos: list[int], direction: str) -> list[int]`
+- `def free_near(world: World, pos: list[int]) -> list[int]` — Case libre la plus proche (même niveau), pour une ancienne sauvegarde dont deux lieux se chevauchent.
+- `def assign_positions(world: World) -> None` — Positions déduites des chemins (parcours en largeur depuis le sanctuaire).
+- `def link_neighbours(world: World, place: Place) -> None` — Un nouveau lieu se raccorde aux voisins déjà connus qui ont un chemin inexploré vers sa case.
 - `def procedural_place(world: World, place_id: str, came_from: str) -> Place`
 - `def place_prompt(world: World, direction: str) -> str`
 - `def validate_proposal(text: str, known_names: set[str]) -> dict[str, str] | None` — Ce que le code accepte d'un lieu proposé par le modèle ; `None` = refus (le procédural prend le relais).
@@ -859,6 +864,7 @@ Module du Hub : le jeu « Fuma & Inoue : Les Gardiens de l'Éther ».
 - `def act(world: World, text: str, propose: Propose | None=None, talk: Propose | None=None) -> str` — Applique une action du joueur et rend la narration. Seul point qui modifie le monde.
 - `def talk_prompt(world: World, who: str) -> str`
 - `def view(world: World) -> dict[str, Any]` — Ce que l'interface affiche.
+- `def bag(inventory: list[str]) -> list[list[Any]]` — Inventaire regroupé : [[objet, nombre]], du plus fréquent au plus rare (l'ordre d'arrivée départage).
 
 ### `modules/mangastudio/__init__.py`
 
