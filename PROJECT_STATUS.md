@@ -203,10 +203,12 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 27 | Scantrad : export texte — **OK (Jérémy, 22/11)** | — | demande : importer un .txt au même format → test 30 |
 | 28 | Onglet Traduction — **non essayé par Jérémy** (pas de texte source sous la main) ; essais de Claude : texte japonais et coréen, image, voix | — | à refaire quand du matériel sera disponible |
 | 29 | WoW Assistant : plusieurs serveurs IA — **OK (Jérémy, 22/11)**, copié dans `D:\Hermes-Agent` | — | demande : renseigner le fournisseur de chaque serveur → test 31 |
-| 30 | Scantrad : importer une traduction (.txt) | automatique : « Importer une traduction (.txt) » (pages du même nom) ; manuel : à côté de « Réincruster » (zones de même numéro) | les traductions du fichier remplacent celles des bulles ; tu peux corriger un .txt dans un éditeur puis le réimporter |
-| 31 | WoW Assistant : fournisseur de chaque serveur | Paramètres > Assistant IA : le bouton à côté de « actif » (deviné d'après le port, un clic pour changer) ; recopier `modules/gaming_hud/app/{llm,ui,settings}.py` dans `D:\Hermes-Agent` | les modèles s'affichent avec le nom du fournisseur (« qwen3-27b · Hub AetherTwin ») |
-| 32 | Scantrad manuel : Reconstruire (LaMa) | outil **Reconstruire** : peins en rouge une onomatopée posée sur le dessin, puis « Redessiner (LaMa) » ; une annexe réglée sur « effacer puis écrire » | le dessin est redessiné sous la zone peinte (quelques secondes, sur le processeur) ; « Annuler » revient en arrière |
-| 33 | Traduction par la voix | relance le Hub ; onglet **Traduction**, « Enregistrer un message », parle (japonais, chinois, coréen ou anglais), « Arrêter et traduire » | texte reconnu puis traduit ; le navigateur demande l'accès au micro la première fois |
+| 30 | Scantrad : importer une traduction (.txt) — **OK (Jérémy, 22/11)** | — | — |
+| 31 | WoW Assistant : fournisseur de chaque serveur — **OK (Jérémy, 22/11)** | — | — |
+| 32 | Scantrad manuel : Reconstruire (LaMa) — **OK (Jérémy, 22/11)** : suffisant ; il préfère garder les onomatopées en japonais | — | demande : zoom à la molette pour peindre le masque → test 34 |
+| 33 | Traduction par la voix — **OK (Jérémy, 22/11)** : japonais bien entendu, anglais parfait ; traduction japonaise discutable (« ジェルミ » → « Jermi », « よろしくお願いします » → « Merci de votre bienveillance ») | — | consigne corrigée le 22/11 (formules de politesse, noms étrangers) → test 35 |
+| 34 | Scantrad manuel : zoom | molette sur l'image du mode manuel | zoom jusqu'à la taille réelle de l'image (pas au-delà) et retour à la page entière ; le point sous la souris reste en place ; zones, gomme et Reconstruire tombent au bon endroit |
+| 35 | Traduction : formules et noms | onglet **Traduction**, à la voix ou au clavier : « はじめまして、私はジェルミです。よろしくお願いします。 » | essai de Claude avec `qwen3-27b` : « Enchanté, je m'appelle Jérémy. Ravi de faire votre connaissance. » (avant : « Gelmi ») |
 
 ## Points attendus de Jérémy
 

@@ -130,3 +130,7 @@ section > p { margin: 0 0 14px; }
 .ghost-file { display: inline-flex; align-items: center; gap: 8px; color: var(--accent) !important; border: 1px solid var(--accent);
               border-radius: 6px; padding: 6px 12px; cursor: pointer; }
 .ghost-file input { max-width: 190px; font-size: 12px; padding: 2px; border: 0; background: transparent; }
+/* mode manuel : vue zoomable (molette), défile quand l'image dépasse */
+.zoom-view { max-height: 82vh; overflow: auto; margin-top: 18px; border: 1px solid var(--line); border-radius: 6px; }
+.zoom-view .studio-canvas { margin: 0; border: 0; border-radius: 0; }
+.small-note { font-size: 13px; margin: 6px 0 0; }

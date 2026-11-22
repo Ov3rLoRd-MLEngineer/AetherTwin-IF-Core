@@ -938,7 +938,10 @@ $("man-file").addEventListener("change", async () => {
     const canvas = $("man-canvas");
     canvas.width = manual.base.width;
     canvas.height = manual.base.height;
-    canvas.hidden = false;
+    $("man-view").hidden = false;
+    $("man-zoom").hidden = false;
+    setManualZoom(manualFitScale());
+    requestAnimationFrame(() => setManualZoom(manualFitScale()));  // une fois la vue réellement mise en page
     $("man-result").hidden = true;
     setTool("zones");
     renderManualRows();
@@ -947,6 +950,41 @@ $("man-file").addEventListener("change", async () => {
     manualLine(`Erreur : ${error.message}`);
   }
 });
+
+// zoom à la molette : de « toute la page visible » jusqu'à la taille réelle de l'image (pas au-delà),
+// en gardant sous le curseur le point visé ; la vue défile quand l'image dépasse
+function manualFitScale() {
+  const width = $("man-view").clientWidth || $("man-view").parentElement.clientWidth || 800;
+  return Math.min(1, width / manual.base.width);
+}
+
+function setManualZoom(scale) {
+  manual.zoom = scale;
+  const canvas = $("man-canvas");
+  canvas.style.maxWidth = "none";
+  canvas.style.width = `${Math.round(manual.base.width * scale)}px`;
+}
+
+window.addEventListener("resize", () => {  // fenêtre redimensionnée : l'image « ajustée » le reste
+  if (manual.base && manual.zoom !== undefined && manual.zoom <= manualFitScale() + 0.02) setManualZoom(manualFitScale());
+});
+
+$("man-view").addEventListener("wheel", (event) => {
+  if (!manual.base) return;
+  event.preventDefault();
+  const fit = manualFitScale();
+  const old = manual.zoom || fit;
+  const next = Math.min(1, Math.max(fit, old * (event.deltaY < 0 ? 1.25 : 0.8)));
+  if (Math.abs(next - old) < 1e-3) return;
+  const view = $("man-view");
+  const rect = $("man-canvas").getBoundingClientRect();
+  const viewRect = view.getBoundingClientRect();
+  const imageX = (event.clientX - rect.left) / old, imageY = (event.clientY - rect.top) / old;  // point visé
+  setManualZoom(next);
+  view.scrollLeft = imageX * next - (event.clientX - viewRect.left);
+  view.scrollTop = imageY * next - (event.clientY - viewRect.top);
+  drawManual();
+}, { passive: false });
 
 $("man-canvas").addEventListener("mousedown", (event) => {
   if (!manual.base || event.button !== 0) return;

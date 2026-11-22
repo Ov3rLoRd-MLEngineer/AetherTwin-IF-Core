@@ -168,7 +168,10 @@ def translation_prompt(texts: list[str], glossary: Glossary | None, target: str 
     lines = [f"Tu traduis une page de {spec.work} du {spec.name} vers le {target}.",
              f"Ton : {glossary.tone if glossary else 'naturel et oral'}.",
              "Les bulles sont dans l'ordre de lecture ; garde la cohérence entre elles.",
-             "Traduction courte, qui tient dans une bulle. N'ajoute aucune explication."]
+             "Traduction courte, qui tient dans une bulle. N'ajoute aucune explication.",
+             "Formules toutes faites (salutations, politesse, repas…) : l'équivalent qu'un francophone dirait, pas "
+             "le mot à mot. Onomatopées : un équivalent français court. Nom étranger transcrit phonétiquement : sa "
+             "graphie d'origine probable, sauf si le glossaire en impose une."]
     entries = glossary.relevant(texts) if glossary else {}
     if entries:
         lines.append("Glossaire imposé : " + " ; ".join(f"{jp} = {fr}" for jp, fr in entries.items()) + ".")

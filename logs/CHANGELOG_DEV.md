@@ -844,3 +844,15 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - **Suivi :** retours des tests 25 à 29 ; tests 30 à 33 ; idée ComfyUI simplifié notée pour après le dépôt ;
   THIRD_PARTY.md (onnxruntime, faster-whisper, LaMa, Whisper).
 - **Tests :** 422 (418 verts, 4 réels ignorés) ; ruff propre.
+## 2026-11-22 nuit (5) — Zoom du mode manuel, consigne de traduction (formules, noms), glossaire expliqué
+
+- **Agent :** Cloud
+- **Zoom :** molette sur l'image du mode manuel, de la page entière à la taille réelle (pas au-delà), point visé
+  gardé sous la souris, vue qui défile. Vérifié dans le navigateur : 898 → 1601 px et retour ; une zone tracée
+  en vue zoomée tombe au bon pixel. Premier ajustement recalculé à l'image suivante (onglet pas encore à sa taille).
+- **Traduction :** test 33 de Jérémy (« ジェルミ » → « Jermi », « よろしくお願いします » → « Merci de votre
+  bienveillance »). Consigne ajoutée (formules toutes faites par leur équivalent français, noms étrangers dans leur
+  graphie d'origine), mesurée avec `qwen3-27b` sur 4 phrases : « Gelmi » → « Jérémy », « いただきます » « Je vous
+  remercie » → « Bon appétit ». Aussi dans la consigne de Scantrad (plus : onomatopées par un équivalent court).
+- **Glossaire :** texte d'explication et exemple dans le champ « Ton ».
+- **Tests :** suite verte.

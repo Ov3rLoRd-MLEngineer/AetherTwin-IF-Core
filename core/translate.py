@@ -17,6 +17,10 @@ from typing import Any
 from modules.scantrad.languages import LANGUAGES, language
 
 MAX_TEXT = 6000
+IDIOMS = ("Les formules toutes faites (salutations, politesse, repas, fin de journée…) se rendent par ce qu'un "
+          "francophone dirait dans la même situation, pas mot à mot (よろしくお願いします, いただきます, お疲れ様…). Un nom "
+          "propre étranger transcrit phonétiquement (katakana, hangul, caractères chinois) se rend dans sa graphie "
+          "d'origine probable (ジェルミ → Jérémy, マイケル → Michael).")
 Chat = Callable[..., dict[str, Any]]  # LlmRouter.chat
 
 SCRIPTS = [("ko", re.compile(r"[가-힯]")), ("ja", re.compile(r"[぀-ヿ]")), ("zh", re.compile(r"[㐀-鿿]")),
@@ -33,11 +37,13 @@ def detect_language(text: str) -> str:
 
 
 def translation_messages(text: str, lang: str) -> list[dict[str, str]]:
+    """Consigne de traduction. `IDIOMS` : mesuré le 22/11 avec `qwen3-27b` ; sans elle, « ジェルミ » donnait
+    « Gelmi » et « いただきます » « Je vous remercie » ; avec elle, « Jérémy » et « Bon appétit »."""
     spec = language(lang)
     return [{"role": "system", "content": (
                 f"Tu es un traducteur professionnel du {spec.name} vers le français. Tu traduis fidèlement, dans un "
                 "français naturel, en gardant le ton, les noms propres et la mise en forme (retours à la ligne). "
-                "Tu ne réponds que par la traduction, sans commentaire ni note.")},
+                f"{IDIOMS} Tu ne réponds que par la traduction, sans commentaire ni note.")},
             {"role": "user", "content": text}]
 
 

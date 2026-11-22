@@ -609,7 +609,7 @@ File d'attente GPU unique pour les tâches de vision et de diffusion (scantrad, 
 Traduction générale vers le français : texte, image (capture, photo) ou message vocal.
 
 - `def detect_language(text: str) -> str` — Langue devinée à l'écriture : hangul → coréen, kana → japonais, idéogrammes seuls → chinois, latin →
-- `def translation_messages(text: str, lang: str) -> list[dict[str, str]]`
+- `def translation_messages(text: str, lang: str) -> list[dict[str, str]]` — Consigne de traduction. `IDIOMS` : mesuré le 22/11 avec `qwen3-27b` ; sans elle, « ジェルミ » donnait
 - `def translate_text(chat: Chat, text: str, lang: str='auto', model: str | None=None) -> dict[str, Any]`
 - `def image_prompt(lang: str) -> str`
 - `def read_image(chat: Chat, image: bytes, lang: str='auto', model: str='qwen2.5vl:7b') -> str` — Texte d'une image (PNG, JPEG ou WebP), lu par le modèle de vision. L'image est réduite à ~1,3 Mpx : au-delà,

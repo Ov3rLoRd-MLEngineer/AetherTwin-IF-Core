@@ -236,7 +236,10 @@
           <button id="man-undo" type="button" class="ghost">Annuler</button>
           <button id="man-clear" type="button" class="ghost">Retirer les zones</button>
         </div>
-        <canvas id="man-canvas" class="studio-canvas" hidden></canvas>
+        <div id="man-view" class="zoom-view" hidden>
+          <canvas id="man-canvas" class="studio-canvas"></canvas>
+        </div>
+        <p id="man-zoom" class="muted small-note" hidden>Molette sur l'image : zoomer / dézoomer (jusqu'à la taille réelle).</p>
         <div class="row">
           <button id="man-read" type="button">1. Lire le texte</button>
           <button id="man-translate" type="button">2. Traduire</button>
@@ -254,8 +257,9 @@
       </section>
       <section>
         <h2>Glossaire d'une série</h2>
-        <p class="muted">Une entrée par ligne : <code>langue d'origine = français</code>. Seules les entrées présentes
-          dans la page sont données au modèle.</p>
+        <p class="muted">Pour qu'une série garde les mêmes noms et les mêmes mots d'un chapitre à l'autre. Une entrée par
+          ligne : <code>langue d'origine = français</code>. Seules les entrées présentes dans la page sont données
+          au modèle. Le glossaire sert quand le champ « Série » en haut de l'onglet porte le même nom.</p>
         <div class="row">
           <input id="glo-series" placeholder="Nom de la série" autocomplete="off">
           <button id="glo-load" type="button" class="ghost">Charger</button>
@@ -264,7 +268,8 @@
           <label>Personnages<textarea id="glo-characters" rows="6" placeholder="ユキ = Yuki"></textarea></label>
           <label>Termes<textarea id="glo-terms" rows="6" placeholder="海賊 = pirate"></textarea></label>
         </div>
-        <label>Ton<input id="glo-tone" class="full" autocomplete="off"></label>
+        <label>Ton (consigne de style donnée au modèle)<input id="glo-tone" class="full" autocomplete="off"
+          placeholder="ex. : familier, répliques courtes et argotiques — ou : soutenu, ambiance médiévale (vide : naturel, oral, fidèle au registre de chaque personnage)"></label>
         <div class="row"><button id="glo-save" type="button">Enregistrer</button><span id="glo-line" class="muted"></span></div>
       </section>
     </div>
