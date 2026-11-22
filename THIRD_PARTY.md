@@ -31,6 +31,18 @@ Liste tenue à jour à chaque ajout de dépendance. Licences relevées dans les 
 
 FastAPI installe aussi `starlette` (BSD-3-Clause) et `pydantic` (MIT).
 
+| Ajouté le 22/11/2026 | Version | Licence | Usage |
+|---|---|---|---|
+| onnxruntime | 1.32.0 | MIT | exécute LaMa sur le processeur (Scantrad) |
+| faster-whisper (facultatif, `-Voice`) | 1.2.1 | MIT | reconnaissance vocale locale (onglet Traduction) |
+
+Modèles téléchargés (non versionnés, dans `models/` ou le cache Hugging Face) :
+
+| Modèle | Licence | Usage |
+|---|---|---|
+| LaMa (big-lama), export ONNX `Carve/LaMa-ONNX` | Apache-2.0 | effacement par reconstruction (Scantrad) |
+| Whisper `small` (OpenAI), conversion CTranslate2 de faster-whisper | MIT | reconnaissance vocale |
+
 ## Outils externes (non distribués avec le projet)
 
 | Outil | Usage |

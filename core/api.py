@@ -259,6 +259,22 @@ def create_app(daemon: Daemon) -> FastAPI:
         cleaned.write_bytes(body)
         return {"cleaned_url": f"/scantrad/files/sorties/{cleaned.name}"}
 
+    @app.post("/scantrad/manual/rebuild")
+    async def scantrad_rebuild(request: Request, image: str) -> dict[str, Any]:
+        """Outil « Reconstruire » : masque PNG (blanc = à redessiner) appliqué à la page gommée (LaMa)."""
+        _source, cleaned, _output = manual_paths(image)
+        body = await request.body()
+        if not body.startswith(b"\x89PNG\r\n\x1a\n") or len(body) > MAX_UPLOAD:
+            raise HTTPException(status_code=400, detail="masque PNG invalide ou de plus de 25 Mo")
+        mask = cleaned.with_name(cleaned.name.replace("_propre.png", "_masque.png"))
+        mask.parent.mkdir(parents=True, exist_ok=True)
+        mask.write_bytes(body)
+        reply = await run_in_threadpool(module_call, "scantrad", "rebuild", {
+            "input": str(_source), "output": str(cleaned), "mask": str(mask)})
+        if reply.get("ok"):
+            reply["cleaned_url"] = f"/scantrad/files/sorties/{cleaned.name}"
+        return reply
+
     @app.post("/scantrad/manual/{command}")
     async def scantrad_manual(command: str, data: dict[str, Any]) -> dict[str, Any]:
         if command not in ("suggest", "read", "translate", "erase", "compose"):

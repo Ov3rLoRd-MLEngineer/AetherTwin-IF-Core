@@ -364,6 +364,10 @@ def test_several_ai_servers_can_be_saved_toggled_and_queried(app, monkeypatch) -
     assert "2 serveur(s)" in app.modal["status"]
     app.draw(app.test_ctx)
     shot(app, "settings_llm_servers")
+    assert app.settings.get("llm.servers")[0]["provider"] == "Hub AetherTwin"
+    assert "Ollama" in app.modal["providers"].values()
+    app._cycle_provider(0)
+    assert app.settings.get("llm.servers")[0]["provider"] == "Open WebUI"
     app._use_server(1)
     assert app.inputs["set_endpoint"] == "http://127.0.0.1:11434/v1"
     app._remove_server(2)

@@ -35,6 +35,18 @@ class _FixedSettings:
         return self.values.get(key, default)
 
 
+PROVIDERS = ("Ollama", "Hub AetherTwin", "Open WebUI", "OmniRoute", "LM Studio", "vLLM", "Autre")
+_PORT_PROVIDERS = {"11434": "Ollama", "5750": "Hub AetherTwin", "20128": "OmniRoute", "1234": "LM Studio",
+                   "3000": "Open WebUI", "8080": "Open WebUI", "8000": "vLLM"}
+
+
+def guess_provider(url):
+    """Fournisseur probable d'un endpoint, d'après son port habituel (modifiable ensuite dans la liste)."""
+    host = url.split("://", 1)[-1].split("/", 1)[0]
+    port = host.rsplit(":", 1)[-1] if ":" in host else ""
+    return _PORT_PROVIDERS.get(port, "Autre")
+
+
 def list_models_at(endpoint, api_key=""):
     """(liste de noms, message d'erreur) pour un serveur précis (liste « Serveurs enregistrés »)."""
     return LLMClient(_FixedSettings(endpoint, api_key)).list_models()
@@ -48,10 +60,11 @@ def enabled_servers(settings, current_endpoint="", current_key=""):
         url = str(server.get("url", "")).strip().rstrip("/")
         if url and server.get("enabled", True) and url not in seen:
             seen.add(url)
-            out.append({"url": url, "api_key": str(server.get("api_key", ""))})
+            out.append({"url": url, "api_key": str(server.get("api_key", "")),
+                        "provider": str(server.get("provider") or guess_provider(url))})
     current = (current_endpoint or "").strip().rstrip("/")
     if current and current not in seen:
-        out.insert(0, {"url": current, "api_key": current_key})
+        out.insert(0, {"url": current, "api_key": current_key, "provider": guess_provider(current)})
     return out
 
 

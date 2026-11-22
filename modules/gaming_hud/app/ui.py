@@ -20,7 +20,7 @@ import tabs
 import voice as voice_mod
 from character import EQUIPMENT_LAYOUT, Character, format_duration
 from config import WoWConfig
-from llm import enabled_servers, list_models_at
+from llm import PROVIDERS, enabled_servers, guess_provider, list_models_at
 from quests import QuestTracker
 from theme import C, QUALITY_COLORS, clean_wow_text, hex_to_rgb
 from wowhead import IconCache, LinkResolver
@@ -1535,6 +1535,7 @@ class UI:
             for server in servers:
                 names, error = list_models_at(server["url"], server["api_key"])
                 job["models"] += [(name, server["url"], server["api_key"]) for name in names]
+                job.setdefault("providers", {})[server["url"]] = server["provider"]
                 if error and not names:
                     errors.append(f"{server['url']} : {error}")
             job["error"] = " ; ".join(errors) or ("aucun serveur actif" if not servers else "")
@@ -1564,6 +1565,7 @@ class UI:
         if m["bg"] and m["bg"]["done"]:
             job, m["bg"] = m["bg"], None
             m["models"] = job["models"]
+            m["providers"] = job.get("providers", {})
             hosts = len({url for _name, url, _key in job["models"]})
             m["status"], m["status_ok"] = ((f"{len(job['models'])} modèle(s) trouvé(s) sur {hosts} serveur(s)."
                                             + (f"  Injoignable : {job['error']}" if job["error"] else ""))
@@ -1721,7 +1723,7 @@ class UI:
                 px = x + label_w
                 several = len({url for _n, url, _k in m["models"]}) > 1
                 for name, url, key in m["models"][:24]:
-                    label = f"{name}  · {self._server_label(url)}" if several else name
+                    label = f"{name}  · {m.get('providers', {}).get(url) or self._server_label(url)}" if several else name
                     pw = self.fonts["small"].size(label)[0] + 24
                     if px + pw > rect.right - 24:
                         px, y = x + label_w, y + 32
@@ -1769,13 +1771,22 @@ class UI:
         if any(s.get("url", "").rstrip("/") == url for s in servers):
             self.notify("Ce serveur est déjà dans la liste")
             return
-        servers.append({"url": url, "api_key": self.inputs.get("set_key", "").strip(), "enabled": True})
+        servers.append({"url": url, "api_key": self.inputs.get("set_key", "").strip(), "enabled": True,
+                        "provider": guess_provider(url)})
         self._save_servers(servers)
         self.notify("Serveur ajouté à la liste")
 
     def _toggle_server(self, index):
         servers = self._servers()
         servers[index]["enabled"] = not servers[index].get("enabled", True)
+        self._save_servers(servers)
+
+    def _cycle_provider(self, index):
+        """Fournisseur suivant de la liste (Ollama, Hub AetherTwin, Open WebUI, OmniRoute, LM Studio, vLLM, Autre)."""
+        servers = self._servers()
+        current = servers[index].get("provider") or guess_provider(servers[index].get("url", ""))
+        position = PROVIDERS.index(current) if current in PROVIDERS else -1
+        servers[index]["provider"] = PROVIDERS[(position + 1) % len(PROVIDERS)]
         self._save_servers(servers)
 
     def _remove_server(self, index):
@@ -1797,8 +1808,12 @@ class UI:
         for i, server in enumerate(servers[:5]):
             on = server.get("enabled", True)
             self.pill((x + label_w, y, 70, 26), "actif" if on else "inactif", on, lambda i=i: self._toggle_server(i))
-            self.text(self.fit(server.get("url", ""), "small", rect.right - x - label_w - 330), "small",
-                      "text" if on else "gray", (x + label_w + 80, y + 3))
+            provider = server.get("provider") or guess_provider(server.get("url", ""))
+            prect = pygame.Rect(x + label_w + 78, y, 132, 26)
+            self.pill(prect, provider, False, lambda i=i: self._cycle_provider(i))
+            self.tip(prect, {"rows": [("Fournisseur : cliquer pour changer", "text", "")]})
+            self.text(self.fit(server.get("url", ""), "small", rect.right - x - label_w - 470), "small",
+                      "text" if on else "gray", (x + label_w + 220, y + 3))
             self.pill((rect.right - 24 - 160, y, 100, 26), "Utiliser", False, lambda i=i: self._use_server(i))
             self.pill((rect.right - 24 - 52, y, 52, 26), "×", False, lambda i=i: self._remove_server(i))
             y += 32

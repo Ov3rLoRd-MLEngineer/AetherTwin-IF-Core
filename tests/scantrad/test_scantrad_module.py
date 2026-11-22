@@ -104,3 +104,35 @@ def test_manual_mode_through_the_dashboard(tmp_path: Path, monkeypatch) -> None:
         assert bad["ok"] is False and "petite" in bad["error"]
     finally:
         daemon.stop()
+
+
+def test_rebuild_tool_through_the_dashboard(tmp_path: Path, monkeypatch) -> None:
+    """Outil « Reconstruire » : un masque PNG envoyé par la page, appliqué à la page gommée par le module."""
+    import cv2
+    import numpy as np
+    from fastapi.testclient import TestClient
+
+    import core.api
+    from core.api import create_app
+
+    monkeypatch.setattr(core.api, "SCANTRAD_DIR", tmp_path / "scantrad")
+    daemon = Daemon(REPO_ROOT / "modules", monitor=GpuMonitor(UnknownBackend()), process_names=lambda: set(),
+                    llm=LlmRouter(transport=ollama_stopped))
+    daemon.start()
+    try:
+        client = TestClient(create_app(daemon))
+        image = client.post("/scantrad/upload", content=PAGE.read_bytes(),
+                            headers={"Content-Type": "image/png"}).json()["image"]
+        height, width = cv2.imread(str(PAGE)).shape[:2]
+        mask = np.zeros((height, width), np.uint8)
+        mask[10:60, 10:60] = 255
+        body = cv2.imencode(".png", mask)[1].tobytes()
+        reply = client.post(f"/scantrad/manual/rebuild?image={image}", content=body).json()
+        assert reply["ok"] is True, reply
+        assert reply["result"]["pixels"] == 2500 and client.get(reply["cleaned_url"]).status_code == 200
+        small = cv2.imencode(".png", mask[:20])[1].tobytes()
+        wrong = client.post(f"/scantrad/manual/rebuild?image={image}", content=small).json()
+        assert wrong["ok"] is False and "taille" in wrong["error"]
+        assert client.post(f"/scantrad/manual/rebuild?image={image}", content=b"rien").status_code == 400
+    finally:
+        daemon.stop()

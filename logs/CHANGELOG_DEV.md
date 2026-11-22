@@ -825,3 +825,22 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - **Réel :** traduction japonais et coréen, image de manga lue puis traduite (la consigne « AUCUN » retirée).
   Non essayés : pages chinoises / coréennes / anglaises, voix (faster-whisper non installé), boutons d'export.
 - **Tests :** 419 (415 verts, 4 réels ignorés) ; ruff propre.
+## 2026-11-22 nuit (4) — LaMa, outil Reconstruire, import .txt, voix installée, fournisseurs des serveurs IA
+
+- **Agent :** Cloud (accords de Jérémy : installer la voix, télécharger LaMa, l'inscrire dans requirements.txt)
+- **LaMa :** `Carve/LaMa-ONNX` (`lama_fp32.onnx`, Apache 2.0, 198 Mo, `models/scantrad/`, aussi par
+  `setup.ps1 -Weights`), `onnxruntime==1.32.0` dans `requirements.txt`, sur le processeur. `modules/scantrad/lama.py`
+  découpe chaque zone avec du contexte, reconstruit en 512, ne recolle que les pixels masqués. Comparé sur la page
+  OPM : sur papier blanc, le remplissage existant est plus propre (LaMa y laisse un fantôme) ; sur le dessin
+  (« メキ »), LaMa prolonge les hachures là où OpenCV fait des taches. D'où : LaMa pour les bulles sur trame, les
+  annexes « effacer » (traits épais seulement) et le nouvel outil **Reconstruire** (peindre en rouge, « Redessiner »).
+  Réel : « ザ » retirée de la page OPM2 dans le navigateur.
+- **Import .txt :** format de l'export ; automatique : pages du même nom, réincrustées ; manuel : zones de même
+  numéro. Réel : le fichier de Jérémy importé dans le mode manuel (3 / 3).
+- **Voix :** faster-whisper 1.2.1 installé ; réel : message anglais synthétisé (voix Windows) retranscrit mot pour
+  mot, 17 s au premier appel (téléchargement du modèle `small`), 3 s ensuite.
+- **WoW Assistant :** fournisseur de chaque serveur (deviné par le port, un clic pour changer), affiché sur les
+  modèles. À recopier dans `D:\Hermes-Agent`.
+- **Suivi :** retours des tests 25 à 29 ; tests 30 à 33 ; idée ComfyUI simplifié notée pour après le dépôt ;
+  THIRD_PARTY.md (onnxruntime, faster-whisper, LaMa, Whisper).
+- **Tests :** 422 (418 verts, 4 réels ignorés) ; ruff propre.

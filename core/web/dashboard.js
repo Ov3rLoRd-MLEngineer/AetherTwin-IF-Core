@@ -615,6 +615,88 @@ function saveText(text, originalName) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// lecture d'un .txt au format de l'export : « === nom === », puis « 3. texte d'origine » / « → traduction »
+function parseTranslationText(text) {
+  const pages = [];
+  let page = null, last = null;
+  for (const raw of text.replace(/\r/g, "").split("\n")) {
+    const header = raw.match(/^===\s*(.+?)\s*===\s*$/);
+    const entry = raw.match(/^\s*(\d+)(?:\s*\(annexe\))?\.\s?(.*)$/);
+    const arrow = raw.match(/^\s*(?:→|->)\s?(.*)$/);
+    if (header) { page = { name: header[1], entries: {} }; pages.push(page); last = null; continue; }
+    if (!page) { page = { name: "", entries: {} }; pages.push(page); }
+    if (entry) { last = entry[1]; page.entries[last] = { source: entry[2].trim(), translation: "" }; continue; }
+    if (arrow && last) {
+      const value = arrow[1].trim();
+      page.entries[last].translation = value === "—" ? "" : value;
+    }
+  }
+  return pages.filter((p) => Object.keys(p.entries).length);
+}
+
+async function readTextFile(input) {
+  const file = input.files[0];
+  input.value = "";  // on peut réimporter le même fichier
+  if (!file) return null;
+  if (file.size > 2 * 1024 * 1024) throw new Error("fichier de plus de 2 Mo");
+  const pages = parseTranslationText(await file.text());
+  if (!pages.length) throw new Error("aucune bulle reconnue : format attendu « 1. texte » puis « → traduction »");
+  return pages;
+}
+
+$("scan-import").addEventListener("change", async () => {
+  try {
+    const pages = await readTextFile($("scan-import"));
+    if (!pages) return;
+    let applied = 0, skipped = 0;
+    for (const section of pages) {
+      // la page du même nom ; un fichier d'une seule page sans nom correspondant va sur la page affichée
+      let index = chapter.pages.findIndex((p) => p.name === section.name && p.outputUrl);
+      if (index < 0 && pages.length === 1) index = chapter.current;
+      const page = chapter.pages[index];
+      if (!page || !page.outputUrl) { skipped += 1; continue; }
+      const translations = {};
+      for (const [n, e] of Object.entries(section.entries)) {
+        if (page.bubbles.some((b) => String(b.index) === n)) translations[n] = e.translation;
+      }
+      const reply = await post("/scantrad/retypeset", { output: page.outputUrl.split("/").pop(), translations });
+      if (!reply.ok) throw new Error(reply.error || "échec");
+      page.bubbles = reply.result.bubbles;
+      const thumb = $("scan-gallery").children[index];
+      if (thumb) thumb.querySelector("img").src = `${page.outputUrl}?t=${Date.now()}`;
+      applied += 1;
+    }
+    showPage(chapter.current);
+    $("scan-line").textContent = `${applied} page(s) mise(s) à jour depuis le fichier`
+      + (skipped ? ` ; ${skipped} section(s) sans page traduite du même nom, ignorée(s)` : "") + ".";
+  } catch (error) {
+    $("scan-line").textContent = `Import impossible : ${error.message}`;
+  }
+});
+
+$("man-import").addEventListener("change", async () => {
+  try {
+    const pages = await readTextFile($("man-import"));
+    if (!pages) return;
+    const section = pages.find((p) => p.name === manual.fileName) || pages[0];
+    const count = Object.keys(section.entries).length;
+    let applied = 0;
+    for (const [n, e] of Object.entries(section.entries)) {
+      const zone = manual.zones[Number(n) - 1];
+      if (!zone) continue;
+      zone.translation = e.translation;
+      if (!zone.source && e.source !== "—") zone.source = e.source;
+      applied += 1;
+    }
+    renderManualRows();
+    manualLine(`${applied} traduction(s) importée(s) sur ${count}`
+      + (applied < count ? ` (${count - applied} sans zone de même numéro : trace les zones d'abord)` : "")
+      + ". Vérifie, puis « Réincruster ».");
+  } catch (error) {
+    manualLine(`Import impossible : ${error.message}`);
+  }
+});
+
 $("scan-text").addEventListener("click", () => {
   const page = chapter.pages[chapter.current];
   if (page && page.bubbles) saveText(pageText(page.name, page.bubbles), page.name);
@@ -725,6 +807,12 @@ function drawManual() {
   if (!manual.base) return;
   const ctx = canvas.getContext("2d");
   ctx.drawImage(manual.base, 0, 0);
+  if (manual.maskShown) {  // zones peintes pour « Reconstruire », en rouge translucide
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    ctx.drawImage(manual.maskShown, 0, 0);
+    ctx.restore();
+  }
   const unit = Math.max(2, canvas.width / 400);
   ctx.lineWidth = unit;
   ctx.font = `bold ${Math.round(unit * 9)}px sans-serif`;
@@ -750,8 +838,8 @@ function drawManual() {
     ctx.fillStyle = "#fff";
     ctx.fillText(label, x + pad, ly + pad);
   }
-  if (manual.tool === "brush" && manual.cursor) {
-    ctx.strokeStyle = "#ff5a7a";
+  if ((manual.tool === "brush" || manual.tool === "rebuild") && manual.cursor) {
+    ctx.strokeStyle = manual.tool === "rebuild" ? "#ff2d55" : "#ff5a7a";
     ctx.beginPath();
     ctx.arc(manual.cursor[0], manual.cursor[1], brushRadius(), 0, 2 * Math.PI);
     ctx.stroke();
@@ -779,30 +867,49 @@ function pushPaintUndo() {
   if (paints.length > MAX_UNDO) manual.undo.splice(manual.undo.indexOf(paints[0]), 1);  // mémoire bornée
 }
 
-function paintAt(from, to) {
-  const ctx = manual.base.getContext("2d");
-  ctx.strokeStyle = "#fff";
-  ctx.fillStyle = "#fff";
+function strokeOn(canvas, from, to, color) {
+  const ctx = canvas.getContext("2d");
+  ctx.strokeStyle = color;
   ctx.lineCap = "round";
   ctx.lineWidth = 2 * brushRadius();
   ctx.beginPath();
   ctx.moveTo(from[0], from[1]);
   ctx.lineTo(to[0], to[1]);
   ctx.stroke();
+}
+
+function paintAt(from, to) {
+  if (manual.tool === "rebuild") {  // masque à redessiner : blanc pour le serveur, rouge pour l'écran
+    if (!manual.mask) {
+      for (const key of ["mask", "maskShown"]) {
+        manual[key] = document.createElement("canvas");
+        manual[key].width = manual.base.width;
+        manual[key].height = manual.base.height;
+      }
+    }
+    strokeOn(manual.mask, from, to, "#fff");
+    strokeOn(manual.maskShown, from, to, "#ff2d55");
+    return;
+  }
+  strokeOn(manual.base, from, to, "#fff");
   manual.painted = true;
 }
 
+function clearMask() { manual.mask = null; manual.maskShown = null; }
+
 function setTool(tool) {
   manual.tool = tool;
-  $("man-tool-zones").setAttribute("aria-pressed", String(tool === "zones"));
-  $("man-tool-annex").setAttribute("aria-pressed", String(tool === "annex"));
-  $("man-tool-brush").setAttribute("aria-pressed", String(tool === "brush"));
-  $("man-canvas").style.cursor = tool === "brush" ? "none" : "crosshair";
+  for (const [id, name] of [["man-tool-zones", "zones"], ["man-tool-annex", "annex"], ["man-tool-brush", "brush"],
+                            ["man-tool-rebuild", "rebuild"]]) {
+    $(id).setAttribute("aria-pressed", String(tool === name));
+  }
+  $("man-canvas").style.cursor = tool === "brush" || tool === "rebuild" ? "none" : "crosshair";
   drawManual();
 }
 $("man-tool-zones").addEventListener("click", () => setTool("zones"));
 $("man-tool-annex").addEventListener("click", () => setTool("annex"));
 $("man-tool-brush").addEventListener("click", () => setTool("brush"));
+$("man-tool-rebuild").addEventListener("click", () => setTool("rebuild"));
 
 function loadBase(url) {
   return new Promise((resolve, reject) => {
@@ -827,7 +934,7 @@ $("man-file").addEventListener("change", async () => {
     const up = await api("/scantrad/upload", { method: "POST", body: file,
                                                headers: { "Content-Type": file.type || "image/png" } });
     Object.assign(manual, { name: up.image, fileName: file.name, zones: [], undo: [], painted: false,
-                            base: await loadBase(up.url), outputUrl: "" });
+                            base: await loadBase(up.url), outputUrl: "", mask: null, maskShown: null });
     const canvas = $("man-canvas");
     canvas.width = manual.base.width;
     canvas.height = manual.base.height;
@@ -844,8 +951,8 @@ $("man-file").addEventListener("change", async () => {
 $("man-canvas").addEventListener("mousedown", (event) => {
   if (!manual.base || event.button !== 0) return;
   const point = manualPoint(event);
-  if (manual.tool === "brush") {
-    pushPaintUndo();
+  if (manual.tool === "brush" || manual.tool === "rebuild") {
+    if (manual.tool === "brush") pushPaintUndo();
     manual.stroke = point;
     paintAt(point, point);
   } else {
@@ -886,6 +993,11 @@ window.addEventListener("mouseup", () => {
 });
 
 $("man-undo").addEventListener("click", () => {
+  if (manual.tool === "rebuild" && manual.mask) {  // outil Reconstruire : « Annuler » efface le rouge peint
+    clearMask();
+    drawManual();
+    return;
+  }
   const last = manual.undo.pop();
   if (!last) return manualLine("Rien à annuler.");
   if (last.kind === "zone") manual.zones.pop();
@@ -994,6 +1106,33 @@ $("man-erase").addEventListener("click", (event) => manualStep(event.currentTarg
     manual.painted = true;
     drawManual();
     manualLine("Texte effacé dans les bulles (« Annuler » le remet). Passe la gomme sur ce qui reste.");
+  }));
+
+$("man-rebuild").addEventListener("click", (event) => manualStep(event.currentTarget,
+  "LaMa redessine les zones peintes en rouge… (quelques secondes par zone, sur le processeur)", async () => {
+    if (!manual.mask) throw new Error("choisis « Reconstruire » et peins d'abord en rouge ce qui doit disparaître");
+    // la page telle qu'elle est à l'écran (gomme comprise) sert de base, le masque dit quoi redessiner
+    const base = await new Promise((resolve) => manual.base.toBlob(resolve, "image/png"));
+    await api(`/scantrad/manual/cleaned?image=${encodeURIComponent(manual.name)}`, {
+      method: "POST", body: base, headers: { "Content-Type": "image/png" } });
+    const flat = document.createElement("canvas");
+    flat.width = manual.mask.width;
+    flat.height = manual.mask.height;
+    const fctx = flat.getContext("2d");
+    fctx.fillStyle = "#000";
+    fctx.fillRect(0, 0, flat.width, flat.height);
+    fctx.drawImage(manual.mask, 0, 0);
+    const mask = await new Promise((resolve) => flat.toBlob(resolve, "image/png"));
+    const reply = await api(`/scantrad/manual/rebuild?image=${encodeURIComponent(manual.name)}`, {
+      method: "POST", body: mask, headers: { "Content-Type": "image/png" } });
+    if (!reply.ok) throw new Error(reply.error || "échec");
+    const rebuilt = await loadBase(`${reply.cleaned_url}?t=${Date.now()}`);
+    pushPaintUndo();
+    manual.base.getContext("2d").drawImage(rebuilt, 0, 0);
+    manual.painted = true;
+    clearMask();
+    drawManual();
+    manualLine(`Redessiné par ${reply.result.engine}. « Annuler » revient en arrière.`);
   }));
 
 $("man-read").addEventListener("click", (event) => manualStep(event.currentTarget,

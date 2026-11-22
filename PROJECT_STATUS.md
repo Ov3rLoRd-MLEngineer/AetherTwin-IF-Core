@@ -11,8 +11,8 @@ Les documents finaux et le gel J9 attendent sa demande.
 
 ## Où on en est
 
-- Dépôt initialisé : venv Python 3.11, Git, lint, tests, CI, fichiers de suivi. **419 tests** au total (22/11) :
-  415 passent, 4 sont des tests réels sur GPU, activés par `AETHERTWIN_REAL_OLLAMA=1`.
+- Dépôt initialisé : venv Python 3.11, Git, lint, tests, CI, fichiers de suivi. **422 tests** au total (22/11) :
+  418 passent, 4 sont des tests réels sur GPU, activés par `AETHERTWIN_REAL_OLLAMA=1`.
 - Relais Cloud ⇄ Local écrit et testé **en simulation**.
 - **J2 terminé** : moniteur GPU, contrat de module, bus, ordonnanceur, gardiens, démon et API locale.
 - **J3 terminé** (17/11) : WoW Assistant porté dans `modules/gaming_hud/`, interface `GameAdapter`, trois
@@ -106,7 +106,8 @@ Les documents finaux et le gel J9 attendent sa demande.
 | `scantrad` : mode manuel (zones à la souris, gomme, réincrustation) | P1 | J8 | `FAIT-TESTÉ` | demande de Jérémy (test 17). **Réel** sur sa page dans le navigateur : 2 zones tracées dans l'ordre de lecture, lues par `qwen2.5vl:7b` (96 s à froid, 1 s ensuite), traduites, gomme et annulation, page propre. Un bloc horizontal de 3 lignes était lu « AUCUN » : consigne d'OCR propre au mode manuel. Effacement par la couleur du papier (l'inpainting laissait un fantôme gris) |
 | `scantrad` : lecture par colonnes, ordre des doubles pages, mesure par les zones manuelles, enregistrement | P1 | J8 | `FAIT-TESTÉ` | 22/11. Texte vertical découpé en colonnes lues une à une (manuel et automatique) ; double page lue page de droite d'abord, rangées par recouvrement réel ; fusion de bulles bornée. Chaque page faite en manuel sert de vérité de terrain : `python -m modules.scantrad --evaluate` mesure la détection automatique. **Réel** sur la double page de Jérémy : ordre 4/7 → 7/7, 8 bulles sur 8 lues justes en automatique ; le texte automatique peut encore déborder sur le dessin. Boutons « Enregistrer » (page, chapitre, manuel) non cliqués dans un vrai navigateur |
 | `scantrad` : chinois, coréen, anglais ; page simple/double ; annexes ; export .txt | P1 | J8 | `FAIT-TESTÉ` (tests) / `FAIT-NON-TESTÉ` (réel) | 22/11, demandes de Jérémy. Consignes d'OCR et tri des lectures par langue, ordre de lecture de gauche à droite hors japonais, type de page imposable ; zones annexes (onomatopées, texte hors bulle) réécrites par-dessus le dessin en blanc cerné de noir, ou effacées ; « Gommer les bulles (1 clic) » ; export texte page / chapitre. Testé par la suite automatique ; **aucune page chinoise, coréenne ou anglaise essayée en réel** |
-| Onglet Traduction (texte, image, voix → français) | P1 | J8 | `FAIT-TESTÉ` / `FAIT-NON-TESTÉ` (voix) | 22/11, demande de Jérémy. **Réel** : japonais (12 s, chargement compris) et coréen (1 s) ; image : page de manga lue puis traduite. La consigne d'image ne propose plus « AUCUN » (le modèle la choisissait sur une page entière). Voix : faster-whisper local, **non installé** (`Installer AetherTwin.bat -Voice`, modèle ~480 Mo au premier message) |
+| Scantrad : LaMa (effacement par reconstruction), outil « Reconstruire », import .txt | P1 | J8 | `FAIT-TESTÉ` | 22/11. LaMa ONNX (`Carve/LaMa-ONNX`, Apache 2.0, 198 Mo, `models/scantrad/`), sur le processeur (onnxruntime, ajouté à `requirements.txt`) : 4 à 6 s par zone. Utilisé pour les bulles sur trame, les annexes « effacer » et l'outil « Reconstruire » (on peint, LaMa redessine). Sur papier blanc, le remplissage par la couleur du papier reste plus propre (comparé). **Réel** : onomatopée « ザ » retirée et dessin redessiné dans le navigateur ; import .txt de Jérémy dans le mode manuel |
+| Onglet Traduction (texte, image, voix → français) | P1 | J8 | `FAIT-TESTÉ` | voix ajoutée le 22/11 : faster-whisper installé (`small`, processeur) ; **réel** : message anglais synthétisé retranscrit mot pour mot (17 s au premier appel, téléchargement compris ; 3 s ensuite). Enregistrement du micro par le navigateur non essayé | 22/11, demande de Jérémy. **Réel** : japonais (12 s, chargement compris) et coréen (1 s) ; image : page de manga lue puis traduite. La consigne d'image ne propose plus « AUCUN » (le modèle la choisissait sur une page entière). Voix : faster-whisper local, **non installé** (`Installer AetherTwin.bat -Voice`, modèle ~480 Mo au premier message) |
 | Inoue : modèle déjà chargé par un autre client | P0 | J8 | `FAIT-TESTÉ` | trouvé à l'essai réel : un modèle déjà en VRAM (chargé par un autre programme sur le même Ollama) était compté deux fois et refusé. Désormais repris tel quel |
 | WoW Assistant : plusieurs serveurs IA | P1 | J8 | `FAIT-TESTÉ` (rendu headless) | liste de serveurs enregistrés (actif / inactif, utiliser, retirer) ; les modèles de tous les serveurs actifs, chacun avec son serveur. Rendu vérifié hors écran ; pas encore essayé par Jérémy |
 | Installation : `Installer AetherTwin.bat`, option `-Voice` | P0 | J8 | `FAIT-NON-TESTÉ` | le `.bat` lance `setup.ps1` avec `-ExecutionPolicy Bypass` pour ce lancement seulement (le réglage de Windows ne change pas) : Windows refusait le script (capture de Jérémy) |
@@ -152,6 +153,10 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
    HUD ; `log_tail` et `screen_ocr` sur un vrai jeu ; Studio (masques trop larges) ; jeu Éther (à développer après
    l'analyse de Jérémy).
 4. **Après le 25/11** : voir l'encadré en tête de ce fichier.
+5. **Idée notée (22/11, après le dépôt)** : une interface simplifiée pour un ComfyUI installé localement via
+   AetherTwin : charger un workflow `.json`, activer les nœuds voulus, choisir les checkpoints, safetensors et
+   autres modèles à charger, régler les paramètres, le tout adapté à l'état du ComfyUI en place (nœuds et
+   modèles réellement installés) et au contenu du `.json`. L'inpainting génératif de Scantrad passerait par là.
 
 ## Problèmes rencontrés et solutions
 
@@ -193,11 +198,15 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 22 | Sons par lieu et volume — **OK (Jérémy, 22/11)** | — | — |
 | 23 | Alerte VRAM d'Inoue — **OK (Jérémy, 22/11)** : « hors réservations » affiché ; charge répartie sur les deux GPU | — | — |
 | 24 | Scantrad, automatique sur une double page + enregistrement — **OK (Jérémy, 22/11)** | — | demandes : page simple / double au chargement, gommer en un clic, zones annexes, export .txt, langues → tests 25 à 27 |
-| 25 | Scantrad : langue et type de page | onglet **Scantrad** : choisir « Langue » et « Pages » (simple, double, deviner) avant « Traduire » ; une page de manhwa ou de comic en anglais si tu en as | ordre de lecture de gauche à droite pour le coréen, le chinois et l'anglais ; une double page imposée est lue page par page |
-| 26 | Scantrad manuel : gommer en un clic, annexes | mode manuel : « Gommer les bulles (1 clic) » ; outil **Annexe** autour d'une onomatopée ou d'un texte hors bulle, puis dans le tableau « par-dessus le dessin (contour) » ou « effacer puis écrire » | les bulles s'effacent d'un coup (« Annuler » les remet) ; une annexe « contour » garde le dessin, le français est écrit en blanc cerné de noir |
-| 27 | Scantrad : export texte | « Texte de cette page (.txt) », « Texte du chapitre (.txt) », et « Texte (.txt) » en manuel | un fichier `<nom>_fr.txt` avec, pour chaque bulle, le texte d'origine et sa traduction |
-| 28 | Onglet Traduction | onglet **Traduction** : un texte (japonais, chinois, coréen ou anglais), puis une image (fichier ou Ctrl+V d'une capture) ; la voix après `Installer AetherTwin.bat -Voice` | traduction en quelques secondes ; l'image est lue puis traduite ; la voix : après installation, « Enregistrer un message » |
-| 29 | WoW Assistant : plusieurs serveurs IA | Paramètres > Assistant IA : « Ajouter l'endpoint ci-dessus à la liste » pour chaque serveur (Hub, Ollama, Open WebUI, OmniRoute…), « actif / inactif », puis « Charger la liste des modèles » | les modèles de tous les serveurs actifs, chacun avec son serveur ; en cliquer un sélectionne aussi son serveur. **Dans la copie du dépôt** (`modules/gaming_hud/app`), pas encore dans `D:\Hermes-Agent\wow_assistant_v9` |
+| 25 | Scantrad : langue et type de page — **OK en japonais (Jérémy, 22/11)** ; chinois, coréen, anglais non essayés faute de pages | — | — |
+| 26 | Scantrad manuel : gommer en un clic, annexes — **OK (Jérémy, 22/11)** | — | — |
+| 27 | Scantrad : export texte — **OK (Jérémy, 22/11)** | — | demande : importer un .txt au même format → test 30 |
+| 28 | Onglet Traduction — **non essayé par Jérémy** (pas de texte source sous la main) ; essais de Claude : texte japonais et coréen, image, voix | — | à refaire quand du matériel sera disponible |
+| 29 | WoW Assistant : plusieurs serveurs IA — **OK (Jérémy, 22/11)**, copié dans `D:\Hermes-Agent` | — | demande : renseigner le fournisseur de chaque serveur → test 31 |
+| 30 | Scantrad : importer une traduction (.txt) | automatique : « Importer une traduction (.txt) » (pages du même nom) ; manuel : à côté de « Réincruster » (zones de même numéro) | les traductions du fichier remplacent celles des bulles ; tu peux corriger un .txt dans un éditeur puis le réimporter |
+| 31 | WoW Assistant : fournisseur de chaque serveur | Paramètres > Assistant IA : le bouton à côté de « actif » (deviné d'après le port, un clic pour changer) ; recopier `modules/gaming_hud/app/{llm,ui,settings}.py` dans `D:\Hermes-Agent` | les modèles s'affichent avec le nom du fournisseur (« qwen3-27b · Hub AetherTwin ») |
+| 32 | Scantrad manuel : Reconstruire (LaMa) | outil **Reconstruire** : peins en rouge une onomatopée posée sur le dessin, puis « Redessiner (LaMa) » ; une annexe réglée sur « effacer puis écrire » | le dessin est redessiné sous la zone peinte (quelques secondes, sur le processeur) ; « Annuler » revient en arrière |
+| 33 | Traduction par la voix | relance le Hub ; onglet **Traduction**, « Enregistrer un message », parle (japonais, chinois, coréen ou anglais), « Arrêter et traduire » | texte reconnu puis traduit ; le navigateur demande l'accès au micro la première fois |
 
 ## Points attendus de Jérémy
 

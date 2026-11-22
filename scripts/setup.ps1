@@ -1,7 +1,7 @@
 ﻿# Installation reproductible d'AetherTwin (I&F Core) sous Windows.
 #   .\scripts\setup.ps1              # venv Python 3.11 + dépendances + config + vérifications
 #   .\scripts\setup.ps1 -Gpu         # + PyTorch CUDA et segment-anything (mangastudio), environ 3 Go
-#   .\scripts\setup.ps1 -Weights     # + poids HandSegNet / FootSegNet (2 × 375 Mo, Hugging Face)
+#   .\scripts\setup.ps1 -Weights     # + poids HandSegNet / FootSegNet (2 × 375 Mo) et LaMa (198 Mo), Hugging Face
 #   .\scripts\setup.ps1 -Shortcut    # + raccourci « AetherTwin » sur le bureau
 #   .\scripts\setup.ps1 -Voice       # + reconnaissance vocale locale (faster-whisper) pour l'onglet Traduction ;
 #                                    #   le modèle « small » (~480 Mo, Hugging Face) se télécharge au premier message
@@ -49,6 +49,14 @@ if ($Weights) {
         Write-Host "Téléchargement de $name (375 Mo)..."
         curl.exe -L --fail -s -o $file "https://huggingface.co/Ov3rLoRd-MLEngineer/$name-anime-sdxl/resolve/main/${name}_vit_b_best.safetensors"
         if ($LASTEXITCODE -ne 0) { Remove-Item -Force -ErrorAction SilentlyContinue $file; throw "Téléchargement de $name impossible." }
+    }
+    # LaMa (Apache 2.0, version ONNX de Carve) : effacement par reconstruction de Scantrad
+    $lama = Join-Path $root "models\scantrad\lama_fp32.onnx"
+    New-Item -ItemType Directory -Force (Split-Path $lama) | Out-Null
+    if (Test-Path $lama) { Write-Host "LaMa : déjà présent" } else {
+        Write-Host "Téléchargement de LaMa (198 Mo)..."
+        curl.exe -L --fail -s -o $lama "https://huggingface.co/Carve/LaMa-ONNX/resolve/main/lama_fp32.onnx"
+        if ($LASTEXITCODE -ne 0) { Remove-Item -Force -ErrorAction SilentlyContinue $lama; throw "Téléchargement de LaMa impossible." }
     }
 }
 

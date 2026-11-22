@@ -202,6 +202,8 @@
           <button id="scan-save-all" type="button" class="ghost">Enregistrer tout le chapitre</button>
           <button id="scan-text" type="button" class="ghost">Texte de cette page (.txt)</button>
           <button id="scan-text-all" type="button" class="ghost">Texte du chapitre (.txt)</button>
+          <label class="ghost-file" title="un .txt au format de l'export : les traductions remplacent celles des pages du même nom">
+            Importer une traduction (.txt) <input id="scan-import" type="file" accept=".txt,text/plain"></label>
         </div>
         <div id="scan-gallery" class="gallery"></div>
         <div id="scan-images" class="compare" hidden>
@@ -227,6 +229,9 @@
                   title="onomatopée, panneau, texte hors bulle">Annexe</button>
           <button id="man-tool-brush" type="button" class="ghost" aria-pressed="false">Gomme</button>
           <button id="man-erase" type="button" class="ghost" title="efface le texte de toutes les bulles posées">Gommer les bulles (1 clic)</button>
+          <button id="man-tool-rebuild" type="button" class="ghost" aria-pressed="false"
+                  title="peins en rouge ce qui doit disparaître (onomatopée sur le dessin…), puis « Redessiner »">Reconstruire</button>
+          <button id="man-rebuild" type="button" class="ghost" title="LaMa redessine ce qui se trouvait sous les zones peintes en rouge">Redessiner (LaMa)</button>
           <label>taille <input id="man-brush" type="range" min="4" max="120" value="24"></label>
           <button id="man-undo" type="button" class="ghost">Annuler</button>
           <button id="man-clear" type="button" class="ghost">Retirer les zones</button>
@@ -237,6 +242,8 @@
           <button id="man-translate" type="button">2. Traduire</button>
           <button id="man-compose" type="button">3. Réincruster</button>
           <label><input type="checkbox" id="man-auto" checked> effacer aussi automatiquement dans les zones</label>
+          <label class="ghost-file" title="un .txt au format de l'export : chaque traduction va dans la zone de même numéro">
+            Importer une traduction (.txt) <input id="man-import" type="file" accept=".txt,text/plain"></label>
         </div>
         <p id="man-line" class="muted"></p>
         <div id="man-rows"></div>

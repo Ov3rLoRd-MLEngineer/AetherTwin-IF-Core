@@ -199,3 +199,31 @@ def test_an_annex_zone_keeps_the_art_and_gets_outlined_text(tmp_path: Path) -> N
     zone = out[225:285, 10:130]
     assert (zone == 255).all(axis=2).sum() > 20  # texte blanc posé par-dessus
     assert (np.abs(out[275, 115].astype(int) - 90) < 5).all()  # le dessin autour n'est pas effacé
+
+
+def test_lama_rebuilds_hatching_under_a_drawn_sound_effect() -> None:
+    from modules.scantrad import lama
+
+    if not lama.available():
+        pytest.skip("poids LaMa absents (scripts\\setup.ps1 -Weights)")
+    page = np.full((300, 300, 3), 255, np.uint8)
+    for x in range(0, 300, 6):  # hachures fines
+        cv2.line(page, (x, 0), (x, 299), (0, 0, 0), 1)
+    cv2.rectangle(page, (120, 100), (180, 200), (0, 0, 0), -1)  # « onomatopée » épaisse posée dessus
+    mask = manual.stroke_mask(page)
+    assert mask[150, 150] == 255 and mask[20, 30] == 0  # le trait épais est masqué, pas les hachures
+    out = lama.inpaint(page, mask)
+    inside = cv2.cvtColor(out[110:190, 130:170], cv2.COLOR_BGR2GRAY)
+    assert inside.mean() > 120  # le bloc noir a disparu : LaMa a redessiné un fond clair et rayé
+    assert np.array_equal(out[:, :90], page[:, :90])  # hors du masque, rien ne bouge
+
+
+def test_annex_set_to_erase_loses_its_thick_strokes(tmp_path: Path) -> None:
+    source = tmp_path / "page.png"
+    page = bubble_page()
+    cv2.rectangle(page, (30, 240), (90, 260), (0, 0, 0), -1)  # onomatopée épaisse hors bulle
+    write_image(source, page)
+    rows = [{"box": [20, 230, 90, 40], "translation": "", "kind": "annexe", "style": "efface"}]
+    compose(source, tmp_path / "page_fr.png", rows)
+    out = cv2.cvtColor(read_image(tmp_path / "page_fr.png"), cv2.COLOR_BGR2GRAY)
+    assert out[245:255, 40:80].mean() > 100  # le trait noir a été effacé et le fond reconstruit

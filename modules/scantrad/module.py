@@ -34,6 +34,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import cv2
 import numpy as np
 
 from core.module_api import Event, Health, ModuleBase
@@ -92,7 +93,7 @@ def retypeset(output: Path, translations: dict[str, str], font: str = "") -> lis
     return job["bubbles"]
 
 
-MANUAL_COMMANDS = ("suggest", "read", "translate", "erase", "compose")
+MANUAL_COMMANDS = ("suggest", "read", "translate", "erase", "compose", "rebuild")
 
 
 def compose(source: Path, output: Path, rows: Any, font: str = "", auto_erase: bool = True,
@@ -103,7 +104,8 @@ def compose(source: Path, output: Path, rows: Any, font: str = "", auto_erase: b
     Zones annexes (`"kind": "annexe"` : onomatopée, panneau, texte hors bulle), deux façons de réincruster :
     - `"style": "contour"` (défaut) : le dessin n'est pas touché ; le français est écrit en blanc cerné de noir
       par-dessus, comme le font les traducteurs pour les onomatopées ;
-    - `"style": "efface"` : comme une bulle (effacement automatique et gomme), utile sur fond uni."""
+    - `"style": "efface"` : les traits épais de l'onomatopée sont effacés et le dessin dessous reconstruit
+      (LaMa si installé), puis le français est écrit comme dans une bulle."""
     page = read_image(source)
     spec = language(lang)
     if not isinstance(rows, list):
@@ -117,8 +119,10 @@ def compose(source: Path, output: Path, rows: Any, font: str = "", auto_erase: b
         cleaned = read_image(clean_path)
         if cleaned.shape != page.shape:
             raise ValueError("la page gommée n'a pas la taille de l'original")
-    if auto_erase:
-        cleaned = manual.erase_in_boxes(cleaned, [b for b, keep in zip(boxes, outlined, strict=True) if not keep])
+    if auto_erase:  # bulles : encre fine ; annexes « efface » : traits épais d'onomatopée, reconstruits (LaMa)
+        annex_erase = [b for b, k, o in zip(boxes, kinds, outlined, strict=True) if k == "annexe" and not o]
+        cleaned = manual.erase_in_boxes(cleaned, [b for b, k in zip(boxes, kinds, strict=True) if k == "bulle"],
+                                        strokes=annex_erase)
     bubbles = manual.bubbles_from_boxes(boxes)
     for i, (bubble, row) in enumerate(zip(bubbles, rows, strict=True)):
         bubble.source = str(row.get("source") or "")[:MAX_TRANSLATION]
@@ -229,6 +233,22 @@ class ScantradModule(ModuleBase):
             for i, text in zip(todo, translate([texts[i].strip() for i in todo]), strict=True):
                 out[i] = text.strip()
         return {"translations": out}
+
+    def _manual_rebuild(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Outil « Reconstruire » : les pixels peints par l'utilisateur sont redessinés (LaMa, sinon OpenCV) sur la
+        page gommée en cours (`output`), ou sur l'original s'il n'y en a pas encore."""
+        output, mask_path = Path(str(payload["output"])), Path(str(payload["mask"]))
+        base = read_image(output if output.is_file() else self._source(payload))
+        data = np.fromfile(str(mask_path), dtype=np.uint8)
+        mask = cv2.imdecode(data, cv2.IMREAD_GRAYSCALE) if data.size else None
+        if mask is None or mask.shape != base.shape[:2]:
+            raise ValueError("masque illisible ou de taille différente de la page")
+        mask = np.where(mask > 127, 255, 0).astype(np.uint8)
+        from modules.scantrad import lama
+
+        write_image(output, manual.rebuild(base, mask))
+        return {"output": str(output), "engine": "LaMa" if lama.available() else "OpenCV (LaMa absent)",
+                "pixels": int((mask > 0).sum())}
 
     def _manual_erase(self, payload: dict[str, Any]) -> dict[str, Any]:
         page = read_image(self._source(payload))

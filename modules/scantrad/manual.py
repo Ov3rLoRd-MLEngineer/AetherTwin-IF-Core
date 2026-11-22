@@ -180,11 +180,33 @@ def ink_mask(crop: np.ndarray, grow: bool = True) -> np.ndarray:
     return cv2.dilate(mask, np.ones((2 * size + 1, 2 * size + 1), np.uint8))
 
 
-def erase_in_boxes(page: np.ndarray, boxes: list[tuple[int, int, int, int]], radius: int = 3) -> np.ndarray:
+def stroke_mask(crop: np.ndarray, dark: int = 70) -> np.ndarray:
+    """Traits épais et sombres d'une onomatopée dessinée (zone annexe) : les hachures fines du dessin, plus
+    étroites que l'ouverture morphologique, restent hors du masque."""
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if crop.ndim == 3 else crop
+    thick = cv2.morphologyEx((gray < dark).astype(np.uint8), cv2.MORPH_OPEN, np.ones((7, 7), np.uint8))
+    return cv2.dilate(thick * 255, np.ones((9, 9), np.uint8))
+
+
+def rebuild(page: np.ndarray, mask: np.ndarray, radius: int = 3) -> np.ndarray:
+    """Reconstruit les pixels masqués : LaMa si ses poids sont là (redessine trame et dessin), sinon OpenCV."""
+    from modules.scantrad import lama
+
+    if lama.available():
+        return lama.inpaint(page, mask)
+    return cv2.inpaint(page, mask, radius, cv2.INPAINT_TELEA)
+
+
+def erase_in_boxes(page: np.ndarray, boxes: list[tuple[int, int, int, int]], radius: int = 3,
+                   strokes: list[tuple[int, int, int, int]] | None = None) -> np.ndarray:
     """Efface le texte à l'intérieur des boîtes : un premier passage, la gomme finit le travail.
-    Sur une bulle blanche, l'encre est recouverte de la couleur du papier (l'inpainting y laissait un fantôme
-    gris) ; sur une trame ou un fond dessiné, elle est reconstruite par inpainting."""
+    Sur une bulle blanche, l'encre est recouverte de la couleur du papier (la reconstruction y laissait un
+    fantôme gris) ; sur une trame ou un fond dessiné, elle est reconstruite (LaMa, sinon OpenCV).
+    `strokes` : zones annexes à effacer (onomatopées) : leurs traits épais sont reconstruits."""
     out = page.copy()
+    to_rebuild = np.zeros(page.shape[:2], np.uint8)
+    for x, y, w, h in strokes or []:
+        to_rebuild[y:y + h, x:x + w] |= stroke_mask(out[y:y + h, x:x + w])
     for x, y, w, h in boxes:
         crop = out[y:y + h, x:x + w]
         mask = ink_mask(crop)
@@ -200,8 +222,8 @@ def erase_in_boxes(page: np.ndarray, boxes: list[tuple[int, int, int, int]], rad
             near = cv2.dilate(mask, np.ones((7, 7), np.uint8)) > 0
             crop[(mask > 0) | (near & (gray > paper - 70))] = color
         else:
-            out[y:y + h, x:x + w] = cv2.inpaint(crop, mask, radius, cv2.INPAINT_TELEA)
-    return out
+            to_rebuild[y:y + h, x:x + w] |= mask
+    return rebuild(out, to_rebuild, radius) if to_rebuild.any() else out
 
 
 def cover(a: list[int] | tuple[int, ...], b: list[int] | tuple[int, ...]) -> float:

@@ -272,6 +272,7 @@ modules/
     cli.py
     detect.py
     hub_stages.py
+    lama.py
     languages.py
     manifest.json
     manual.py
@@ -992,6 +993,13 @@ OCR et traduction par les modèles locaux, **via le Hub** (API compatible OpenAI
 - `def parse_translations(answer: str, count: int) -> list[str] | None`
 - `def make_translator(chat: Chat, glossary: Glossary | None=None, model: str='', target: str='français', lang: str='ja') -> Callable[[list[str]], list[str]]`
 
+### `modules/scantrad/lama.py`
+
+Effacement par reconstruction : LaMa (big-lama, Apache 2.0), version ONNX `Carve/LaMa-ONNX`.
+
+- `def available(path: Path=DEFAULT_WEIGHTS) -> bool`
+- `def inpaint(page: np.ndarray, mask: np.ndarray, path: Path=DEFAULT_WEIGHTS, context: float=1.0) -> np.ndarray` — Page (BGR) dont les pixels de `mask` (0/255, même taille) sont reconstruits par LaMa.
+
 ### `modules/scantrad/languages.py`
 
 Langues sources prises en charge (vers le français) : japonais, chinois, coréen, anglais.
@@ -1010,7 +1018,9 @@ Mode manuel : les zones de texte sont posées à la main, dans l'ordre de lectur
 - `def split_columns(crop: np.ndarray) -> list[tuple[int, int, int, int]]` — Colonnes d'un texte vertical, de droite à gauche (ordre de lecture), en (x, y, l, h) dans `crop`.
 - `def widen_area(page: np.ndarray, box: tuple[int, int, int, int], bright: int=200) -> tuple[int, int, int, int]` — Zone d'écriture d'une zone étroite (une colonne japonaise) : élargie sur les côtés tant que le papier reste
 - `def ink_mask(crop: np.ndarray, grow: bool=True) -> np.ndarray` — Encre du texte dans une boîte : traits sombres, petits, qui ne touchent pas le bord de la boîte.
-- `def erase_in_boxes(page: np.ndarray, boxes: list[tuple[int, int, int, int]], radius: int=3) -> np.ndarray` — Efface le texte à l'intérieur des boîtes : un premier passage, la gomme finit le travail.
+- `def stroke_mask(crop: np.ndarray, dark: int=70) -> np.ndarray` — Traits épais et sombres d'une onomatopée dessinée (zone annexe) : les hachures fines du dessin, plus
+- `def rebuild(page: np.ndarray, mask: np.ndarray, radius: int=3) -> np.ndarray` — Reconstruit les pixels masqués : LaMa si ses poids sont là (redessine trame et dessin), sinon OpenCV.
+- `def erase_in_boxes(page: np.ndarray, boxes: list[tuple[int, int, int, int]], radius: int=3, strokes: list[tuple[int, int, int, int]] | None=None) -> np.ndarray` — Efface le texte à l'intérieur des boîtes : un premier passage, la gomme finit le travail.
 - `def cover(a: list[int] | tuple[int, ...], b: list[int] | tuple[int, ...]) -> float` — Part de la boîte `a` recouverte par la boîte `b` (0 à 1).
 - `def evaluate(data_dir: Path) -> dict[str, Any]` — Mesure la détection automatique sur les pages faites en mode manuel (vérité de terrain) :
 - `def suggest_boxes(page: np.ndarray, right_to_left: bool=True, spread: bool | None=None) -> list[list[int]]` — Boîtes de la détection automatique, dans l'ordre de lecture, comme point de départ à corriger
