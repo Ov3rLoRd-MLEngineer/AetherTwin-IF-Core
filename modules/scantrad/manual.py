@@ -7,6 +7,8 @@ de la bulle. Plus de détection automatique : pas de bulle oubliée ni de texte 
 """
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 import cv2
@@ -89,9 +91,22 @@ def split_columns(crop: np.ndarray) -> list[tuple[int, int, int, int]]:
     mask = ink_mask(crop, grow=False) > 0
     if mask.sum() < 20:
         return []
-    count, _labels, stats, _ = cv2.connectedComponentsWithStats(mask.astype(np.uint8), connectivity=8)
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(mask.astype(np.uint8), connectivity=8)
     sizes = [max(int(s[2]), int(s[3])) for s in stats[1:] if s[4] >= 4]
     char = float(np.percentile(sizes, 75)) if sizes else 10.0
+    # seules les traces de la taille d'un caractère comptent : un contour de bulle (long trait fin) ou un
+    # morceau de dessin pris dans le cadre ferait une fausse colonne (« 一七 » ajouté, essai du 22/11)
+    height, width = mask.shape
+
+    def stray(label: int) -> bool:  # trop grand pour un caractère, ou collé au bord du cadre (le texte n'y touche pas)
+        x, y, w, h = (int(v) for v in stats[label][:4])
+        return max(w, h) > 2.5 * char or x == 0 or y == 0 or x + w >= width or y + h >= height
+
+    big = [label for label in range(1, count) if stray(label)]
+    if big:
+        mask = mask & ~np.isin(labels, big)
+        if mask.sum() < 20:
+            return []
     filled = mask.any(axis=0)
     gap = max(3.0, 0.12 * char)
     spans, start, run = [], None, 0
@@ -186,6 +201,45 @@ def erase_in_boxes(page: np.ndarray, boxes: list[tuple[int, int, int, int]], rad
         else:
             out[y:y + h, x:x + w] = cv2.inpaint(crop, mask, radius, cv2.INPAINT_TELEA)
     return out
+
+
+def cover(a: list[int] | tuple[int, ...], b: list[int] | tuple[int, ...]) -> float:
+    """Part de la boîte `a` recouverte par la boîte `b` (0 à 1)."""
+    ix = max(0, min(a[0] + a[2], b[0] + b[2]) - max(a[0], b[0]))
+    iy = max(0, min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1]))
+    return ix * iy / max(1, a[2] * a[3])
+
+
+def evaluate(data_dir: Path) -> dict[str, Any]:
+    """Mesure la détection automatique sur les pages faites en mode manuel (vérité de terrain) :
+    - **rappel** : part des zones posées à la main qu'une détection recouvre au moins à moitié ;
+    - **fausses détections** : détections hors de toute zone (avant le tri par l'OCR, qui en écarte une partie) ;
+    - **ordre** : part des paires de bulles consécutives que la détection lit dans le même ordre.
+    C'est la base de tout réglage ou apprentissage futur : on ne garde un changement que s'il améliore ces chiffres."""
+    from modules.scantrad.cli import read_image
+
+    pages = []
+    for job_path in sorted((data_dir / "sorties").glob("*_travail.json")):
+        job = json.loads(job_path.read_text(encoding="utf-8"))
+        source = data_dir / "entrees" / str(job.get("source", ""))
+        if job.get("mode") != "manuel" or not source.is_file():
+            continue
+        truth = [b["box"] for b in job["bubbles"]]
+        found = suggest_boxes(read_image(source))
+        best = [max(range(len(found)), key=lambda i, t=t: cover(t, found[i])) if found else -1 for t in truth]
+        hit = [i >= 0 and cover(t, found[i]) >= 0.5 for t, i in zip(truth, best, strict=True)]
+        false_pos = sum(1 for f in found if max((cover(f, t) for t in truth), default=0) < 0.3)
+        pairs = [(best[k], best[k + 1]) for k in range(len(truth) - 1) if hit[k] and hit[k + 1]]
+        pages.append({"page": source.name, "series": job.get("series", ""), "zones": len(truth),
+                      "found": sum(hit), "false_positives": false_pos,
+                      "order_ok": sum(1 for a, b in pairs if a < b), "order_pairs": len(pairs)})
+    zones = sum(p["zones"] for p in pages)
+    order_pairs = sum(p["order_pairs"] for p in pages)
+    return {"pages": len(pages), "zones": zones,
+            "recall": round(sum(p["found"] for p in pages) / zones, 3) if zones else None,
+            "false_positives": sum(p["false_positives"] for p in pages),
+            "order_agreement": round(sum(p["order_ok"] for p in pages) / order_pairs, 3) if order_pairs else None,
+            "per_page": pages}
 
 
 def suggest_boxes(page: np.ndarray) -> list[list[int]]:

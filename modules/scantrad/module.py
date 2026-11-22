@@ -31,7 +31,6 @@ Configuration (section `scantrad` de `config/local.yaml`), facultative :
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +46,7 @@ from modules.scantrad.hub_stages import (
     hub_chat,
     make_translator,
     make_vision_ocr,
+    read_by_columns,
 )
 from modules.scantrad.pipeline import Bubble
 from modules.scantrad.typeset import make_typesetter, text_area
@@ -60,7 +60,7 @@ def work_paths(output: Path) -> tuple[Path, Path]:
     return output.with_name(f"{stem}_propre.png"), output.with_name(f"{stem}_travail.json")
 
 
-def save_work(output: Path, cleaned: np.ndarray, bubbles: list[Bubble]) -> None:
+def save_work(output: Path, cleaned: np.ndarray, bubbles: list[Bubble], extra: dict[str, Any] | None = None) -> None:
     clean_path, job_path = work_paths(output)
     write_image(clean_path, cleaned)
     rows = []
@@ -68,7 +68,8 @@ def save_work(output: Path, cleaned: np.ndarray, bubbles: list[Bubble]) -> None:
         row = bubble.to_dict()
         row["area"] = list(bubble.area or text_area(bubble))  # zone d'écriture figée : plus besoin des masques
         rows.append(row)
-    job_path.write_text(json.dumps({"bubbles": rows}, ensure_ascii=False, indent=1), encoding="utf-8")
+    job_path.write_text(json.dumps({"bubbles": rows, **(extra or {})}, ensure_ascii=False, indent=1),
+                        encoding="utf-8")
 
 
 def retypeset(output: Path, translations: dict[str, str], font: str = "") -> list[dict[str, Any]]:
@@ -95,7 +96,8 @@ def retypeset(output: Path, translations: dict[str, str], font: str = "") -> lis
 MANUAL_COMMANDS = ("suggest", "read", "translate", "erase", "compose")
 
 
-def compose(source: Path, output: Path, rows: Any, font: str = "", auto_erase: bool = True) -> list[dict[str, Any]]:
+def compose(source: Path, output: Path, rows: Any, font: str = "", auto_erase: bool = True,
+            series: str = "") -> list[dict[str, Any]]:
     """Page traduite du mode manuel : bulles = boîtes posées à la main ; base = page gommée si elle existe
     (sinon l'original), puis, sauf refus, effacement automatique du texte restant dans les boîtes."""
     page = read_image(source)
@@ -120,7 +122,9 @@ def compose(source: Path, output: Path, rows: Any, font: str = "", auto_erase: b
         x, y, w, h = bubble.box
         bubble.vertical = manual.is_vertical(page[y:y + h, x:x + w])
         bubble.area = manual.widen_area(cleaned, bubble.box)  # une colonne étroite s'élargit dans sa bulle
-    save_work(output, cleaned, bubbles)
+    # les zones posées à la main sont une vérité de terrain : `manual.evaluate` y mesure la détection automatique
+    save_work(output, cleaned, bubbles, {"mode": "manuel", "source": source.name, "series": series,
+                                         "page_size": [int(page.shape[1]), int(page.shape[0])]})
     return retypeset(output, {}, font)
 
 
@@ -194,10 +198,7 @@ class ScantradModule(ModuleBase):
                 sources.append(horizontal(page, bubble).strip())
                 continue
             # texte vertical : chaque colonne lue seule, de droite à gauche, puis recollée
-            parts = [one_column(page, manual.bubbles_from_boxes([(x + cx, y + cy, cw, ch)])[0])
-                     for cx, cy, cw, ch in manual.split_columns(crop)]
-            text = re.sub(r"\s+", "", "".join(parts))
-            sources.append(text or whole_vertical(page, bubble).strip())
+            sources.append(read_by_columns(one_column, page, bubble.box) or whole_vertical(page, bubble).strip())
         return {"sources": sources, "vertical": vertical}
 
     def _manual_translate(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -223,7 +224,7 @@ class ScantradModule(ModuleBase):
     def _manual_compose(self, payload: dict[str, Any]) -> dict[str, Any]:
         output = Path(str(payload["output"]))
         bubbles = compose(self._source(payload), output, payload.get("bubbles"), str(self.config.get("font", "")),
-                          auto_erase=payload.get("auto_erase") is not False)
+                          auto_erase=payload.get("auto_erase") is not False, series=str(payload.get("series", "")))
         self.pages += 1
         return {"bubbles": bubbles, "output": str(output)}
 

@@ -263,3 +263,21 @@ def test_cli_no_llm_and_glossary(tmp_path: Path, monkeypatch, capsys) -> None:
     assert series_slug("../../Windows") == "windows"  # aucun chemin ne sort du dossier des glossaires
     with pytest.raises(ValueError):
         series_slug("ユキ")  # que des caractères non latins : refus clair plutôt qu'un fichier vide
+
+
+def test_reading_order_of_a_double_page() -> None:
+    """Page de droite d'abord, rangées de haut en bas, de droite à gauche (double page de Jérémy, simplifiée)."""
+    import numpy as np
+
+    from modules.scantrad.detect import sort_reading
+    from modules.scantrad.pipeline import Bubble
+
+    def bubble(x: int, y: int, w: int, h: int) -> Bubble:
+        return Bubble(0, (x, y, w, h), np.zeros((1, 1), np.uint8), np.zeros((1, 1), np.uint8))
+
+    boxes = {"5": (572, 208, 148, 441), "8": (78, 874, 156, 210), "1": (1410, 99, 143, 364),
+             "3": (1388, 893, 174, 136), "6": (15, 307, 133, 491), "2": (874, 374, 74, 401),
+             "7": (616, 876, 141, 208), "4": (864, 874, 188, 180)}
+    ordered = sort_reading([bubble(*b) for b in boxes.values()], 1150, 1600)
+    names = {v: k for k, v in boxes.items()}
+    assert [names[b.box] for b in ordered] == list("12345678")

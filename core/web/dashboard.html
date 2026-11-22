@@ -181,6 +181,10 @@
           <button type="submit">Traduire</button>
         </form>
         <p id="scan-line" class="muted"></p>
+        <div class="row" id="scan-save-row" hidden>
+          <button id="scan-save" type="button" class="ghost">Enregistrer cette page traduite</button>
+          <button id="scan-save-all" type="button" class="ghost">Enregistrer tout le chapitre</button>
+        </div>
         <div id="scan-gallery" class="gallery"></div>
         <div id="scan-images" class="compare" hidden>
           <figure><figcaption>Original</figcaption><img id="scan-before" alt="page d'origine"></figure>
@@ -215,7 +219,9 @@
         </div>
         <p id="man-line" class="muted"></p>
         <div id="man-rows"></div>
-        <figure id="man-result" hidden><figcaption>Page traduite</figcaption><img id="man-after" alt="page traduite"></figure>
+        <figure id="man-result" hidden><figcaption>Page traduite
+          <button id="man-save" type="button" class="ghost small">Enregistrer l'image</button></figcaption>
+          <img id="man-after" alt="page traduite"></figure>
       </section>
       <section>
         <h2>Glossaire d'une série</h2>

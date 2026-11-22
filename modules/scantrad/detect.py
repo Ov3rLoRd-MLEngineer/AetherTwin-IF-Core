@@ -40,10 +40,7 @@ def detect_bubbles(page: np.ndarray, white_level: int = 200, min_area_ratio: flo
         if not (text_ratio[0] <= ratio <= text_ratio[1]):
             continue  # pas de texte (ou trop : une zone de dessin)
         bubbles.append(Bubble(0, (x, y, w, h), filled, holes))
-    bubbles.sort(key=lambda b: reading_key(b.box, height))
-    for index, bubble in enumerate(bubbles, start=1):
-        bubble.index = index
-    return bubbles
+    return sort_reading(bubbles, height, page.shape[1])
 
 
 def detect_text_blocks(page: np.ndarray, char_min: float = 0.011, char_max: float = 0.075,
@@ -131,10 +128,7 @@ def detect_text_blocks(page: np.ndarray, char_min: float = 0.011, char_max: floa
         # masque d'effacement : l'encre fine autour du bloc (caractères, ponctuation, furigana)
         block.text_mask = (small[inside] & (inside > 0)).astype(np.uint8) * 255
         block.text_box = (tx, ty, tw, th)
-    blocks.sort(key=lambda b: reading_key(b.box, height))
-    for index, block in enumerate(blocks, start=1):
-        block.index = index
-    return blocks
+    return sort_reading(blocks, height, page.shape[1])
 
 
 def _line_like(group: tuple[int, int, int, int], single: tuple[int, int, int, int]) -> bool:
@@ -217,6 +211,10 @@ def merge_same_bubble(blocks: list[Bubble], char: float = 0.0, paper_id: np.ndar
                     x0, y0 = min(a.box[0], b.box[0]), min(a.box[1], b.box[1])
                     x1 = max(a.box[0] + a.box[2], b.box[0] + b.box[2])
                     y1 = max(a.box[1] + a.box[3], b.box[1] + b.box[3])
+                    # une bulle ne dépasse pas ~20 caractères de long ni ~12 de large : au-delà, la fusion a
+                    # enchaîné deux bulles par des onomatopées du dessin (double page de Jérémy, 22/11)
+                    if char and (max(x1 - x0, y1 - y0) > 20 * char or min(x1 - x0, y1 - y0) > 12 * char):
+                        continue
                     box = (x0, y0, x1 - x0, y1 - y0)
                     area = union_box(a.area or a.box, b.area or b.box)
                     blocks[i] = Bubble(0, box, np.full((y1 - y0, x1 - x0), 255, np.uint8),
@@ -268,11 +266,48 @@ def clean_text(page: np.ndarray, blocks: list[Bubble], grow: int = 0, radius: in
     return cv2.inpaint(page, mask, radius, cv2.INPAINT_TELEA) if np.count_nonzero(mask) else page.copy()
 
 
-def reading_key(box: tuple[int, int, int, int], page_height: int) -> tuple[int, int]:
-    """Ordre de lecture du manga : de haut en bas par bandes, et de droite à gauche dans une bande."""
+def sort_reading(bubbles: list[Bubble], page_height: int, page_width: int) -> list[Bubble]:
+    """Ordre de lecture du manga : page de droite puis page de gauche (double page) ; dans une page, rangées de
+    haut en bas, et de droite à gauche dans une rangée. Une rangée réunit les bulles qui se recouvrent au moins
+    à moitié en hauteur : des bandes fixes coupaient deux bulles côte à côte (mesuré sur la page de Jérémy)."""
+    def side(b: Bubble) -> int:
+        x, _y, w, _h = b.box
+        return 1 if page_width > 1.25 * page_height and x + w / 2 < page_width / 2 else 0
+
+    def span(b: Bubble) -> tuple[int, int]:  # hauteur de la bulle (plage claire) si connue, sinon du texte
+        box = b.area or b.box
+        return box[1], box[3]
+
+    ordered: list[Bubble] = []
+    for s in (0, 1):
+        rows: list[list[Bubble]] = []
+        for bubble in sorted((b for b in bubbles if side(b) == s), key=lambda b: span(b)[0]):
+            y, h = span(bubble)
+            for row in rows:
+                top = min(span(b)[0] for b in row)
+                bottom = max(sum(span(b)) for b in row)
+                if min(y + h, bottom) - max(y, top) >= 0.5 * min(h, bottom - top):
+                    row.append(bubble)
+                    break
+            else:
+                rows.append([bubble])
+        for row in rows:
+            ordered.extend(sorted(row, key=lambda b: -(b.box[0] + b.box[2])))
+    for index, bubble in enumerate(ordered, start=1):
+        bubble.index = index
+    return ordered
+
+
+def reading_key(box: tuple[int, int, int, int], page_height: int, page_width: int = 0) -> tuple[int, int, int]:
+    """Ordre de lecture du manga : de haut en bas par bandes, et de droite à gauche dans une bande. Une double
+    page (plus large que haute) se lit page de droite d'abord, puis page de gauche : mesuré sur la double page
+    de Jérémy en mode manuel, l'ordre automatique n'y était juste que pour 4 paires de bulles sur 7."""
     x, y, w, h = box
+    side = 0
+    if page_width > 1.25 * page_height:
+        side = 0 if x + w / 2 >= page_width / 2 else 1
     band = int((y + h / 2) // max(1, page_height // 8))
-    return band, -(x + w)
+    return side, band, -(x + w)
 
 
 def clean_bubbles(page: np.ndarray, bubbles: list[Bubble], radius: int = 3, grow: int = 2) -> np.ndarray:

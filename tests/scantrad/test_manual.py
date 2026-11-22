@@ -121,3 +121,37 @@ def test_a_narrow_column_gets_room_for_french() -> None:
     x, y, w, h = manual.widen_area(page, (120, 50, 40, 200))
     assert w > 100 and x >= 61 and (y, h) == (50, 200)
     assert manual.widen_area(page, (100, 50, 150, 120)) == (100, 50, 150, 120)  # déjà large : inchangée
+
+
+def test_evaluate_compares_auto_detection_with_hand_drawn_zones(tmp_path: Path) -> None:
+    import shutil
+
+    (tmp_path / "entrees").mkdir()
+    shutil.copy(PAGE, tmp_path / "entrees" / "p.png")
+    boxes = manual.suggest_boxes(read_image(PAGE))
+    rows = [{"box": b, "translation": "x"} for b in boxes] + [{"box": [0, 0, 30, 30], "translation": ""}]
+    compose(tmp_path / "entrees" / "p.png", tmp_path / "sorties" / "p_fr.png", rows, series="demo")
+    report = manual.evaluate(tmp_path)
+    assert report["pages"] == 1 and report["zones"] == 6
+    assert report["recall"] == round(5 / 6, 3)  # la zone du coin n'est pas détectée
+    assert report["order_agreement"] == 1.0 and report["per_page"][0]["series"] == "demo"
+
+def test_auto_ocr_rereads_vertical_blocks_column_by_column() -> None:
+    from modules.scantrad.hub_stages import MANUAL_OCR_COLUMN, make_column_aware_ocr
+
+    calls = []
+
+    def chat(messages, extra):  # faux modèle : lecture globale dans le désordre, colonnes lues une à une
+        prompt = messages[0]["content"][0]["text"]
+        calls.append(prompt)
+        if prompt == MANUAL_OCR_COLUMN:
+            return "一二三"[sum(1 for c in calls if c == MANUAL_OCR_COLUMN) - 1]
+        return "三一二"
+
+    page = column_page()
+    bubble = manual.bubbles_from_boxes([(100, 35, 70, 90)])[0]
+    bubble.vertical = True
+    assert make_column_aware_ocr(chat)(page, bubble) == "一二三"
+    calls.clear()
+    empty = make_column_aware_ocr(lambda m, e: "AUCUN")(page, bubble)
+    assert empty == ""  # faux positif de la détection : écarté sans relecture

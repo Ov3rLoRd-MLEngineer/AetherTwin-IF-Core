@@ -9,18 +9,18 @@ Les phrases sont courtes. Rien n'est implicite.
 2. Lis `PROJECT_STATUS.md`.
 3. Lis `ARCHITECTURE_MAP.md`.
 4. **Ne charge pas tout le dépôt.** Ouvre seulement les fichiers de ta tâche.
-5. N'ouvre jamais `_import/` en entier. `ui.py` fait 93 Ko.
+5. `modules/gaming_hud/app/ui.py` fait 93 Ko : n'ouvre que la partie utile.
 
-## Où on en est (mis à jour le 17/11/2026, soir)
+## Où on en est (mis à jour le 22/11/2026)
 
-- J0 à J7 faits. J8 en cours : installation vérifiée sur un clone vierge, puis améliorations demandées par
-  Jérémy (« vérifier l'installation et améliorer l'existant » avant les documents finaux). Détail dans
-  `PROJECT_STATUS.md` et `logs/CHANGELOG_DEV.md`. 380+ tests verts, 4 tests réels sur GPU ignorés par défaut.
-- **Jérémy fait un retour complet le 18/11 au matin** (tests 15 à 19 de `PROJECT_STATUS.md`, et le jeu, qu'il
-  veut développer après sa propre analyse : ne pas l'étendre sans son retour).
+- J0 à J7 faits. J8 en cours : installation vérifiée, puis améliorations demandées par Jérémy. Détail dans
+  `PROJECT_STATUS.md` et `logs/CHANGELOG_DEV.md`. 404 tests (400 verts, 4 réels sur GPU ignorés par défaut).
+- Retours de Jérémy reçus sur les tests 15 à 23 (22/11). Depuis : Scantrad mode manuel et lecture par
+  colonnes, Inoue tient compte de la VRAM mesurée, jeu Éther en vue RPG 16 bits (chats, minicarte, sons).
+- **Ne pas toucher** aux documents finaux ni au gel J9 tant que Jérémy ne le demande pas. Studio et Éther
+  restent en l'état (démo technique) sauf demande de sa part.
+- Après le 25/11 : relais Claude Code ↔ agent local en réel, 3 GPU (décembre), ComfyUI, push GitHub (par Jérémy).
 - HandSegNet/FootSegNet n'ont vu que des images SDXL : les ratés sur des pages de manga sont hors domaine.
-- Restent ensuite : documents finaux (`docs/HARDWARE_FIT.md`, `docs/DEMO_SCRIPT.md`, README,
-  `research/overlord_notes.md`), puis J9 (gel, branche `concours`, tag, scan des secrets de l'historique).
 
 ## Historique de cette section (16/11/2026)
 
@@ -39,9 +39,7 @@ Les phrases sont courtes. Rien n'est implicite.
 10. J4 (overlay OBS), J5 (`genesis_lab`, `core/knowledge/`) et J6 (`modules/scantrad/`) sont faits (17/11).
     Lanceur double-clic : `Lancer AetherTwin.bat` (raccourci « AetherTwin » sur le bureau), tableau de bord
     sur `http://127.0.0.1:5750/`, en onglets. J7 fait aussi (`mangastudio`, `if_game`).
-    **Prochaine tâche : J8** : `research/overlord_notes.md` (+ questionnaire), `docs/HARDWARE_FIT.md`,
-    `docs/DEMO_SCRIPT.md`, README final, `scripts/setup.ps1` vérifié dans un venv vierge (penser à torch cu128,
-    facultatif). Puis J9 : gel, branche `concours`, tag `v0.1.0-concours`, scan des secrets dans l'historique.
+    (Historique : la suite est dans la section « Où on en est » ci-dessus.)
 
 ## Commandes exactes
 
@@ -71,8 +69,8 @@ N'utilise jamais `python` seul. Le `python` du PATH est une autre version (3.10)
 | Daemon + tableau de bord | `Lancer AetherTwin.bat` (ou `.venv\Scripts\python.exe -m core.daemon --open`) | fait, testé en réel |
 | Daemon sans API | `.venv\Scripts\python.exe -m core.daemon --no-api` | fait |
 | Professeur (`genesis_lab`) | tableau de bord, section Professeur (module à lancer d'abord) | fait, testé en réel |
-| Base de connaissances | tableau de bord, « Collecter maintenant » ; `GET /knowledge/search?q=…` | fait, testé en réel (sans vecteurs) |
-| `scantrad` | onglet Scantrad du tableau de bord, ou `.venv\Scripts\python.exe -m modules.scantrad PAGE.png --series demo` (Hub lancé) | fait, testé en réel (page de test + une vraie page) |
+| Base de connaissances | tableau de bord, « Collecter maintenant » ; `GET /knowledge/search?q=…` | fait, testé en réel (vecteurs `nomic-embed-text`) |
+| `scantrad` | onglet Scantrad du tableau de bord (automatique ou manuel), ou `.venv\Scripts\python.exe -m modules.scantrad PAGE.png --series demo` (Hub lancé) ; `--evaluate` mesure la détection | fait, testé en réel (page de test + vraies pages) |
 | WoW Assistant depuis le Hub | onglet Jeu, ou `POST /modules/gaming_hud/app/start` (champ `app` du manifeste) | fait, testé en réel |
 | `mangastudio` | onglet Studio (poids dans `models/mangastudio/`, torch cu128 dans `.venv`) | fait, testé en réel (HandSegNet) |
 | `if_game` | onglet Éther | fait, testé en réel |
@@ -111,7 +109,7 @@ et passe `AGENT_HANDOFF.md`, `PROJECT_STATUS.md`, `ARCHITECTURE_MAP.md` en lectu
 2. N'écris jamais « fonctionne » pour ce que tu n'as pas exécuté. Utilise les statuts de `PROJECT_STATUS.md`.
 3. N'invente aucun chiffre, aucun résultat, aucune date. Écris `[À COMPLÉTER PAR JÉRÉMY : …]`.
 4. Écris une entrée dans `logs/CHANGELOG_DEV.md` à chaque modification de code.
-5. Ne modifie pas `_import/`. C'est la référence d'origine.
+5. Ne reformate pas `modules/gaming_hud/app/` : c'est le code d'origine de WoW Assistant (imports à plat).
 6. Réseau : `127.0.0.1` seulement.
 7. `subprocess` : toujours une liste d'arguments. Jamais `shell=True` avec un texte venu d'un LLM.
 8. Un seul gros modèle de langage chargé à la fois. Fixe toujours `num_ctx`.
@@ -126,8 +124,8 @@ Fais une tâche à la fois. Après chaque tâche : tests, changelog, commit.
 
 **Tâches 1 à 7 : faites le 16/11/2026.** Le tableau reste pour référence. Restes connus du J2 :
 
-- Détection des fenêtres (`pygetwindow`) : non faite. Seuls les processus sont observés.
-- Interface générée à la volée depuis `widget_schema()` : non faite. Elle dépend du port de `ui.py` (J3).
+- Détection des fenêtres (`pygetwindow`) : en cours. Seuls les processus sont observés.
+- Interface générée à la volée depuis `widget_schema()` : en cours. Elle dépend du port de `ui.py` (J3).
 - (Fait depuis, le 17/11 : `core/llm_router.py` pilote Ollama pour Inoue, et `/ask` répond.)
 
 Comment écrire un module : un dossier `modules/<nom>/` avec `manifest.json` et une classe qui hérite de
@@ -151,12 +149,12 @@ Comment appeler un modèle local : toujours par `core/llm_router.py` (`LlmRouter
 | 6 | Ordonnanceur GPU | `core/scheduler.py` | File d'attente unique pour les tâches vision/diffusion |
 | 7 | Daemon minimal | `core/daemon.py`, `tests/core/test_daemon.py` | Démarre sans GPU. Charge et décharge un module de test. Détecte le lancement et l'arrêt d'un processus de test. API FastAPI sur `127.0.0.1` : `/health`, `/modules`, `/events`, `/gpu`, `/ask` |
 
-### J7 — à faire (P2) : `mangastudio` puis `if_game`
+### J7 — `mangastudio` et `if_game` — **faits le 17/11/2026** (tableau gardé pour référence)
 
-Lis d'abord les sections 6.4 et 6.6 du prompt maître (fichier privé, hors dépôt) ou leur résumé ci-dessous.
-PyTorch et ComfyUI ne sont **pas** installés : tout ce qui en dépend est optionnel et testé par import et
-signature seulement. Les poids HandSegNet/FootSegNet ne sont pas sur le poste (chemins dans `config/local.yaml`,
-section `mangastudio`) : mode dégradé avec message clair. N'annonce aucun résultat visuel non produit.
+Depuis : PyTorch (cu128) et les poids HandSegNet/FootSegNet sont installés sur le poste (ils s'installent avec
+`setup.ps1 -Gpu -Weights`), les
+masques sont réels sur GPU ; ComfyUI n'est toujours pas installé. La tâche D est devenue l'onglet **Studio** du
+tableau de bord (pas de `ui.py`). `if_game` est l'onglet **Éther** (vue RPG 16 bits depuis le 22/11).
 
 | # | Tâche | Fichiers | Terminé quand |
 |---|---|---|---|
@@ -170,14 +168,14 @@ section `mangastudio`) : mode dégradé avec message clair. N'annonce aucun rés
 
 Chaîne détection (OpenCV) → OCR (`qwen2.5vl:7b` via le Hub) → effacement (inpainting OpenCV) → traduction
 (modèle par défaut, glossaire par série) → réincrustation (Pillow). Page de test générée :
-`tests/data/scantrad/`. Mesures et limites : `modules/scantrad/README.md`. Reste : une vraie page scannée.
+`tests/data/scantrad/`. Mesures et limites : `modules/scantrad/README.md`. Depuis : vraies pages de Jérémy,
+mode manuel, lecture par colonnes, mesure de la détection sur les pages manuelles (`--evaluate`).
 
 ### J5 — **fait le 17/11/2026**
 
 `core/knowledge/` : base vectorielle (SQLite, embedder injectable), collecte polie, service d'ingestion
-(tâche de nuit récurrente de Fuma). Le Professeur cite ses sources via `/knowledge/search`. Aucun modèle
-d'embedding installé : la recherche tourne en mode dégradé par mots pondérés tant que
-`ollama pull nomic-embed-text` n'est pas fait ; ensuite, `KnowledgeStore.reindex()` (ou une nouvelle collecte).
+(tâche de nuit récurrente de Fuma). Le Professeur cite ses sources via `/knowledge/search`.
+`nomic-embed-text` est installé (17/11) : 377 passages vectorisés. Sans lui, repli par mots pondérés.
 Non fait : la recherche DuckDuckGo demandée par le prompt maître (section 6.5) ; à évaluer (robots.txt de
 DuckDuckGo et conditions d'utilisation) avant de l'ajouter.
 

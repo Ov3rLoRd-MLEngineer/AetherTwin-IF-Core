@@ -789,3 +789,28 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   - texte minuscule dans les zones étroites (« Je suis Vaccine Man. ») : la zone d'écriture s'élargit dans le
     papier clair autour de la colonne. Recomposé hors de ses fichiers : lisible.
 - **Tests :** 3 nouveaux ; suite verte.
+## 2026-11-22 nuit (2) — Scantrad : enregistrer, lecture par colonnes en automatique, mesure par les pages manuelles ; documents remis à jour
+
+- **Agent :** Cloud
+- **Fichiers :** `core/web/dashboard.{html,js}`, `core/api.py`, `modules/scantrad/{detect,manual,module,hub_stages,cli}.py`,
+  `modules/scantrad/README.md`, `tests/scantrad/*`, `PROJECT_STATUS.md`, `AGENT_HANDOFF.md`, `README.md`
+- **Enregistrer :** « Enregistrer cette page traduite », « Enregistrer tout le chapitre » (automatique) et
+  « Enregistrer l'image » (manuel) : téléchargement du navigateur sous `<nom d'origine>_fr.png`. Non cliqués
+  dans un vrai navigateur.
+- **Apprentissage par les pages manuelles (question de Jérémy) :** chaque page réincrustée en manuel garde
+  `mode: manuel`, la page source et la série dans son `_travail.json` ; `python -m modules.scantrad --evaluate`
+  mesure la détection automatique (bulles retrouvées, fausses détections, ordre). Les deux pages manuelles de
+  Jérémy ont été marquées. Premier constat sur sa double page OPM : 8/8 bulles retrouvées, ordre 4/7.
+- **Corrections guidées par cette mesure :** double page lue page de droite d'abord ; rangées par recouvrement
+  réel (au lieu de bandes fixes) ; fusion de blocs bornée (deux bulles reliées par des onomatopées étaient
+  fusionnées : texte posé sur le visage de Saitama dans sa capture) → ordre 7/7. Une borne de largeur pour le
+  texte vertical a été essayée, sans effet, et retirée.
+- **Lecture par colonnes en automatique :** une première lecture (avec « AUCUN ») trie les faux positifs, puis
+  un bloc vertical de plusieurs colonnes est relu colonne par colonne. Colonnes parasites écartées (traces plus
+  grandes qu'un caractère, ou collées au bord du cadre : contour de bulle). Réel sur la double page : 8 bulles
+  lues justes (la 3 perd « である »). Reste : en automatique, un bloc qui englobe du dessin l'abîme à
+  l'effacement et le texte peut déborder dessus (le mode manuel règle ces pages).
+- **Documents :** lignes périmées corrigées (Fuma, ordonnanceur — réellement inutilisé, signalé —, `/ask`, OBS
+  réel, vecteurs, test 15, liste « Reste à faire ») ; README provisoire : tableau d'état, lancement, vérifié /
+  non vérifié ; AGENT_HANDOFF : situation au 22/11. Le changelog, historique, n'est pas réécrit.
+- **Tests :** 404 (400 verts, 4 réels ignorés) ; ruff propre.

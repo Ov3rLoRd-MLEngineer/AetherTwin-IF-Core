@@ -521,9 +521,20 @@ function pageSummary(metrics) {
     + (metrics.vram_peak_mib ? ` — VRAM au plus haut : ${gib(metrics.vram_peak_mib)} Gio` : "");
 }
 
+// enregistre une image du Hub sous un nom parlant (« page_12_fr.png ») dans les téléchargements du navigateur
+function saveImage(url, originalName) {
+  const stem = (originalName || "page").replace(/\.[^.]+$/, "").replace(/[^\w\-. ]+/g, "_");
+  const link = el("a", { href: `${url}?t=${Date.now()}`, download: `${stem}_fr.png` });
+  document.body.append(link);
+  link.click();
+  link.remove();
+}
+
 function showPage(index) {
   const page = chapter.pages[index];
   if (!page) return;
+  $("scan-save-row").hidden = !chapter.pages.some((p) => p.outputUrl);
+  $("scan-save").disabled = !page.outputUrl;
   chapter.current = index;
   $("scan-images").hidden = false;
   $("scan-before").src = page.inputUrl;
@@ -581,6 +592,17 @@ $("scan-form").addEventListener("submit", async (event) => {
       + "Clique sur une vignette pour la revoir ou la corriger.";
   if (files.length === 1 && last && last.error) $("scan-line").textContent = `Erreur : ${last.error}`;
   button.disabled = false;
+});
+
+$("scan-save").addEventListener("click", () => {
+  const page = chapter.pages[chapter.current];
+  if (page && page.outputUrl) saveImage(page.outputUrl, page.name);
+});
+$("scan-save-all").addEventListener("click", async () => {
+  for (const page of chapter.pages.filter((p) => p.outputUrl)) {
+    saveImage(page.outputUrl, page.name);
+    await new Promise((resolve) => setTimeout(resolve, 400));  // le navigateur accepte mieux des envois espacés
+  }
 });
 
 // bulles éditables : corriger une traduction puis réincruster, sans relancer l'OCR ni le modèle
@@ -769,7 +791,8 @@ $("man-file").addEventListener("change", async () => {
   try {
     const up = await api("/scantrad/upload", { method: "POST", body: file,
                                                headers: { "Content-Type": file.type || "image/png" } });
-    Object.assign(manual, { name: up.image, zones: [], undo: [], painted: false, base: await loadBase(up.url) });
+    Object.assign(manual, { name: up.image, fileName: file.name, zones: [], undo: [], painted: false,
+                            base: await loadBase(up.url), outputUrl: "" });
     const canvas = $("man-canvas");
     canvas.width = manual.base.width;
     canvas.height = manual.base.height;
@@ -957,14 +980,18 @@ $("man-compose").addEventListener("click", (event) => manualStep(event.currentTa
         method: "POST", body: blob, headers: { "Content-Type": "image/png" } });
     }
     const reply = await manualCall("compose", { image: manual.name, auto_erase: $("man-auto").checked,
+                                                series: $("scan-series").value.trim(),
                                                 bubbles: manual.zones });
     $("man-result").hidden = false;
+    manual.outputUrl = reply.output_url;
     $("man-after").src = `${reply.output_url}?t=${Date.now()}`;
     manualLine("Page traduite. Tu peux encore corriger une ligne ou gommer, puis réincruster à nouveau.");
   }));
 
+$("man-save").addEventListener("click", () => { if (manual.outputUrl) saveImage(manual.outputUrl, manual.fileName); });
+
 // ---------- studio (mangastudio) ----------
-const studio ={ image: null, name: "", boxes: [], drag: null };
+const studio = { image: null, name: "", boxes: [], drag: null };
 
 async function refreshStudio() {
   try {

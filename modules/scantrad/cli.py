@@ -4,6 +4,7 @@
     python -m modules.scantrad --screen 100,100,800,1200 --series demo      # capture d'une zone de l'écran
     python -m modules.scantrad PAGE.png --no-llm                             # détection + effacement seuls
     python -m modules.scantrad --glossary demo --add "ユキ=Yuki"              # enrichit le glossaire
+    python -m modules.scantrad --evaluate                                    # détection auto vs zones manuelles
 
 Le Hub doit tourner pour l'OCR et la traduction (`Lancer AetherTwin.bat`).
 """
@@ -28,7 +29,7 @@ from modules.scantrad.detect import (
     detect_text_blocks,
     upscale_small_page,
 )
-from modules.scantrad.hub_stages import Glossary, hub_chat, make_translator, make_vision_ocr
+from modules.scantrad.hub_stages import Glossary, hub_chat, make_column_aware_ocr, make_translator, make_vision_ocr
 from modules.scantrad.pipeline import Scantrad
 from modules.scantrad.typeset import make_typesetter
 
@@ -69,7 +70,8 @@ def build(settings: dict[str, Any], series: str = "", use_llm: bool = True) -> S
     closed_bubbles = settings.get("detector") == "bubbles"  # ancienne heuristique : bulles fermées sur fond gris
     return Scantrad(
         detect=detect_bubbles if closed_bubbles else detect_text_blocks,
-        ocr=make_vision_ocr(chat, str(settings.get("ocr_model", "qwen2.5vl:7b"))) if use_llm else None,
+        ocr=(make_vision_ocr(chat, str(settings.get("ocr_model", "qwen2.5vl:7b"))) if closed_bubbles
+             else make_column_aware_ocr(chat, str(settings.get("ocr_model", "qwen2.5vl:7b")))) if use_llm else None,
         clean=clean_bubbles if closed_bubbles else clean_text,
         prepare=upscale_small_page,
         translate=make_translator(chat, glossary, str(settings.get("model", ""))) if use_llm else None,
@@ -113,6 +115,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-llm", action="store_true", help="détection et effacement seulement")
     parser.add_argument("--glossary", help="série dont on modifie le glossaire")
     parser.add_argument("--add", action="append", default=[], metavar="JP=FR", help="entrée de glossaire")
+    parser.add_argument("--evaluate", action="store_true",
+                        help="mesure la détection automatique sur les pages faites en mode manuel")
     args = parser.parse_args(argv)
     settings = config.section("scantrad")
 
@@ -125,6 +129,12 @@ def main(argv: list[str] | None = None) -> int:
             glossary.terms[source.strip()] = target.strip()
         glossary.save()
         print(json.dumps({"characters": glossary.characters, "terms": glossary.terms}, ensure_ascii=False, indent=1))
+        return 0
+
+    if args.evaluate:
+        from modules.scantrad.manual import evaluate
+
+        print(json.dumps(evaluate(Path(settings.get("data_dir") or DEFAULT_DATA)), ensure_ascii=False, indent=1))
         return 0
 
     if args.screen:

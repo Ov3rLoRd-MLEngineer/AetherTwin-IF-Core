@@ -1,7 +1,7 @@
 # AetherTwin (I&F Core)
 
-> **Version provisoire du README (J1, 16/11/2026).** Le projet est en cours de construction.
-> L'état réel de chaque brique est dans [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
+> **Version provisoire du README** (écrite au J1, inexactitudes corrigées le 22/11/2026 ; la version finale
+> viendra avec la soumission). L'état détaillé de chaque brique est dans [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 
 AetherTwin est un **hub d'agents locaux** : un démon central observe ce que fait la machine
 (jeu, lecteur, outil de création), active le module adapté et répartit la VRAM entre les modèles.
@@ -17,13 +17,16 @@ Tout s'exécute en local, sous Ollama, sur du matériel NVIDIA grand public.
 | Relais de développement Cloud ⇄ Local (`scripts/relay_orchestrator.py`) | testé en simulation |
 | Moniteur GPU, contrat de module | fait, testé |
 | Bus d'événements entre processus, démon, API locale (`127.0.0.1`) | fait, testé |
-| Gardiens Inoue (budget VRAM) et Fuma (watchdog, mode nocturne) | testés en simulation, branchés dans le démon |
-| Routeur LLM : un seul gros modèle chargé à la fois, `num_ctx` fixé | fait, testé en réel sur 2 GPU |
-| Module `gaming_hud` : état du jeu en lecture seule, mode Showcase | fait, testé en réel (OBS simulé) |
-| Adaptateurs de jeu : WoW, journal texte, capture d'écran (expérimental) | faits, testés |
-| Overlay OBS local (état du jeu filtré + monitoring des GPU) | fait, rendu vérifié dans un navigateur ; non essayé dans OBS |
-| Base vectorielle, autres modules | à faire |
-| Code d'origine du premier module (WoW Assistant) | présent dans `_import/`, à porter |
+| Gardiens Inoue (budget VRAM, VRAM mesurée comprise) et Fuma (watchdog, tâches de nuit) | branchés dans le démon, testés en réel |
+| Routeur LLM : un seul gros modèle chargé à la fois, `num_ctx` fixé, réponse mot à mot, API compatible OpenAI | fait, testé en réel sur 2 GPU |
+| Tableau de bord local en onglets (`http://127.0.0.1:5750/`), lanceur `Lancer AetherTwin.bat` | fait, utilisé par Jérémy |
+| Module `gaming_hud` (WoW Assistant porté) : état du jeu en lecture seule, mode Showcase | fait, testé en réel avec OBS |
+| Adaptateurs de jeu : WoW, journal texte, capture d'écran (expérimental) | faits ; seul WoW essayé sur un vrai jeu |
+| Overlay OBS local (état du jeu filtré + monitoring des GPU) | fait, vu dans OBS |
+| Base de connaissances (Wikipédia, vecteurs locaux) et `genesis_lab` (calculs, Professeur) | faits, testés en réel |
+| `scantrad` : traduction de manga japonais → français (automatique ou zones posées à la main) | fait, testé sur de vraies pages |
+| `mangastudio` : masques de mains et de pieds (HandSegNet, FootSegNet), nœuds ComfyUI | masques réels ; ComfyUI non essayé ; réglages en cours |
+| `if_game` « Éther » : exploration calme, Fuma et Inoue, lieux inventés par le modèle local | fait, joué par Jérémy (démo technique) |
 
 ## Installation
 
@@ -44,13 +47,16 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-## Lancer le démon
+## Lancer le Hub
+
+Double-clic sur `Lancer AetherTwin.bat` à la racine (ou le raccourci créé par `setup.ps1 -Shortcut`) : le Hub
+démarre et ouvre le tableau de bord sur `http://127.0.0.1:5750/`. En ligne de commande :
 
 ```powershell
-.\.venv\Scripts\python.exe -m core.daemon
+.\.venv\Scripts\python.exe -m core.daemon --open
 ```
 
-Puis, dans un navigateur : `http://127.0.0.1:5750/health` (état du Hub et des deux gardiens),
+Points d'accès utiles : `http://127.0.0.1:5750/health` (état du Hub et des deux gardiens),
 `/gpu` (mesure des cartes), `/modules`, `/events`. Le démon démarre aussi sans GPU, en mode dégradé.
 
 Activer le HUD de jeu et poser une question au modèle local, avec le contexte du jeu :
@@ -130,9 +136,11 @@ Ctrl+C. Aucune clé dans le dépôt : les identifiants viennent de l'environneme
 
 ## Ce que j'ai vérifié / ce que je n'ai pas pu vérifier
 
-**Vérifié (exécuté le 16/11/2026, Windows 10, Python 3.11) :**
+**Vérifié (Windows 10, Python 3.11 ; détail et dates dans `PROJECT_STATUS.md`) :**
 
-- `pytest` : 200 tests réussis, 2 tests réels sur GPU ignorés par défaut ; `ruff check .` propre.
+- `pytest` (22/11) : 400 tests réussis, 4 tests réels sur GPU ignorés par défaut ; `ruff check .` propre.
+- Installation sur un clone vierge avec `scripts/setup.ps1` (avec et sans `-Gpu`).
+- Mode Showcase avec OBS réel et overlay affiché dans OBS (essais de Jérémy, 17/11).
 - Bout en bout réel (17/11) : démon → module `gaming_hud` → données du jeu → modèle local → réponse correcte.
 - Routeur LLM : deux gros modèles chargés l'un après l'autre, un seul en mémoire à chaque instant.
 - Filtre de confidentialité : aucune donnée privée de test, ni des données réelles, dans la sortie Showcase.
@@ -148,15 +156,14 @@ Ctrl+C. Aucune clé dans le dépôt : les identifiants viennent de l'environneme
 - Le lancement réel de l'agent local (Claude Code via OmniRoute ; Aider et OpenCode ne sont pas installés).
 - Le backend API face au vrai service Anthropic.
 - La CI GitHub (le dépôt n'est pas encore poussé).
-- La bascule Showcase avec OBS réel (le logiciel de diffusion est simulé par un faux processus), et
-  l'overlay affiché dans OBS lui-même (vérifié dans Edge piloté par Playwright).
 - Les adaptateurs `log_tail` et `screen_ocr` sur un vrai jeu (testés sur un journal et une image de test).
+- Les nœuds et le workflow `mangastudio` dans un vrai ComfyUI.
 
 ## Feuille de route
 
 Voir [`PROJECT_STATUS.md`](PROJECT_STATUS.md) : hub et gardiens (J2), HUD de jeu (J3), mode Showcase
 OBS (J4), base vectorielle et laboratoire scientifique (J5), traduction de manga (J6), studio de
-retouche et mini-jeu (J7), documentation finale (J8).
+retouche et mini-jeu (J7), vérification de l'installation et améliorations (J8), gel (J9).
 
 ## Licence
 

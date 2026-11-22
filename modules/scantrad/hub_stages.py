@@ -107,6 +107,41 @@ def make_vision_ocr(chat: Chat, model: str = "qwen2.5vl:7b", num_ctx: int = 4096
     return ocr
 
 
+def read_by_columns(column_ocr: Callable[..., str], page: np.ndarray, box: tuple[int, int, int, int]) -> str:
+    """Texte vertical de `box` lu colonne par colonne, de droite à gauche, puis recollé ("" si aucune colonne).
+    Le modèle de vision mélange l'ordre des colonnes courtes d'une même bulle ; lues une par une, elles sont
+    justes (page de Jérémy, 22/11 : 6 zones sur 6)."""
+    from modules.scantrad.manual import bubbles_from_boxes, split_columns
+
+    x, y, w, h = box
+    parts = [column_ocr(page, bubbles_from_boxes([(x + cx, y + cy, cw, ch)])[0])
+             for cx, cy, cw, ch in split_columns(page[y:y + h, x:x + w])]
+    return re.sub(r"\s+", "", "".join(parts))
+
+
+def make_column_aware_ocr(chat: Chat, model: str = "qwen2.5vl:7b") -> Callable[..., str]:
+    """OCR du mode automatique : une première lecture décide s'il y a du texte (« AUCUN » écarte les faux positifs
+    de la détection) ; un bloc vertical de plusieurs colonnes est ensuite relu colonne par colonne."""
+    from modules.scantrad.manual import is_vertical, split_columns
+
+    first = make_vision_ocr(chat, model)
+    column = make_vision_ocr(chat, model, prompt=MANUAL_OCR_COLUMN)
+
+    def ocr(page: np.ndarray, bubble: Bubble) -> str:
+        text = first(page, bubble)
+        if not text:
+            return ""
+        x, y, w, h = bubble.box  # cadre du texte, élargi un peu : l'encre ne doit pas toucher le bord
+        pad = max(6, int(0.05 * max(w, h)))
+        x0, y0 = max(0, x - pad), max(0, y - pad)
+        box = (x0, y0, min(page.shape[1], x + w + pad) - x0, min(page.shape[0], y + h + pad) - y0)
+        crop = page[box[1]:box[1] + box[3], box[0]:box[0] + box[2]]
+        if (bubble.vertical or is_vertical(crop)) and len(split_columns(crop)) >= 2:
+            return read_by_columns(column, page, box) or text
+        return text
+    return ocr
+
+
 @dataclass
 class Glossary:
     """Glossaire persistant d'une série : personnages et termes (japonais → français), ton, notes."""

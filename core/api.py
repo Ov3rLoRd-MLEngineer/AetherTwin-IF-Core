@@ -266,7 +266,7 @@ def create_app(daemon: Daemon) -> FastAPI:
         else:
             source, cleaned, output = manual_paths(str(data.get("image", "")))
             payload = {"input": str(source), "boxes": data.get("boxes"), "bubbles": data.get("bubbles"),
-                       "auto_erase": data.get("auto_erase") is not False,
+                       "auto_erase": data.get("auto_erase") is not False, "series": str(data.get("series", "")),
                        "output": str(cleaned if command == "erase" else output)}
         reply = await run_in_threadpool(module_call, "scantrad", command, payload)
         if reply.get("ok") and command == "erase":

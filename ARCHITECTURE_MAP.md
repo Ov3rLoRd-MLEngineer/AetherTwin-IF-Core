@@ -953,7 +953,8 @@ Détection heuristique des bulles (OpenCV) et effacement du texte d'origine (inp
 - `def merge_same_bubble(blocks: list[Bubble], char: float=0.0, paper_id: np.ndarray | None=None) -> list[Bubble]` — Réunit les colonnes d'une même bulle (voir `_same_bubble`), ou deux blocs dont chacun tient dans la zone
 - `def writing_area(bright: np.ndarray, labels: np.ndarray, small: np.ndarray, box: tuple[int, int, int, int], grow: float=0.9, margin: float=0.1) -> tuple[int, int, int, int]` — Plage claire qui entoure le bloc (la bulle), bornée à une fenêtre autour du bloc. Rend (x, y, l, h).
 - `def clean_text(page: np.ndarray, blocks: list[Bubble], grow: int=0, radius: int=3) -> np.ndarray` — Efface l'encre fine de chaque bloc (caractères, ponctuation, furigana) par inpainting ; les contours
-- `def reading_key(box: tuple[int, int, int, int], page_height: int) -> tuple[int, int]` — Ordre de lecture du manga : de haut en bas par bandes, et de droite à gauche dans une bande.
+- `def sort_reading(bubbles: list[Bubble], page_height: int, page_width: int) -> list[Bubble]` — Ordre de lecture du manga : page de droite puis page de gauche (double page) ; dans une page, rangées de
+- `def reading_key(box: tuple[int, int, int, int], page_height: int, page_width: int=0) -> tuple[int, int, int]` — Ordre de lecture du manga : de haut en bas par bandes, et de droite à gauche dans une bande. Une double
 - `def clean_bubbles(page: np.ndarray, bubbles: list[Bubble], radius: int=3, grow: int=2) -> np.ndarray` — Efface le texte de chaque bulle par inpainting (OpenCV, Telea), sans toucher au contour de la bulle.
 
 ### `modules/scantrad/hub_stages.py`
@@ -965,6 +966,8 @@ OCR et traduction par les modèles locaux, **via le Hub** (API compatible OpenAI
 - `def strip_thinking(text: str) -> str`
 - `def bubble_png(page: np.ndarray, bubble: Bubble, pad: int=0, min_side: int=224) -> bytes` — Découpe le texte avec une marge (30 % de sa taille : un mot court, découpé au ras, n'est pas reconnu),
 - `def make_vision_ocr(chat: Chat, model: str='qwen2.5vl:7b', num_ctx: int=4096, prompt: str=OCR_PROMPT) -> Callable[..., str]`
+- `def read_by_columns(column_ocr: Callable[..., str], page: np.ndarray, box: tuple[int, int, int, int]) -> str` — Texte vertical de `box` lu colonne par colonne, de droite à gauche, puis recollé ("" si aucune colonne).
+- `def make_column_aware_ocr(chat: Chat, model: str='qwen2.5vl:7b') -> Callable[..., str]` — OCR du mode automatique : une première lecture décide s'il y a du texte (« AUCUN » écarte les faux positifs
 - **`class Glossary`** — Glossaire persistant d'une série : personnages et termes (japonais → français), ton, notes.
   - `def load(cls, path: Path) -> Glossary`
   - `def save(self) -> None`
@@ -984,6 +987,8 @@ Mode manuel : les zones de texte sont posées à la main, dans l'ordre de lectur
 - `def widen_area(page: np.ndarray, box: tuple[int, int, int, int], bright: int=200) -> tuple[int, int, int, int]` — Zone d'écriture d'une zone étroite (une colonne japonaise) : élargie sur les côtés tant que le papier reste
 - `def ink_mask(crop: np.ndarray, grow: bool=True) -> np.ndarray` — Encre du texte dans une boîte : traits sombres, petits, qui ne touchent pas le bord de la boîte.
 - `def erase_in_boxes(page: np.ndarray, boxes: list[tuple[int, int, int, int]], radius: int=3) -> np.ndarray` — Efface le texte à l'intérieur des boîtes : un premier passage, la gomme finit le travail.
+- `def cover(a: list[int] | tuple[int, ...], b: list[int] | tuple[int, ...]) -> float` — Part de la boîte `a` recouverte par la boîte `b` (0 à 1).
+- `def evaluate(data_dir: Path) -> dict[str, Any]` — Mesure la détection automatique sur les pages faites en mode manuel (vérité de terrain) :
 - `def suggest_boxes(page: np.ndarray) -> list[list[int]]` — Boîtes de la détection automatique, comme point de départ à corriger (coordonnées de la page reçue).
 
 ### `modules/scantrad/module.py`
@@ -991,9 +996,9 @@ Mode manuel : les zones de texte sont posées à la main, dans l'ordre de lectur
 Module du Hub : traduit une page sur commande, et réincruste des traductions corrigées à la main.
 
 - `def work_paths(output: Path) -> tuple[Path, Path]` — Fichiers de travail d'une page traduite : (image nettoyée, description des bulles).
-- `def save_work(output: Path, cleaned: np.ndarray, bubbles: list[Bubble]) -> None`
+- `def save_work(output: Path, cleaned: np.ndarray, bubbles: list[Bubble], extra: dict[str, Any] | None=None) -> None`
 - `def retypeset(output: Path, translations: dict[str, str], font: str='') -> list[dict[str, Any]]` — Réincruste des traductions corrigées sur la page nettoyée. Rend les bulles mises à jour.
-- `def compose(source: Path, output: Path, rows: Any, font: str='', auto_erase: bool=True) -> list[dict[str, Any]]` — Page traduite du mode manuel : bulles = boîtes posées à la main ; base = page gommée si elle existe
+- `def compose(source: Path, output: Path, rows: Any, font: str='', auto_erase: bool=True, series: str='') -> list[dict[str, Any]]` — Page traduite du mode manuel : bulles = boîtes posées à la main ; base = page gommée si elle existe
 - **`class ScantradModule(ModuleBase)`**
   - `def start(self) -> None`
   - `def stop(self) -> None`
