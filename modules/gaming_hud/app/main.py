@@ -7,7 +7,7 @@ import time
 
 import pygame
 
-from config import WoWConfig
+from config import BASE_DIR, WoWConfig
 from character import Character
 from quests import QuestTracker
 from craft import CraftSystem
@@ -81,7 +81,7 @@ def main():
     webhost = WebHost(settings)
     ui.webhost = webhost
     # API Battle.net (facultative) : rendus officiels, images des montures, prix de l'Hôtel des ventes
-    ui.media = MediaStore(BattleNet(settings, os.path.join(WoWConfig.BASE_DIR, "cache", "bnet")))
+    ui.media = MediaStore(BattleNet(settings, os.path.join(BASE_DIR, "cache", "bnet")))
     focus = FocusManager(settings)
     monitor = CombatMonitor(os.path.join(WoWConfig.WOW_PATH, "Logs"), settings.get("focus.quiet_seconds", 5))
     hotkeys = Hotkeys()

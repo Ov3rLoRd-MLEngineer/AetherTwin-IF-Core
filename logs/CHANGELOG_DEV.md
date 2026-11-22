@@ -881,3 +881,7 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - **Bogue trouvé par les tests :** les rendus de Blizzard viennent de `render.worldofwarcraft.com`, refusé par la
   première liste d'hôtes.
 - **Tests :** 13 nouveaux ; suite verte ; ruff propre.
+## 23/11/2026 : WoW Assistant, plantage au démarrage
+- `main.py` appelait `WoWConfig.BASE_DIR` (variable du module `config`, pas de la classe) : AttributeError au lancement, signalé par Jérémy après copie dans Hermes-Agent. Corrigé (import de `BASE_DIR`). FAIT-TESTÉ : lancement réel 12 s sans erreur.
+- Nouveau test `tests/gaming_hud/test_config_refs.py` : tout `WoWConfig.X` utilisé existe (échoue sans le correctif).
+
