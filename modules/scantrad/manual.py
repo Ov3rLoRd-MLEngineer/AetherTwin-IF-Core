@@ -47,7 +47,102 @@ def bubbles_from_boxes(boxes: list[tuple[int, int, int, int]]) -> list[Bubble]:
     return bubbles
 
 
-def ink_mask(crop: np.ndarray) -> np.ndarray:
+def _gaps(profile: np.ndarray, min_length: float = 2) -> list[int]:
+    """Largeurs des bandes vides (d'au moins `min_length`) entre deux zones d'encre."""
+    found, run, seen_ink = [], 0, False
+    for filled in profile:
+        if filled:
+            if seen_ink and run >= min_length:
+                found.append(run)
+            run, seen_ink = 0, True
+        else:
+            run += 1
+    return found
+
+
+def is_vertical(crop: np.ndarray) -> bool:
+    """Texte en colonnes (lecture verticale) ou en lignes ? Une encre très allongée (une seule colonne, une seule
+    ligne) se juge à sa forme. Sinon on compare les bandes vides qui traversent tout le bloc : l'espace entre
+    deux colonnes (ou deux lignes) est plus large que l'espace entre deux caractères qui se suivent. On compare
+    leurs largeurs, pas leur nombre : dans un texte aligné en grille, les petits espaces entre caractères
+    traversent eux aussi le bloc."""
+    mask = ink_mask(crop, grow=False) > 0
+    if mask.sum() < 20:
+        return crop.shape[0] > crop.shape[1]
+    ys, xs = np.nonzero(mask)
+    box = mask[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+    tall = box.shape[0] > box.shape[1]
+    if max(box.shape) > 1.6 * min(box.shape):
+        return tall
+    columns, lines = _gaps(box.any(axis=0)), _gaps(box.any(axis=1))
+    if columns and lines:
+        return float(np.median(columns)) > float(np.median(lines))
+    if columns or lines:
+        return bool(columns)
+    return tall
+
+
+def split_columns(crop: np.ndarray) -> list[tuple[int, int, int, int]]:
+    """Colonnes d'un texte vertical, de droite à gauche (ordre de lecture), en (x, y, l, h) dans `crop`.
+    Le modèle de vision mélange l'ordre des colonnes courtes d'une même bulle (essai du 22/11) ; lues une par
+    une, elles sont justes. Les colonnes très fines (furigana) sont écartées."""
+    mask = ink_mask(crop, grow=False) > 0
+    if mask.sum() < 20:
+        return []
+    count, _labels, stats, _ = cv2.connectedComponentsWithStats(mask.astype(np.uint8), connectivity=8)
+    sizes = [max(int(s[2]), int(s[3])) for s in stats[1:] if s[4] >= 4]
+    char = float(np.percentile(sizes, 75)) if sizes else 10.0
+    filled = mask.any(axis=0)
+    gap = max(3.0, 0.12 * char)
+    spans, start, run = [], None, 0
+    for x, ink in enumerate(list(filled) + [False] * int(gap + 1)):
+        if ink:
+            if start is None:
+                start = x
+            run = 0
+        elif start is not None:
+            run += 1
+            if run >= gap:
+                spans.append((start, x - run + 1))
+                start, run = None, 0
+    if not spans:
+        return []
+    widest = max(b - a for a, b in spans)
+    columns = []
+    for a, b in reversed(spans):  # de droite à gauche
+        if b - a < 0.45 * widest:
+            continue  # furigana, ou trait isolé
+        ys = np.nonzero(mask[:, a:b].any(axis=1))[0]
+        pad = max(2, int(0.15 * char))
+        x0, x1 = max(0, a - pad), min(crop.shape[1], b + pad)
+        y0, y1 = max(0, int(ys.min()) - pad), min(crop.shape[0], int(ys.max()) + 1 + pad)
+        columns.append((x0, y0, x1 - x0, y1 - y0))
+    return columns
+
+
+def widen_area(page: np.ndarray, box: tuple[int, int, int, int], bright: int = 200) -> tuple[int, int, int, int]:
+    """Zone d'écriture d'une zone étroite (une colonne japonaise) : élargie sur les côtés tant que le papier reste
+    clair sur toute la hauteur de la zone. Le français, horizontal, a besoin de largeur : sinon il est écrit
+    minuscule (« Je suis Vaccine Man. », essai de Jérémy du 22/11)."""
+    x, y, w, h = box
+    if w >= 0.8 * h:
+        return box
+    gray = cv2.cvtColor(page, cv2.COLOR_BGR2GRAY) if page.ndim == 3 else page
+    band = gray[y:y + h]
+    limit = int(0.9 * h)  # au plus une bulle presque carrée
+    x0, x1 = x, x + w
+    clear = lambda col: (band[:, col] >= bright).mean() >= 0.97  # noqa: E731
+    grown = True
+    while grown and x1 - x0 < limit:
+        grown = False
+        if x0 > 0 and clear(x0 - 1):
+            x0, grown = x0 - 1, True
+        if x1 < gray.shape[1] and x1 - x0 < limit and clear(x1):
+            x1, grown = x1 + 1, True
+    return x0, y, x1 - x0, h
+
+
+def ink_mask(crop: np.ndarray, grow: bool = True) -> np.ndarray:
     """Encre du texte dans une boîte : traits sombres, petits, qui ne touchent pas le bord de la boîte.
     Le contour de la bulle (grand, ou coupé par le bord) et le dessin qui dépasse sont laissés."""
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if crop.ndim == 3 else crop
@@ -63,8 +158,10 @@ def ink_mask(crop: np.ndarray) -> np.ndarray:
         outline = (w > 0.6 * width and h > 0.6 * height) or (touches and (w > 0.4 * width or h > 0.4 * height))
         if not outline:
             mask[labels == label] = 255
-    grow = max(2, int(round(min(height, width) / 60)))  # halo gris des caractères scannés
-    return cv2.dilate(mask, np.ones((2 * grow + 1, 2 * grow + 1), np.uint8))
+    if not grow:
+        return mask
+    size = max(2, int(round(min(height, width) / 60)))  # halo gris des caractères scannés
+    return cv2.dilate(mask, np.ones((2 * size + 1, 2 * size + 1), np.uint8))
 
 
 def erase_in_boxes(page: np.ndarray, boxes: list[tuple[int, int, int, int]], radius: int = 3) -> np.ndarray:

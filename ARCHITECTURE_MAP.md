@@ -979,7 +979,10 @@ Mode manuel : les zones de texte sont posées à la main, dans l'ordre de lectur
 
 - `def parse_boxes(raw: Any, shape: tuple[int, ...]) -> list[tuple[int, int, int, int]]` — Boîtes [x, y, largeur, hauteur] envoyées par la page, ramenées dans l'image. Refuse le reste.
 - `def bubbles_from_boxes(boxes: list[tuple[int, int, int, int]]) -> list[Bubble]` — Une bulle par boîte, numérotée dans l'ordre donné. La zone d'écriture est la boîte elle-même.
-- `def ink_mask(crop: np.ndarray) -> np.ndarray` — Encre du texte dans une boîte : traits sombres, petits, qui ne touchent pas le bord de la boîte.
+- `def is_vertical(crop: np.ndarray) -> bool` — Texte en colonnes (lecture verticale) ou en lignes ? Une encre très allongée (une seule colonne, une seule
+- `def split_columns(crop: np.ndarray) -> list[tuple[int, int, int, int]]` — Colonnes d'un texte vertical, de droite à gauche (ordre de lecture), en (x, y, l, h) dans `crop`.
+- `def widen_area(page: np.ndarray, box: tuple[int, int, int, int], bright: int=200) -> tuple[int, int, int, int]` — Zone d'écriture d'une zone étroite (une colonne japonaise) : élargie sur les côtés tant que le papier reste
+- `def ink_mask(crop: np.ndarray, grow: bool=True) -> np.ndarray` — Encre du texte dans une boîte : traits sombres, petits, qui ne touchent pas le bord de la boîte.
 - `def erase_in_boxes(page: np.ndarray, boxes: list[tuple[int, int, int, int]], radius: int=3) -> np.ndarray` — Efface le texte à l'intérieur des boîtes : un premier passage, la gomme finit le travail.
 - `def suggest_boxes(page: np.ndarray) -> list[list[int]]` — Boîtes de la détection automatique, comme point de départ à corriger (coordonnées de la page reçue).
 

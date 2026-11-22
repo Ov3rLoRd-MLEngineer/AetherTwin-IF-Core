@@ -547,7 +547,7 @@
         lights.push({ x: spot[0] * T + 8, y: spot[1] * T - 4, r: 28, color: "160,240,255" });
       }
     }
-    const items = (view.items || []).slice(0, 6).map((name) => {
+    const items = (view.items || []).filter((name) => name && name.trim()).slice(0, 6).map((name) => {
       const spot = pick() || CENTER;
       return { name, x: spot[0], y: spot[1] };
     });
@@ -698,7 +698,7 @@
       const spots = [[-fx, -fy], [fy, fx], [-fy, -fx], [fx, fy]].map(([dx, dy]) => [s[0] + dx, s[1] + dy]);
       const spot = spots.find(([x, y]) => walkable(x, y) && !map.exitAt[map.at(x, y)]) || [s[0], s[1]];
       inoue = cat(spot[0], spot[1], s[2]);
-      path = [];
+      path = []; trail = [];
     }
 
     function startMove(who, tx, ty) {
@@ -707,15 +707,31 @@
       who.from = [who.x, who.y]; who.to = [tx, ty]; who.p = 0; who.moving = true;
     }
 
+    // Inoue suit à distance (FOLLOW_GAP pas de retard) : quand Fuma s'arrête, il peut se retourner vers elle et lui
+    // faire face (Espace pour lui parler). Sa case bloque Fuma, qui s'arrête devant elle au lieu de la traverser.
+    const FOLLOW_GAP = 2;
+    let trail = [];
+    const inoueAt = (x, y) => (inoue.x === x && inoue.y === y) || (inoue.moving && inoue.to[0] === x && inoue.to[1] === y);
+
     function tryStep(dir) {
       const [dx, dy] = DIRS[dir];
       fuma.face = dir;
       const tx = fuma.x + dx, ty = fuma.y + dy;
-      if (!walkable(tx, ty)) return false;
-      const oldX = fuma.x, oldY = fuma.y;
+      if (!walkable(tx, ty) || inoueAt(tx, ty)) return false;
+      trail.push([fuma.x, fuma.y]);
       startMove(fuma, tx, ty);
-      if (inoue.x !== oldX || inoue.y !== oldY) startMove(inoue, oldX, oldY);
       return true;
+    }
+
+    function follow() {
+      if (inoue.moving) return;
+      while (trail.length > FOLLOW_GAP) {
+        const [x, y] = trail.shift();
+        if ((x === fuma.x && y === fuma.y) || (fuma.moving && x === fuma.to[0] && y === fuma.to[1])) continue;
+        if (x === inoue.x && y === inoue.y) continue;
+        startMove(inoue, x, y);
+        return;
+      }
     }
 
     function arrive() {
@@ -736,7 +752,12 @@
     function interact() {
       const [x, y] = facing();
       if (map.stele && map.stele.x === x && map.stele.y === y) { onAction("regarder"); if (hooks.riddle) hooks.riddle(); return; }
-      if (inoue.x === x && inoue.y === y) { onAction("parler à Inoue"); return; }
+      const near = Math.abs(inoue.x - fuma.x) + Math.abs(inoue.y - fuma.y) === 1;
+      if ((inoue.x === x && inoue.y === y) || near) {  // devant elle, ou juste à côté : on se tourne vers elle
+        fuma.face = inoue.x > fuma.x ? "right" : inoue.x < fuma.x ? "left" : inoue.y > fuma.y ? "down" : "up";
+        onAction("parler à Inoue");
+        return;
+      }
       onAction("regarder");
     }
 
@@ -750,7 +771,8 @@
         const x = i % COLS, y = (i / COLS) | 0;
         for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
           const X = x + dx, Y = y + dy;
-          if (map.inside(X, Y) && prev[map.at(X, Y)] < 0 && (walkable(X, Y) || map.at(X, Y) === goal)) { prev[map.at(X, Y)] = i; q.push(map.at(X, Y)); }
+          const open = (walkable(X, Y) && !inoueAt(X, Y)) || map.at(X, Y) === goal;  // on contourne Inoue
+          if (map.inside(X, Y) && prev[map.at(X, Y)] < 0 && open) { prev[map.at(X, Y)] = i; q.push(map.at(X, Y)); }
         }
       }
       if (prev[goal] < 0) return [];
@@ -836,6 +858,7 @@
       }
       if (stepCat(fuma, dt) && state === "play") arrive();
       stepCat(inoue, dt);
+      if (state === "play") follow();
       if (state === "leaving") fade = Math.min(1, fade + dt * 3);
       else fade = Math.max(0, fade - dt * 2.5);
       if (banner.t > 0) banner.t -= dt;
@@ -1146,6 +1169,8 @@
         return Object.values(out);
       },
       themeName() { return map ? map.biome : ""; },
+      // positions des deux chats (essais automatiques)
+      positions() { return { fuma: [fuma.x, fuma.y, fuma.face], inoue: [inoue.x, inoue.y] }; },
       mood() { return map ? map.mood : "day"; },
     };
   }

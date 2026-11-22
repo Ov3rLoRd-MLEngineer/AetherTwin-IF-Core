@@ -771,3 +771,21 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   inventé par `qwen3-27b`, son activé sur 7 ambiances sans erreur (pas écouté). La partie de Jérémy a été
   sauvegardée avant l'essai et restaurée à l'identique (empreinte vérifiée).
 - **Tests :** 3 nouveaux (grille, conversion des sauvegardes, carte et sac) ; suite verte.
+## 2026-11-22 nuit — Retours des tests 20 à 23 : Inoue à distance, colonnes lues une à une, zones étroites
+
+- **Agent :** Cloud
+- **Fichiers :** `core/web/ether_scene.js`, `modules/scantrad/{manual,module,hub_stages}.py`,
+  `tests/scantrad/test_manual.py`, `PROJECT_STATUS.md`
+- **Jeu (test 21) :** Inoue collait à Fuma, impossible de lui faire face pour lui parler. Elle suit désormais
+  avec deux pas de retard, sa case arrête Fuma (il s'arrête devant elle), et Espace lui parle si elle est devant
+  ou juste à côté (Fuma se tourne vers elle). Les déplacements à la souris la contournent. Vérifié dans le
+  navigateur : réplique d'Inoue obtenue par Espace. Partie de Jérémy sauvegardée puis restaurée (empreinte).
+- **Scantrad, mode manuel (test 20, sur sa capture) :**
+  - bulle de 4 colonnes courtes lue dans le désordre : le sens du texte est mesuré sur l'encre (largeur des
+    espaces entre colonnes / entre lignes) ; un texte vertical est découpé en colonnes, lues une par une de
+    droite à gauche puis recollées. Réel sur sa page OPM : 6 zones sur 6 justes (dont « 貴様ら人間は地球の命を
+    蝕み続ける病原菌に他ならない », lu auparavant « 他病蝕地人貴原み… ») ; une consigne « colonnes » seule
+    ou des recadrages plus serrés ou plus grands ne suffisaient pas (essayés) ;
+  - texte minuscule dans les zones étroites (« Je suis Vaccine Man. ») : la zone d'écriture s'élargit dans le
+    papier clair autour de la colonne. Recomposé hors de ses fichiers : lisible.
+- **Tests :** 3 nouveaux ; suite verte.

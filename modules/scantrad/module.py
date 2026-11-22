@@ -31,6 +31,7 @@ Configuration (section `scantrad` de `config/local.yaml`), facultative :
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -39,7 +40,14 @@ import numpy as np
 from core.module_api import Event, Health, ModuleBase
 from modules.scantrad import manual
 from modules.scantrad.cli import DEFAULT_DATA, build, glossary_for, read_image, write_image
-from modules.scantrad.hub_stages import MANUAL_OCR_PROMPT, hub_chat, make_translator, make_vision_ocr
+from modules.scantrad.hub_stages import (
+    MANUAL_OCR_COLUMN,
+    MANUAL_OCR_HORIZONTAL,
+    MANUAL_OCR_VERTICAL,
+    hub_chat,
+    make_translator,
+    make_vision_ocr,
+)
 from modules.scantrad.pipeline import Bubble
 from modules.scantrad.typeset import make_typesetter, text_area
 
@@ -109,7 +117,9 @@ def compose(source: Path, output: Path, rows: Any, font: str = "", auto_erase: b
         if not isinstance(text, str) or len(text) > MAX_TRANSLATION:
             raise ValueError(f"traduction de la bulle {bubble.index} invalide (texte de {MAX_TRANSLATION} car. max)")
         bubble.translation = " ".join(text.split())
-        bubble.vertical = bubble.box[3] > 1.5 * bubble.box[2]
+        x, y, w, h = bubble.box
+        bubble.vertical = manual.is_vertical(page[y:y + h, x:x + w])
+        bubble.area = manual.widen_area(cleaned, bubble.box)  # une colonne étroite s'élargit dans sa bulle
     save_work(output, cleaned, bubbles)
     return retypeset(output, {}, font)
 
@@ -169,9 +179,26 @@ class ScantradModule(ModuleBase):
     def _manual_read(self, payload: dict[str, Any]) -> dict[str, Any]:
         page = read_image(self._source(payload))
         bubbles = manual.bubbles_from_boxes(manual.parse_boxes(payload.get("boxes"), page.shape))
-        ocr = make_vision_ocr(self._chat(), str(self.config.get("ocr_model", "qwen2.5vl:7b")),
-                              prompt=MANUAL_OCR_PROMPT)
-        return {"sources": [ocr(page, bubble).strip() for bubble in bubbles]}
+        model = str(self.config.get("ocr_model", "qwen2.5vl:7b"))
+        chat = self._chat()
+        whole_vertical = make_vision_ocr(chat, model, prompt=MANUAL_OCR_VERTICAL)
+        horizontal = make_vision_ocr(chat, model, prompt=MANUAL_OCR_HORIZONTAL)
+        one_column = make_vision_ocr(chat, model, prompt=MANUAL_OCR_COLUMN)
+        sources, vertical = [], []
+        for bubble in bubbles:
+            x, y, w, h = bubble.box
+            crop = page[y:y + h, x:x + w]
+            column = manual.is_vertical(crop)
+            vertical.append(column)
+            if not column:
+                sources.append(horizontal(page, bubble).strip())
+                continue
+            # texte vertical : chaque colonne lue seule, de droite à gauche, puis recollée
+            parts = [one_column(page, manual.bubbles_from_boxes([(x + cx, y + cy, cw, ch)])[0])
+                     for cx, cy, cw, ch in manual.split_columns(crop)]
+            text = re.sub(r"\s+", "", "".join(parts))
+            sources.append(text or whole_vertical(page, bubble).strip())
+        return {"sources": sources, "vertical": vertical}
 
     def _manual_translate(self, payload: dict[str, Any]) -> dict[str, Any]:
         texts = payload.get("texts")

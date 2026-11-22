@@ -87,3 +87,37 @@ def test_compose_starts_from_the_page_erased_by_hand(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="400"):
         write_image(work_paths(output)[0], brushed)
         compose(source, output, [{"box": [45, 75, 210, 150], "translation": "x" * 401}])
+
+
+def column_page() -> np.ndarray:
+    """Bulle blanche avec trois colonnes de « caractères » (blocs de 14 px séparés de 3 px, colonnes à 8 px)."""
+    page = np.full((260, 220, 3), 255, np.uint8)
+    for col in range(3):
+        x = 150 - col * 22
+        for row in range(5):
+            cv2.rectangle(page, (x, 40 + row * 17), (x + 13, 40 + row * 17 + 13), (0, 0, 0), -1)
+    return page
+
+
+def test_columns_are_found_right_to_left() -> None:
+    page = column_page()
+    assert manual.is_vertical(page[20:160, 90:190])
+    columns = manual.split_columns(page[20:160, 90:190])
+    assert len(columns) == 3
+    assert [c[0] for c in columns] == sorted((c[0] for c in columns), reverse=True)  # droite → gauche
+
+
+def test_horizontal_lines_are_recognised() -> None:
+    page = np.full((200, 300, 3), 255, np.uint8)
+    for line in range(3):
+        for k in range(8):
+            cv2.rectangle(page, (30 + k * 17, 40 + line * 26), (43 + k * 17, 53 + line * 26), (0, 0, 0), -1)
+    assert not manual.is_vertical(page[20:150, 20:190])
+
+
+def test_a_narrow_column_gets_room_for_french() -> None:
+    page = np.full((300, 300, 3), 255, np.uint8)
+    cv2.rectangle(page, (0, 0), (60, 299), (40, 40, 40), -1)  # dessin à gauche : la zone s'arrête avant
+    x, y, w, h = manual.widen_area(page, (120, 50, 40, 200))
+    assert w > 100 and x >= 61 and (y, h) == (50, 200)
+    assert manual.widen_area(page, (100, 50, 150, 120)) == (100, 50, 150, 120)  # déjà large : inchangée

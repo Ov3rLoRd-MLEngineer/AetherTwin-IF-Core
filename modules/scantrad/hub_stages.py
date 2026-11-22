@@ -34,6 +34,17 @@ MANUAL_OCR_PROMPT = ("Transcris exactement le texte japonais de cette image extr
                      "horizontal, ou vertical (colonnes de haut en bas, de la droite vers la gauche). Ignore les "
                      "furigana. Réponds uniquement par le texte transcrit, sur une ligne, sans traduction ni "
                      "commentaire.")
+# Sens connu (mesuré sur l'encre de la zone, voir `manual.is_vertical`) : laissé au choix, le modèle lisait une
+# bulle de 4 colonnes ligne par ligne, d'où un texte dans le désordre (essai de Jérémy du 22/11).
+MANUAL_OCR_VERTICAL = ("Transcris exactement le texte japonais de cette image extraite d'un manga. Le texte est "
+                       "VERTICAL, en plusieurs colonnes : lis chaque colonne de haut en bas, en commençant par la "
+                       "colonne la plus à DROITE, puis celle à sa gauche, et ainsi de suite. Ignore les furigana. "
+                       "Réponds uniquement par le texte transcrit, sur une ligne, sans traduction ni commentaire.")
+MANUAL_OCR_COLUMN = ("Transcris exactement le texte japonais de cette image : une seule colonne verticale, à lire "
+                     "de haut en bas. Réponds uniquement par le texte transcrit, sans traduction ni commentaire.")
+MANUAL_OCR_HORIZONTAL = ("Transcris exactement le texte japonais de cette image extraite d'un manga. Le texte est "
+                         "HORIZONTAL : lis les lignes de gauche à droite, de haut en bas. Ignore les furigana. "
+                         "Réponds uniquement par le texte transcrit, sur une ligne, sans traduction ni commentaire.")
 JAPANESE = re.compile(r"[぀-ヿ㐀-鿿ｦ-ﾟ]")
 
 

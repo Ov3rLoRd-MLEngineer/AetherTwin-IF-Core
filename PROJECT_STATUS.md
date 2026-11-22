@@ -172,10 +172,10 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 18 | Mains automatiques — **en cours d'ajustement (Jérémy, 22/11)** : marche aussi sur photos et images variées, masque parfois trop large | — | à étudier |
 | 19 | Ambiance sonore — **entendue (Jérémy, 22/11)** : style original | — | demandes : ambiance propre à chaque type de lieu (plage, forêt, grotte), réglage du volume |
 | — | Décharger un modèle — **OK (Jérémy, 22/11)** | — | — |
-| 20 | Scantrad, mode manuel | onglet **Scantrad**, section « Mode manuel » : une page, zones dans l'ordre de lecture, « Lire le texte », « Traduire », gomme, « Réincruster » | texte réinjecté dans chaque zone, sans oubli ni mauvaise place ; note ce qui gêne dans les outils |
-| 21 | Jeu, nouvelle vue | onglet **Éther** : cliquer dans la scène, flèches ou ZQSD, sortir par un chemin de bord, Espace devant une stèle, M pour la carte | déplacement fluide, Inoue suit, la minicarte se remplit ; ta partie est conservée |
-| 22 | Sons par lieu et volume | onglet **Éther** : « Son », curseur Volume, puis visiter des lieux différents | ambiance différente selon le lieu (jardin, plage, grotte…) ; dis-moi lesquelles sonnent mal |
-| 23 | Alerte VRAM d'Inoue | Accueil, avec plusieurs modèles chargés | « dont X Go hors réservations » ; alerte si la VRAM mesurée dépasse le budget |
+| 20 | Scantrad, mode manuel — **OK (Jérémy, 22/11)** ; traduction à prendre comme indicative | — | vu sur sa capture : texte minuscule dans les zones étroites, une bulle en colonnes lue dans le désordre → corrigés le 22/11 |
+| 21 | Jeu, nouvelle vue — **OK (Jérémy, 22/11)** : déplacement, ramassage, carte | — | Espace ne faisait pas parler Inoue (impossible de lui faire face) → elle suit désormais à distance |
+| 22 | Sons par lieu et volume — **OK (Jérémy, 22/11)** | — | — |
+| 23 | Alerte VRAM d'Inoue — **OK (Jérémy, 22/11)** : « hors réservations » affiché ; charge répartie sur les deux GPU | — | — |
 | 13 | Scantrad sur une de tes pages — 1er essai : bulles ratées, texte non effacé (corrigé le 17/11) | onglet **Scantrad** : choisir l'image, « Traduire » | original et traduction côte à côte, liste des bulles ; note celles qui manquent |
 | 14 | Recherche par vecteurs — **OK (Jérémy, 17/11)** : 377 passages avec vecteurs | — | — |
 | 12 | Professeur — **OK (Jérémy, 17/11)** | — | — |
