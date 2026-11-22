@@ -207,8 +207,8 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 31 | WoW Assistant : fournisseur de chaque serveur — **OK (Jérémy, 22/11)** | — | — |
 | 32 | Scantrad manuel : Reconstruire (LaMa) — **OK (Jérémy, 22/11)** : suffisant ; il préfère garder les onomatopées en japonais | — | demande : zoom à la molette pour peindre le masque → test 34 |
 | 33 | Traduction par la voix — **OK (Jérémy, 22/11)** : japonais bien entendu, anglais parfait ; traduction japonaise discutable (« ジェルミ » → « Jermi », « よろしくお願いします » → « Merci de votre bienveillance ») | — | consigne corrigée le 22/11 (formules de politesse, noms étrangers) → test 35 |
-| 34 | Scantrad manuel : zoom | molette sur l'image du mode manuel | zoom jusqu'à la taille réelle de l'image (pas au-delà) et retour à la page entière ; le point sous la souris reste en place ; zones, gomme et Reconstruire tombent au bon endroit |
-| 35 | Traduction : formules et noms | onglet **Traduction**, à la voix ou au clavier : « はじめまして、私はジェルミです。よろしくお願いします。 » | essai de Claude avec `qwen3-27b` : « Enchanté, je m'appelle Jérémy. Ravi de faire votre connaissance. » (avant : « Gelmi ») |
+| 34 | Scantrad manuel : zoom — **OK (Jérémy, 22/11)** | — | — |
+| 35 | Traduction : formules et noms — **OK (Jérémy, 22/11)** | — | — |
 
 ## Points attendus de Jérémy
 
