@@ -721,3 +721,20 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - **Constat sur sa capture de l'Accueil :** VRAM mesurée 29,83 Go pour un budget de 28,66 Go : Inoue compte les
   réservations déclarées mais ne refuse rien sur la base de la mesure réelle.
 - **Tests :** aucun code modifié.
+## 2026-11-22 soir — Scantrad : mode manuel (demande de Jérémy, test 17)
+
+- **Agent :** Cloud
+- **Fichiers :** `modules/scantrad/manual.py` (nouveau), `modules/scantrad/module.py`, `modules/scantrad/hub_stages.py`,
+  `core/api.py`, `core/web/dashboard.{html,js,css}`, `tests/scantrad/test_manual.py`, `tests/scantrad/test_scantrad_module.py`
+- **Quoi :** onglet Scantrad, section « Mode manuel » : envoi d'une page, zones tracées à la souris (numérotées
+  dans l'ordre de tracé = ordre de lecture, réordonnables), « Partir de la détection automatique » en option,
+  « Lire le texte » (OCR par zone), « Traduire », gomme blanche à taille réglable avec annulation, « Aperçu de
+  l'effacement », « Réincruster ». Le texte resté dans les zones est effacé automatiquement (case à décocher).
+  La correction ligne à ligne existante marche aussi sur ces pages.
+- **API :** `POST /scantrad/upload`, `POST /scantrad/manual/{suggest,read,translate,erase,compose}`,
+  `POST /scantrad/manual/cleaned?image=` (page gommée, PNG). Noms de fichiers contrôlés comme avant.
+- **Essai réel :** sur la page de Jérémy, Hub lancé sur 5750 (le sien était arrêté). Premier essai : le bloc
+  horizontal de 3 lignes lu « AUCUN » → consigne `MANUAL_OCR_PROMPT` sans cette échappatoire (la zone est posée
+  par l'utilisateur, il y a du texte) : 2 zones lues. Fantôme gris après effacement → l'encre et son halo clair
+  sont recouverts de la couleur du papier sur une bulle blanche (inpainting gardé sur trame).
+- **Tests :** 7 nouveaux ; suite complète verte, ruff propre.

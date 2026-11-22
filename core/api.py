@@ -231,6 +231,50 @@ def create_app(daemon: Daemon) -> FastAPI:
             reply["output_url"] = f"/scantrad/files/sorties/{name}"
         return reply
 
+    # ---------- Scantrad, mode manuel : zones posées à la main, gomme, réincrustation ----------
+    def manual_paths(name: str) -> tuple[Path, Path, Path]:
+        """(page d'origine, page gommée, page traduite) d'une page envoyée en mode manuel."""
+        if not FILE_NAME.fullmatch(name) or not (SCANTRAD_DIR / "entrees" / name).is_file():
+            raise HTTPException(status_code=404, detail="page inconnue : envoie-la d'abord")
+        source, out = SCANTRAD_DIR / "entrees" / name, SCANTRAD_DIR / "sorties"
+        return source, out / f"{source.stem}_propre.png", out / f"{source.stem}_fr.png"
+
+    @app.post("/scantrad/upload")
+    async def scantrad_upload(request: Request) -> dict[str, Any]:
+        source = await save_upload(request, SCANTRAD_DIR / "entrees")
+        return {"image": source.name, "url": f"/scantrad/files/entrees/{source.name}"}
+
+    @app.post("/scantrad/manual/cleaned")
+    async def scantrad_cleaned(request: Request, image: str) -> dict[str, Any]:
+        """Page gommée dans le navigateur (PNG) : base de la réincrustation."""
+        _source, cleaned, _output = manual_paths(image)
+        if request.headers.get("content-type", "").split(";")[0].strip().lower() != "image/png":
+            raise HTTPException(status_code=415, detail="PNG attendu")
+        body = await request.body()
+        if not body.startswith(b"\x89PNG\r\n\x1a\n") or len(body) > MAX_UPLOAD:
+            raise HTTPException(status_code=400, detail="PNG invalide ou de plus de 25 Mo")
+        cleaned.parent.mkdir(parents=True, exist_ok=True)
+        cleaned.write_bytes(body)
+        return {"cleaned_url": f"/scantrad/files/sorties/{cleaned.name}"}
+
+    @app.post("/scantrad/manual/{command}")
+    async def scantrad_manual(command: str, data: dict[str, Any]) -> dict[str, Any]:
+        if command not in ("suggest", "read", "translate", "erase", "compose"):
+            raise HTTPException(status_code=404, detail="commande inconnue")
+        if command == "translate":
+            payload: dict[str, Any] = {"texts": data.get("texts"), "series": str(data.get("series", ""))}
+        else:
+            source, cleaned, output = manual_paths(str(data.get("image", "")))
+            payload = {"input": str(source), "boxes": data.get("boxes"), "bubbles": data.get("bubbles"),
+                       "auto_erase": data.get("auto_erase") is not False,
+                       "output": str(cleaned if command == "erase" else output)}
+        reply = await run_in_threadpool(module_call, "scantrad", command, payload)
+        if reply.get("ok") and command == "erase":
+            reply["cleaned_url"] = f"/scantrad/files/sorties/{cleaned.name}"
+        if reply.get("ok") and command == "compose":
+            reply["output_url"] = f"/scantrad/files/sorties/{output.name}"
+        return reply
+
     @app.get("/scantrad/files/{kind}/{filename}")
     def scantrad_file(kind: str, filename: str) -> Response:
         return image_file(SCANTRAD_DIR, kind, filename)

@@ -272,6 +272,7 @@ modules/
     detect.py
     hub_stages.py
     manifest.json
+    manual.py
     module.py
     pipeline.py
     README.md
@@ -326,6 +327,7 @@ tests/
     test_mangastudio.py
   scantrad/
     __init__.py
+    test_manual.py
     test_scantrad.py
     test_scantrad_module.py
   test_architecture_map.py
@@ -955,7 +957,7 @@ OCR et traduction par les modèles locaux, **via le Hub** (API compatible OpenAI
 - `def hub_chat(hub_api: str='http://127.0.0.1:5750', timeout_s: float=300.0) -> Chat`
 - `def strip_thinking(text: str) -> str`
 - `def bubble_png(page: np.ndarray, bubble: Bubble, pad: int=0, min_side: int=224) -> bytes` — Découpe le texte avec une marge (30 % de sa taille : un mot court, découpé au ras, n'est pas reconnu),
-- `def make_vision_ocr(chat: Chat, model: str='qwen2.5vl:7b', num_ctx: int=4096) -> Callable[..., str]`
+- `def make_vision_ocr(chat: Chat, model: str='qwen2.5vl:7b', num_ctx: int=4096, prompt: str=OCR_PROMPT) -> Callable[..., str]`
 - **`class Glossary`** — Glossaire persistant d'une série : personnages et termes (japonais → français), ton, notes.
   - `def load(cls, path: Path) -> Glossary`
   - `def save(self) -> None`
@@ -964,6 +966,16 @@ OCR et traduction par les modèles locaux, **via le Hub** (API compatible OpenAI
 - `def parse_translations(answer: str, count: int) -> list[str] | None`
 - `def make_translator(chat: Chat, glossary: Glossary | None=None, model: str='', target: str='français') -> Callable[[list[str]], list[str]]`
 
+### `modules/scantrad/manual.py`
+
+Mode manuel : les zones de texte sont posées à la main, dans l'ordre de lecture.
+
+- `def parse_boxes(raw: Any, shape: tuple[int, ...]) -> list[tuple[int, int, int, int]]` — Boîtes [x, y, largeur, hauteur] envoyées par la page, ramenées dans l'image. Refuse le reste.
+- `def bubbles_from_boxes(boxes: list[tuple[int, int, int, int]]) -> list[Bubble]` — Une bulle par boîte, numérotée dans l'ordre donné. La zone d'écriture est la boîte elle-même.
+- `def ink_mask(crop: np.ndarray) -> np.ndarray` — Encre du texte dans une boîte : traits sombres, petits, qui ne touchent pas le bord de la boîte.
+- `def erase_in_boxes(page: np.ndarray, boxes: list[tuple[int, int, int, int]], radius: int=3) -> np.ndarray` — Efface le texte à l'intérieur des boîtes : un premier passage, la gomme finit le travail.
+- `def suggest_boxes(page: np.ndarray) -> list[list[int]]` — Boîtes de la détection automatique, comme point de départ à corriger (coordonnées de la page reçue).
+
 ### `modules/scantrad/module.py`
 
 Module du Hub : traduit une page sur commande, et réincruste des traductions corrigées à la main.
@@ -971,6 +983,7 @@ Module du Hub : traduit une page sur commande, et réincruste des traductions co
 - `def work_paths(output: Path) -> tuple[Path, Path]` — Fichiers de travail d'une page traduite : (image nettoyée, description des bulles).
 - `def save_work(output: Path, cleaned: np.ndarray, bubbles: list[Bubble]) -> None`
 - `def retypeset(output: Path, translations: dict[str, str], font: str='') -> list[dict[str, Any]]` — Réincruste des traductions corrigées sur la page nettoyée. Rend les bulles mises à jour.
+- `def compose(source: Path, output: Path, rows: Any, font: str='', auto_erase: bool=True) -> list[dict[str, Any]]` — Page traduite du mode manuel : bulles = boîtes posées à la main ; base = page gommée si elle existe
 - **`class ScantradModule(ModuleBase)`**
   - `def start(self) -> None`
   - `def stop(self) -> None`

@@ -3,7 +3,11 @@
 Dernière mise à jour : **16/11/2026** (J0–J1) · Clôture du concours : **25/11/2026** · Reste : 9 jours.
 
 Statuts : `FAIT-TESTÉ` (exécuté réellement, tests verts) · `FAIT-NON-TESTÉ` (écrit, pas exécuté en
-conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
+conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `EN COURS` (entamé, à poursuivre) · `À FAIRE`.
+
+**Après le 25/11 (décision de Jérémy, 22/11)** : relais Claude Code ↔ agent local en réel (usage personnel,
+hors concours), topologie 3 GPU (décembre), workflow ComfyUI (à voir ensemble), push GitHub (par Jérémy).
+Les documents finaux et le gel J9 attendent sa demande.
 
 ## Où on en est
 
@@ -53,9 +57,9 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | `core/scheduler.py` — file d'attente GPU unique | P0 | J2 | `SIMULÉ` | testé avec des tâches factices ; aucune vraie tâche vision/diffusion |
 | `core/daemon.py` + `core/module_runner.py` | P0 | J2 | `FAIT-TESTÉ` | module de test lancé dans un vrai processus séparé, arrêté proprement, relancé par Fuma après un plantage ; déclencheur de processus simulé (faux `obs64.exe`). Démon réel lancé le 16/11 : 2 GPU, budget 28,66 Go |
 | `core/api.py` — `/health`, `/modules`, `/events`, `/gpu`, `/ask` | P0 | J2 | `FAIT-TESTÉ` | écoute vérifiée sur 127.0.0.1 ; **`/ask` répond 503** tant que le routeur LLM n'existe pas (J5) |
-| Détection de fenêtres (`pygetwindow`), interface générée à la volée (`widget_schema`) | P0 | J2→J3 | `À FAIRE` | reporté avec le port de `ui.py` |
+| Détection de fenêtres (`pygetwindow`), interface générée à la volée (`widget_schema`) | P0 | J2→J3 | `EN COURS` | en cours, à reprendre avec le port de `ui.py` |
 | Correctifs de WoW Assistant v9 (17/11) : fermeture, saisie, presse-papier, clic droit, widgets web, mise en page | P0 | avant J3 | `FAIT-TESTÉ` | 24 tests headless ; fermeture vérifiée avec de vraies fenêtres ; fenêtre web vérifiée activable (Python 3.10 et 3.11). **Testé par Jérémy le 17/11** : frappe dans Open WebUI, sessions conservées, fermeture. Connexion YouTube refusée par Google (limite connue). Bouton « × » d'effacement de clé API ajouté |
-| Modèles 3D à la place des silhouettes | P2 | — | `À FAIRE` | non entrepris : voir le changelog du 17/11 |
+| Modèles 3D à la place des silhouettes | P2 | — | `EN COURS` | en cours : voir le changelog du 17/11 |
 | Port de WoW Assistant → `modules/gaming_hud/app/` | P0 | J3 | `FAIT-TESTÉ` | code déplacé sans modification ; `python -m modules.gaming_hud` lancé en réel : fenêtre ouverte, données du jeu lues, fermeture par la croix, code 0. Imports « à plat » conservés (décision consignée) |
 | Interface `GameAdapter` + adaptateur `wow_retail` | P0 | J3 | `FAIT-TESTÉ` | lecture seule vérifiée (aucun fichier du jeu modifié) ; testé sur un faux dossier de jeu **et** sur les SavedVariables réelles |
 | Adaptateur `log_tail` (journal texte + règles YAML) | P0 | J3 | `FAIT-TESTÉ` | fichier qui grandit, ligne incomplète, troncature, règles invalides ; **aucun vrai jeu** branché dessus |
@@ -97,6 +101,7 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | Accueil : budget VRAM d'Inoue | P1 | J8 | `FAIT-TESTÉ` | vérifié sur le Hub de Jérémy (6,39 Go réservés sur 28,66) |
 | `if_game` : rendu HD-2D | P2 | J8 | `FAIT-TESTÉ` | vérifié à l'œil dans le navigateur (6 ambiances, dont 4 vues), clic réel sur un portail ; fluidité non mesurée sur une autre machine |
 | `if_game` : Fuma & Inoue, onglet Éther | P2 | J7 | `FAIT-TESTÉ` | graine reproductible, propositions du modèle validées (ton calme, formes), sauvegarde ; **réel** : lieu inventé par `qwen3-27b` et réplique de Fuma acceptés |
+| `scantrad` : mode manuel (zones à la souris, gomme, réincrustation) | P1 | J8 | `FAIT-TESTÉ` | demande de Jérémy (test 17). **Réel** sur sa page dans le navigateur : 2 zones tracées dans l'ordre de lecture, lues par `qwen2.5vl:7b` (96 s à froid, 1 s ensuite), traduites, gomme et annulation, page propre. Un bloc horizontal de 3 lignes était lu « AUCUN » : consigne d'OCR propre au mode manuel. Effacement par la couleur du papier (l'inpainting laissait un fantôme gris) |
 | `research/overlord_notes.md`, `docs/HARDWARE_FIT.md`, README final | P0 | J8 | `À FAIRE` | README actuel = version provisoire |
 | Gel, branche `concours`, tag `v0.1.0-concours`, scan de l'historique | P0 | J9 | `À FAIRE` | |
 

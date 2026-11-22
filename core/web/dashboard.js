@@ -657,8 +657,312 @@ $("glo-save").addEventListener("click", async () => {
   }
 });
 
+// ---------- scantrad, mode manuel ----------
+// La page affichée est un canevas « base » (taille réelle de l'image) : la gomme y peint en blanc. Les zones
+// sont dessinées par-dessus, numérotées dans l'ordre de tracé = ordre de lecture.
+const manual = { name: "", base: null, zones: [], tool: "zones", drag: null, stroke: null, cursor: null,
+                 undo: [], painted: false };
+const MAX_UNDO = 12;
+
+function manualLine(text) { $("man-line").textContent = text; }
+
+function drawManual() {
+  const canvas = $("man-canvas");
+  if (!manual.base) return;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(manual.base, 0, 0);
+  const unit = Math.max(2, canvas.width / 400);
+  ctx.lineWidth = unit;
+  ctx.font = `bold ${Math.round(unit * 9)}px sans-serif`;
+  ctx.textBaseline = "top";
+  const boxes = manual.zones.map((z) => z.box);
+  if (manual.drag) {
+    const [x1, y1, x2, y2] = manual.drag;
+    boxes.push([Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1)]);
+  }
+  for (const [i, [x, y, w, h]] of boxes.entries()) {
+    ctx.strokeStyle = manual.tool === "brush" ? "rgba(122,140,255,0.45)" : "#7a8cff";
+    ctx.strokeRect(x, y, w, h);
+    const label = String(i + 1);
+    const pad = unit * 2;
+    const tw = ctx.measureText(label).width + 2 * pad;
+    const th = unit * 9 + 2 * pad;
+    const ly = y >= th ? y - th : y;  // le numéro au-dessus de la zone : il ne cache pas le texte à lire
+    ctx.fillStyle = "#7a8cff";
+    ctx.fillRect(x, ly, tw, th);
+    ctx.fillStyle = "#fff";
+    ctx.fillText(label, x + pad, ly + pad);
+  }
+  if (manual.tool === "brush" && manual.cursor) {
+    ctx.strokeStyle = "#ff5a7a";
+    ctx.beginPath();
+    ctx.arc(manual.cursor[0], manual.cursor[1], brushRadius(), 0, 2 * Math.PI);
+    ctx.stroke();
+  }
+}
+
+function brushRadius() {  // le curseur est réglé en pixels d'écran, la gomme travaille en pixels de l'image
+  const canvas = $("man-canvas");
+  const shown = canvas.getBoundingClientRect().width || canvas.width;
+  return (Number($("man-brush").value) / 2) * canvas.width / shown;
+}
+
+function manualPoint(event) {
+  const canvas = $("man-canvas");
+  const rect = canvas.getBoundingClientRect();
+  return [Math.round((event.clientX - rect.left) * canvas.width / rect.width),
+          Math.round((event.clientY - rect.top) * canvas.height / rect.height)];
+}
+
+function pushPaintUndo() {
+  const ctx = manual.base.getContext("2d");
+  manual.undo.push({ kind: "paint", data: ctx.getImageData(0, 0, manual.base.width, manual.base.height),
+                     painted: manual.painted });
+  const paints = manual.undo.filter((u) => u.kind === "paint");
+  if (paints.length > MAX_UNDO) manual.undo.splice(manual.undo.indexOf(paints[0]), 1);  // mémoire bornée
+}
+
+function paintAt(from, to) {
+  const ctx = manual.base.getContext("2d");
+  ctx.strokeStyle = "#fff";
+  ctx.fillStyle = "#fff";
+  ctx.lineCap = "round";
+  ctx.lineWidth = 2 * brushRadius();
+  ctx.beginPath();
+  ctx.moveTo(from[0], from[1]);
+  ctx.lineTo(to[0], to[1]);
+  ctx.stroke();
+  manual.painted = true;
+}
+
+function setTool(tool) {
+  manual.tool = tool;
+  $("man-tool-zones").setAttribute("aria-pressed", String(tool === "zones"));
+  $("man-tool-brush").setAttribute("aria-pressed", String(tool === "brush"));
+  $("man-canvas").style.cursor = tool === "brush" ? "none" : "crosshair";
+  drawManual();
+}
+$("man-tool-zones").addEventListener("click", () => setTool("zones"));
+$("man-tool-brush").addEventListener("click", () => setTool("brush"));
+
+function loadBase(url) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const base = document.createElement("canvas");
+      base.width = image.naturalWidth;
+      base.height = image.naturalHeight;
+      base.getContext("2d").drawImage(image, 0, 0);
+      resolve(base);
+    };
+    image.onerror = () => reject(new Error("image illisible"));
+    image.src = url;
+  });
+}
+
+$("man-file").addEventListener("change", async () => {
+  const file = $("man-file").files[0];
+  if (!file) return;
+  manualLine("Envoi de la page…");
+  try {
+    const up = await api("/scantrad/upload", { method: "POST", body: file,
+                                               headers: { "Content-Type": file.type || "image/png" } });
+    Object.assign(manual, { name: up.image, zones: [], undo: [], painted: false, base: await loadBase(up.url) });
+    const canvas = $("man-canvas");
+    canvas.width = manual.base.width;
+    canvas.height = manual.base.height;
+    canvas.hidden = false;
+    $("man-result").hidden = true;
+    setTool("zones");
+    renderManualRows();
+    manualLine("Trace une boîte autour de chaque bulle, dans l'ordre de lecture.");
+  } catch (error) {
+    manualLine(`Erreur : ${error.message}`);
+  }
+});
+
+$("man-canvas").addEventListener("mousedown", (event) => {
+  if (!manual.base || event.button !== 0) return;
+  const point = manualPoint(event);
+  if (manual.tool === "brush") {
+    pushPaintUndo();
+    manual.stroke = point;
+    paintAt(point, point);
+  } else {
+    manual.drag = [...point, ...point];
+  }
+  drawManual();
+});
+$("man-canvas").addEventListener("mousemove", (event) => {
+  if (!manual.base) return;
+  const point = manualPoint(event);
+  manual.cursor = point;
+  if (manual.stroke) {
+    paintAt(manual.stroke, point);
+    manual.stroke = point;
+  } else if (manual.drag) {
+    manual.drag = [manual.drag[0], manual.drag[1], ...point];
+  }
+  drawManual();
+});
+$("man-canvas").addEventListener("mouseleave", () => { manual.cursor = null; drawManual(); });
+window.addEventListener("mouseup", () => {
+  if (manual.stroke) {
+    manual.stroke = null;
+    drawManual();
+    return;
+  }
+  if (!manual.drag) return;
+  const [x1, y1, x2, y2] = manual.drag;
+  manual.drag = null;
+  if (Math.abs(x2 - x1) > 8 && Math.abs(y2 - y1) > 8) {
+    manual.zones.push({ box: [Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1)],
+                        source: "", translation: "" });
+    manual.undo.push({ kind: "zone" });
+    renderManualRows();
+  }
+  drawManual();
+});
+
+$("man-undo").addEventListener("click", () => {
+  const last = manual.undo.pop();
+  if (!last) return manualLine("Rien à annuler.");
+  if (last.kind === "zone") manual.zones.pop();
+  else {
+    manual.base.getContext("2d").putImageData(last.data, 0, 0);
+    manual.painted = last.painted;
+  }
+  renderManualRows();
+  drawManual();
+});
+
+$("man-clear").addEventListener("click", () => {
+  manual.zones = [];
+  manual.undo = manual.undo.filter((u) => u.kind !== "zone");
+  renderManualRows();
+  drawManual();
+});
+
+function renderManualRows() {
+  const box = $("man-rows");
+  box.replaceChildren();
+  if (!manual.zones.length) return;
+  const body = el("tbody");
+  for (const [i, zone] of manual.zones.entries()) {
+    const source = el("input", { class: "full", lang: "ja", value: zone.source, "aria-label": `texte lu, zone ${i + 1}` });
+    source.addEventListener("input", () => { zone.source = source.value; });
+    const target = el("input", { class: "full", value: zone.translation, "aria-label": `traduction, zone ${i + 1}` });
+    target.addEventListener("input", () => { zone.translation = target.value; });
+    const move = (delta) => {
+      const j = i + delta;
+      if (j < 0 || j >= manual.zones.length) return;
+      [manual.zones[i], manual.zones[j]] = [manual.zones[j], manual.zones[i]];
+      renderManualRows();
+      drawManual();
+    };
+    const up = el("button", { type: "button", class: "ghost small", title: "plus tôt dans la lecture" }, "↑");
+    const down = el("button", { type: "button", class: "ghost small", title: "plus tard dans la lecture" }, "↓");
+    const remove = el("button", { type: "button", class: "ghost small", title: "retirer la zone" }, "×");
+    up.addEventListener("click", () => move(-1));
+    down.addEventListener("click", () => move(1));
+    remove.addEventListener("click", () => {
+      manual.zones.splice(i, 1);
+      manual.undo = manual.undo.filter((u) => u.kind !== "zone");  // l'annulation de zones ne vise plus juste
+      renderManualRows();
+      drawManual();
+    });
+    body.append(el("tr", {}, el("td", {}, String(i + 1)), el("td", { class: "nowrap" }, up, down, remove),
+                   el("td", {}, source), el("td", {}, target)));
+  }
+  box.append(el("table", { class: "bubble-edit" },
+    el("thead", {}, el("tr", {}, el("th", {}, "#"), el("th", {}, "Ordre"), el("th", {}, "Texte lu"),
+                     el("th", {}, "Traduction"))), body));
+}
+
+async function manualStep(button, waiting, fn) {
+  if (!manual.name) return manualLine("Choisis d'abord une page.");
+  button.disabled = true;
+  manualLine(waiting);
+  try {
+    await fn();
+  } catch (error) {
+    manualLine(`Erreur : ${error.message}`);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function manualCall(command, body) {
+  const reply = await post(`/scantrad/manual/${command}`, body);
+  if (!reply.ok) throw new Error(reply.error || "échec");
+  return reply;
+}
+
+$("man-suggest").addEventListener("click", (event) => manualStep(event.currentTarget,
+  "Détection automatique…", async () => {
+    const reply = await manualCall("suggest", { image: manual.name });
+    manual.zones = reply.result.boxes.map((box) => ({ box, source: "", translation: "" }));
+    manual.undo = manual.undo.filter((u) => u.kind !== "zone");
+    renderManualRows();
+    drawManual();
+    manualLine(`${manual.zones.length} zones proposées : retire, ajoute ou réordonne avant de lire le texte.`);
+  }));
+
+$("man-erase").addEventListener("click", (event) => manualStep(event.currentTarget,
+  "Effacement du texte dans les zones…", async () => {
+    if (!manual.zones.length) throw new Error("trace d'abord des zones");
+    const reply = await manualCall("erase", { image: manual.name, boxes: manual.zones.map((z) => z.box) });
+    const erased = await loadBase(`${reply.cleaned_url}?t=${Date.now()}`);
+    pushPaintUndo();
+    // la gomme déjà passée est gardée : on ne recopie que l'intérieur des zones
+    const ctx = manual.base.getContext("2d");
+    for (const [x, y, w, h] of manual.zones.map((z) => z.box)) ctx.drawImage(erased, x, y, w, h, x, y, w, h);
+    manual.painted = true;
+    drawManual();
+    manualLine("Texte effacé dans les zones. Passe la gomme sur ce qui reste.");
+  }));
+
+$("man-read").addEventListener("click", (event) => manualStep(event.currentTarget,
+  "Lecture du texte de chaque zone… (premier appel : chargement du modèle de vision)", async () => {
+    if (!manual.zones.length) throw new Error("trace d'abord des zones");
+    const started = performance.now();
+    const reply = await manualCall("read", { image: manual.name, boxes: manual.zones.map((z) => z.box) });
+    reply.result.sources.forEach((text, i) => { manual.zones[i].source = text; });
+    renderManualRows();
+    const empty = reply.result.sources.filter((t) => !t).length;
+    manualLine(`${manual.zones.length} zones lues en ${Math.round((performance.now() - started) / 1000)} s`
+      + (empty ? ` (${empty} sans texte reconnu : écris-le à la main si besoin)` : "")
+      + ". Corrige si besoin, puis « Traduire ».");
+  }));
+
+$("man-translate").addEventListener("click", (event) => manualStep(event.currentTarget,
+  "Traduction… Pendant ce temps, tu peux passer la gomme.", async () => {
+    const zones = [...manual.zones];
+    if (!zones.some((z) => z.source.trim())) throw new Error("aucun texte à traduire : lis d'abord le texte");
+    const reply = await manualCall("translate", { texts: zones.map((z) => z.source),
+                                                  series: $("scan-series").value.trim() });
+    reply.result.translations.forEach((text, i) => { if (text) zones[i].translation = text; });
+    renderManualRows();
+    manualLine("Traduit. Vérifie, puis « Réincruster ».");
+  }));
+
+$("man-compose").addEventListener("click", (event) => manualStep(event.currentTarget, "Réincrustation…",
+  async () => {
+    if (!manual.zones.length) throw new Error("trace d'abord des zones");
+    if (manual.painted) {
+      const blob = await new Promise((resolve) => manual.base.toBlob(resolve, "image/png"));
+      await api(`/scantrad/manual/cleaned?image=${encodeURIComponent(manual.name)}`, {
+        method: "POST", body: blob, headers: { "Content-Type": "image/png" } });
+    }
+    const reply = await manualCall("compose", { image: manual.name, auto_erase: $("man-auto").checked,
+                                                bubbles: manual.zones });
+    $("man-result").hidden = false;
+    $("man-after").src = `${reply.output_url}?t=${Date.now()}`;
+    manualLine("Page traduite. Tu peux encore corriger une ligne ou gommer, puis réincruster à nouveau.");
+  }));
+
 // ---------- studio (mangastudio) ----------
-const studio = { image: null, name: "", boxes: [], drag: null };
+const studio ={ image: null, name: "", boxes: [], drag: null };
 
 async function refreshStudio() {
   try {

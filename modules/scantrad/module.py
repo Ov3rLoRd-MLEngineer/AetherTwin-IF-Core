@@ -3,6 +3,15 @@
     module.scantrad.cmd.page       {"request_id", "input": "page.png", "series": "demo", "output": "", "no_llm": false}
     module.scantrad.cmd.retypeset  {"request_id", "output": "…_fr.png", "translations": {"1": "…", "2": "…"}}
 
+Mode manuel (zones posées à la main, voir `manual.py`) :
+
+    module.scantrad.cmd.suggest    {"input"}                        → boîtes de la détection automatique
+    module.scantrad.cmd.read       {"input", "boxes": [[x,y,l,h]…]} → texte lu dans chaque boîte, dans l'ordre
+    module.scantrad.cmd.translate  {"texts": […], "series"}         → traductions, dans l'ordre
+    module.scantrad.cmd.erase      {"input", "boxes", "output"}     → page dont le texte des boîtes est effacé
+    module.scantrad.cmd.compose    {"input", "output", "bubbles": [{"box", "source", "translation"}…]}
+                                   → page traduite, sur la page gommée (`<nom>_propre.png`) si elle existe
+
 Réponse sur `module.scantrad.result` : bulles (texte lu, traduction), métriques (temps par étape, VRAM),
 chemin de l'image produite. À côté de chaque page traduite, deux fichiers de travail :
 `<nom>_propre.png` (page sans le texte d'origine) et `<nom>_travail.json` (bulles et zones d'écriture),
@@ -28,7 +37,9 @@ from typing import Any
 import numpy as np
 
 from core.module_api import Event, Health, ModuleBase
-from modules.scantrad.cli import DEFAULT_DATA, build, read_image, write_image
+from modules.scantrad import manual
+from modules.scantrad.cli import DEFAULT_DATA, build, glossary_for, read_image, write_image
+from modules.scantrad.hub_stages import MANUAL_OCR_PROMPT, hub_chat, make_translator, make_vision_ocr
 from modules.scantrad.pipeline import Bubble
 from modules.scantrad.typeset import make_typesetter, text_area
 
@@ -73,6 +84,36 @@ def retypeset(output: Path, translations: dict[str, str], font: str = "") -> lis
     return job["bubbles"]
 
 
+MANUAL_COMMANDS = ("suggest", "read", "translate", "erase", "compose")
+
+
+def compose(source: Path, output: Path, rows: Any, font: str = "", auto_erase: bool = True) -> list[dict[str, Any]]:
+    """Page traduite du mode manuel : bulles = boîtes posées à la main ; base = page gommée si elle existe
+    (sinon l'original), puis, sauf refus, effacement automatique du texte restant dans les boîtes."""
+    page = read_image(source)
+    if not isinstance(rows, list):
+        raise ValueError("`bubbles` : liste de {box, source, translation}")
+    boxes = manual.parse_boxes([r.get("box") if isinstance(r, dict) else None for r in rows], page.shape)
+    clean_path, _job_path = work_paths(output)
+    cleaned = page
+    if clean_path.is_file():
+        cleaned = read_image(clean_path)
+        if cleaned.shape != page.shape:
+            raise ValueError("la page gommée n'a pas la taille de l'original")
+    if auto_erase:
+        cleaned = manual.erase_in_boxes(cleaned, boxes)
+    bubbles = manual.bubbles_from_boxes(boxes)
+    for bubble, row in zip(bubbles, rows, strict=True):
+        bubble.source = str(row.get("source") or "")[:MAX_TRANSLATION]
+        text = row.get("translation") or ""
+        if not isinstance(text, str) or len(text) > MAX_TRANSLATION:
+            raise ValueError(f"traduction de la bulle {bubble.index} invalide (texte de {MAX_TRANSLATION} car. max)")
+        bubble.translation = " ".join(text.split())
+        bubble.vertical = bubble.box[3] > 1.5 * bubble.box[2]
+    save_work(output, cleaned, bubbles)
+    return retypeset(output, {}, font)
+
+
 class ScantradModule(ModuleBase):
     def start(self) -> None:
         self.pages = 0
@@ -101,6 +142,8 @@ class ScantradModule(ModuleBase):
                     raise ValueError("`translations` : dictionnaire {numéro de bulle: texte}")
                 result = {"bubbles": retypeset(output, translations, str(self.config.get("font", ""))),
                           "output": str(output)}
+            elif command in MANUAL_COMMANDS:
+                result = getattr(self, f"_manual_{command}")(payload)
             else:
                 raise ValueError(f"commande inconnue : {command!r}")
             reply = {"ok": True, "result": result}
@@ -109,6 +152,53 @@ class ScantradModule(ModuleBase):
             reply = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
         self.publish(Event(f"module.{self.name}.result", {"request_id": payload.get("request_id"),
                                                            "command": command, **reply}, source=self.name))
+
+    # ---------- mode manuel ----------
+    def _source(self, payload: dict[str, Any]) -> Path:
+        source = Path(str(payload["input"]))
+        if not source.is_file():
+            raise ValueError(f"fichier introuvable : {source}")
+        return source
+
+    def _chat(self) -> Any:
+        return hub_chat(str(self.config.get("hub_api", "http://127.0.0.1:5750")))
+
+    def _manual_suggest(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return {"boxes": manual.suggest_boxes(read_image(self._source(payload)))}
+
+    def _manual_read(self, payload: dict[str, Any]) -> dict[str, Any]:
+        page = read_image(self._source(payload))
+        bubbles = manual.bubbles_from_boxes(manual.parse_boxes(payload.get("boxes"), page.shape))
+        ocr = make_vision_ocr(self._chat(), str(self.config.get("ocr_model", "qwen2.5vl:7b")),
+                              prompt=MANUAL_OCR_PROMPT)
+        return {"sources": [ocr(page, bubble).strip() for bubble in bubbles]}
+
+    def _manual_translate(self, payload: dict[str, Any]) -> dict[str, Any]:
+        texts = payload.get("texts")
+        if not isinstance(texts, list) or not all(isinstance(t, str) and len(t) <= MAX_TRANSLATION for t in texts):
+            raise ValueError(f"`texts` : liste de textes ({MAX_TRANSLATION} car. max chacun)")
+        series = str(payload.get("series", ""))
+        glossary = glossary_for(series, Path(self.config.get("data_dir") or DEFAULT_DATA)) if series else None
+        todo = [i for i, text in enumerate(texts) if text.strip()]
+        out = [""] * len(texts)
+        if todo:
+            translate = make_translator(self._chat(), glossary, str(self.config.get("model", "")))
+            for i, text in zip(todo, translate([texts[i].strip() for i in todo]), strict=True):
+                out[i] = text.strip()
+        return {"translations": out}
+
+    def _manual_erase(self, payload: dict[str, Any]) -> dict[str, Any]:
+        page = read_image(self._source(payload))
+        output = Path(str(payload["output"]))
+        write_image(output, manual.erase_in_boxes(page, manual.parse_boxes(payload.get("boxes"), page.shape)))
+        return {"output": str(output)}
+
+    def _manual_compose(self, payload: dict[str, Any]) -> dict[str, Any]:
+        output = Path(str(payload["output"]))
+        bubbles = compose(self._source(payload), output, payload.get("bubbles"), str(self.config.get("font", "")),
+                          auto_erase=payload.get("auto_erase") is not False)
+        self.pages += 1
+        return {"bubbles": bubbles, "output": str(output)}
 
     def _page(self, payload: dict[str, Any]) -> dict[str, Any]:
         source = Path(str(payload["input"]))

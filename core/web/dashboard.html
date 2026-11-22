@@ -187,6 +187,35 @@
         <div id="scan-bubbles"></div>
       </section>
       <section>
+        <h2>Mode manuel : zones posées à la main</h2>
+        <p class="muted">Pour une page où la détection rate des bulles. <b>1.</b> Trace une boîte autour de chaque
+          bulle, <b>dans l'ordre de lecture</b> (le numéro s'affiche). <b>2.</b> « Lire le texte », puis
+          « Traduire » ; pendant la traduction, passe à la <b>gomme</b> pour blanchir ce qui doit disparaître.
+          <b>3.</b> « Réincruster ». Le texte resté dans les boîtes est aussi effacé automatiquement.</p>
+        <div class="row">
+          <input id="man-file" type="file" accept="image/png,image/jpeg,image/webp" aria-label="page à traduire">
+          <button id="man-suggest" type="button" class="ghost">Partir de la détection automatique</button>
+        </div>
+        <div class="row" role="toolbar" aria-label="outils">
+          <button id="man-tool-zones" type="button" class="ghost" aria-pressed="true">Zones</button>
+          <button id="man-tool-brush" type="button" class="ghost" aria-pressed="false">Gomme</button>
+          <label>taille <input id="man-brush" type="range" min="4" max="120" value="24"></label>
+          <button id="man-erase" type="button" class="ghost">Aperçu de l'effacement</button>
+          <button id="man-undo" type="button" class="ghost">Annuler</button>
+          <button id="man-clear" type="button" class="ghost">Retirer les zones</button>
+        </div>
+        <canvas id="man-canvas" class="studio-canvas" hidden></canvas>
+        <div class="row">
+          <button id="man-read" type="button">1. Lire le texte</button>
+          <button id="man-translate" type="button">2. Traduire</button>
+          <button id="man-compose" type="button">3. Réincruster</button>
+          <label><input type="checkbox" id="man-auto" checked> effacer aussi automatiquement dans les zones</label>
+        </div>
+        <p id="man-line" class="muted"></p>
+        <div id="man-rows"></div>
+        <figure id="man-result" hidden><figcaption>Page traduite</figcaption><img id="man-after" alt="page traduite"></figure>
+      </section>
+      <section>
         <h2>Glossaire d'une série</h2>
         <p class="muted">Une entrée par ligne : <code>japonais = français</code>. Seules les entrées présentes
           dans la page sont données au modèle.</p>

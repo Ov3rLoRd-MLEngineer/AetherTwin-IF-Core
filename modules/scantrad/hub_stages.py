@@ -28,6 +28,12 @@ OCR_PROMPT = ("Transcris exactement le texte japonais écrit dans cette image ex
               "caractères de lecture (furigana) placés à côté des kanji. Réponds uniquement par le texte transcrit, "
               "sur une ligne, sans traduction, sans commentaire. S'il n'y a pas de texte japonais lisible (dessin, "
               "décor), réponds exactement : AUCUN")
+# Mode manuel : la zone a été posée à la main, il y a du texte. Sans l'échappatoire « AUCUN », que le modèle
+# choisissait à tort pour un bloc horizontal de trois lignes (essai réel du 22/11).
+MANUAL_OCR_PROMPT = ("Transcris exactement le texte japonais de cette image extraite d'un manga. Il peut être "
+                     "horizontal, ou vertical (colonnes de haut en bas, de la droite vers la gauche). Ignore les "
+                     "furigana. Réponds uniquement par le texte transcrit, sur une ligne, sans traduction ni "
+                     "commentaire.")
 JAPANESE = re.compile(r"[぀-ヿ㐀-鿿ｦ-ﾟ]")
 
 
@@ -76,10 +82,11 @@ def bubble_png(page: np.ndarray, bubble: Bubble, pad: int = 0, min_side: int = 2
     return png.tobytes()
 
 
-def make_vision_ocr(chat: Chat, model: str = "qwen2.5vl:7b", num_ctx: int = 4096) -> Callable[..., str]:
+def make_vision_ocr(chat: Chat, model: str = "qwen2.5vl:7b", num_ctx: int = 4096,
+                    prompt: str = OCR_PROMPT) -> Callable[..., str]:
     def read(page: np.ndarray, bubble: Bubble, pad: int) -> str:
         data_uri = "data:image/png;base64," + base64.b64encode(bubble_png(page, bubble, pad)).decode("ascii")
-        messages = [{"role": "user", "content": [{"type": "text", "text": OCR_PROMPT},
+        messages = [{"role": "user", "content": [{"type": "text", "text": prompt},
                                                  {"type": "image_url", "image_url": {"url": data_uri}}]}]
         return accept_ocr(chat(messages, {"model": model, "num_ctx": num_ctx, "temperature": 0}))
 
