@@ -125,10 +125,10 @@ def draw_market(ui, ctx, rect):
     elif view == "banks":
         data = getattr(ctx, "data", None)
         items = []
-        for bank in (getattr(data, "warbandBank", None), getattr(data, "guildBank", None)):
+        for bank in (getattr(data, "characterBank", None), getattr(data, "warbandBank", None), getattr(data, "guildBank", None)):
             for tab in (bank or {}).get("tabs", []):
                 items += tab.get("items", [])
-        _draw_value(ui, right, market, items, "Valeur des banques (bataillon et guilde)",
+        _draw_value(ui, right, market, items, "Valeur des banques (personnage, bataillon, guilde)",
                     "Banques jamais consultées : ouvrez-les une fois en jeu, puis /ha save.")
     elif view == "search":
         _draw_search(ui, right, market, ctx)
@@ -247,7 +247,7 @@ def _known_items(ctx):
     known = {}
     pools = [getattr(getattr(ctx, "inventory", None), "items", []) or []]
     data = getattr(ctx, "data", None)
-    for bank in (getattr(data, "warbandBank", None), getattr(data, "guildBank", None)):
+    for bank in (getattr(data, "characterBank", None), getattr(data, "warbandBank", None), getattr(data, "guildBank", None)):
         for tab in (bank or {}).get("tabs", []):
             pools.append(tab.get("items", []))
     equipment = getattr(getattr(ctx, "character", None), "equipment", {}) or {}

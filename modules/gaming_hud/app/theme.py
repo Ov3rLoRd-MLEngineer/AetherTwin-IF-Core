@@ -26,6 +26,7 @@ EVENT_COLORS = {
 _WOW_CODES = [
     (re.compile(r"\|c[0-9a-fA-F]{8}"), ""), (re.compile(r"\|cn[^:|]*:"), ""), (re.compile(r"\|r"), ""),
     (re.compile(r"\|T[^|]*\|t"), ""), (re.compile(r"\|A[^|]*\|a"), ""),
+    (re.compile(r"\|[TA][^|]*$"), ""),   # icône coupée par la limite de longueur de l'addon
     (re.compile(r"\|H[^|]*\|h"), ""), (re.compile(r"\|h"), ""), (re.compile(r"\|n"), " "),
 ]
 

@@ -127,12 +127,13 @@ class BattleNet:
             with open(cache, encoding="utf-8") as f:
                 return json.load(f)
         request = urllib.request.Request(url, headers={"Authorization": "Bearer " + self.token(),
-                                                       "User-Agent": "WoWAssistant/1.6"})
+                                                       "User-Agent": "WoWAssistant/1.8"})
         try:
             data = json.loads(self._open(request).decode("utf-8"))
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                raise BnetError("introuvable sur Battle.net (personnage jamais vu par l'API, ou royaume mal reconnu)") from e
+                hint = " (personnage jamais vu par l'API, ou royaume mal reconnu)" if "/profile/" in path else ""
+                raise BnetError("introuvable sur Battle.net" + hint) from e
             raise BnetError(f"Battle.net : erreur {e.code}") from e
         except (urllib.error.URLError, OSError, ValueError) as e:
             raise BnetError(f"Battle.net injoignable : {e}") from e
@@ -152,7 +153,7 @@ class BattleNet:
         path = self._cache_path(key, ext if ext in ("png", "jpg", "jpeg", "webp") else "png")
         if self._fresh(path, max_age):
             return path
-        request = urllib.request.Request(url, headers={"User-Agent": "WoWAssistant/1.6"})
+        request = urllib.request.Request(url, headers={"User-Agent": "WoWAssistant/1.8"})
         try:
             body = self._open(request)
         except (urllib.error.URLError, OSError) as e:
@@ -186,18 +187,49 @@ class BattleNet:
                 return self.download(assets[key], f"char_{self.region}_{slug}_{character_name.lower()}_{key}", HOUR * 6)
         raise BnetError("aucun rendu proposé pour ce personnage")
 
-    def mount_image(self, mount_id):
-        """Image de la monture (« zoom » de son affichage de créature)."""
-        mount = self.get(f"/data/wow/mount/{int(mount_id)}", "static", max_age=WEEK * 4)
-        displays = mount.get("creature_displays") or []
+    def _display_image(self, displays, key, what):
+        """Image « zoom » du premier affichage de créature de la liste (montures, mascottes)."""
         if not displays:
-            raise BnetError("pas d'affichage pour cette monture")
+            raise BnetError(f"pas d'affichage pour cette {what}")
         display = self.get(f"/data/wow/media/creature-display/{int(displays[0]['id'])}", "static", max_age=WEEK * 4)
         assets = {a.get("key"): a.get("value") for a in display.get("assets", []) if isinstance(a, dict)}
         url = assets.get("zoom") or next(iter(assets.values()), None)
         if not url:
-            raise BnetError("pas d'image pour cette monture")
-        return self.download(url, f"mount_{int(mount_id)}", WEEK * 4)
+            raise BnetError(f"pas d'image pour cette {what}")
+        return self.download(url, key, WEEK * 4)
+
+    def mount_image(self, mount_id):
+        """Image de la monture (« zoom » de son affichage de créature)."""
+        mount = self.get(f"/data/wow/mount/{int(mount_id)}", "static", max_age=WEEK * 4)
+        return self._display_image(mount.get("creature_displays") or [], f"mount_{int(mount_id)}", "monture")
+
+    def pet_image(self, species_id, creature_id=0):
+        """Image de la mascotte : sa créature (exportée par l'addon, sinon lue dans la fiche de l'espèce),
+        puis le « zoom » de son affichage."""
+        if not creature_id:
+            pet = self.get(f"/data/wow/pet/{int(species_id)}", "static", max_age=WEEK * 4)
+            creature_id = (pet.get("creature") or {}).get("id")
+            if not creature_id:
+                raise BnetError("pas de créature pour cette mascotte")
+        creature = self.get(f"/data/wow/creature/{int(creature_id)}", "static", max_age=WEEK * 4)
+        return self._display_image(creature.get("creature_displays") or [], f"pet_{int(species_id)}", "mascotte")
+
+    def set_pieces(self, set_id):
+        """Pièces d'un ensemble de transmogrification : [{"item": id d'un objet qui la donne, "slot": nom}].
+        Battle.net ne propose pas de rendu des objets : l'appli affiche leurs icônes."""
+        data = self.get(f"/data/wow/item-appearance/set/{int(set_id)}", "static", max_age=WEEK * 4)
+        pieces = []
+        for ref in (data.get("appearances") or [])[:16]:
+            if not isinstance(ref, dict) or not ref.get("id"):
+                continue
+            appearance = self.get(f"/data/wow/item-appearance/{int(ref['id'])}", "static", max_age=WEEK * 4)
+            items = [i for i in appearance.get("items") or [] if isinstance(i, dict) and i.get("id")]
+            if items:
+                pieces.append({"item": int(items[0]["id"]), "name": items[0].get("name", ""),
+                               "slot": (appearance.get("slot") or {}).get("name", "")})
+        if not pieces:
+            raise BnetError("aucune pièce connue pour cet ensemble")
+        return pieces
 
     # ------------------------------------------------------------------ Hôtel des ventes
     def commodities(self):

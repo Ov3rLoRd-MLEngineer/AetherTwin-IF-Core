@@ -304,11 +304,11 @@ def draw_bags(ui, ctx, rect):
     view = ui.state["bag_view"]
 
     ui.frame(left, "Sacs et banques")
-    for i, (key, label) in enumerate((("bags", "Sacs du personnage"), ("warband", "Banque de bataillon"),
-                                      ("guild", "Banque de guilde"))):
+    for i, (key, label) in enumerate((("bags", "Sacs du personnage"), ("character", "Banque du personnage"),
+                                      ("warband", "Banque de bataillon"), ("guild", "Banque de guilde"))):
         ui.pill((x + 16, y + 48 + i * 34, 308, 28), label, view == key, lambda k=key: ui.state.update(bag_view=k, bank_tab=0))
 
-    py = y + 160
+    py = y + 194
     if view == "bags":
         used = inv.slots_used if inv.slots_used is not None else inv.get_total_items()
         percent = 100 * used / inv.capacity if inv.capacity else 0
@@ -334,7 +334,13 @@ def draw_bags(ui, ctx, rect):
         return
 
     # --- banques (lues par l'addon quand elles sont ouvertes en jeu)
-    if view == "warband":
+    if view == "character":
+        bank = getattr(data, "characterBank", None) or {"updated": 0, "money": 0, "tabs": []}
+        banks_tabs = bank["tabs"]
+        title, money, updated = "Banque du personnage", None, bank["updated"]
+        never = ["Banque du personnage jamais consultée", "Ouvrez-la une fois en jeu (chez le banquier)",
+                 "avec l'addon 1.8, puis /ha save."]
+    elif view == "warband":
         bank = data.warbandBank
         banks_tabs = bank["tabs"]
         title, money, updated = "Banque de bataillon", bank["money"], bank["updated"]
@@ -346,7 +352,8 @@ def draw_bags(ui, ctx, rect):
         money, updated = bank["money"], bank["updated"]
         never = ["Banque de guilde jamais consultée", "Ouvrez-la en jeu et parcourez ses onglets", "(chaque onglet est lu à l'ouverture), puis /ha save."]
     ui.text(f"Dernière consultation : {format_age(updated)}", "small", "gray", (x + 16, py))
-    ui.text("Or :  " + Character.format_money(money), "small", "gold", (x + 16, py + 24))
+    if money is not None:
+        ui.text("Or :  " + Character.format_money(money), "small", "gold", (x + 16, py + 24))
     ui.text("Onglets", "small", "label", (x + 16, py + 62))
     for i, tab in enumerate(banks_tabs[:10]):
         ui.pill((x + 16, py + 86 + i * 32, 308, 28), f"{tab['name'] or 'Onglet ' + str(i + 1)} ({len(tab['items'])})",

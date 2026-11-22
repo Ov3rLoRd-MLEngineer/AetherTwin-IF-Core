@@ -84,26 +84,107 @@ def _two_columns(ui, area, scroll_key, entries, view, keyfn, draw_cell):
     ui.scroll_end()
 
 
-def _detail(ui, rect, caption, tint, shape, title, title_color, lines, url, llm_title, llm_context, media=None):
-    """`media` : (clé, fonction qui rend le chemin de l'image) pour une image Battle.net à la place du modèle."""
+LINE_H, GAP, TITLE_H, BUTTONS_H, MIN_PREVIEW = 21, 4, 40, 66, 220
+NO_ITEM_RENDER = "Icône du jeu : Battle.net ne propose pas de rendu des objets"
+NEEDS_BNET = "image : API Battle.net (onglet Hôtel des ventes)"
+
+
+def _text_rows(ui, lines, width):
+    """[(ligne, couleur) ou None (espace)] : les textes vides sont sautés."""
+    rows = []
+    for text, color in lines:
+        if text:
+            rows += [(line, color) for line in ui.wrap(text, "small", width)]
+            rows.append(None)
+    return rows[:-1] if rows else rows
+
+
+def _preview_box(rect, rows, reserve=0):
+    """Zone de l'aperçu : tout ce que le texte (titre + lignes) et les boutons laissent, au moins MIN_PREVIEW."""
+    x, y, w, h = rect
+    text_h = TITLE_H + sum(GAP if r is None else LINE_H for r in rows) + reserve
+    box_h = max(MIN_PREVIEW, h - 46 - 14 - text_h - BUTTONS_H)
+    return (x + 16, y + 46, w - 32, box_h)
+
+
+def _icon_preview(ui, box, item_id, border, fallback=""):
+    """Grande icône de l'objet : Battle.net n'a pas de rendu pour les objets (jouets, héritage, apparences)."""
+    bx, by, bw, bh = box
+    pygame.draw.rect(ui.screen, (8, 8, 11), box, border_radius=4)
+    size = max(40, min(168, bw - 40, bh - 50))
+    ui.icon("item", item_id, (bx + (bw - size) // 2, by + (bh - size) // 2 - 8, size, size), border=border,
+            fallback=fallback)
+    pygame.draw.rect(ui.screen, C["frame_lo"], box, 1, border_radius=4)
+    ui.text(ui.fit(NO_ITEM_RENDER, "tiny", bw - 12), "tiny", "gray", (bx + bw - 6, by + bh - 4), anchor="bottomright")
+
+
+def _pieces_preview(ui, box, set_id, caption):
+    """Pièces d'un ensemble (liste Battle.net), en icônes avec leur emplacement."""
+    bx, by, bw, bh = box
+    if ui.media is None or not ui.media.available():
+        ui.model_placeholder(box, caption, (46, 46, 56), "person", note="pièces : API Battle.net (onglet Hôtel des ventes)")
+        return
+    key = f"set:{set_id}"
+    ui.media.request(key, lambda: ui.media.bnet.set_pieces(set_id))
+    pieces = ui.media.value(key)
+    if not pieces:
+        state = ui.media.state(key)
+        ui.model_placeholder(box, caption, (46, 46, 56), "person",
+                             note="chargement…" if state in ("en cours", "absente") else "indisponible")
+        if state == "erreur":
+            ui.tip(pygame.Rect(box), {"rows": [(ui.media.error(key), C["orange"], "")], "footer": "Clic : réessayer"})
+            ui.click(pygame.Rect(box), lambda: ui.media.retry(key))
+        return
+    pygame.draw.rect(ui.screen, (8, 8, 11), box, border_radius=4)
+    cols = max(1, min(len(pieces), (bw - 16) // 110))
+    rows_n = (len(pieces) + cols - 1) // cols
+    cell_w, cell_h = (bw - 16) // cols, min(130, (bh - 30) // rows_n)
+    size = max(28, min(64, cell_h - 30))
+    top = by + max(8, (bh - 22 - rows_n * cell_h) // 2)
+    for i, piece in enumerate(pieces):
+        cx = bx + 8 + (i % cols) * cell_w + cell_w // 2
+        rc = pygame.Rect(cx - size // 2, top + (i // cols) * cell_h, size, size)
+        ui.icon("item", piece["item"], rc, border=C["frame"], fallback=piece.get("name", ""))
+        ui.text(ui.fit(piece.get("slot", ""), "tiny", cell_w - 8), "tiny", "light_gray", (cx, rc.bottom + 4),
+                anchor="midtop")
+        ui.tip(rc, {"rows": [(piece.get("name") or f"Objet {piece['item']}", C["gold"], ""),
+                             (piece.get("slot", ""), C["light_gray"], "")], "footer": "Clic : ouvrir sur Wowhead"})
+        ui.link(rc, item_url(piece["item"]))
+    pygame.draw.rect(ui.screen, C["frame_lo"], box, 1, border_radius=4)
+    ui.text("Pièces de l'ensemble (Battle.net)", "tiny", "gray", (bx + bw - 6, by + bh - 4), anchor="bottomright")
+
+
+def _draw_text(ui, rect, top, title, title_color, rows, bottom):
+    x, y, w, h = rect
+    ui.text(ui.fit(title, "large", w - 32), "large", title_color, (x + 16, top), shadow=True)
+    ry = top + TITLE_H
+    for row in rows:
+        if row is None:
+            ry += GAP
+            continue
+        if ry + LINE_H > bottom:
+            break
+        ui.text(row[0], "small", row[1], (x + 16, ry))
+        ry += LINE_H
+
+
+def _detail(ui, rect, caption, tint, shape, title, title_color, lines, url, llm_title, llm_context, media=None,
+            icon=None):
+    """L'aperçu prend toute la hauteur que le texte laisse libre.
+    `media` : (clé, fonction qui rend le chemin de l'image) pour une image Battle.net (montures, mascottes) ;
+    `icon` : (id de l'objet, couleur du cadre) pour les objets, que Battle.net ne rend pas."""
     x, y, w, h = rect
     ui.frame(rect, "Détail")
-    box = (x + 16, y + 46, w - 32, 300)
-    if media and ui.media is not None and ui.media.available():
+    rows = _text_rows(ui, lines, w - 36)
+    box = _preview_box(rect, rows)
+    if icon:
+        _icon_preview(ui, box, icon[0], icon[1], fallback=title)
+    elif media and ui.media is not None and ui.media.available():
         ui.media.request(*media)
         ui.media_view(box, media[0], caption, tint, shape)
     else:
-        ui.model_placeholder(box, caption, tint, shape)
-    ry = y + 360
-    ui.text(ui.fit(title, "large", w - 32), "large", title_color, (x + 16, ry), shadow=True)
-    ry += 38
-    for text, color in lines:
-        for line in ui.wrap(text, "small", w - 36):
-            if ry > y + h - 70:
-                break
-            ui.text(line, "small", color, (x + 16, ry))
-            ry += 21
-        ry += 4
+        ui.model_placeholder(box, caption, tint, shape, note=NEEDS_BNET if media else "à venir")
+    _draw_text(ui, rect, box[1] + box[3] + 14, title, title_color, rows, y + h - BUTTONS_H + 6)
     ui.detail_buttons(x + 16, y + h - 50, url, llm_title, llm_context)
 
 
@@ -169,7 +250,7 @@ def _mounts(ui, ctx, rect):
     url = spell_url(m["spellID"])
     source = clean_wow_text(m["source"]).strip()
     desc = clean_wow_text(m["desc"]).strip()
-    _detail(ui, right, "Modèle 3D de la monture", (40, 44, 60), "object", m["name"], C["gold"],
+    _detail(ui, right, "Image de la monture", (40, 44, 60), "object", m["name"], C["gold"],
             [("Obtenue" if m["collected"] else "Pas encore obtenue", C["green"] if m["collected"] else C["orange"]),
              (source, C["light_gray"]), (desc, C["gray"])], url, f"Monture : {m['name']}",
             _context("Monture", m["name"], "obtenue" if m["collected"] else "pas encore obtenue", [f"Source : {source}", desc], url),
@@ -230,10 +311,11 @@ def _pets(ui, ctx, rect):
     lines.append(("Combat de mascottes : " + ("oui" if p["battle"] else "non"), C["gray"]))
     source, desc = clean_wow_text(p["source"]).strip(), clean_wow_text(p["desc"]).strip()
     lines += [(source, C["light_gray"]), (desc, C["gray"])]
-    _detail(ui, right, "Modèle 3D de la mascotte", PET_TYPE_COLORS.get(p["type"], (60, 60, 70)), "object", p["name"],
+    _detail(ui, right, "Image de la mascotte", PET_TYPE_COLORS.get(p["type"], (60, 60, 70)), "object", p["name"],
             C["gold"], lines, url, f"Mascotte : {p['name']}",
             _context("Mascotte de combat", p["name"], "possédée" if p["owned"] else "pas encore possédée",
-                     [f"Famille : {PET_TYPES.get(p['type'], '?')}", f"Source : {source}", desc], url))
+                     [f"Famille : {PET_TYPES.get(p['type'], '?')}", f"Source : {source}", desc], url),
+            media=(f"pet:{p['id']}", lambda sid=p["id"], cid=p.get("creature", 0): ui.media.bnet.pet_image(sid, cid)))
 
 
 # ===========================================================================
@@ -267,14 +349,15 @@ def _simple_collection(ui, ctx, rect, view, title, entries, filter_key, search_k
     name = it["name"] or ui.icons.display_name(it["id"]) or f"Objet {it['id']}"
     url = item_url(it["id"])
     lines = detail_lines_fn(it)
-    _detail(ui, right, caption, (46, 46, 56), "object", name, QUALITY_COLORS.get(it.get("quality", 1), C["gold"]) if it["owned"] else C["gold"],
-            lines, url, f"{kind_label} : {name}",
-            _context(kind_label, name, "obtenu" if it["owned"] else "pas encore obtenu", [t for t, _ in lines], url))
+    color = QUALITY_COLORS.get(it.get("quality", 1), C["gold"]) if it["owned"] else C["gold"]
+    _detail(ui, right, caption, (46, 46, 56), "object", name, color, lines, url, f"{kind_label} : {name}",
+            _context(kind_label, name, "obtenu" if it["owned"] else "pas encore obtenu", [t for t, _ in lines], url),
+            icon=(it["id"], color if it["owned"] else C["frame"]))
 
 
 def _toys(ui, ctx, rect):
     _simple_collection(ui, ctx, rect, "toys", "Jouets", ctx.data.toys["list"], "toy_filter", "toy_search",
-                       lambda t: "Obtenu" if t["owned"] else "Manquant", "Modèle 3D du jouet",
+                       lambda t: "Obtenu" if t["owned"] else "Manquant", "Jouet",
                        lambda t: [("Obtenu" if t["owned"] else "Pas encore obtenu", C["green"] if t["owned"] else C["orange"])], "Jouet")
 
 
@@ -287,7 +370,7 @@ def _heirlooms(ui, ctx, rect):
             out.append((clean_wow_text(h["source"]), C["gray"]))
         return out
     _simple_collection(ui, ctx, rect, "heirlooms", "Héritage", ctx.data.heirlooms["list"], "toy_filter", "heirloom_search",
-                       lambda t: "Obtenu" if t["owned"] else "Manquant", "Modèle 3D de l'objet d'héritage", lines, "Objet d'héritage")
+                       lambda t: "Obtenu" if t["owned"] else "Manquant", "Objet d'héritage", lines, "Objet d'héritage")
 
 
 # ===========================================================================
@@ -461,7 +544,7 @@ def _tm_selection(ui, ctx, sel):
                 lines = [(f"Catégorie : {cat}", C["light_gray"]), (_classes_of_item(item), C["gray"]),
                          ("Apparence obtenue par le compte", C["green"])]
                 return {"title": name, "color": QUALITY_COLORS.get(item["quality"], C["gold"]), "lines": lines, "url": url,
-                        "caption": "Modèle 3D de l'objet équipé", "llm_title": f"Apparence : {name}",
+                        "caption": "Apparence", "item": item["id"], "llm_title": f"Apparence : {name}",
                         "llm_context": _context("Apparence de transmogrification", name, "obtenue", [f"Catégorie : {cat}", _classes_of_item(item)], url)}
     else:
         for s in tm["sets"]:
@@ -470,7 +553,7 @@ def _tm_selection(ui, ctx, sel):
                 complete = s["total"] and s["have"] >= s["total"]
                 lines = [(s["label"], C["light_gray"]), (_classes_of_set(s), C["gray"]),
                          (f"{s['have']}/{s['total']} pièces obtenues", C["green"] if complete else C["orange"])]
-                return {"title": s["name"], "color": C["gold"], "lines": lines, "url": url, "caption": "Modèle 3D de l'ensemble",
+                return {"title": s["name"], "color": C["gold"], "lines": lines, "url": url, "caption": "Ensemble", "set": s["id"],
                         "llm_title": f"Ensemble : {s['name']}",
                         "llm_context": _context("Ensemble de transmogrification", s["name"],
                                                 f"{s['have']}/{s['total']} pièces obtenues", [s["label"], _classes_of_set(s)], url)}
@@ -480,15 +563,16 @@ def _tm_selection(ui, ctx, sel):
 def _tm_detail(ui, rect, info):
     x, y, w, h = rect
     ui.frame(rect, "Aperçu")
-    ui.model_placeholder((x + 16, y + 46, w - 32, h - 200), info["caption"] if info else "Modèle 3D", (46, 46, 56), "person")
     if not info:
+        ui.model_placeholder((x + 16, y + 46, w - 32, h - 200), "Aperçu", (46, 46, 56), "person", note="")
         ui.text("Choisissez un élément dans la liste", "small", "gray", (x + w // 2, y + h - 90), anchor="center")
         return
-    ry = y + h - 140
-    ui.text(ui.fit(info["title"], "large", w - 32), "large", info["color"], (x + 16, ry), shadow=True)
-    ry += 36
-    for text, color in info["lines"]:
-        for line in ui.wrap(text, "small", w - 36)[:2]:
-            if ry < y + h - 18:
-                ui.text(line, "small", color, (x + 16, ry))
-            ry += 20
+    rows = _text_rows(ui, info["lines"], w - 36)
+    box = _preview_box(rect, rows, reserve=-BUTTONS_H + 18)
+    if info.get("set"):
+        _pieces_preview(ui, box, info["set"], info["caption"])
+    elif info.get("item"):
+        _icon_preview(ui, box, info["item"], info["color"], fallback=info["title"])
+    else:
+        ui.model_placeholder(box, info["caption"], (46, 46, 56), "person")
+    _draw_text(ui, rect, box[1] + box[3] + 14, info["title"], info["color"], rows, y + h - 12)

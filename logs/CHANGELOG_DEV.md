@@ -885,3 +885,22 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - `main.py` appelait `WoWConfig.BASE_DIR` (variable du module `config`, pas de la classe) : AttributeError au lancement, signalé par Jérémy après copie dans Hermes-Agent. Corrigé (import de `BASE_DIR`). FAIT-TESTÉ : lancement réel 12 s sans erreur.
 - Nouveau test `tests/gaming_hud/test_config_refs.py` : tout `WoWConfig.X` utilisé existe (échoue sans le correctif).
 
+
+## 23/11/2026 : WoW Assistant, banque du personnage et aperçus des Collections
+- Tests 36 à 39 : **OK (Jérémy)**. Il choisit de s'en tenir aux images de l'API Battle.net (pas d'extraction des
+  fichiers du jeu).
+- **Banque du personnage** (oubliée) : addon 1.8, `ScanCharacterBank` (onglets de banque 11.2+ par
+  `C_Bank.FetchPurchasedBankTabData(Enum.BankType.Character)`, sinon ancienne banque `-1` + sacs de banque +
+  banque de composants) ; lue avec la banque de bataillon à chaque ouverture chez le banquier. Onglet Sacs :
+  bouton « Banque du personnage » ; Hôtel des ventes : comptée dans « Valeur des banques ». FAIT-TESTÉ sur un faux
+  jeu (lupa, les deux variantes) ; **pas encore en jeu**.
+- **Collections** : l'aperçu prend toute la hauteur que le texte laisse (fini le grand vide sous la description).
+  Ce que l'API Battle.net propose, vérifié avec les identifiants de Jérémy : mascottes → créature → affichage →
+  image 600×600 (comme les montures) ; jouets, héritage, apparences → **seulement l'icône 56 px** (aucun rendu
+  d'objet ; le média d'apparence répond 404) ; ensembles → liste des apparences, donc des pièces. D'où : image
+  pour les mascottes, grande icône pour les objets (avec la mention), icônes des pièces pour les ensembles.
+- **Rendu du personnage recadré** : les marges transparentes du rendu 1600×1200 sont retirées
+  (`media.trim_transparent`) ; sur le vrai rendu de Jérémy le personnage passe de 82 à 289 px de haut dans le cadre.
+- Texte des sources : un code d'icône coupé par la limite de longueur (`|TINTERFACE\ICONS\…` sans `|t`) est retiré.
+- Message 404 de Battle.net : la mention « personnage jamais vu » ne s'affiche plus que pour un personnage.
+- **Tests :** 8 nouveaux (`test_collections_media.py`, `test_addon_lua.py`) ; suite verte ; ruff propre.

@@ -837,6 +837,40 @@ function A:ScanWarbandBank()
     DB().warbandBank = { updated = time(), money = try(C_Bank.FetchDepositedMoney, bankType) or 0, tabs = tabs }
 end
 
+-- Banque du personnage : onglets (11.2 et après) ou ancienne banque (emplacement principal + sacs de banque).
+function A:ScanCharacterBank()
+    if not C_Container then return end
+    local bagIndex = (Enum and Enum.BagIndex) or {}
+    local tabs = {}
+    local charType = Enum and Enum.BankType and Enum.BankType.Character
+    local tabData = charType and C_Bank and C_Bank.FetchPurchasedBankTabData
+        and try(C_Bank.FetchPurchasedBankTabData, charType)
+    if type(tabData) == "table" and #tabData > 0 and bagIndex.CharacterBankTab_1 then
+        if C_Bank.CanViewBank and not try(C_Bank.CanViewBank, charType) then return end
+        for idx, t in ipairs(tabData) do
+            local bagID = bagIndex["CharacterBankTab_" .. idx] or (bagIndex.CharacterBankTab_1 + idx - 1)
+            local name = (t.name and t.name ~= "") and t.name or ("Onglet " .. idx)
+            tabs[#tabs + 1] = { name = name, items = ScanBags({ bagID }) }
+        end
+    else
+        local bags = { bagIndex.Bank or -1 }
+        for i = 1, 7 do
+            local id = bagIndex["BankBag_" .. i]
+            if id then bags[#bags + 1] = id end
+        end
+        if #bags == 1 and type(NUM_BAG_SLOTS) == "number" and type(NUM_BANKBAGSLOTS) == "number" then
+            for i = NUM_BAG_SLOTS + 1, NUM_BAG_SLOTS + NUM_BANKBAGSLOTS do bags[#bags + 1] = i end
+        end
+        tabs[1] = { name = "Banque", items = ScanBags(bags) }
+        local reagents = bagIndex.Reagentbank or (type(REAGENTBANK_CONTAINER) == "number" and REAGENTBANK_CONTAINER)
+        if reagents then
+            local list = ScanBags({ reagents })
+            if #list > 0 then tabs[2] = { name = "Composants", items = list } end
+        end
+    end
+    DB().characterBank = { updated = time(), money = 0, tabs = tabs }
+end
+
 function A:ScanGuildBankTab()
     if type(GetCurrentGuildBankTab) ~= "function" then return end
     local tab = try(GetCurrentGuildBankTab)
@@ -1363,7 +1397,12 @@ function A:ScheduleBankScan(guild)
     C_Timer.After(1.2, function()
         A[key] = false
         if not A.worldReady then return end
-        pcall(guild and A.ScanGuildBankTab or A.ScanWarbandBank, A)
+        if guild then
+            pcall(A.ScanGuildBankTab, A)
+        else
+            pcall(A.ScanCharacterBank, A)
+            pcall(A.ScanWarbandBank, A)
+        end
     end)
 end
 

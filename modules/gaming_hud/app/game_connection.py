@@ -374,6 +374,7 @@ class GameConnection:
             "lockouts": _normalize_lockouts(db.get("lockouts")),
             "vault": _normalize_vault(db.get("vault")),
             "mythicPlus": _normalize_mythic(db.get("mythicPlus")),
+            "characterBank": _normalize_bank(db.get("characterBank")),
             "warbandBank": _normalize_bank(db.get("warbandBank")),
             "guildBank": _normalize_guild_bank(db.get("guildBank")),
             "log": _dict_list(db.get("log")),

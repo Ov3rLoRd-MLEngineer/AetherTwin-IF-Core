@@ -94,6 +94,13 @@ layout.json · chat_history.json · wowhead_links.json · recipes.json
   règle l'API Battle.net seule.
 - Plusieurs serveurs IA enregistrés (actif / inactif, fournisseur), modèles de tous les serveurs actifs.
 
+## Nouveautés du 23/11/2026
+- **Banque du personnage** (onglet Sacs) : addon **1.8** ; ouvrez une fois votre banque chez un banquier, puis
+  /ha save. Comptée aussi dans « Valeur des banques » (Hôtel des ventes).
+- **Collections** : aperçu plus grand. Mascottes en image (API Battle.net, comme les montures) ; jouets, héritage et
+  apparences en grande icône (Battle.net ne propose pas de rendu des objets) ; ensembles : icônes de leurs pièces.
+- **Personnage** : le rendu officiel est recadré pour remplir le cadre.
+
 ## Correctifs du 17/11/2026
 - **Fermeture** : la croix de la fenêtre principale ferme bien l'appli, même après avoir ouvert (puis fermé) l'overlay.
 - **Champs de saisie** : rester appuyé sur une touche la répète ; curseur déplaçable (flèches, Début, Fin, clic), touche Suppr ;

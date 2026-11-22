@@ -321,6 +321,8 @@ tests/
     conftest.py
     test_adapters.py
     test_addon_lua.py
+    test_collections_media.py
+    test_config_refs.py
     test_market.py
     test_module.py
     test_obs_hud.py
