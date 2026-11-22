@@ -82,10 +82,10 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | Installation (`scripts/setup.ps1`, `-Gpu`, `-Weights`, `-Shortcut`) | P0 | J8 | `FAIT-TESTÉ` | clone vierge : 75 s sans GPU, 169 s avec PyTorch (cache pip chaud) ; suite complète verte ; `-Weights` et `-Shortcut` non rejoués sur le clone |
 | Assistant : réponse mot à mot (`/ask/stream`) | P1 | J8 | `FAIT-TESTÉ` | **réel** : premier mot à 16 s chargement compris, ~30 morceaux/s ; l'API compatible OpenAI reste sans diffusion |
 | `scantrad` : correction à la main et réincrustation | P1 | J8 | `FAIT-TESTÉ` | page nettoyée et bulles gardées à côté de la traduction ; tests par l'API ; pas encore essayé par Jérémy |
-| `mangastudio` : détection automatique des mains/pieds | P2 | J8 | `FAIT-TESTÉ` | **réel** : `qwen2.5vl:7b` propose 5 boîtes en 2,6 s, HandSegNet en fait 5 masques ; 2 débordent (manteau, cape). Page de manga N&B = hors domaine : les deux modèles n'ont vu que des images SDXL (précision de Jérémy) ; à rejuger sur des images SDXL |
+| `mangastudio` : détection automatique des mains/pieds | P2 | J8 | `FAIT-TESTÉ` | **réel** : `qwen2.5vl:7b` propose 5 boîtes en 2,6 s, HandSegNet en fait 5 masques ; 2 débordent (manteau, cape). Page de manga N&B = hors domaine : les deux modèles n'ont vu que des images SDXL (précision de Jérémy). **Jérémy, 22/11 : marche aussi sur photos, masque parfois trop large — « en cours », à ajuster** |
 | Assistant : conversation (historique, Markdown) | P1 | J8 | `FAIT-TESTÉ` | **réel** : la 2e question retrouve le nom et la classe donnés à la 1re (1,8 s) ; listes et gras rendus sans HTML injecté |
 | Assistant appuyé sur la base (sources citées) | P1 | J8 | `FAIT-TESTÉ` | **réel** : « un parsec vaut environ 3,26 années-lumière [1] » ; question hors sujet : aucune source jointe. Seuil 0,65 mesuré (couvert 0,70-0,81, hors sujet 0,55-0,61) ; préfixes nomic essayés, sans gain |
-| Accueil : décharger un modèle | P1 | J8 | `FAIT-TESTÉ` (tests) | bouton par modèle chargé ; pas essayé dans le navigateur |
+| Accueil : décharger un modèle | P1 | J8 | `FAIT-TESTÉ` | bouton par modèle chargé ; **essayé par Jérémy le 22/11** |
 | Sécurité de l'API : origine et hôte vérifiés | P0 | J8 | `FAIT-TESTÉ` | une écriture venue d'un autre site (formulaire, `Sec-Fetch-Site: cross-site`, `Origin: null`) ou un hôte non local (DNS rebinding) reçoit 403 ; le tableau de bord continue de fonctionner (vérifié en réel) |
 | `scantrad` : chapitre entier | P1 | J8 | `FAIT-TESTÉ` | **réel** dans le navigateur : 2 pages en 42 s, ordre des noms, galerie, correction par page ; a révélé un bogue (envoi sans clic) corrigé |
 | `scantrad` : fin de ligne espacée, marge d'OCR blanchie | P1 | J8 | `FAIT-TESTÉ` | « だよ » de la page de test n'était pas effacé ; une première correction a fait lire au modèle le texte d'une bulle voisine sur le dessin (« Ce monde », « Mariage » posés sur l'image) : corrigé, vraie page revenue à 4 bulles justes et 7 faux positifs écartés |
@@ -93,7 +93,7 @@ conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `À FAIRE`.
 | Professeur : laboratoire FASTA dans le navigateur | P1 | J5/J8 | `FAIT-TESTÉ` | **réel** : exemple GFP, 178 bases, GC 40,449 %, 1 ORF de 53 acides aminés (MASKGEELFTGVV…) |
 | Fermeture douce de WoW Assistant | P1 | J8 | `FAIT-TESTÉ` | **réel** : fermée par demande de fenêtre en 2 s, sans forcer ; repli forcé au bout de 6 s |
 | Journal du Hub (`logs/hub.log`) | P1 | J8 | `FAIT-TESTÉ` | démarrages, arrêts, erreurs, alertes, applications ; jamais les états du jeu ; 1 Mo × 3 |
-| Jeu : ambiance sonore générée | P2 | J8 | `FAIT-NON-TESTÉ` | Web Audio, nappes par ambiance + carillon d'arrivée ; s'active sans erreur, **jamais écoutée** |
+| Jeu : ambiance sonore générée | P2 | J8 | `FAIT-TESTÉ` | Web Audio, nappes par ambiance + carillon d'arrivée ; **écoutée par Jérémy le 22/11** : les ambiances se ressemblent trop, pas de réglage du volume |
 | Accueil : budget VRAM d'Inoue | P1 | J8 | `FAIT-TESTÉ` | vérifié sur le Hub de Jérémy (6,39 Go réservés sur 28,66) |
 | `if_game` : rendu HD-2D | P2 | J8 | `FAIT-TESTÉ` | vérifié à l'œil dans le navigateur (6 ambiances, dont 4 vues), clic réel sur un portail ; fluidité non mesurée sur une autre machine |
 | `if_game` : Fuma & Inoue, onglet Éther | P2 | J7 | `FAIT-TESTÉ` | graine reproductible, propositions du modèle validées (ton calme, formes), sauvegarde ; **réel** : lieu inventé par `qwen3-27b` et réplique de Fuma acceptés |
@@ -160,11 +160,12 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 5 | Relever le message exact de limite de Claude Code | copier la ligne de `logs\relay.log` | permet d'ajuster `QUOTA_PATTERNS` si besoin |
 | 7 | Hub complet — **OK (Jérémy, 17/11)** ; à refaire avec les onglets | raccourci **AetherTwin** ; onglet **Jeu** : « Lancer WoW Assistant », puis « Fermer » | la fenêtre de WoW Assistant s'ouvre et se ferme depuis le navigateur ; « Ce que l'assistant sait de ton jeu » affiche ton personnage |
 | 8 | Bascule Showcase avec OBS réel — **OK (Jérémy, 17/11)** : ouverture, fermeture, forçage | — | — |
-| 15 | Jeu HD-2D | onglet **Éther** : cliquer sur les portails lumineux, « parler à Inoue » | la scène change de décor à chaque lieu, fondu d'arrivée ; note si l'animation saccade |
-| 17 | Corriger une traduction | onglet **Scantrad**, après une traduction : modifier une ligne, « Réincruster mes corrections » | la page traduite se met à jour en une ou deux secondes |
-| 18 | Mains automatiques | onglet **Studio** : image, « Détecter automatiquement », vérifier les boîtes, « Créer le masque » | boîtes proposées puis masques teintés |
-| 19 | Ambiance sonore du jeu | onglet **Éther**, bouton « Son : coupé », puis changer de lieu | nappe douce, carillon à chaque arrivée ; dis-moi si c'est trop fort ou désagréable |
-| 16 | Assistant mot à mot (et conversation) | onglet **Assistant** : une question | le texte s'écrit au fur et à mesure |
+| 15 | Jeu HD-2D — **OK (Jérémy, 22/11)** : pas de saccade ; joué au texte surtout | — | — |
+| 16 | Assistant mot à mot — **OK (Jérémy, 22/11)** | — | — |
+| 17 | Corriger une traduction — **fonctionne, détection limitée (Jérémy, 22/11)** | — | demande : mode manuel (zones posées à la souris dans l'ordre de lecture, gomme blanche, réincrustation) |
+| 18 | Mains automatiques — **en cours d'ajustement (Jérémy, 22/11)** : marche aussi sur photos et images variées, masque parfois trop large | — | à étudier |
+| 19 | Ambiance sonore — **entendue (Jérémy, 22/11)** : style original | — | demandes : ambiance propre à chaque type de lieu (plage, forêt, grotte), réglage du volume |
+| — | Décharger un modèle — **OK (Jérémy, 22/11)** | — | — |
 | 13 | Scantrad sur une de tes pages — 1er essai : bulles ratées, texte non effacé (corrigé le 17/11) | onglet **Scantrad** : choisir l'image, « Traduire » | original et traduction côte à côte, liste des bulles ; note celles qui manquent |
 | 14 | Recherche par vecteurs — **OK (Jérémy, 17/11)** : 377 passages avec vecteurs | — | — |
 | 12 | Professeur — **OK (Jérémy, 17/11)** | — | — |

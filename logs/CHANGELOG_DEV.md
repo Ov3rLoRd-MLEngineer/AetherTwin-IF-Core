@@ -708,3 +708,16 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   crêpes : aucune source jointe, réponse de culture générale.
 - **Domaine :** HandSegNet/FootSegNet entraînés uniquement sur des images SDXL (précision de Jérémy) : noté.
 - **Tests :** ruff propre ; pytest vert.
+
+## 2026-11-22 16h55 — Retours de Jérémy sur les tests 15 à 19
+
+- **Agent :** Cloud
+- **Fichiers :** `PROJECT_STATUS.md`, `logs/CHANGELOG_DEV.md`
+- **Retours :** 15 (HD-2D) OK, sans saccade ; 16 (mot à mot) OK ; « Décharger » OK. 17 (Scantrad) : marche,
+  mais la détection a des limites → demande d'un mode manuel (zones à la souris dans l'ordre de lecture,
+  gomme blanche, réincrustation). 18 (Studio) : marche aussi sur photos, masque parfois trop large → « en cours ».
+  19 (son) : à différencier par type de lieu, ajouter un volume. La case numérique de l'onglet Éther est la graine
+  de « Nouvelle partie » (non expliquée à l'écran).
+- **Constat sur sa capture de l'Accueil :** VRAM mesurée 29,83 Go pour un budget de 28,66 Go : Inoue compte les
+  réservations déclarées mais ne refuse rien sur la base de la mesure réelle.
+- **Tests :** aucun code modifié.
