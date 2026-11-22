@@ -52,8 +52,10 @@ async function refreshHub() {
       const pct = inoue.budget_gb ? Math.min(100, Math.round(100 * inoue.allocated_gb / inoue.budget_gb)) : 0;
       $("inoue-bar").style.width = `${pct}%`;
       $("inoue-line").textContent = `Réservé : ${inoue.allocated_gb} Go sur ${inoue.budget_gb} Go de budget `
-        + `(VRAM totale ${inoue.total_gb} Go, mesurée en usage : ${inoue.measured_used_gb} Go)`
+        + `(VRAM totale ${inoue.total_gb} Go, mesurée en usage : ${inoue.measured_used_gb} Go, `
+        + `dont ${inoue.unaccounted_gb ?? 0} Go hors réservations : jeux, navigateur, contextes CUDA)`
         + (inoue.degraded ? " — GPU non mesurés : tout est refusé par prudence" : "");
+      $("inoue-warn").hidden = !inoue.over_budget;
       const entries = Object.entries(inoue.allocations || {});
       $("inoue-list").replaceChildren(...(entries.length
         ? entries.map(([who, gb]) => el("li", {}, `${who.replace(/^llm-small:/, "petit modèle ")

@@ -738,3 +738,15 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   par l'utilisateur, il y a du texte) : 2 zones lues. Fantôme gris après effacement → l'encre et son halo clair
   sont recouverts de la couleur du papier sur une bulle blanche (inpainting gardé sur trame).
 - **Tests :** 7 nouveaux ; suite complète verte, ruff propre.
+## 2026-11-22 soir — Inoue tient compte de la VRAM mesurée
+
+- **Agent :** Cloud
+- **Fichiers :** `core/guardians/inoue.py`, `core/web/dashboard.{html,js}`, `tests/core/test_guardians.py`
+- **Pourquoi :** capture de l'Accueil de Jérémy : 29,83 Go mesurés pour 28,66 Go de budget (RTX 5060 Ti à 99 %).
+  Inoue ne comptait que les réservations ; le reste (embedding appelé hors routeur, contexte CUDA de
+  `mangastudio`, navigateur, jeux) lui échappait.
+- **Quoi :** place libre = budget − max(réservé, mesuré). État : `unaccounted_gb`, `over_budget`. L'Accueil
+  affiche la part hors réservations et une alerte au-dessus du budget.
+- **Réel :** Hub relancé ; à vide 1,9 Go mesurés (bureau) ; `qwen3-27b` chargé par `/ask` : 18,0 Go réservés,
+  19,0 mesurés, 9,6 Go libres annoncés.
+- **Tests :** 1 nouveau ; suite verte.

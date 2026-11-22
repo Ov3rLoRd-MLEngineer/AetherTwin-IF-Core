@@ -24,6 +24,20 @@ def monitor(*total_gb: float) -> GpuMonitor:
 
 
 # --------------------------------------------------------------------------- Inoue
+def test_measured_vram_outside_the_books_reduces_what_is_granted() -> None:
+    """Un jeu ou un contexte CUDA occupe 20 Go que la comptabilité ignore : Inoue ne donne que le reste."""
+    gpus = [GpuInfo(0, "GPU 0", 16 * 1024, 12 * 1024), GpuInfo(1, "GPU 1", 16 * 1024, 8 * 1024)]
+    inoue = Inoue(GpuMonitor(FakeBackend(gpus)))  # budget 28,8 Go, 20 Go mesurés, 0 attribué
+    assert inoue.available_gb() == pytest.approx(8.8)
+    assert inoue.request("gros", min_gb=10).verdict is Verdict.QUEUED
+    assert inoue.request("petit", min_gb=4).verdict is Verdict.GRANTED
+    state = inoue.state()
+    assert state["unaccounted_gb"] == pytest.approx(16) and state["over_budget"] is False
+    gpus[1] = GpuInfo(1, "GPU 1", 16 * 1024, 16 * 1024)  # 28 + … : au-dessus du budget
+    gpus[0] = GpuInfo(0, "GPU 0", 16 * 1024, 15 * 1024)
+    assert inoue.state()["over_budget"] is True and inoue.available_gb() == 0
+
+
 def test_budget_keeps_ten_percent_margin() -> None:
     inoue = Inoue(monitor(16, 16))
     assert inoue.total_gb() == 32 and inoue.budget_gb() == pytest.approx(28.8)

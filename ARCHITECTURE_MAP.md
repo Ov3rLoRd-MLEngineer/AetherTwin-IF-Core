@@ -449,7 +449,8 @@ Inoue — gardienne de l'énergie et de la VRAM.
   - `def total_gb(self) -> float`
   - `def budget_gb(self) -> float` — VRAM attribuable : total moins la marge de sécurité.
   - `def allocated_gb(self) -> float`
-  - `def available_gb(self) -> float`
+  - `def measured_gb(self) -> float` — VRAM occupée d'après les cartes (0 sans mesure).
+  - `def available_gb(self) -> float` — Place libre : budget moins le plus grand du prévu (attributions) et du réel (mesure).
   - `def request(self, name: str, min_gb: float, comfort_gb: float | None=None) -> Decision` — Demande de VRAM. Accorde le confortable s'il tient, sinon le minimum, sinon met en file.
   - `def release(self, name: str) -> list[tuple[str, Decision]]` — Libère l'attribution d'un module, puis sert la file d'attente dans l'ordre d'arrivée.
   - `def plan_llm_load(self, model: str, vram_gb: float) -> tuple[Decision, list[str]]` — Prépare le chargement d'un gros modèle de langage.

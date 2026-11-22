@@ -51,7 +51,7 @@ Les documents finaux et le gel J9 attendent sa demande.
 | Relais — agent local Aider / OpenCode | P0 | J1 | `FAIT-NON-TESTÉ` | commande construite et testée ; **Aider et OpenCode ne sont pas installés** sur ce poste |
 | `core/hardware/gpu_monitor.py` | P0 | J2 | `FAIT-TESTÉ` | lecture réelle des 2 GPU via `pynvml` (nom, VRAM, charge, température, puissance) ; repli `nvidia-smi` puis « inconnu » testés |
 | `core/module_api.py` (manifeste, événements, classe de base) | P0 | J2 | `FAIT-TESTÉ` | validation et découverte testées ; aucun vrai module ne l'utilise encore |
-| Inoue — budget VRAM, file d'attente, un seul gros LLM | P0 | J2 | `SIMULÉ` | comptabilité testée avec des GPU factices ; **ne pilote pas encore Ollama** (aucun chargement/déchargement réel) |
+| Inoue — budget VRAM, file d'attente, un seul gros LLM | P0 | J2→J8 | `FAIT-TESTÉ` | branchée sur le routeur LLM (déchargement réel du gros modèle précédent). **22/11** : la place libre tient compte de la VRAM **mesurée** (Jérémy avait 29,8 Go mesurés pour 28,7 de budget) ; alerte « au-dessus du budget » sur l'Accueil. Réel : `qwen3-27b` chargé, 9,6 Go libres annoncés pour 19,0 mesurés |
 | Fuma — watchdog, alertes thermiques, mode nocturne | P0 | J2 | `SIMULÉ` | testé avec des modules factices et une horloge injectée ; pas encore branché sur de vrais processus |
 | `core/bus.py` — bus entre processus sur 127.0.0.1 | P0 | J2 | `FAIT-TESTÉ` | événement échangé avec un vrai second processus ; clé erronée refusée ; messages JSON |
 | `core/scheduler.py` — file d'attente GPU unique | P0 | J2 | `SIMULÉ` | testé avec des tâches factices ; aucune vraie tâche vision/diffusion |

@@ -7,7 +7,9 @@ Règles appliquées (voir CLAUDE.md, « Règles VRAM strictes ») :
   3. une marge de sécurité de 10 % de la VRAM totale n'est jamais attribuée.
 
 Inoue tient une comptabilité des attributions ; elle ne charge ni ne décharge rien elle-même.
-La VRAM réellement mesurée est exposée à côté, pour comparer le prévu et le réel.
+La place libre tient compte aussi de la VRAM **réellement mesurée** : ce que la comptabilité ignore (un jeu, le
+navigateur, le contexte CUDA d'un module, un modèle d'embedding) réduit d'autant ce qu'elle accorde. Sans cette
+règle, le Hub de Jérémy a atteint 29,8 Go mesurés pour un budget de 28,7 Go (22/11).
 """
 from __future__ import annotations
 
@@ -70,8 +72,16 @@ class Inoue:
         with self._lock:
             return sum(self._allocations.values())
 
+    def measured_gb(self) -> float:
+        """VRAM occupée d'après les cartes (0 sans mesure)."""
+        try:
+            return self.monitor.report()["vram_used_mib"] / MIB_PER_GB
+        except Exception:  # noqa: BLE001 — pas de mesure : la comptabilité seule fait foi
+            return 0.0
+
     def available_gb(self) -> float:
-        return max(0.0, self.budget_gb() - self.allocated_gb())
+        """Place libre : budget moins le plus grand du prévu (attributions) et du réel (mesure)."""
+        return max(0.0, self.budget_gb() - max(self.allocated_gb(), self.measured_gb()))
 
     # -- demandes
     def request(self, name: str, min_gb: float, comfort_gb: float | None = None) -> Decision:
@@ -140,8 +150,11 @@ class Inoue:
     # -- état (interface du daemon)
     def state(self) -> dict[str, Any]:
         report = self.monitor.report()
+        measured = report["vram_used_mib"] / MIB_PER_GB
         with self._lock:
             return {
+                "over_budget": measured > self.budget_gb() + 1e-9 and measured > 0,
+                "unaccounted_gb": round(max(0.0, measured - self.allocated_gb()), 2),
                 "guardian": "Inoue",
                 "role": "énergie et VRAM",
                 "degraded": report["degraded"],
