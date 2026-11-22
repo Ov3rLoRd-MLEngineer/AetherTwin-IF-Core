@@ -79,7 +79,7 @@ Les documents finaux et le gel J9 attendent sa demande.
 | `genesis_lab` : Professeur adaptatif | P1 | J5 | `FAIT-TESTÉ` | session guidée scriptée (LLM factice) + **essai réel** avec `qwen3-27b` à deux niveaux : le vocabulaire s'adapte, la valeur calculée par le code est conservée. L'essai a montré que le modèle invente des calculs intermédiaires faux : un garde-fou rejette désormais tout nombre non fourni par le code. Sources Wikipédia citées depuis J5 ; « Bravo » à une mauvaise réponse corrigé (test 12) ; validé par Jérémy (17/11) |
 | `genesis_lab` : module du Hub | P1 | J5 | `FAIT-TESTÉ` | calcul demandé sur le bus et rendu par le module dans son processus (démon réel) ; liste blanche d'outils |
 | `scantrad` : chaîne complète | P1 | J6 | `FAIT-TESTÉ` | tests (vraie page de test + modèles factices) et **essai réel** : 5 bulles détectées dans l'ordre manga, OCR exact par `qwen2.5vl:7b`, traduction `qwen3-27b`, 23,6 s, VRAM au plus haut 26 153 MiB. Depuis : vraies pages de Jérémy (dont une double page de One-Punch Man, 22/11 : 8 bulles sur 8 dans l'ordre, après correction de l'ordre et de la lecture par colonnes) |
-| `scantrad` : module du Hub + entrée du lanceur | P1 | J6 | `FAIT-TESTÉ` / `FAIT-NON-TESTÉ` | module piloté par le démon (test réel de processus, sans modèle) ; l'entrée 4 du lanceur n'a pas été jouée de bout en bout |
+| `scantrad` : module du Hub | P1 | J6 | `FAIT-TESTÉ` | module piloté par le démon (test réel de processus) ; utilisé par Jérémy depuis l'onglet Scantrad. (L'ancien menu du lanceur, avec son « entrée 4 », a été remplacé le 17/11 par le lancement direct du tableau de bord) |
 | `mangastudio` : segmentation main/pied | P2 | J7 | `FAIT-TESTÉ` | **réel** : HandSegNet sur RTX 5080, 0,17 s par masque une fois chargé (21,8 s au premier appel), 2,8 Go de VRAM ; simulation GrabCut signalée sans torch ni poids. FootSegNet : chargement vérifié, pas de masque réel essayé |
 | `mangastudio` : nœuds ComfyUI | P2 | J7 | `FAIT-TESTÉ` (hors ComfyUI) | chargés seuls et exécutés avec le vrai modèle ; **jamais chargés dans un vrai ComfyUI** |
 | `mangastudio` : workflow de continuité | P2 | J7 | `FAIT-NON-TESTÉ` | IP-Adapter + ControlNet + masque des mains ; structure vérifiée, aucune image générée |
@@ -186,7 +186,7 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 12 | Professeur — **OK (Jérémy, 17/11)** | — | — |
 | 9 | Assistant de l'appli via le Hub | dans WoW Assistant : Paramètres > Assistant IA, Endpoint `http://127.0.0.1:5750`, puis « Charger la liste des modèles » | la liste des modèles d'Ollama s'affiche ; les réponses passent par le Hub |
 | 11 | Overlay dans OBS — **OK (Jérémy, 17/11, capture)** | — | — |
-| 10 | Tests réels sur GPU | `set AETHERTWIN_REAL_OLLAMA=1` puis `.venv\Scripts\python.exe -m pytest -k real -s` | 2 tests réussis, VRAM affichée |
+| 10 | Tests réels sur GPU — **fait par Claude le 22/11** : tous verts (`qwen3-27b` 16,77 Go en 9,4 s, `qwen3-coder:30b` 19,69 Go en 14,8 s, un seul gros modèle à la fois ; vecteurs `nomic-embed-text` ; `screen_ocr` ; masque HandSegNet) | — | — |
 | 6 | Topologie 3 GPU, une fois le riser installé | `.venv\Scripts\python.exe -m core.hardware.gpu_monitor` | `gpu_count: 3`, environ 48 900 MiB |
 
 ## Points attendus de Jérémy
