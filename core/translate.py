@@ -18,9 +18,9 @@ from modules.scantrad.languages import LANGUAGES, language
 
 MAX_TEXT = 6000
 IDIOMS = ("Les formules toutes faites (salutations, politesse, repas, fin de journée…) se rendent par ce qu'un "
-          "francophone dirait dans la même situation, pas mot à mot (よろしくお願いします, いただきます, お疲れ様…). Un nom "
-          "propre étranger transcrit phonétiquement (katakana, hangul, caractères chinois) se rend dans sa graphie "
-          "d'origine probable (ジェルミ → Jérémy, マイケル → Michael).")
+          "francophone dirait dans la même situation, pas mot à mot (よろしくお願いします, いただきます, "
+          "お疲れ様…). Un nom propre étranger transcrit phonétiquement (katakana, hangul, caractères chinois) "
+          "se rend dans sa graphie d'origine probable (ジェルミ → Jérémy, マイケル → Michael).")
 Chat = Callable[..., dict[str, Any]]  # LlmRouter.chat
 
 SCRIPTS = [("ko", re.compile(r"[가-힯]")), ("ja", re.compile(r"[぀-ヿ]")), ("zh", re.compile(r"[㐀-鿿]")),
