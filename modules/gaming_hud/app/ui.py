@@ -846,6 +846,59 @@ class UI:
                                           ("Raccourcis globaux (Windows) : voir Paramètres généraux > Overlay.", C["gray"], "")]})
         return overlay_rect.x - 16
 
+    def _draw_raidbots_buttons(self, rect):
+        """Cadre d'équipement : « Profil Raidbots » / « Résultat Raidbots » (simc.py)."""
+        x, y, w, h = rect
+        half = (w - 6) // 2
+        simc_rect, paste_rect = pygame.Rect(x, y, half, h), pygame.Rect(x + half + 6, y, w - half - 6, h)
+        self.pill(simc_rect, "Profil Raidbots", False, self.copy_simc_profile, font="tiny")
+        self.pill(paste_rect, "Résultat Raidbots", False, self.paste_raidbots_result, font="tiny")
+        self.tip(simc_rect, {"rows": [("Copie votre profil SimulationCraft (équipement porté, talents)", C["light_gray"], ""),
+                                       ("et ouvre raidbots.com : collez-le dans Droptimizer ou Top Gear.", C["gray"], "")]})
+        self.tip(paste_rect, {"rows": [("Sur le rapport Raidbots : Ctrl+A, Ctrl+C, puis cliquez ici :", C["light_gray"], ""),
+                                        ("gardé dans les connaissances du coach et analysé par Hermes.", C["gray"], "")]})
+
+    def copy_simc_profile(self):
+        import clipboard
+        import simc
+        region = (self.settings.get("bnet.region") if self.settings else "") or "eu"
+        text = simc.profile(getattr(self, "last_snapshot", None) or {}, region=region)
+        if not text:
+            self.notify("Pas encore de données du personnage (/reload en jeu).")
+            return
+        try:
+            clipboard.set_text(text)
+        except Exception as e:                        # noqa: BLE001
+            self.notify(f"Copie impossible : {e}")
+            return
+        self.notify("Profil SimulationCraft copié : collez-le sur raidbots.com (Droptimizer, Top Gear).", 8)
+        self._open_url(simc.RAIDBOTS_URL)
+
+    def paste_raidbots_result(self):
+        import clipboard
+        import simc
+        try:
+            text = clipboard.get_text() or ""
+        except Exception:                             # noqa: BLE001
+            text = ""
+        if not simc.looks_like_result(text):
+            self.notify("Copiez d'abord la page du rapport Raidbots (Ctrl+A puis Ctrl+C dans le navigateur).", 8)
+            return
+        text = text.strip()[:6000]
+        link = simc.report_link(text)
+        kb = getattr(self, "knowledge", None)
+        if kb is not None:
+            when = time.strftime("%d/%m/%Y")
+            kb.add("équipement", f"Simulation Raidbots du {when}", text[:1100], source=link or "joueur",
+                   status="joueur")
+        chat = getattr(self, "chat", None)
+        if chat is not None and chat.uses_hermes() and "Hermes" in self.TABS:
+            import chatview
+            if chatview.send_from(self, chat, "hermes_msg", simc.RESULT_PROMPT + text):
+                self._switch_tab(self.TABS.index("Hermes"))
+                return
+        self.ask_assistant("Simulation Raidbots", simc.RESULT_PROMPT + text)
+
     def notify(self, text, seconds=5):
         self.refresh_note = (text, time.time() + seconds)
 
@@ -1004,6 +1057,7 @@ class UI:
             self._draw_slot((wx + i * (self.SLOT + 10), bottom_y), slot_id, label, c.equipment.get(slot_id))
 
         self._draw_stats((stats_x, top, stats_w, model_h + 70), c)
+        self._draw_raidbots_buttons((stats_x, y + h - 42, stats_w, 28))
 
     def _draw_model_placeholder(self, rect, c):
         tint = tuple(int(v * 0.16) + 18 for v in c.class_color)

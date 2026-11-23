@@ -233,6 +233,7 @@ modules/
       requirements.txt
       routine.py
       settings.py
+      simc.py
       snapcache.py
       tabs.py
       tabs_bestiary.py
@@ -351,6 +352,7 @@ tests/
     test_obs_hud.py
     test_routine.py
     test_settings_bnet.py
+    test_simc.py
     test_ui_fixes.py
   genesis_lab/
     __init__.py

@@ -90,7 +90,7 @@ HermesAssistant.toc/.lua (addon) · main.py · config.py · settings.py · llm.p
 lua_parser.py · game_connection.py · gamedata.py · character.py · quests.py · inventory.py · craft.py · history.py ·
 wowhead.py · theme.py · icons_draw.py · ui.py · tabs.py · tabs_data.py · tabs_collections.py · tabutil.py ·
 overlay.py · hotkeys.py · focus.py · widgets.py · widgets_builtin.py · vision.py · voice.py · webhost.py · webwidget.py ·
-chatview.py · tabs_hermes.py · hermes_bridge.py · hermes_mcp.py (outils de jeu pour Hermes) · coach_knowledge.py · gameversion.py · routine.py · tabs_routine.py · combat_report.py · tabs_reports.py · hermes_skill/ ·
+chatview.py · tabs_hermes.py · hermes_bridge.py · hermes_mcp.py (outils de jeu pour Hermes) · coach_knowledge.py · gameversion.py · routine.py · tabs_routine.py · combat_report.py · tabs_reports.py · simc.py · hermes_skill/ ·
 layout.json · chat_history.json · wowhead_links.json · recipes.json
 
 
@@ -142,6 +142,13 @@ layout.json · chat_history.json · wowhead_links.json · recipes.json
 - Heures exactes de remise à zéro : **addon 1.10** (sinon calculées d'après la région). Fichier
   `%APPDATA%\WoWAssistant
 outine.json` (hors du dépôt et du dossier du jeu).
+
+## Raidbots (23/11/2026)
+- Onglet Personnage (cadre d'équipement), **« Profil Raidbots »** : copie votre profil SimulationCraft (équipement porté avec ses bonus,
+  enchantements, gemmes ; talents ; métiers) et ouvre le Droptimizer de raidbots.com : collez-le, lancez.
+- **« Résultat Raidbots »** : sur la page du rapport, Ctrl+A puis Ctrl+C, puis ce bouton : le résultat est gardé
+  dans les connaissances du coach (il fait foi) et Hermes résume les meilleures améliorations.
+- Les objets des sacs ne sont pas dans le profil (l'addon n'exporte pas leur emplacement) : Top Gear ne les verra pas.
 
 ## Bilans de combat (23/11/2026)
 - Onglet **Bilans** : après chaque boss et chaque clé Mythique+, un bilan tiré du journal de combat du jeu

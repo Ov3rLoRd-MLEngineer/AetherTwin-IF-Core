@@ -1108,3 +1108,14 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - Analyse après coup, hors du jeu (le jeu écrit toujours le fichier depuis Midnight). Bilans dans
   `%APPDATA%\WoWAssistant\combat_reports.json` (noms du groupe : jamais dans le dépôt).
 - **Tests :** 4 nouveaux (`test_combat_report.py`) ; suite verte.
+
+## 23/11/2026 : feuille de route, étape 4 : Raidbots
+- **Agent :** Cloud
+- **Fichiers :** `simc.py` (nouveau), `ui.py` (boutons du cadre d'équipement, onglet Personnage), `main.py`, tests.
+- Profil SimulationCraft construit depuis l'addon : `itemString` décodé (enchantement, gemmes, bonus, contexte,
+  niveau d'obtention = modificateur 9 → `drop_level`), spécialisation par son identifiant (103 = farouche) ou son nom
+  français, race, royaume, métiers, code de talents. Vérifié sur le vrai instantané de Jérémy (16 emplacements).
+- Résultat Raidbots : le format de `data.json` / `data.csv` n'est documenté nulle part et le site répond 403 aux
+  lectures automatiques : pas d'import fragile. Le texte du rapport est collé (presse-papiers, sur clic), gardé dans
+  la base de connaissances (statut joueur, lien du rapport) et analysé par Hermes.
+- **Tests :** 4 nouveaux (`test_simc.py`) ; suite verte.

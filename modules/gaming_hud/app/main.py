@@ -286,6 +286,7 @@ def main():
         craft.load_professions(snapshot.get("professions"))
         craft.load_game_recipes(snapshot.get("recipes"))
         data.load(snapshot)
+        ui.last_snapshot = snapshot           # profil SimulationCraft (bouton « Profil Raidbots »)
         try:
             ui.routine.record(snapshot)       # routine de la semaine : résumé de ce personnage (profil Windows)
         except Exception as e:                # noqa: BLE001 - jamais bloquant

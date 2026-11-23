@@ -177,7 +177,10 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
       `wow_routine`, addon 1.10 (test 58) ;
    3. bilan après donjon ou boss depuis le journal de combat : **FAIT-NON-TESTÉ (23/11)**, onglet Bilans, outil
       `wow_combat_reports` (test 59 ; format vérifié sur des lignes de test, pas encore sur un vrai boss) ;
-   4. équipement : export SimulationCraft pour Raidbots, import du résultat Droptimizer dans la base ;
+   4. équipement : export SimulationCraft pour Raidbots, import du résultat Droptimizer dans la base :
+      **FAIT-NON-TESTÉ (23/11)**, boutons « Profil Raidbots » / « Résultat Raidbots » (onglet Personnage) ; le
+      format des fichiers de rapport Raidbots n'est documenté nulle part et le site refuse les lectures
+      automatiques (403) : le résultat est collé (texte de la page), gardé dans la base et analysé par Hermes (test 60) ;
    5. parcours de montée de niveau ;
    6. décors du logis comme collection, rentabilité de l'artisanat avec les prix de l'Hôtel des ventes.
 
@@ -259,6 +262,7 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 57 | Hermes : base de connaissances | recopier le dossier ; « Mettre à jour le skill wow-coach » ; « Relancer la passerelle » ; poser une question, puis « Corriger la réponse » et écrire ce qui est juste ; reposer une question proche ; ouvrir « Connaissances » | la correction apparaît « Corrigé par vous » et Hermes la respecte ; après une recherche web, des faits « Vérifié en ligne » avec leur lien |
 | 58 | Semaine | copier l'addon **1.10** dans `Interface/AddOns`, /reload ; recopier l'appli ; onglet **Semaine** ; ajouter une tâche « Proie » (Quotidien), la cocher ; se connecter sur un autre personnage puis revenir ; « J'ai 1 h » | remise à zéro affichée (mercredi 05:00 en France), chambre forte et monnaies de la semaine ; l'autre personnage apparaît à droite ; Hermes propose un plan qui cite la routine |
 | 59 | Bilans de combat | /ha combatlog on ; faire un boss de donjon (ou une clé) ; onglet **Bilans** ; « Analyser avec Hermes » | un bilan par boss (et par clé) : durée, réussite, DPS du groupe, vos morts avec les derniers coups ; Hermes donne 3 conseils |
+| 60 | Raidbots | onglet Personnage : « Profil Raidbots » ; sur la page Droptimizer ouverte, coller (SimulationCraft), lancer ; sur le rapport : Ctrl+A, Ctrl+C ; « Résultat Raidbots » | Raidbots accepte le profil (sinon me dire le message) ; le résultat apparaît dans Connaissances (« Corrigé par vous », équipement) et Hermes résume les meilleures améliorations |
 | 51 | Hermes : état | lancer Hermes Agent, puis WoW Assistant > onglet **Hermes** | Hermes trouvé, passerelle en marche, modèle affiché ; mode « CLI » |
 | 52 | Hermes : mise en place | cliquer « Installer le skill wow-coach » puis « Ajouter les outils de jeu (MCP) » | deux messages verts ; pastilles vertes « installé » / « ajoutés » ; dans Hermes, `hermes mcp list` montre `wow_assistant` |
 | 53 | Hermes : question | cliquer « Que faire maintenant ? » (mode CLI, ≈ 20-40 s) | réponse en français qui cite vos vraies quêtes / zone ; ligne « Outils : Données… » sous la réponse |
