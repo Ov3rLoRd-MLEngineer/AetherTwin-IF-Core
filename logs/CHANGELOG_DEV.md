@@ -1147,3 +1147,16 @@ outine.json` ; le serveur MCP ne fait que le lire.
   pour un composant = « incomplet » (pas de faux bénéfice).
 - **Tests :** 4 nouveaux (`test_profit.py`, Lua `test_housing_decor_scan_is_defensive`) ; suite verte.
 
+## 23/11/2026 : feuille de route, étape 7 : version WoW Forever et Questie
+- **Agent :** Cloud
+- **Fichiers :** `features.py` (nouveau), `ui.py` (variante dans l'en-tête, Raidbots, note à l'assistant),
+  `tabs_data.py` (Mythique+, Chambre forte), `tabs_collections.py` (logis), `hermes_mcp.py` (`variante` dans
+  `wow_status`, `questie` dans `wow_quests`), `quests.py`, `tabs.py` (« À rendre à »), addon 1.12, skill 1.9.0.
+- Recherche (23/11, sites de joueurs, pas de source officielle lue) : Forever = niveau 60, 9 classes, pas de M+,
+  Gouffres, saisons, logis ni vol ; Camping et Héritage en plus. Questie a une version Forever (avec QuestieDB) ;
+  « Questie AI » est un autre produit (service payant de partage d'écran).
+- Addon : Interface 16001 ajoutée (non confirmée), `OptionalDeps: Questie`, journal de quêtes par
+  `GetQuestLogTitle` / `GetQuestLogLeaderBoard` si `C_QuestLog.GetInfo` manque, Questie lu par
+  `QuestieLoader:ImportModule("QuestieDB")` (`GetQuest`, `GetNPC`, `ZoneDB:GetUiMapIdByAreaId`), appels protégés.
+- **Tests :** 4 nouveaux (`test_forever.py`, Lua `test_classic_quest_log_and_questie`) ; suite verte.
+

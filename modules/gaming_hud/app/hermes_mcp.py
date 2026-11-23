@@ -212,9 +212,14 @@ def tool_quests(data, args):
                     "récompenses": [r.get("name") for r in quest.get("rewards") or [] if r.get("name")],
                     "xp": quest.get("rewardXP") or "aucune (0)", "argent": _money(quest.get("rewardMoney")),
                     **({"point_de_route": f"/ha way {w.get('map')} {w.get('x')} {w.get('y')} ({w.get('zone', '')})"}
-                       if (w := quest.get("way")) else {})})
+                       if (w := quest.get("way")) else {}),
+                    **({"questie": {k: v for k, v in (("à_rendre_à", qz.get("finisher")),
+                                                       ("niveau_requis", qz.get("required"))) if v}}
+                       if (qz := quest.get("questie")) else {})})
     return {"quêtes_en_cours": q.get("count", len(out)), "maximum": q.get("max", 35),
-            "quêtes_terminées_au_total": q.get("completedTotal"), "liste": out}
+            "quêtes_terminées_au_total": q.get("completedTotal"),
+            **({"questie": f"Questie {q['questie']} installé (base de quêtes)"} if q.get("questie") else {}),
+            "liste": out}
 
 
 def _bank_items(bank):
@@ -384,6 +389,15 @@ def _game_version(data):
     return f"{info['version']} ({info['flavor']})" if info else "inconnue"
 
 
+def _flavor_note(data):
+    import features
+    try:
+        note = features.coach_note(data._game_path())
+    except Exception:                   # noqa: BLE001
+        note = ""
+    return {"variante": note} if note else {}
+
+
 def tool_status(data, args):
     s = data.snapshot()
     c = s.get("character") or {}
@@ -391,6 +405,7 @@ def tool_status(data, args):
     return {"source": data.source(), "personnage": f"{c.get('name', '?')} ({c.get('realm', '?')})",
             "données_du": time.strftime("%d/%m/%Y %H:%M", time.localtime(file_time)) if file_time else "inconnu",
             "version_du_jeu": _game_version(data),
+            **_flavor_note(data),
             "conseil": "Les données se mettent à jour quand le jeu écrit son fichier : /reload ou /ha save en jeu."}
 
 

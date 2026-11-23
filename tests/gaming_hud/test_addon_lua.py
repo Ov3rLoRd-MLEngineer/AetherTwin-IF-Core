@@ -233,3 +233,46 @@ def test_housing_decor_scan_is_defensive() -> None:
     g.C_HousingCatalog = None
     a.ScanDecor(a, lambda: done.append(2))
     assert done == [1, 2]
+
+
+CLASSIC_GAME = """
+local frame = { RegisterEvent = function() end, SetScript = function() end }
+CreateFrame = function() return frame end
+SlashCmdList = {}
+C_Timer = { After = function() end, NewTicker = function() return {} end }
+InCombatLockdown = function() return false end
+GetTime = function() return 0 end
+C_QuestLog = { GetAllCompletedQuestIDs = function() return {} end }
+GetNumQuestLogEntries = function() return 2, 1 end
+GetQuestLogTitle = function(i)
+  if i == 1 then return "Elwynn", 0, nil, true end
+  return "Loups", 7, nil, false, false, 1, 0, 10
+end
+GetNumQuestLeaderBoards = function() return 1 end
+GetQuestLogLeaderBoard = function() return "Loup tué : 8/8", "monster", true end
+C_Map = { GetMapInfo = function(id) return { name = "Forêt d'Elwynn" } end }
+IsAddOnLoaded = function(name) return name == "Questie" end
+GetAddOnMetadata = function() return "12.9.0" end
+local QuestieDB = {
+  GetQuest = function(id) if id == 10 then return { level = 7, requiredLevel = 5,
+                                                    Finisher = { Type = "monster", Id = 240 } } end end,
+  GetNPC = function(self, id) return { name = "Marshal Dughan", spawns = { [12] = { { 42.1, 65.9 } } } } end,
+}
+local ZoneDB = { GetUiMapIdByAreaId = function(self, area) return 37 end }
+QuestieLoader = { ImportModule = function(self, name) return ({ QuestieDB = QuestieDB, ZoneDB = ZoneDB })[name] end }
+"""
+
+
+def test_classic_quest_log_and_questie() -> None:
+    lua = lupa.LuaRuntime(unpack_returned_tuples=True)
+    lua.execute(CLASSIC_GAME)
+    chunk, error = lua.execute(LOAD, ADDON.read_text(encoding="utf-8") + "\nreturn A\n")
+    assert chunk is not None, error
+    a = chunk("HermesAssistant", lua.table_from({}))
+    quests = a.CollectQuests(a)
+    assert quests.valid and quests.questie == "12.9.0" and quests.max == 25
+    q = quests.list[1]
+    assert q.title == "Loups" and q.zone == "Elwynn" and q.status == "complete" and q.level == 7
+    assert q.objectives[1].done is True and q.objectives[1].have == 8
+    assert q.questie.finisher == "Marshal Dughan" and q.questie.required == 5
+    assert q.way.map == 37 and q.way.x == 42.1 and q.way.zone == "Forêt d'Elwynn"     # rendu : chez Dughan

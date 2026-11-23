@@ -38,9 +38,13 @@ def _color(rgb, dim=False):
 
 
 def draw_collections(ui, ctx, rect):
+    import features
     x, y, w, h = rect
     px = x
-    for key, label in SUBTABS:
+    subtabs = [(k, label) for k, label in SUBTABS if k != "decor" or features.has("housing")]
+    if ui.state["collection"] not in dict(subtabs):
+        ui.state["collection"] = subtabs[0][0]
+    for key, label in subtabs:
         pw = ui.fonts["small"].size(label)[0] + 36
         ui.pill((px, y, pw, 32), label, ui.state["collection"] == key, lambda k=key: ui.state.update(collection=k))
         px += pw + 6

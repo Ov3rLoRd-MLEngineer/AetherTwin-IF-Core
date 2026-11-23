@@ -1,7 +1,7 @@
 ---
 name: wow-coach
 description: "Coach World of Warcraft en français : lit l'état réel du personnage du joueur (outils WoW Assistant) et donne des conseils concrets — quêtes, équipement, talents, métiers, donjons, économie."
-version: 1.8.0
+version: 1.9.0
 author: WoW Assistant
 license: MIT
 metadata:
@@ -92,3 +92,9 @@ Le serveur **wow_assistant** tient aussi une base de connaissances qui grandit �
 - 3 à 8 puces, ou un court paragraphe ; les étapes dans l'ordre ; les noms du jeu en français.
 - Termine par **une** action concrète que le joueur peut faire tout de suite.
 - Si la question est vague, réponds pour la situation actuelle du personnage (zone, niveau, quêtes en cours).
+
+## Variante du jeu
+
+Si `wow_status` renvoie `variante` (WoW Forever, Classic), ne conseille que ce qui existe dans cette variante :
+sur Forever, niveau maximum 60, pas de Mythique+, de Gouffres, de Grande Chambre forte, de logis ni de vol.
+Si `wow_quests` signale Questie, son champ `questie` (à qui rendre, niveau requis) vient de sa base de quêtes.

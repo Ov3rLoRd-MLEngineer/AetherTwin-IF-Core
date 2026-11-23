@@ -12,6 +12,7 @@ class QuestTracker:
         self.quests = []
         self.max_quests = 35
         self.completed_total = 0   # quêtes terminées depuis la création du personnage
+        self.questie = ""          # version de Questie (addon 1.12), vide s'il n'est pas installé
 
     # ------------------------------------------------------------------ chargement
     def load_from_dict(self, data):
@@ -31,6 +32,7 @@ class QuestTracker:
                 "task": bool(raw.get("task", False)),
                 "freq": raw.get("freq", 0),
                 "way": raw.get("way") or None,        # coordonnées (addon 1.10) : {map, x, y, zone}
+                "questie": raw.get("questie") or None,  # Questie installé (addon 1.12) : {level, required, finisher}
                 "tracked": bool(raw.get("tracked", False)),
                 "focus": bool(raw.get("focus", False)),
                 "reward_xp": raw.get("rewardXP", 0),
@@ -43,6 +45,7 @@ class QuestTracker:
             })
         max_quests = data.get("max", self.max_quests) or self.max_quests
         completed_total = data.get("completedTotal", self.completed_total)
+        self.questie = data.get("questie") or ""          # version de Questie si l'addon l'a trouvé
         changed = (quests != self.quests or max_quests != self.max_quests
                    or completed_total != self.completed_total)
         self.quests, self.max_quests = quests, max_quests

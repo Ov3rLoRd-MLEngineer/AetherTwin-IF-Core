@@ -149,6 +149,17 @@ outine.json` (hors du dépôt et du dossier du jeu).
 - Hermes : question « Niveau » (parcours de montée de niveau vérifié en ligne) ; les `/ha way` et `/way` de ses
   réponses deviennent des boutons sous la conversation : un clic copie, il reste à coller dans la discussion du jeu.
 
+## WoW Forever et Questie (23/11/2026)
+- Choisissez le dossier `_forever_` du jeu (Paramètres > Jeu) : l'appli affiche « WoW Forever » et cache ce qui
+  n'existe pas sur Forever (Mythique+, Grande Chambre forte, décors du logis, Raidbots). L'assistant et Hermes
+  sont prévenus (niveau 60, pas de vol...) pour ne pas conseiller ce qui n'existe pas.
+- Addon **1.12** : se charge aussi sur Forever (Interface 16001, à confirmer en jeu) et lit le journal de quêtes
+  avec l'ancienne API si la nouvelle manque.
+- **Questie** (l'addon de base de quêtes, avec sa version Forever ; rien à voir avec le service payant « Questie
+  AI ») : s'il est installé et chargé, l'addon lui demande, pour chaque quête du journal, à qui la rendre, où, et
+  le niveau requis. Le détail de la quête et Hermes s'en servent ; une quête terminée a son point de route vers le
+  PNJ. Lecture seule : Questie n'est jamais modifié.
+
 ## Décors du logis et rentabilité des recettes (23/11/2026)
 - Addon **1.11** : `/ha scan logis` lit les décors du logis (compteurs du jeu, et la liste rangés / placés),
   affichés dans Collections → « Décors du logis ». La liste passe par une partie de l'API encore peu documentée :

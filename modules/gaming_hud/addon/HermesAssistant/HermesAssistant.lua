@@ -364,18 +364,99 @@ function A:CollectInventory()
     return inv
 end
 
+---------------------------------------------------------------------------
+-- Questie (base de quêtes de Classic, avec une version WoW Forever) : lu s'il est chargé, en lecture seule.
+-- Donne, pour une quête du journal, à qui la rendre, où, et le niveau requis. Chaque appel est protégé : une
+-- autre version de Questie (ou son absence) ne casse rien.
+---------------------------------------------------------------------------
+local function QuestieModule(name)
+    local loader = rawget(_G, "QuestieLoader")
+    if type(loader) ~= "table" or type(loader.ImportModule) ~= "function" then return nil end
+    local ok, mod = pcall(loader.ImportModule, loader, name)
+    return ok and type(mod) == "table" and mod or nil
+end
+
+local function QuestieCall(mod, fn, ...)
+    if not mod or type(mod[fn]) ~= "function" then return nil end
+    local ok, r = pcall(mod[fn], ...)                  -- QuestieDB.GetQuest(id)
+    if ok and r ~= nil then return r end
+    ok, r = pcall(mod[fn], mod, ...)                   -- QuestieDB:GetNPC(id)
+    if ok then return r end
+    return nil
+end
+
+function A:QuestieVersion()
+    local meta = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+    local loaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
+    if not (loaded and try(loaded, "Questie")) then return nil end
+    return try(meta, "Questie", "Version") or "?"
+end
+
+-- {level, required, finisher, way = {map, x, y, zone}} ou nil
+function A:QuestieInfo(questID)
+    local db = QuestieModule("QuestieDB")
+    if not db then return nil end
+    local quest = QuestieCall(db, "GetQuest", questID)
+    if type(quest) ~= "table" then return nil end
+    local out = { level = tonumber(quest.level) or 0, required = tonumber(quest.requiredLevel) or 0 }
+    local fin = type(quest.Finisher) == "table" and quest.Finisher or nil
+    if fin and fin.Id then
+        local npc = (fin.Type == "monster" or fin.Type == nil) and QuestieCall(db, "GetNPC", fin.Id)
+            or QuestieCall(db, "GetObject", fin.Id)
+        if type(npc) == "table" then
+            out.finisher = type(npc.name) == "string" and npc.name or (fin.Name or "")
+            local zones = QuestieModule("ZoneDB")
+            for areaID, spawns in pairs(type(npc.spawns) == "table" and npc.spawns or {}) do
+                local first = type(spawns) == "table" and spawns[1]
+                if type(first) == "table" and first[1] and first[2] then
+                    local map = QuestieCall(zones, "GetUiMapIdByAreaId", areaID) or areaID
+                    local info = C_Map and C_Map.GetMapInfo and try(C_Map.GetMapInfo, map)
+                    out.way = { map = map, x = round1(first[1]), y = round1(first[2]),
+                                zone = info and info.name or "" }
+                    break
+                end
+            end
+        end
+    end
+    return out
+end
+
+-- Journal de quêtes de l'ancienne API (Classic, peut-être WoW Forever) : mêmes champs que C_QuestLog.GetInfo
+local function ClassicQuestInfo(i)
+    if not GetQuestLogTitle then return nil end
+    local title, level, _, isHeader, _, isComplete, frequency, questID = GetQuestLogTitle(i)
+    if not title then return nil end
+    return { title = title, level = level, isHeader = isHeader, questID = questID, frequency = frequency,
+             classicIndex = i, classicComplete = isComplete }
+end
+
+local function ClassicObjectives(i)
+    local out = {}
+    local n = (GetNumQuestLeaderBoards and try(GetNumQuestLeaderBoards, i)) or 0
+    for j = 1, n do
+        local text, kind, finished = try(GetQuestLogLeaderBoard, j, i)
+        if text and text ~= "" then
+            local have, need = text:match("(%d+)%s*/%s*(%d+)")
+            out[#out + 1] = { text = text, done = finished and true or false, have = tonumber(have) or 0,
+                              need = tonumber(need) or 0, kind = kind or "" }
+        end
+    end
+    return out
+end
+
 function A:CollectQuests()
     local out = { count = 0, max = 35, valid = false, list = {} }
-    if not (C_QuestLog and C_QuestLog.GetNumQuestLogEntries) then return out end
-
-    local numEntries, numQuests = try(C_QuestLog.GetNumQuestLogEntries)
+    local QL = C_QuestLog or {}
+    local classic = not QL.GetInfo                     -- ancienne API (Classic, peut-être WoW Forever)
+    local numEntries, numQuests = try(QL.GetNumQuestLogEntries or GetNumQuestLogEntries)
     if numEntries == nil then return out end   -- API pas prête : on garde l'ancien journal
     out.valid = true
     out.count = numQuests or 0
-    out.max = try(C_QuestLog.GetMaxNumQuestsCanAccept) or 35
+    out.max = try(QL.GetMaxNumQuestsCanAccept) or (classic and 25) or 35
+    out.questie = A:QuestieVersion()
 
     if not A.completedAt or (GetTime() - A.completedAt) > 120 then
-        local done = try(C_QuestLog.GetAllCompletedQuestIDs)
+        local done = try(QL.GetAllCompletedQuestIDs)
         A.completedTotal = type(done) == "table" and #done or (A.completedTotal or 0)
         A.completedAt = GetTime()
     end
@@ -386,37 +467,39 @@ function A:CollectQuests()
     -- coordonnées des quêtes (1.10) : quêtes de la carte actuelle, et prochain point de route d'une quête
     local here = C_Map and C_Map.GetBestMapForUnit and try(C_Map.GetBestMapForUnit, "player")
     local onMap = {}
-    if here and C_QuestLog.GetQuestsOnMap then
-        for _, q in ipairs(try(C_QuestLog.GetQuestsOnMap, here) or {}) do
+    if here and QL.GetQuestsOnMap then
+        for _, q in ipairs(try(QL.GetQuestsOnMap, here) or {}) do
             if q.questID and q.x and q.y then onMap[q.questID] = { map = here, x = q.x, y = q.y } end
         end
     end
     local function questWay(id)
         local map, x, y
-        if C_QuestLog.GetNextWaypoint then map, x, y = try(C_QuestLog.GetNextWaypoint, id) end
+        if QL.GetNextWaypoint then map, x, y = try(QL.GetNextWaypoint, id) end
         if not (map and x and y) and onMap[id] then map, x, y = onMap[id].map, onMap[id].x, onMap[id].y end
         if not (map and x and y) then return nil end
-        local info = C_Map.GetMapInfo and try(C_Map.GetMapInfo, map)
+        local info = C_Map and C_Map.GetMapInfo and try(C_Map.GetMapInfo, map)
         return { map = map, x = round1(x * 100), y = round1(y * 100), zone = info and info.name or "" }
     end
     for i = 1, numEntries do
         if #out.list >= MAX_QUESTS then break end
-        local info = try(C_QuestLog.GetInfo, i)
+        local info = classic and ClassicQuestInfo(i) or try(QL.GetInfo, i)
         if info then
             if info.isHeader then
                 zone = info.title or ""
             elseif info.questID and not info.isHidden then
                 local id = info.questID
                 local status = "incomplete"
-                if try(C_QuestLog.IsFailed, id) then
+                if try(QL.IsFailed, id) or info.classicComplete == -1 then
                     status = "failed"
-                elseif try(C_QuestLog.ReadyForTurnIn, id) then
+                elseif try(QL.ReadyForTurnIn, id) or info.classicComplete == 1 then
                     status = "complete"
                 end
 
                 local objectives = {}
-                local objs = try(C_QuestLog.GetQuestObjectives, id)
-                if type(objs) == "table" then
+                local objs = try(QL.GetQuestObjectives, id)
+                if type(objs) ~= "table" and info.classicIndex then
+                    objectives = ClassicObjectives(info.classicIndex)
+                elseif type(objs) == "table" then
                     for _, o in ipairs(objs) do
                         if o.text and o.text ~= "" then
                             objectives[#objectives + 1] = {
@@ -434,6 +517,9 @@ function A:CollectQuests()
                     if name then rewards[#rewards + 1] = { name = name, count = count or 1, quality = quality or 1 } end
                 end
 
+                local questie = out.questie and A:QuestieInfo(id) or nil
+                local way = questWay(id)
+                if not way and questie and questie.way and status == "complete" then way = questie.way end
                 out.list[#out.list + 1] = {
                     id = id,
                     title = info.title or "",
@@ -442,9 +528,10 @@ function A:CollectQuests()
                     status = status,
                     task = info.isTask and true or false,
                     freq = info.frequency or 0,
-                    tracked = try(C_QuestLog.GetQuestWatchType, id) ~= nil,
+                    tracked = try(QL.GetQuestWatchType, id) ~= nil,
                     focus = (superID ~= nil and superID == id),
-                    way = questWay(id),
+                    way = way,
+                    questie = questie,
                     rewardXP = try(GetQuestLogRewardXP, id) or 0,
                     rewardMoney = try(GetQuestLogRewardMoney, id) or 0,
                     rewards = rewards,

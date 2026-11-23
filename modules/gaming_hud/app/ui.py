@@ -11,20 +11,21 @@ import threading
 import time
 import webbrowser
 
-import pygame
-
 import clipboard
+import features
 import mousepos
 import overlay as overlay_win
+import pygame
 import tabs
 import voice as voice_mod
 from character import EQUIPMENT_LAYOUT, Character, format_duration
-from config import WoWConfig
 from llm import PROVIDERS, enabled_servers, guess_provider, list_models_at
 from media import fit_image
 from quests import QuestTracker
-from theme import C, QUALITY_COLORS, clean_wow_text, hex_to_rgb
+from theme import QUALITY_COLORS, C, clean_wow_text, hex_to_rgb
 from wowhead import IconCache, LinkResolver
+
+from config import WoWConfig
 
 SLOT_SHORT = {1: "Tête", 2: "Cou", 3: "Épaul.", 15: "Dos", 5: "Torse", 4: "Chem.", 19: "Tabard", 9: "Poign.",
               10: "Mains", 6: "Taille", 7: "Jambes", 8: "Pieds", 11: "Ann. 1", 12: "Ann. 2",
@@ -627,7 +628,7 @@ class UI:
         pos = (int(pos[0]), int(pos[1]))
         self.use("app")
         try:
-            from pygame._sdl2.video import Window, Renderer
+            from pygame._sdl2.video import Renderer, Window
             if self.overlay_win is None:
                 win = Window(self.OVERLAY_TITLE, size=size, position=pos, borderless=True)
                 try:
@@ -770,6 +771,9 @@ class UI:
         mouse = self.mouse_pos()
 
         self.text("WoW Assistant", "huge", "gold", (28, 12), shadow=True)
+        flavor = features.flavor()
+        if flavor != "retail":
+            self.text(features.label(), "medium", "label", (self.fonts["huge"].size("WoW Assistant")[0] + 44, 22))
         pygame.draw.line(self.screen, C["header_border"], (24, 50), (self.W - 24, 50), 1)
 
         self._scrollbars = []
@@ -847,7 +851,9 @@ class UI:
         return overlay_rect.x - 16
 
     def _draw_raidbots_buttons(self, rect):
-        """Cadre d'équipement : « Profil Raidbots » / « Résultat Raidbots » (simc.py)."""
+        """Cadre d'équipement : « Profil Raidbots » / « Résultat Raidbots » (simc.py). Absent sur Forever."""
+        if not features.has("raidbots"):
+            return
         x, y, w, h = rect
         half = (w - 6) // 2
         simc_rect, paste_rect = pygame.Rect(x, y, half, h), pygame.Rect(x + half + 6, y, w - half - 6, h)
@@ -1557,7 +1563,9 @@ class UI:
                                                  "(onglet Personnage) pour choisir l'endpoint API ou l'exécutable.")
             return
         images = self.vision.payload() if self.vision else []
-        m["job"] = self.llm.ask(f"{m['context']}\n\nQuestion : {message}", images)
+        note = features.coach_note()
+        m["job"] = self.llm.ask(f"{m['context']}\n\n" + (f"{note}\n\n" if note else "") + f"Question : {message}",
+                                images)
         if self.vision:
             self.vision.clear()
         m["stage"] = "wait"

@@ -206,6 +206,7 @@ modules/
       combat_report.py
       config.py
       craft.py
+      features.py
       focus.py
       game_connection.py
       gamedata.py
@@ -346,6 +347,7 @@ tests/
     test_collections_media.py
     test_combat_report.py
     test_config_refs.py
+    test_forever.py
     test_gameversion.py
     test_hermes.py
     test_market.py

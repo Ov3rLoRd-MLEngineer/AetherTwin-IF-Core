@@ -197,6 +197,13 @@ def draw_quest_journal(ui, ctx, rect):
             tag_x += tw + 8
     if not quest.get("tracked") and not quest.get("focus"):
         ui.text("Non suivie dans le journal de WoW", "small", "gray", (rx, ry + 4))
+    questie = quest.get("questie") or {}
+    if questie.get("finisher") or questie.get("required"):
+        parts = ([f"À rendre à : {questie['finisher']}"] if questie.get("finisher") else []) + \
+                ([f"niveau requis {questie['required']}"] if questie.get("required") else [])
+        ui.text(ui.fit(" · ".join(parts) + "  (Questie)", "small", right[2] - 240), "small", "light_gray",
+                (rx, ry + 30))
+        ry += 24
     way = waypoints.quest_way(quest)
     if way:
         way_rect = pygame.Rect(right[0] + right[2] - 20 - 170, ry, 170, 26)

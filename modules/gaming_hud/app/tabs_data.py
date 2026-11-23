@@ -338,12 +338,15 @@ def _draw_mythic_plus(ui, rect, mp):
 
 
 def draw_instances(ui, ctx, rect):
+    import features
     x, y, w, h = rect
     data = ctx.data
-    mythic_h = 250
-    left = (x, y, 800, h - mythic_h - 12)
+    mythic = features.has("mythicplus")
+    mythic_h = 250 if mythic else 0
+    left = (x, y, 800, h - mythic_h - (12 if mythic else 0))
     right = (x + 816, y, w - 816, h)
-    _draw_mythic_plus(ui, (x, y + h - mythic_h, 800, mythic_h), data.mythicPlus)
+    if mythic:
+        _draw_mythic_plus(ui, (x, y + h - mythic_h, 800, mythic_h), data.mythicPlus)
 
     # ---------------- verrouillages
     instances, bosses = data.lockouts["instances"], data.lockouts["worldBosses"]
@@ -388,6 +391,11 @@ def draw_instances(ui, ctx, rect):
 
     # ---------------- Grande Chambre forte
     vault = data.vault
+    if not features.has("vault"):
+        ui.frame(right, "Grande Chambre forte")
+        message(ui, right, [f"Pas de Grande Chambre forte sur {features.label()}.",
+                            "Verrouillages et boss mondiaux : à gauche."])
+        return
     ui.frame(right, "Grande Chambre forte")
     if not vault["activities"]:
         message(ui, right, ["Chambre forte non exportée", "(disponible à partir du niveau maximum)"])

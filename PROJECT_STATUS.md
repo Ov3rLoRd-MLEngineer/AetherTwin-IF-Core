@@ -188,6 +188,11 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
       « Décors du logis », Hôtel des ventes → « Rentabilité des recettes », `wow_collections` (decor) et
       `wow_professions` (rentabilite) ; le parcours du catalogue du logis n'est que partiellement documenté :
       compteurs sûrs, liste en essai protégé (tests 62 et 63).
+   7. version WoW Forever : **FAIT-NON-TESTÉ (23/11)**, `features.py` : variante lue d'après le dossier du jeu
+      (`_forever_`), Mythique+, Grande Chambre forte, décors du logis et Raidbots cachés, assistant et Hermes
+      prévenus ; addon 1.12 : Interface 16001 (numéro relevé sur des sites de joueurs, à confirmer), ancienne API
+      du journal de quêtes en secours, **Questie** lu en jeu s'il est chargé (à qui rendre la quête, où, niveau
+      requis), en lecture seule (tests 64 et 65).
 
 ## Problèmes rencontrés et solutions
 
@@ -271,6 +276,8 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 61 | Points de route | addon 1.10 ; Journal des quêtes : une quête de la zone, « Copier le point de route », coller dans la discussion du jeu ; onglet Hermes : « Niveau » | flèche du jeu vers l'objectif ; Hermes propose un parcours, ses « /ha way » s'affichent en boutons sous la conversation |
 | 62 | Décors du logis | addon 1.11 copié, /reload ; en jeu : /ha scan logis puis /ha save ; Collections → « Décors du logis » | le nombre de décors possédés s'affiche ; la liste (rangés / placés) aussi, sinon me dire si elle reste vide (catalogue non vérifié en jeu) |
 | 63 | Rentabilité | ouvrir la fenêtre d'un métier en jeu, /ha save ; Hôtel des ventes → « Relire les prix », « Rentabilité des recettes », « Conseil (Hermes) » | coût, vente nette (−5 %) et bénéfice par recette ; Hermes conseille quoi fabriquer |
+| 64 | WoW Forever | Paramètres > Jeu : dossier `_forever_` ; addon 1.12 dans son Interface/AddOns, /reload | « WoW Forever » à côté du titre ; pas de cadre Mythique+, pas de Chambre forte, pas de Décors du logis ni de boutons Raidbots ; le journal de quêtes se remplit (sinon me dire) |
+| 65 | Questie | Questie + QuestieDB (version Forever) installés ; une quête terminée dans le journal, /ha save | détail de la quête : « À rendre à : … (Questie) » et « Copier le point de route » vers le PNJ ; Hermes cite Questie dans `wow_quests` |
 | 51 | Hermes : état | lancer Hermes Agent, puis WoW Assistant > onglet **Hermes** | Hermes trouvé, passerelle en marche, modèle affiché ; mode « CLI » |
 | 52 | Hermes : mise en place | cliquer « Installer le skill wow-coach » puis « Ajouter les outils de jeu (MCP) » | deux messages verts ; pastilles vertes « installé » / « ajoutés » ; dans Hermes, `hermes mcp list` montre `wow_assistant` |
 | 53 | Hermes : question | cliquer « Que faire maintenant ? » (mode CLI, ≈ 20-40 s) | réponse en français qui cite vos vraies quêtes / zone ; ligne « Outils : Données… » sous la réponse |
