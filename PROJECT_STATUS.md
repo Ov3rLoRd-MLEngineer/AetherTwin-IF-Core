@@ -183,7 +183,11 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
       automatiques (403) : le résultat est collé (texte de la page), gardé dans la base et analysé par Hermes (test 60) ;
    5. parcours de montée de niveau : **FAIT-NON-TESTÉ (23/11)**, question « Niveau », points de route
       (`/ha way` de l'addon 1.10, quêtes avec coordonnées, réponses de Hermes copiables) (test 61) ;
-   6. décors du logis comme collection, rentabilité de l'artisanat avec les prix de l'Hôtel des ventes.
+   6. décors du logis comme collection, rentabilité de l'artisanat avec les prix de l'Hôtel des ventes :
+      **FAIT-NON-TESTÉ (23/11)**, addon 1.11 (`/ha scan logis`, objet fabriqué par chaque recette), Collections →
+      « Décors du logis », Hôtel des ventes → « Rentabilité des recettes », `wow_collections` (decor) et
+      `wow_professions` (rentabilite) ; le parcours du catalogue du logis n'est que partiellement documenté :
+      compteurs sûrs, liste en essai protégé (tests 62 et 63).
 
 ## Problèmes rencontrés et solutions
 
@@ -265,6 +269,8 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 59 | Bilans de combat | /ha combatlog on ; faire un boss de donjon (ou une clé) ; onglet **Bilans** ; « Analyser avec Hermes » | un bilan par boss (et par clé) : durée, réussite, DPS du groupe, vos morts avec les derniers coups ; Hermes donne 3 conseils |
 | 60 | Raidbots | onglet Personnage : « Profil Raidbots » ; sur la page Droptimizer ouverte, coller (SimulationCraft), lancer ; sur le rapport : Ctrl+A, Ctrl+C ; « Résultat Raidbots » | Raidbots accepte le profil (sinon me dire le message) ; le résultat apparaît dans Connaissances (« Corrigé par vous », équipement) et Hermes résume les meilleures améliorations |
 | 61 | Points de route | addon 1.10 ; Journal des quêtes : une quête de la zone, « Copier le point de route », coller dans la discussion du jeu ; onglet Hermes : « Niveau » | flèche du jeu vers l'objectif ; Hermes propose un parcours, ses « /ha way » s'affichent en boutons sous la conversation |
+| 62 | Décors du logis | addon 1.11 copié, /reload ; en jeu : /ha scan logis puis /ha save ; Collections → « Décors du logis » | le nombre de décors possédés s'affiche ; la liste (rangés / placés) aussi, sinon me dire si elle reste vide (catalogue non vérifié en jeu) |
+| 63 | Rentabilité | ouvrir la fenêtre d'un métier en jeu, /ha save ; Hôtel des ventes → « Relire les prix », « Rentabilité des recettes », « Conseil (Hermes) » | coût, vente nette (−5 %) et bénéfice par recette ; Hermes conseille quoi fabriquer |
 | 51 | Hermes : état | lancer Hermes Agent, puis WoW Assistant > onglet **Hermes** | Hermes trouvé, passerelle en marche, modèle affiché ; mode « CLI » |
 | 52 | Hermes : mise en place | cliquer « Installer le skill wow-coach » puis « Ajouter les outils de jeu (MCP) » | deux messages verts ; pastilles vertes « installé » / « ajoutés » ; dans Hermes, `hermes mcp list` montre `wow_assistant` |
 | 53 | Hermes : question | cliquer « Que faire maintenant ? » (mode CLI, ≈ 20-40 s) | réponse en français qui cite vos vraies quêtes / zone ; ligne « Outils : Données… » sous la réponse |

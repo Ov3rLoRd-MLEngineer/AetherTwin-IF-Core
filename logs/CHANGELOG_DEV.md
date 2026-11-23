@@ -1093,7 +1093,8 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   monnaies plafonnées, quêtes hebdo / journalières via `freq`, verrouillages, M+), tâches perso décochées à la remise
   à zéro, autres personnages (résumé gardé à chaque lecture : le fichier de l'addon n'a que le dernier joué), plan
   demandé à Hermes selon le temps de jeu. Progression d'avant la remise à zéro comptée comme zéro.
-- Données dans `%APPDATA%\WoWAssistantoutine.json` ; le serveur MCP ne fait que le lire.
+- Données dans `%APPDATA%\WoWAssistant
+outine.json` ; le serveur MCP ne fait que le lire.
 - **Tests :** 7 nouveaux (`test_routine.py`) ; les tests n'écrivent plus jamais dans le profil Windows (fixture).
 
 ## 23/11/2026 : feuille de route, étape 3 : bilans de combat
@@ -1130,3 +1131,19 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - **Bug corrigé** : `wow_quests` lisait `finished` alors que l'addon exporte `done` : les objectifs faits n'étaient
   jamais marqués « (fait) » pour Hermes.
 - **Tests :** 5 nouveaux, dont 2 qui exécutent l'addon sous Lua (lupa) contre de fausses API du jeu ; suite verte.
+
+## 23/11/2026 : feuille de route, étape 6 : décors du logis et rentabilité des recettes
+- **Agent :** Cloud
+- **Fichiers :** addon 1.11 (`ScanDecor`, `/ha scan logis` ; `ScanRecipes` ajoute `out` / `outQty` depuis
+  `GetRecipeSchematic`), `game_connection.py` (`_normalize_decor`), `gamedata.py`, `craft.py`, `profit.py` (nouveau),
+  `tabs_collections.py` (« Décors du logis »), `tabs_market.py` (« Rentabilité des recettes »), `hermes_mcp.py`
+  (`wow_collections` decor, `wow_professions` rentabilite, `GameData.market()` : TSM / Auctionator en lecture seule,
+  relus au plus toutes les 10 min), skill 1.8.0.
+- API du logis (`C_HousingCatalog`, 11.2.7+, aussi sur Forever) : `GetDecorTotalOwnedCount` / `GetDecorMaxOwnedCount`
+  sûrs ; la liste passe par `CreateCatalogSearcher` + `GetAllSearchItems`, dont la conversion en fiches n'est pas
+  documentée : `GetCatalogEntryInfo` puis `GetCatalogEntryInfoByRecordID` en appels protégés, rappel de fin ou délai
+  de 4 s (une seule fin). Non vérifié en jeu (test 62).
+- Rentabilité : composants de base au moins cher de leurs rangs, vente × quantité moyenne × 0,95 ; recette sans prix
+  pour un composant = « incomplet » (pas de faux bénéfice).
+- **Tests :** 4 nouveaux (`test_profit.py`, Lua `test_housing_decor_scan_is_defensive`) ; suite verte.
+

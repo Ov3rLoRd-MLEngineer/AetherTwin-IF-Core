@@ -660,7 +660,13 @@ function A:ScanRecipes()
                     end
                 end
             end
-            list[#list + 1] = { id = recipeID, name = info.name, mats = mats }
+            local entry = { id = recipeID, name = info.name, mats = mats }
+            -- objet fabriqué (1.11) : pour la rentabilité des recettes dans WoW Assistant
+            if type(schematic) == "table" and type(schematic.outputItemID) == "number" then
+                entry.out = schematic.outputItemID
+                entry.outQty = math.max(1, ((schematic.quantityMin or 1) + (schematic.quantityMax or 1)) / 2)
+            end
+            list[#list + 1] = entry
         end
     end
     if #list > 0 then
@@ -931,7 +937,7 @@ end
 
 ---------------------------------------------------------------------------
 -- Analyses complètes, découpées en petits morceaux (une portion par image : aucun à-coup)
--- /ha scan  [hautsfaits|statistiques|montures|mascottes|jouets|heritage|transmog|ensembles]
+-- /ha scan  [hautsfaits|statistiques|montures|mascottes|jouets|heritage|transmog|ensembles|logis]
 ---------------------------------------------------------------------------
 function A:RunChunked(total, perChunk, stepFn, doneFn)
     local index = 0
@@ -1089,6 +1095,59 @@ function A:ScanHeirlooms(done)
     end)
 end
 
+-- Décors du logis (11.2.7+, aussi sur WoW Forever) : compteurs sûrs, puis liste détaillée en essai protégé.
+-- Le parcours complet du catalogue n'est que partiellement documenté : chaque appel est protégé, et une liste
+-- vide n'empêche pas d'avoir les compteurs.
+local function DecorInfo(HC, item)
+    local info
+    if type(item) == "table" then
+        info = try(HC.GetCatalogEntryInfo, item)
+        if type(info) ~= "table" and item.recordID then
+            info = try(HC.GetCatalogEntryInfoByRecordID, item.entryType or 1, item.recordID, true)
+        end
+    elseif type(item) == "number" then
+        info = try(HC.GetCatalogEntryInfoByRecordID, 1, item, true)
+            or try(HC.GetCatalogEntryInfo, { recordID = item, entryType = 1 })
+    end
+    return type(info) == "table" and info or nil
+end
+
+function A:ScanDecor(done)
+    local HC = C_HousingCatalog
+    if not HC then return done() end
+    local out = { updated = time(), owned = 0, exempt = 0, max = 0, list = "" }
+    local owned, exempt = try(HC.GetDecorTotalOwnedCount)
+    out.owned, out.exempt = tonumber(owned) or 0, tonumber(exempt) or 0
+    out.max = tonumber(try(HC.GetDecorMaxOwnedCount)) or 0
+    local finished = false
+    local function finish(searcher)
+        if finished then return end
+        finished = true
+        local items = searcher and try(searcher.GetAllSearchItems, searcher)
+        local rows = {}
+        for _, item in ipairs(type(items) == "table" and items or {}) do
+            if #rows >= 1500 then break end
+            local info = DecorInfo(HC, item)
+            if info and type(info.name) == "string" then
+                local stored, placed = tonumber(info.totalNumStored) or 0, tonumber(info.totalNumPlaced) or 0
+                rows[#rows + 1] = join(info.itemID or 0, info.name, stored, placed, info.quality or 1,
+                                       info.remainingRedeemable or 0, trim(info.sourceText, 120),
+                                       type(item) == "table" and item.recordID or item)
+            end
+        end
+        out.list = table.concat(rows, RS)
+        DB().decor = out
+        MarkScan("decor")
+        done()
+    end
+    local searcher = try(HC.CreateCatalogSearcher)
+    if type(searcher) ~= "table" then return finish(nil) end
+    try(searcher.SetCollected, searcher, true)
+    try(searcher.SetResultsUpdatedCallback, searcher, function() finish(searcher) end)
+    try(searcher.RunSearch, searcher)
+    C_Timer.After(4, function() finish(searcher) end)     -- sans rappel : on lit ce qui est là
+end
+
 function A:ScanTransmog(done)
     local TC = C_TransmogCollection
     if not TC then return done() end
@@ -1161,9 +1220,9 @@ end
 local SCAN_ORDER = {
     achievements = "ScanAchievements", statistiques = "ScanStatistics", montures = "ScanMounts",
     mascottes = "ScanPets", jouets = "ScanToys", heritage = "ScanHeirlooms",
-    transmog = "ScanTransmog", ensembles = "ScanSets",
+    transmog = "ScanTransmog", ensembles = "ScanSets", logis = "ScanDecor",
 }
-local SCAN_SEQUENCE = { "achievements", "statistiques", "montures", "mascottes", "jouets", "heritage", "transmog", "ensembles" }
+local SCAN_SEQUENCE = { "achievements", "statistiques", "montures", "mascottes", "jouets", "heritage", "transmog", "ensembles", "logis" }
 
 function A:StartScans(which)
     if A.scanning then Log("Analyse déjà en cours.") return end
@@ -1172,7 +1231,7 @@ function A:StartScans(which)
         if not which or which == "" or which == "tout" or which == key then queue[#queue + 1] = key end
     end
     if #queue == 0 then
-        Log("Analyses possibles : tout, achievements, statistiques, montures, mascottes, jouets, heritage, transmog, ensembles")
+        Log("Analyses possibles : tout, achievements, statistiques, montures, mascottes, jouets, heritage, transmog, ensembles, logis")
         return
     end
     A.scanning = true

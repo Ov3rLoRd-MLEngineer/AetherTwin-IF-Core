@@ -227,6 +227,7 @@ modules/
       model3d.py
       mousepos.py
       overlay.py
+      profit.py
       quests.py
       README.md
       recipes.json
@@ -351,6 +352,7 @@ tests/
     test_model3d.py
     test_module.py
     test_obs_hud.py
+    test_profit.py
     test_routine.py
     test_settings_bnet.py
     test_simc.py

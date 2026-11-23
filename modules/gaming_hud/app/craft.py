@@ -95,6 +95,8 @@ class CraftSystem:
                         materials.append({"item_id": ids[0], "item_ids": ids,
                                           "name": m.get("name", ""), "quantity": m.get("quantity", 1)})
                 self.add_recipe(recipe.get("id"), recipe.get("name", ""), profession, 0, materials, source="game")
+                if recipe.get("out"):                   # objet fabriqué (addon 1.11) : rentabilité
+                    self.recipes[-1].update(out=recipe["out"], outQty=recipe.get("outQty", 1))
         after = [r for r in self.recipes if r.get("source") == "game"]
         return before != after
 

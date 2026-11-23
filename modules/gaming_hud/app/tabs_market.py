@@ -8,6 +8,7 @@ import time
 
 import pygame
 
+import profit
 from addon_data import Market, installed_addons, load_saved_variables, saved_variable_files, tree_rows
 from bnet import REGIONS, BnetError
 from character import Character
@@ -16,8 +17,8 @@ from theme import C, QUALITY_COLORS
 from tabutil import format_age, hover, message
 from wowhead import item_url
 
-VIEWS = (("value", "Valeur des sacs"), ("banks", "Valeur des banques"), ("search", "Rechercher un prix"),
-         ("addons", "Données des addons"))
+VIEWS = (("value", "Valeur des sacs"), ("banks", "Valeur des banques"), ("craft", "Rentabilité des recettes"),
+         ("search", "Rechercher un prix"), ("addons", "Données des addons"))
 
 
 def _money(copper):
@@ -130,6 +131,8 @@ def draw_market(ui, ctx, rect):
                 items += tab.get("items", [])
         _draw_value(ui, right, market, items, "Valeur des banques (personnage, bataillon, guilde)",
                     "Banques jamais consultées : ouvrez-les une fois en jeu, puis /ha save.")
+    elif view == "craft":
+        _draw_profit(ui, right, market, getattr(ctx, "craft", None))
     elif view == "search":
         _draw_search(ui, right, market, ctx)
     else:
@@ -276,6 +279,75 @@ def _draw_value(ui, rect, market, items, title, empty):
         ui.tip(row, lambda iid=item["id"], nm=name, q=quality: _item_tip(ui, market, iid, nm, q))
         ui.link(row, item_url(item["id"]))
     ui.scroll_end()
+
+
+# ---------------------------------------------------------------------------
+#  Rentabilité des recettes (profit.py)
+# ---------------------------------------------------------------------------
+def _signed(copper):
+    return ("-" if copper < 0 else "+") + _money(abs(copper)) if copper else "0"
+
+
+def _draw_profit(ui, rect, market, craft):
+    x, y, w, h = rect
+    ui.frame(rect, "Rentabilité des recettes")
+    recipes = [r for r in (craft.recipes if craft is not None else []) if r.get("source") == "game"]
+    rows = profit.ranking(recipes, market)
+    if not rows:
+        lines = (["Ouvrez la fenêtre d'un métier en jeu (addon 1.11), puis /ha save :",
+                  "l'addon lit alors l'objet fabriqué par chaque recette."] if recipes else
+                 ["Recettes pas encore lues : ouvrez la fenêtre d'un métier en jeu,", "puis tapez /ha save."])
+        message(ui, rect, lines + ["Les prix viennent des sources à gauche (Battle.net, TSM, Auctionator)."])
+        return
+    priced = [r for r in rows if r["profit"] is not None]
+    ui.text(f"{len(priced)} recette(s) chiffrée(s) sur {len(rows)}", "small", "light_gray", (x + 16, y + 46))
+    ui.text("Composants de base au prix de l'HdV · vente moins 5 % de commission", "tiny", "gray", (x + 16, y + 70))
+    ui.pill((x + w - 226, y + 44, 210, 32), "Conseil (Hermes)", False,
+            lambda: _ask_profit(ui, rows))
+    cols = ((w - 470, "Coût"), (w - 330, "Vente nette"), (w - 190, "Bénéfice"))
+    for cx, label in cols:
+        ui.text(label, "tiny", "label", (x + cx, y + 96), anchor="topright")
+    area = pygame.Rect(x + 10, y + 116, w - 20, h - 128)
+    top = ui.scroll_begin("market_profit", area, len(rows) * 36)
+    for n, r in enumerate(rows):
+        ry = top + n * 36
+        if ry + 36 < area.y or ry > area.bottom:
+            continue
+        row = pygame.Rect(area.x, ry, area.w - 12, 32)
+        if hover(row):
+            pygame.draw.rect(ui.screen, C["row_hover"], row, border_radius=4)
+        ui.icon("item", r["out"], (row.x + 2, row.y + 2, 28, 28), border=C["frame"], fallback=r["name"])
+        ui.text(ui.fit(f"{r['name']}  ·  {r['profession']}", "small", row.w - 560), "small", "text",
+                (row.x + 40, row.y + 7))
+        ui.text(_money(r["cost"]), "small", "light_gray", (x + cols[0][0], row.y + 7), anchor="topright")
+        ui.text(_money(r["value"]) if r["value"] is not None else "prix inconnu", "small",
+                "light_gray" if r["value"] is not None else "gray", (x + cols[1][0], row.y + 7), anchor="topright")
+        if r["profit"] is None:
+            ui.text("incomplet", "small", "gray", (x + cols[2][0], row.y + 7), anchor="topright")
+        else:
+            ui.text(_signed(r["profit"]), "small", "green" if r["profit"] > 0 else "red",
+                    (x + cols[2][0], row.y + 7), anchor="topright")
+        tip = [(r["name"], C["gold"], "")]
+        if r["missing"]:
+            tip.append(("Sans prix : " + ", ".join(r["missing"][:4]), C["orange"], ""))
+        if r["quantity"] != 1:
+            tip.append((f"Quantité fabriquée : {r['quantity']:g} en moyenne", C["light_gray"], ""))
+        tip.append(("Estimation : rangs de qualité et composants optionnels non comptés.", C["gray"], ""))
+        ui.tip(row, lambda t=tip: {"rows": t, "border": C["header_border"], "footer": "Clic : ouvrir sur Wowhead"})
+        ui.link(row, item_url(r["out"]))
+    ui.scroll_end()
+
+
+def _ask_profit(ui, rows):
+    text = profit.ADVICE_PROMPT + profit.describe(rows, _money)
+    chat = getattr(ui, "chat", None)
+    if chat is not None and chat.uses_hermes() and "Hermes" in ui.TABS:
+        import chatview
+        if chatview.send_from(ui, chat, "hermes_msg", text):
+            ui._switch_tab(ui.TABS.index("Hermes"))
+        return
+    ui.ask_assistant("Rentabilité des recettes", text,
+                     suggestions=["Que devrais-je fabriquer cette semaine ?", "Quels composants récolter moi-même ?"])
 
 
 # ---------------------------------------------------------------------------

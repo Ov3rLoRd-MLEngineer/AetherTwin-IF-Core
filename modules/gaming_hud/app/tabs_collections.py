@@ -14,7 +14,7 @@ from theme import C, QUALITY_COLORS, clean_wow_text, format_gold
 from wowhead import battle_pet_url, item_url, spell_url, transmog_set_url
 
 SUBTABS = [("mounts", "Montures"), ("pets", "Codex des mascottes"), ("toys", "Jouets"),
-           ("heirlooms", "Héritage"), ("transmog", "Transmoglyphe")]
+           ("heirlooms", "Héritage"), ("transmog", "Transmoglyphe"), ("decor", "Décors du logis")]
 
 PET_TYPES = {1: "Humanoïde", 2: "Draconien", 3: "Volant", 4: "Mort-vivant", 5: "Bestiole", 6: "Magique",
              7: "Élémentaire", 8: "Bête", 9: "Aquatique", 10: "Mécanique"}
@@ -48,7 +48,8 @@ def draw_collections(ui, ctx, rect):
             (x + w, y + 8), anchor="topright")
     body = (x, y + 44, w, h - 44)
     view = ui.state["collection"]
-    {"mounts": _mounts, "pets": _pets, "toys": _toys, "heirlooms": _heirlooms, "transmog": _transmog}[view](ui, ctx, body)
+    {"mounts": _mounts, "pets": _pets, "toys": _toys, "heirlooms": _heirlooms, "transmog": _transmog,
+     "decor": _decor}[view](ui, ctx, body)
 
 
 # ===========================================================================
@@ -344,6 +345,39 @@ def _heirlooms(ui, ctx, rect):
         return out
     _simple_collection(ui, ctx, rect, "heirlooms", "Héritage", ctx.data.heirlooms["list"], "toy_filter", "heirloom_search",
                        lambda t: "Obtenu" if t["owned"] else "Manquant", "Objet d'héritage", lines, "Objet d'héritage")
+
+
+def _decor(ui, ctx, rect):
+    """Décors du logis (addon 1.11, « /ha scan logis ») : compteurs du jeu et décors possédés (rangés / placés)."""
+    decor = getattr(ctx.data, "decor", None) or {}
+    entries = [dict(d, owned=True, id=d["id"] or 900_000_000 + d.get("record", 0)) for d in decor.get("list") or []]
+    if not entries:
+        left, right = _layout(rect)
+        count = decor.get("owned", 0)
+        ui.frame(left, "Décors du logis" + (f" — {count} possédés" if count else ""))
+        lines = ["Liste des décors pas encore lue.", "En jeu : /ha scan logis, puis /ha save (addon 1.11)."]
+        if count:
+            lines.insert(0, f"{count} décors possédés" + (f" sur {decor['max']} au maximum" if decor.get("max") else ""))
+        message(ui, left, lines)
+        ui.frame(right, "Détail")
+        message(ui, right, ["La lecture du catalogue du logis n'a pas encore été vérifiée en jeu :",
+                            "si la liste reste vide après /ha scan logis, les compteurs restent justes."])
+        return
+
+    def subtitle(d):
+        return f"Rangés : {d['stored']} · placés : {d['placed']}"
+
+    def lines(d):
+        out = [(subtitle(d), C["green"])]
+        if d.get("redeemable"):
+            out.append((f"Encore {d['redeemable']} à récupérer", C["orange"]))
+        if d.get("source"):
+            out.append((clean_wow_text(d["source"]), C["gray"]))
+        if decor.get("max"):
+            out.append((f"Décors possédés : {decor.get('owned', 0)} / {decor['max']}", C["light_gray"]))
+        return out
+    _simple_collection(ui, ctx, rect, "decor", "Décors du logis", entries, "toy_filter", "decor_search", subtitle,
+                       "Décor", lines, "Décor du logis")
 
 
 # ===========================================================================

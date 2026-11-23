@@ -178,3 +178,58 @@ def test_way_command_sets_a_game_waypoint() -> None:
     assert g.WAYPOINT.map == 2112 and "Valdrakken" in g.LOGS[len(g.LOGS)]
     g.SlashCmdList.HERMESASSISTANT("way nulle part")
     assert "Usage" in g.LOGS[len(g.LOGS)]
+
+
+DECOR_GAME = """
+local frame = { RegisterEvent = function() end, SetScript = function() end }
+CreateFrame = function() return frame end
+SlashCmdList = {}
+LATER = {}
+C_Timer = { After = function(_, fn) LATER[#LATER + 1] = fn end, NewTicker = function() return {} end }
+InCombatLockdown = function() return false end
+GetTime = function() return 0 end
+time = function() return 1000 end
+CALLBACK = nil
+local searcher = {
+  SetCollected = function(self, v) self.collected = v end,
+  SetResultsUpdatedCallback = function(self, fn) CALLBACK = fn end,
+  RunSearch = function(self) end,
+  GetAllSearchItems = function(self) return { { recordID = 7, entryType = 1 }, 8 } end,
+}
+C_HousingCatalog = {
+  GetDecorTotalOwnedCount = function() return 42, 3 end,
+  GetDecorMaxOwnedCount = function() return 5000 end,
+  CreateCatalogSearcher = function() return searcher end,
+  GetCatalogEntryInfo = function(e)
+    if e.recordID == 7 then return { name = "Lanterne", itemID = 245001, totalNumStored = 1, totalNumPlaced = 2,
+                                     quality = 3, sourceText = "Vendeur" } end
+  end,
+  GetCatalogEntryInfoByRecordID = function(_, id) if id == 8 then return { name = "Tapis", totalNumStored = 4 } end end,
+}
+"""
+
+
+def test_housing_decor_scan_is_defensive() -> None:
+    lua = lupa.LuaRuntime(unpack_returned_tuples=True)
+    lua.execute(DECOR_GAME)
+    chunk, error = lua.execute(LOAD, ADDON.read_text(encoding="utf-8") + "\nreturn A\n")
+    assert chunk is not None, error
+    a = chunk("HermesAssistant", lua.table_from({}))
+    g = lua.globals()
+    done = []
+    a.ScanDecor(a, lambda: done.append(1))
+    assert not done and g.CALLBACK is not None
+    g.CALLBACK()
+    g.LATER[1]()                      # le délai de secours ne relance pas une 2e fin
+    assert done == [1]
+    decor = g.HermesAssistantCharDB.decor
+    assert decor.owned == 42 and decor.exempt == 3 and decor.max == 5000
+    rows = decor.list.split("¶")
+    assert rows[0].split("¦")[:4] == ["245001", "Lanterne", "1", "2"] and rows[1].split("¦")[1] == "Tapis"
+    from game_connection import _normalize_decor
+    out = _normalize_decor({"owned": 42, "max": 5000, "list": decor.list})
+    assert out["list"][0]["placed"] == 2 and out["list"][1]["stored"] == 4 and out["list"][1]["record"] == 8
+    # sans le catalogue (vieille version du jeu) : rien ne casse
+    g.C_HousingCatalog = None
+    a.ScanDecor(a, lambda: done.append(2))
+    assert done == [1, 2]

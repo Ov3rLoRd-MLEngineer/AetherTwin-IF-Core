@@ -24,6 +24,7 @@ _DEFAULTS = {
     "pets": {"updated": 0, "list": []},
     "toys": {"updated": 0, "list": []},
     "heirlooms": {"updated": 0, "list": []},
+    "decor": {"updated": 0, "owned": 0, "exempt": 0, "max": 0, "list": []},
     "transmog": {"updated": 0, "setsUpdated": 0, "cats": [], "items": {}, "sets": []},
     "currencies": [],
     "factions": [],

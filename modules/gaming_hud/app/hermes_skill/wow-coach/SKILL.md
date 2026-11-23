@@ -1,7 +1,7 @@
 ---
 name: wow-coach
 description: "Coach World of Warcraft en français : lit l'état réel du personnage du joueur (outils WoW Assistant) et donne des conseils concrets — quêtes, équipement, talents, métiers, donjons, économie."
-version: 1.7.0
+version: 1.8.0
 author: WoW Assistant
 license: MIT
 metadata:
@@ -25,10 +25,10 @@ Le serveur MCP **wow_assistant** (installé par WoW Assistant) donne l'état ré
 | `wow_character` | nom, royaume, niveau, classe, spécialisation, niveau d'objet, zone, or, caractéristiques, équipement (`details: true` pour les infobulles) |
 | `wow_quests` | journal de quêtes, objectifs, récompenses (`query` : titre ou zone) |
 | `wow_inventory` | sacs, banque, banque de bataillon, banque de guilde (`query`, `where`) |
-| `wow_professions` | métiers, niveaux, recettes connues |
+| `wow_professions` | métiers, niveaux, recettes connues ; `rentabilite: true` : coût, vente nette et bénéfice par recette |
 | `wow_talents` | talents choisis, talent de héros, code de configuration |
 | `wow_progress` | hauts faits, verrous d'instances, grande chambre forte, Mythique+, réputations, monnaies |
-| `wow_collections` | montures, mascottes, jouets, héritages (compteurs, recherche) |
+| `wow_collections` | montures, mascottes, jouets, héritages, décors du logis (compteurs, recherche) |
 | `wow_bestiary` | créatures rencontrées et tuées : niveau, zones, PV, aptitudes, butin, or moyen, note |
 | `wow_recent_activity` | derniers événements (niveaux, quêtes, butin) |
 | `wow_combat_reports` | bilans des derniers boss et clés M+ (journal de combat) : DPS, morts et leurs causes, interruptions |

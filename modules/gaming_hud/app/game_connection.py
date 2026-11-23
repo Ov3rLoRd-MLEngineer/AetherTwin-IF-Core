@@ -109,6 +109,16 @@ def _normalize_heirlooms(raw):
                      for f in _records(raw.get("list"), 5)]}
 
 
+def _normalize_decor(raw):
+    """Décors du logis (addon 1.11) : compteurs du jeu + liste (stockés / placés)."""
+    raw = _as_dict(raw)
+    return {"updated": raw.get("updated", 0), "owned": _int(raw.get("owned")), "exempt": _int(raw.get("exempt")),
+            "max": _int(raw.get("max")),
+            "list": [{"id": _int(f[0]), "name": f[1], "stored": _int(f[2]), "placed": _int(f[3]),
+                      "quality": _int(f[4], 1), "redeemable": _int(f[5]), "source": f[6], "record": _int(f[7])}
+                     for f in _records(raw.get("list"), 8)]}
+
+
 def _normalize_transmog(raw):
     raw = _as_dict(raw)
     cats = [{"id": _int(f[0]), "name": f[1], "weapon": f[2] == "1", "collected": _int(f[3]), "total": _int(f[4])}
@@ -383,6 +393,7 @@ class GameConnection:
             "toys": _normalize_toys(db.get("toys")),
             "heirlooms": _normalize_heirlooms(db.get("heirlooms")),
             "transmog": _normalize_transmog(db.get("transmog")),
+            "decor": _normalize_decor(db.get("decor")),
             "currencies": _dict_list(db.get("currencies")),
             "factions": _dict_list(db.get("factions")),
             "lockouts": _normalize_lockouts(db.get("lockouts")),

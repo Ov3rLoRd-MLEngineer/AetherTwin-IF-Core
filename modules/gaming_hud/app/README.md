@@ -149,6 +149,15 @@ outine.json` (hors du dépôt et du dossier du jeu).
 - Hermes : question « Niveau » (parcours de montée de niveau vérifié en ligne) ; les `/ha way` et `/way` de ses
   réponses deviennent des boutons sous la conversation : un clic copie, il reste à coller dans la discussion du jeu.
 
+## Décors du logis et rentabilité des recettes (23/11/2026)
+- Addon **1.11** : `/ha scan logis` lit les décors du logis (compteurs du jeu, et la liste rangés / placés),
+  affichés dans Collections → « Décors du logis ». La liste passe par une partie de l'API encore peu documentée :
+  si elle reste vide, les compteurs restent justes.
+- Hôtel des ventes → **« Rentabilité des recettes »** : coût des composants de base aux prix de l'Hôtel des ventes,
+  vente nette (commission de 5 % déduite), bénéfice ; « Conseil (Hermes) » pour savoir quoi fabriquer. Il faut
+  ouvrir une fois la fenêtre de chaque métier en jeu avec l'addon 1.11 (objet fabriqué par chaque recette).
+  Estimation : rangs de qualité et composants optionnels non comptés.
+
 ## Raidbots (23/11/2026)
 - Onglet Personnage (cadre d'équipement), **« Profil Raidbots »** : copie votre profil SimulationCraft (équipement porté avec ses bonus,
   enchantements, gemmes ; talents ; métiers) et ouvre le Droptimizer de raidbots.com : collez-le, lancez.

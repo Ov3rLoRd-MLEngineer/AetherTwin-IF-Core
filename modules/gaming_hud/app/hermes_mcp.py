@@ -79,6 +79,21 @@ class GameData:
         self._snapshot, self._read_at = snap, time.monotonic()
         return snap
 
+    def market(self):
+        """Prix TSM / Auctionator (fichiers des addons, lecture seule), relus au plus toutes les 10 minutes."""
+        cached = getattr(self, "_market", None)
+        if cached is not None and time.monotonic() - self._market_at < 600:
+            return cached
+        try:
+            from addon_data import Market
+            realm = (self.snapshot().get("character") or {}).get("realm", "")
+            market = Market(self._game_path(), realm).reload()
+            self._market = market if (market.tsm or market.auctionator) else None
+        except Exception:               # noqa: BLE001 — fichiers d'addons absents ou illisibles
+            self._market = None
+        self._market_at = time.monotonic()
+        return self._market
+
     def source(self):
         return self._source
 
@@ -251,7 +266,27 @@ def tool_professions(data, args):
             if more:
                 entry["recettes"].append(f"… {more} autres")
         out.append(entry)
-    return {"métiers": out}
+    result = {"métiers": out}
+    if args.get("rentabilite"):
+        result["rentabilité"] = _profit(data, recipes, args.get("query"))
+    return result
+
+
+def _profit(data, recipes, query):
+    """Bénéfice estimé par recette (prix TSM / Auctionator lus dans les fichiers des addons, lecture seule)."""
+    import profit
+    market = data.market() if hasattr(data, "market") else None
+    if market is None:
+        return "prix indisponibles (aucun fichier TSM / Auctionator lisible)"
+    flat = [dict(r, profession=p) for p, rec in recipes.items() for r in (rec.get("list") or [])
+            if _match(r.get("name"), query)]
+    rows = profit.ranking(flat, market)
+    if not rows:
+        return "aucune recette chiffrable : ouvrir la fenêtre du métier en jeu (addon 1.11) puis /ha save"
+    return [{"recette": r["name"], "métier": r["profession"], "coût": _money(r["cost"]),
+             "vente_nette": _money(r["value"]) if r["value"] is not None else None,
+             "bénéfice": (("-" if r["profit"] < 0 else "") + _money(abs(r["profit"])))
+             if r["profit"] is not None else None, "sans_prix": r["missing"][:4] or None} for r in rows[:40]]
 
 
 def tool_talents(data, args):
@@ -295,6 +330,16 @@ def tool_collections(data, args):
             summary[label]["résultats"], more = _limit(hits, 60)
             if more:
                 summary[label]["résultats"].append({"…": f"{more} autres"})
+    decor = s.get("decor") or {}
+    if decor.get("owned") or decor.get("list"):
+        summary["décors_du_logis"] = {"possédés": decor.get("owned", 0), "maximum": decor.get("max") or None}
+        if kind in ("decor", "décors") or (query and not kind):
+            hits = [{"nom": d.get("name"), "rangés": d.get("stored", 0), "placés": d.get("placed", 0),
+                     "source": (d.get("source") or "")[:160]} for d in decor.get("list") or []
+                    if _match(d.get("name"), query)]
+            summary["décors_du_logis"]["résultats"], more = _limit(hits, 60)
+            if more:
+                summary["décors_du_logis"]["résultats"].append({"…": f"{more} autres"})
     summary["or_du_bataillon"] = _money((s.get("collections") or {}).get("warbandMoney"))
     return summary
 
@@ -405,14 +450,17 @@ TOOLS = [
     ("wow_inventory", "Objets du joueur : sacs, banque du personnage, banque de bataillon, banque de guilde.",
      {"query": {"type": "string", "description": "filtre sur le nom de l'objet"},
       "where": {"type": "string", "enum": ["tout", "sacs", "banque", "bataillon", "guilde"]}}, tool_inventory),
-    ("wow_professions", "Métiers du joueur, leurs niveaux et les recettes connues.",
-     {"query": {"type": "string", "description": "filtre sur le nom de la recette"}}, tool_professions),
+    ("wow_professions", "Métiers du joueur, leurs niveaux et les recettes connues ; avec rentabilite=true, le "
+     "bénéfice estimé de chaque recette (prix de l'Hôtel des ventes relevés par TSM / Auctionator).",
+     {"query": {"type": "string", "description": "filtre sur le nom de la recette"},
+      "rentabilite": {"type": "boolean", "description": "ajoute coût, vente nette et bénéfice par recette"}},
+     tool_professions),
     ("wow_talents", "Talents choisis, points, talent de héros et code d'importation de la configuration.", {},
      tool_talents),
     ("wow_progress", "Progression : hauts faits, verrous d'instances et boss mondiaux, grande chambre forte, "
      "Mythique+, réputations, monnaies.", {}, tool_progress),
     ("wow_collections", "Collections du bataillon : montures, mascottes, jouets, héritages (compteurs, recherche).",
-     {"kind": {"type": "string", "enum": ["mounts", "pets", "toys", "heirlooms"]},
+     {"kind": {"type": "string", "enum": ["mounts", "pets", "toys", "heirlooms", "decor"]},
       "query": {"type": "string", "description": "nom à chercher"}}, tool_collections),
     ("wow_bestiary", "Bestiaire du joueur : créatures rencontrées et tuées, niveau, zones, points de vie, aptitudes "
      "observées, butin (avec fréquence) et or moyen, note personnelle.",
