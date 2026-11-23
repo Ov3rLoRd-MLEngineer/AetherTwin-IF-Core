@@ -117,7 +117,7 @@ def draw_market(ui, ctx, rect):
         for line in ui.wrap(job["note"], "tiny", 308)[:3]:
             ui.text(line, "tiny", "green" if job["ok"] else "orange", (x + 16, py))
             py += 16
-    _bnet_settings(ui, (x + 16, py + 8, 308, y + h - py - 16))
+    _bnet_status(ui, (x + 16, py + 8, 308, y + h - py - 16))
 
     if view == "value":
         _draw_value(ui, right, market, getattr(ctx, "inventory", None) and ctx.inventory.items or [],
@@ -139,29 +139,56 @@ def draw_market(ui, ctx, rect):
 # ---------------------------------------------------------------------------
 #  Réglages Battle.net (dans le panneau de gauche)
 # ---------------------------------------------------------------------------
-def _bnet_settings(ui, rect):
+def _bnet_configured(ui):
+    return bool(ui.settings and ui.settings.get("bnet.client_id") and ui.settings.get("bnet.client_secret"))
+
+
+def _bnet_status(ui, rect):
+    """État de l'API dans l'onglet ; les identifiants se règlent dans Paramètres généraux > Jeu."""
     x, y, w, h = rect
-    if h < 150 or ui.settings is None:
+    if h < 80 or ui.settings is None:
+        return
+    pygame.draw.line(ui.screen, C["header_border"], (x, y), (x + w, y), 1)
+    ui.text("API Battle.net (facultative)", "small", "gold", (x, y + 8))
+    ok = _bnet_configured(ui)
+    ui.text("Identifiants enregistrés" if ok else "Aucun identifiant", "tiny", "green" if ok else "gray", (x, y + 30))
+    ui.pill((x, y + 50, w, 28), "Régler (Paramètres > Jeu)", False, lambda: ui.open_settings("game"))
+
+
+def bnet_settings(ui, rect):
+    """Identifiants Battle.net (Paramètres généraux > Jeu). Enregistrés dans settings.json sur ce PC."""
+    x, y, w, h = rect
+    if ui.settings is None:
         return
     if "bn_id" not in ui.inputs:
         ui.inputs["bn_id"] = str(ui.settings.get("bnet.client_id", "") or "")
         ui.inputs["bn_secret"] = str(ui.settings.get("bnet.client_secret", "") or "")
-    region = str(ui.settings.get("bnet.region", "eu") or "eu")
-    pygame.draw.line(ui.screen, C["header_border"], (x, y), (x + w, y), 1)
-    ui.text("API Battle.net (facultative)", "small", "gold", (x, y + 8))
-    ui.text("Rendus 3D officiels et prix de l'HdV", "tiny", "gray", (x, y + 30))
-    ui.input_box((x, y + 50, w, 28), "bn_id", "Client ID")
-    ui.input_box((x, y + 84, w - 40, 28), "bn_secret", "Client secret", mask=True)
-    ui.pill((x + w - 34, y + 84, 34, 28), "×", False, lambda: _clear_bnet(ui))
+    region = str(ui.settings.get("bnet.region", "") or "eu")
+    ui.text("API Battle.net (facultative)", "medium", "gold", (x, y), shadow=True)
+    ok = _bnet_configured(ui)
+    ui.text("Identifiants enregistrés" if ok else "Aucun identifiant enregistré", "small",
+            "green" if ok else "gray", (x + w, y + 6), anchor="topright")
+    y += 32
+    ui.text("Images du personnage, des montures, des mascottes et des créatures ; prix de l'Hôtel des ventes.",
+            "small", "gray", (x, y))
+    y += 30
+    ui.text("Client ID", "small", "label", (x, y + 6))
+    ui.input_box((x + 150, y, w - 150, 30), "bn_id", "Client ID")
+    y += 38
+    ui.text("Client secret", "small", "label", (x, y + 6))
+    ui.input_box((x + 150, y, w - 150 - 40, 30), "bn_secret", "Client secret", mask=True)
+    ui.pill((x + w - 34, y, 34, 30), "×", False, lambda: _clear_bnet(ui))
+    y += 40
+    ui.text("Région", "small", "label", (x, y + 5))
     for i, code in enumerate(REGIONS):
-        ui.pill((x + i * 52, y + 118, 48, 26), code.upper(), region == code,
+        ui.pill((x + 150 + i * 56, y, 50, 28), code.upper(), region == code,
                 lambda c=code: (ui.settings.set("bnet.region", c), ui.settings.save()))
-    ui.pill((x + w - 96, y + 118, 96, 26), "Enregistrer", False, lambda: _save_bnet(ui))
-    if h >= 190:
-        link = pygame.Rect(x, y + 152, w, 18)
-        ui.text("Créer des identifiants : develop.battle.net", "tiny", "light_gray" if not hover(link) else "gold",
-                (x, y + 152))
-        ui.link(link, "https://develop.battle.net/access/clients")
+    ui.pill((x + w - 170, y, 170, 28), "Enregistrer", True, lambda: _save_bnet(ui))
+    y += 38
+    link = pygame.Rect(x, y, 420, 18)
+    ui.text("Créer des identifiants (gratuit) : develop.battle.net", "tiny",
+            "light_gray" if not hover(link) else "gold", (x, y))
+    ui.link(link, "https://develop.battle.net/access/clients")
 
 
 def _save_bnet(ui):

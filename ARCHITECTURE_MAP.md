@@ -326,6 +326,7 @@ tests/
     test_market.py
     test_module.py
     test_obs_hud.py
+    test_settings_bnet.py
     test_ui_fixes.py
   genesis_lab/
     __init__.py

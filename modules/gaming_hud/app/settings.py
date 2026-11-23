@@ -22,6 +22,7 @@ DEFAULTS = {
     "online_icons": True,
     "app": {"pos": None},                     # dernière position de la fenêtre principale
     "game": {"path": ""},                     # dossier _retail_ de WoW (vide = détection automatique)
+    "bnet": {"client_id": "", "client_secret": "", "region": ""},   # API Battle.net (facultative)
     "overlay": {
         "start_in_overlay": False,
         "opacity": 100,                       # 40 à 100 %
@@ -103,4 +104,6 @@ def _merge(defaults, stored):
             out[key] = _merge(value, stored.get(key, {}) if isinstance(stored.get(key), dict) else {})
         else:
             out[key] = stored.get(key, value)
+    for key, value in stored.items():   # clé inconnue des valeurs par défaut : gardée (perdue avant le 23/11)
+        out.setdefault(key, value)
     return out

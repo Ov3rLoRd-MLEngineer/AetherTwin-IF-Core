@@ -904,3 +904,8 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - Texte des sources : un code d'icône coupé par la limite de longueur (`|TINTERFACE\ICONS\…` sans `|t`) est retiré.
 - Message 404 de Battle.net : la mention « personnage jamais vu » ne s'affiche plus que pour un personnage.
 - **Tests :** 8 nouveaux (`test_collections_media.py`, `test_addon_lua.py`) ; suite verte ; ruff propre.
+
+## 23/11/2026 : identifiants Battle.net perdus au redémarrage
+- Tests 40 à 42 : OK (Jérémy), sauf les identifiants Battle.net qui ne survivaient pas à la fermeture.
+- Cause : `Settings` ne gardait au chargement que les clés des valeurs par défaut ; `bnet` n'y était pas. Corrigé (valeurs par défaut + clés inconnues gardées). FAIT-TESTÉ (enregistrer, relire, réenregistrer).
+- Identifiants déplacés dans Paramètres généraux > Jeu (demande de Jérémy) ; l'onglet Hôtel des ventes garde l'état et un bouton « Régler ».

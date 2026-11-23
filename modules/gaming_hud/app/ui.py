@@ -1523,6 +1523,9 @@ class UI:
         self.settings.set("llm.mode", m["mode"])
         self.settings.set("online_icons", m["icons"])
         self.icons.enabled = m["icons"]
+        if "bn_id" in self.inputs:   # identifiants Battle.net (page Jeu) : « Enregistrer » du bas les garde aussi
+            self.settings.set("bnet.client_id", self.inputs.get("bn_id", "").strip())
+            self.settings.set("bnet.client_secret", self.inputs.get("bn_secret", "").strip())
         if save:
             ok = self.settings.save()
             m["status"], m["status_ok"] = ("Réglages enregistrés." if ok else "Impossible d'enregistrer settings.json"), ok
@@ -1734,6 +1737,10 @@ class UI:
         y += 10
         connected = WoWConfig.is_wow_installed()
         self.text("Dossier actuellement utilisé : " + WoWConfig.WOW_PATH, "tiny", "green" if connected else "red", (x, y))
+        from tabs_market import bnet_settings
+        y += 34
+        pygame.draw.line(self.screen, C["header_border"], (x, y), (x + rect.w - 48, y), 1)
+        bnet_settings(self, (x, y + 14, rect.w - 48, 220))
 
     def _settings_llm(self, m, x, y, rect):
         w = rect.w
