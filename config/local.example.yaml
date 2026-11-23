@@ -59,9 +59,14 @@ knowledge:
   nightly: true                            # Fuma relance l'ingestion chaque nuit (23 h → 7 h)
 
 genesis_lab:
-  profile: "data/genesis_lab/eleve.json"   # progression de l'élève (ignorée par Git)
-  hub_api: "http://127.0.0.1:5750"          # explications rédigées par le modèle local, via le Hub ; vide = types
+  profile: "data/genesis_lab/eleve.json"   # progression ; son dossier reçoit aussi cours et simulations (ignoré par Git)
+  hub_api: "http://127.0.0.1:5750"          # cours rédigés par le modèle local, via le Hub ; vide = lecture seule
   model: ""                                 # vide = modèle par défaut du Hub
+  code_model: ""                            # modèle qui programme les simulations (ex. un modèle « coder ») ; vide = model
+  wikipedia: true                           # sources lues sur fr.wikipedia.org (robots.txt, délai, cache local)
+  hermes: true                              # « Faire vérifier » par Hermes Agent s'il est installé
+  claude_local_dir: ""                      # dossier d'un Claude Code local : demandes de simulations
+  claude_local_launcher: ""                 # son lanceur (.bat), ouvert d'un clic, jamais lu
 
 mangastudio:
   handsegnet_weights: ""   # chemin local des poids (non versionnés)

@@ -133,4 +133,39 @@ section > p { margin: 0 0 14px; }
 /* mode manuel : vue zoomable (molette), défile quand l'image dépasse */
 .zoom-view { max-height: 82vh; overflow: auto; margin-top: 18px; border: 1px solid var(--line); border-radius: 6px; }
 .zoom-view .studio-canvas { margin: 0; border: 0; border-radius: 0; }
-.small-note { font-size: 13px; margin: 6px 0 0; }
+.small-note { font-size: 13px; margin: 6px 0 0; }/* Professeur */
+.prog td { padding: 7px 6px; }
+.prog td.nowrap { white-space: nowrap; width: 1%; }
+.lesson { line-height: 1.65; }
+.lesson h2 { font-size: 20px; margin-top: 10px; }
+.lesson h3.lesson-h { color: var(--text); font-size: 16px; margin-top: 22px; }
+.lesson p { margin: 0 0 10px; }
+.retenir { border-left: 4px solid var(--accent); background: var(--bg); border-radius: 6px; padding: 10px 16px; margin: 18px 0; }
+.retenir ul { margin: 6px 0 0; padding-left: 20px; }
+.vocab dt { font-weight: 600; }
+.vocab dd { margin: 0 0 8px 16px; color: var(--muted); }
+.exercise { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-top: 12px; }
+.exercise .choice { display: block; margin: 4px 0; cursor: pointer; }
+.exercise textarea { margin-top: 6px; }
+.feedback p { margin: 6px 0 0; }
+.schema { display: block; width: 100%; height: auto; margin: 10px 0 16px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+.schema rect { fill: var(--panel); stroke: var(--accent); stroke-width: 2; }
+.schema text { fill: var(--text); font-size: 14px; }
+.schema text.num { font-weight: 600; fill: var(--accent); }
+.schema text.small { font-size: 12.5px; fill: var(--muted); }
+.schema .arrow { stroke: var(--accent); stroke-width: 2.5; fill: none; }
+.schema .arrow-head { fill: var(--accent); }
+.schema .thin { stroke: var(--line); stroke-width: 2; }
+.schema .dot { fill: var(--accent); }
+.schema .centre { fill: var(--accent); fill-opacity: .14; stroke: var(--accent); stroke-width: 2; }
+.schema .grid { stroke: var(--line); stroke-width: 1; }
+.schema .axis { stroke: var(--muted); stroke-width: 1.6; }
+.schema .curve { stroke: var(--accent); stroke-width: 3; fill: none; }
+.schema-table { margin: 10px 0 16px; }
+.sim-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.sim-card { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; background: var(--bg);
+            color: var(--text); border: 1px solid var(--line); padding: 10px 12px; }
+.sim-card:hover { border-color: var(--accent); }
+.sim-card span { font-size: 12.5px; }
+.sim-frame { display: block; width: 100%; height: 640px; border: 1px solid var(--line); border-radius: 8px; margin-top: 10px; background: #000; }
+.verif { margin: 14px 0; }

@@ -24,6 +24,7 @@ Tout s'exécute en local, sous Ollama, sur du matériel NVIDIA grand public.
 | Adaptateurs de jeu : WoW, journal texte, capture d'écran (expérimental) | faits ; seul WoW essayé sur un vrai jeu |
 | Overlay OBS local (état du jeu filtré + monitoring des GPU) | fait, vu dans OBS |
 | Base de connaissances (Wikipédia, vecteurs locaux) et `genesis_lab` (calculs, Professeur) | faits, testés en réel |
+| Professeur : programmes du CP à la terminale, cours, schémas, exercices corrigés, 10 simulations, simulations créées par le modèle local ou le Claude Code local | fait, testé en réel (23/11) |
 | `scantrad` : traduction de manga japonais → français (automatique ou zones posées à la main) | fait, testé sur de vraies pages |
 | `mangastudio` : masques de mains et de pieds (HandSegNet, FootSegNet), nœuds ComfyUI | masques réels ; ComfyUI non essayé ; réglages en cours |
 | `if_game` « Éther » : exploration calme, Fuma et Inoue, lieux inventés par le modèle local | fait, joué par Jérémy (démo technique) |

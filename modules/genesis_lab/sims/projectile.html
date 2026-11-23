@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Mouvement d'un projectile</title>
+<style>
+body{margin:0;background:#0f172a;color:#e2e8f0;font:14px system-ui,sans-serif}
+#bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:8px 12px;background:#1e293b}
+label{display:flex;gap:6px;align-items:center}canvas{display:block;width:100%}
+#info{padding:6px 12px;color:#a5b4c8;min-height:44px}b{color:#fbbf24}
+</style></head><body>
+<div id="bar">
+<label>Vitesse initiale <input id="v" type="range" min="5" max="40" value="20"> <span id="vv"></span></label>
+<label>Angle <input id="a" type="range" min="5" max="85" value="45"> <span id="av"></span></label>
+<label>Planète <select id="pl"><option value="9.81">Terre (9,81)</option><option value="1.62">Lune (1,62)</option><option value="3.71">Mars (3,71)</option><option value="24.79">Jupiter (24,79)</option></select></label>
+<label><input id="vec" type="checkbox" checked> vecteurs vitesse</label>
+<button id="go">Lancer</button>
+</div>
+<canvas id="c" width="900" height="460"></canvas>
+<div id="info"></div>
+<script>
+const c=document.getElementById("c"),g=c.getContext("2d"),$=id=>document.getElementById(id);let t=0,running=false,shots=[];
+function params(){const v=+$("v").value,a=$("a").value*Math.PI/180,G=+$("pl").value;const T=2*v*Math.sin(a)/G,R=v*v*Math.sin(2*a)/G,H=(v*Math.sin(a))**2/(2*G);return {v,a,G,T,R,H}}
+function scale(){const p=params();return Math.min(780/Math.max(10,p.R*1.15),380/Math.max(5,p.H*1.3))}
+$("go").onclick=()=>{t=0;running=true};
+function loop(){const p=params(),s=scale();$("vv").textContent=p.v+" m/s";$("av").textContent=$("a").value+"°";
+ g.fillStyle="#0f172a";g.fillRect(0,0,c.width,c.height);const ox=60,oy=410;
+ g.strokeStyle="#334155";g.beginPath();g.moveTo(ox,oy);g.lineTo(880,oy);g.moveTo(ox,oy);g.lineTo(ox,20);g.stroke();
+ g.fillStyle="#94a3b8";for(let m=0;m*s<820;m+=Math.max(1,Math.round(80/s))){g.fillText(m+" m",ox+m*s-8,oy+16)}
+ g.strokeStyle="#475569";g.setLineDash([5,5]);g.beginPath();for(let u=0;u<=1.0001;u+=0.01){const tt=u*p.T,x=p.v*Math.cos(p.a)*tt,y=p.v*Math.sin(p.a)*tt-p.G*tt*tt/2;u?g.lineTo(ox+x*s,oy-y*s):g.moveTo(ox,oy)}g.stroke();g.setLineDash([]);
+ if(running){t+=1/60;if(t>=p.T){t=p.T;running=false}}
+ const x=p.v*Math.cos(p.a)*t,y=p.v*Math.sin(p.a)*t-p.G*t*t/2,vx=p.v*Math.cos(p.a),vy=p.v*Math.sin(p.a)-p.G*t;
+ g.fillStyle="#fbbf24";g.beginPath();g.arc(ox+x*s,oy-y*s,8,0,7);g.fill();
+ if($("vec").checked){const k=3;g.lineWidth=3;[[vx,0,"#38bdf8"],[0,vy,"#f472b6"],[vx,vy,"#a3e635"]].forEach(([a,b,col])=>{g.strokeStyle=col;g.beginPath();g.moveTo(ox+x*s,oy-y*s);g.lineTo(ox+x*s+a*k,oy-y*s-b*k);g.stroke()});g.lineWidth=1;
+  g.fillStyle="#38bdf8";g.fillText("vx (constante)",700,40);g.fillStyle="#f472b6";g.fillText("vy (diminue : la pesanteur)",700,58);g.fillStyle="#a3e635";g.fillText("vitesse",700,76)}
+ g.fillStyle="#e2e8f0";g.fillText(`t = ${t.toFixed(2)} s   x = ${x.toFixed(1)} m   y = ${Math.max(0,y).toFixed(1)} m`,70,30);
+ $("info").innerHTML=`Portée <b>${p.R.toFixed(1)} m</b>, hauteur maximale <b>${p.H.toFixed(1)} m</b>, durée du vol <b>${p.T.toFixed(2)} s</b>. Sans frottement, seule la pesanteur agit (vers le bas) : la vitesse horizontale ne change pas (principe d'inertie), la vitesse verticale diminue de g = ${p.G} m/s² chaque seconde. La portée est maximale à 45°.`;
+ requestAnimationFrame(loop)}
+loop();
+</script></body></html>

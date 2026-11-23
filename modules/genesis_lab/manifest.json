@@ -1,17 +1,21 @@
 {
   "name": "genesis_lab",
-  "version": "0.1.0",
-  "description": "Laboratoire scientifique : calculs déterministes et Professeur adaptatif",
+  "version": "0.2.0",
+  "description": "Professeur (programmes CP à terminale : cours, schémas, exercices corrigés, simulations) et laboratoire de calcul",
   "entry": "modules.genesis_lab.module:GenesisLabModule",
   "vram_min_gb": 0,
   "vram_comfort_gb": 0,
   "python_deps": [],
-  "optional_deps": ["biopython"],
+  "optional_deps": [
+    "biopython"
+  ],
   "triggers": {
     "processes": [],
     "windows": [],
     "ports": []
   },
-  "network": [],
+  "network": [
+    "fr.wikipedia.org"
+  ],
   "experimental": false
 }

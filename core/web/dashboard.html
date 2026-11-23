@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="/static/dashboard.css">
   <script src="/static/ether_scene.js" defer></script>
   <script src="/static/dashboard.js" defer></script>
+  <script src="/static/professeur.js" defer></script>
 </head>
 <body>
   <header>
@@ -124,8 +125,76 @@
     <!-- Professeur -->
     <div class="panel" data-panel="professeur" hidden>
       <section>
-        <h2>Professeur (genesis_lab)</h2>
-        <p class="muted">Les calculs sont faits par du code ; le modèle local explique et cite ses sources.</p>
+        <h2>Professeur</h2>
+        <p class="muted">Programmes de l'Éducation nationale, du CP à la terminale : l'année en trois trimestres, un cours
+          par chapitre avec schéma, exemple corrigé et exercices, adaptés à l'âge. Le modèle local rédige à partir de
+          sources citées (base locale, Wikipédia) ; les QCM et les calculs sont corrigés par le code ; Hermes peut
+          relire un cours ; vos remarques améliorent le cours suivant.</p>
+        <div class="row">
+          <label>Niveau <select id="prof-level"></select></label>
+          <label>Matière <select id="prof-subject"></select></label>
+          <button id="prof-prepare" type="button" class="ghost">Préparer toute l'année</button>
+        </div>
+        <p id="prof-status" class="muted"></p>
+        <div id="prof-programme"></div>
+      </section>
+      <section id="prof-lesson-box" hidden>
+        <div class="row">
+          <button id="prof-prev" type="button" class="ghost">← Chapitre précédent</button>
+          <button id="prof-next" type="button" class="ghost">Chapitre suivant →</button>
+          <span class="grow"></span>
+          <button id="prof-simpler" type="button" class="ghost">Expliquer plus simplement</button>
+          <button id="prof-rewrite" type="button" class="ghost">Réécrire le cours</button>
+        </div>
+        <div id="prof-lesson-status"></div>
+        <article id="prof-lesson" class="lesson"></article>
+        <h3>Continuer</h3>
+        <div class="row">
+          <label>Autres exercices <select id="prof-difficulty">
+            <option value="1">faciles</option><option value="2" selected>moyens</option><option value="3">difficiles</option>
+          </select></label>
+          <button id="prof-more" type="button">Nouvelle série</button>
+          <button id="prof-verify" type="button" class="ghost">Faire vérifier par Hermes</button>
+        </div>
+        <form id="prof-feedback" class="row">
+          <label>Signaler <select id="prof-feedback-kind">
+            <option value="difficile">trop difficile</option><option value="facile">trop facile</option>
+            <option value="pas_clair">pas clair</option><option value="erreur">une erreur</option><option value="autre">autre remarque</option>
+          </select></label>
+          <input id="prof-feedback-text" class="grow" autocomplete="off" placeholder="Précise si tu veux (facultatif)">
+          <button type="submit" class="ghost">Envoyer et améliorer le cours</button>
+        </form>
+      </section>
+      <section>
+        <h2>Simulations</h2>
+        <p class="muted">Des expériences à manipuler. Chaque page tourne dans un cadre isolé, sans accès au réseau ni
+          au reste du Hub. Une nouvelle simulation peut être programmée par le modèle local ou demandée au Claude Code
+          local ; elle est contrôlée avant d'être ajoutée.</p>
+        <div id="sim-list"></div>
+        <div id="sim-view" hidden>
+          <div class="row"><b id="sim-title"></b><span class="grow"></span><a id="sim-newtab" target="_blank" rel="noopener noreferrer">Ouvrir en plein écran</a><button id="sim-close" type="button" class="ghost small">Fermer</button></div>
+          <iframe id="sim-frame" class="sim-frame" sandbox="allow-scripts" title="Simulation" referrerpolicy="no-referrer"></iframe>
+        </div>
+        <h3>Créer une simulation</h3>
+        <form id="sim-form">
+          <div class="row">
+            <input id="sim-subject" class="grow" required maxlength="160" autocomplete="off" placeholder="Sujet (ex. : la photosynthèse, la loi de Snell-Descartes, la digestion)">
+            <select id="sim-engine"><option value="local">programmée par le modèle local</option><option value="claude">demandée au Claude Code local</option></select>
+          </div>
+          <textarea id="sim-details" rows="2" maxlength="2000" placeholder="Ce qu'elle doit montrer, les paramètres à faire varier (facultatif)"></textarea>
+          <div class="row">
+            <label id="sim-chapter-row" hidden><input id="sim-link" type="checkbox" checked> <span id="sim-chapter-label"></span></label>
+            <button type="submit">Créer</button>
+            <button id="sim-open-claude" type="button" class="ghost" hidden>Ouvrir le Claude Code local</button>
+            <button id="sim-refresh" type="button" class="ghost">Actualiser</button>
+          </div>
+        </form>
+        <div id="sim-result" class="answer" hidden></div>
+      </section>
+      <section>
+        <h2>Laboratoire avancé : exercices de calcul</h2>
+        <p class="muted">Génétique, astrophysique, génie chimique : les calculs sont faits par du code ; le modèle local
+          explique et cite ses sources.</p>
         <div class="row">
           <select id="prof-domain">
             <option value="bio">Génétique et bio-informatique</option>

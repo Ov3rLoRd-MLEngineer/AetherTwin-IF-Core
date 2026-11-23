@@ -1203,3 +1203,39 @@ outine.json` ; le serveur MCP ne fait que le lire.
   64 Go de DDR4 pour tourner pleinement ; une 3e carte ne réduit pas la RAM demandée. Noté dans
   `config/hardware_profiles.yaml`, `PROJECT_STATUS.md` et le README.
 
+
+## 23/11/2026 : le Professeur devient un enseignant du CP à la terminale
+- **Agent :** Cloud
+- **Fichiers :** `modules/genesis_lab/programmes.yaml`, `curriculum.py`, `teacher.py`, `sims.py`, `sources.py`,
+  `sims/*.html` (10 simulations) — nouveaux ; `modules/genesis_lab/module.py` (nouvelles commandes, travaux en
+  arrière-plan), `manifest.json` (0.2.0, `fr.wikipedia.org`) ; `core/api.py` (`/prof/sims/{id}` sous CSP isolée,
+  `frame-src 'self'`) ; `core/web/professeur.js` (nouveau), `dashboard.html`, `dashboard.css` ;
+  `config/local.example.yaml` (section `genesis_lab` complétée, sans chemin personnel) ;
+  `tests/genesis_lab/test_professeur.py` (nouveau), `tests/core/test_dashboard.py`,
+  `tests/core/test_knowledge_service.py`.
+- **Raison :** demande de Jérémy : un vrai enseignant de l'Éducation nationale (programme annuel par niveau et par
+  matière, cours et exercices adaptés, schémas, simulations, Claude Code local, outils existants).
+- **Choix :**
+  - « Le code calcule, le modèle explique » est gardé : le modèle remplit des gabarits JSON vérifiés (cours,
+    schéma, exercices) ; un exercice incohérent (choix inexistant, nombre illisible) est écarté ; le corrigé ne
+    quitte jamais le Hub avant la correction.
+  - Rédactions longues en « travaux » d'arrière-plan suivis par le tableau de bord (pas de délai d'attente du bus).
+  - Sources : la base locale n'est citée que si elle parle du chapitre. Essai réel : pour « L'électricité »,
+    les vecteurs rapprochaient « Quantité de matière » à 0,70 (la base n'a pas d'article sur l'électricité) ;
+    d'où le filtre par mots du chapitre (titre, ou deux mots dans le texte), en plus du seuil de l'assistant.
+  - Wikipédia : pages `/wiki/<Titre>` seulement (robots.txt interdit l'API), par le `PoliteFetcher` du Hub.
+  - Hermes : ligne de commande `hermes -z` avec les outils sûrs de WoW Assistant, sans sa compétence de jeu ;
+    rien n'est modifié côté Hermes.
+  - Simulations : pages autonomes contrôlées (aucun `fetch`, script externe, adresse web, `eval`, stockage…),
+    servies avec `sandbox allow-scripts` et `default-src 'none'`.
+  - Claude Code local : le Professeur écrit une demande dans son dossier et l'ouvre d'un clic ; le lanceur
+    (`.bat`) n'est jamais lu.
+- **Tests :** 36 nouveaux (programmes, cours, correction, remarques, Hermes, sources, simulations dangereuses
+  refusées, Claude Code local, commandes du module, route isolée) ; suite complète verte (579, dont 4 réels GPU
+  non lancés).
+- **Essai réel (`qwen3-27b`) :** cours de 4e « L'électricité » en 113 s, deux articles de Wikipédia lus ;
+  exercices aux calculs justes (U = 50 × 0,2 = 10 V ; R = 12 / 0,3 = 40 Ω) ; copie corrigée dans le navigateur
+  (83 %, « acquis », rédaction jugée par le modèle) ; version simplifiée en 84 s ; réécriture avec seulement des sources pertinentes en 85 s ; « Faire vérifier » : Hermes a répondu par une erreur de son fournisseur (HTTP 500, effort de raisonnement « high » refusé par le modèle, réglage côté Hermes), prise à tort pour un verdict « à corriger » : détection ajoutée, la fausse note retirée du cours.
+  Demande « La photosynthèse » écrite pour le Claude Code local (non traitée). Simulation « Les phases de la Lune »
+  programmée par `qwen3-coder` en 32 s : acceptée par le contrôle et affichée, mais fausse sur le fond (nouvelle
+  lune mal placée) ; le contrôle protège la page, pas l’exactitude scientifique.

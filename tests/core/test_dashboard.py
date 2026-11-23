@@ -44,7 +44,7 @@ def test_dashboard_has_every_tab(client) -> None:
     page = client.get("/").text
     for tab in ("accueil", "jeu", "assistant", "professeur", "connaissances", "scantrad", "studio", "journal"):
         assert f'data-tab="{tab}"' in page and f'data-panel="{tab}"' in page
-    assert "frame-src http://127.0.0.1:5757" in client.get("/").headers["content-security-policy"]
+    assert "frame-src 'self' http://127.0.0.1:5757" in client.get("/").headers["content-security-policy"]
 
 
 def make_app_hub(tmp_path):

@@ -121,8 +121,11 @@ def test_api_without_knowledge_is_503(tmp_path: Path) -> None:
     assert TestClient(create_app(daemon)).get("/knowledge/search", params={"q": "x"}).status_code == 503
 
 
-@pytest.mark.parametrize("hits, expected", [([], []), ([{"title": "T", "url": "https://u", "license": "L"}],
-                                                       [{"title": "T", "url": "https://u", "license": "L"}])])
+@pytest.mark.parametrize("hits, expected", [
+    ([], []),
+    ([{"title": "T", "url": "https://u", "license": "L"}],
+     [{"title": "T", "url": "https://u", "license": "L", "text": ""}]),
+])
 def test_professor_hub_search(monkeypatch, hits, expected) -> None:
     import io
     import json

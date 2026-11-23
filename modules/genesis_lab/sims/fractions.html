@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Les fractions</title>
+<style>
+body{margin:0;background:#fffaf0;color:#3d2c1e;font:16px system-ui,sans-serif}
+#bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:8px 12px;background:#fdebd0}
+label{display:flex;gap:6px;align-items:center}canvas{display:block;width:100%}
+#info{padding:8px 12px;min-height:48px}b{color:#c0392b}
+button{font-size:15px}
+</style></head><body>
+<div id="bar">
+<label>Parts coloriées <input id="n" type="number" min="0" max="24" value="3" style="width:56px"></label>
+<label>Parts en tout <input id="d" type="number" min="1" max="24" value="4" style="width:56px"></label>
+<label>Forme <select id="f"><option value="pizza">pizza</option><option value="barre">tablette de chocolat</option><option value="droite">droite graduée</option></select></label>
+<button id="q">Un défi !</button>
+</div>
+<canvas id="c" width="900" height="400"></canvas>
+<div id="info"></div>
+<script>
+const c=document.getElementById("c"),g=c.getContext("2d"),$=id=>document.getElementById(id);let defi=null;
+const COL=["#e74c3c","#f39c12","#27ae60","#2980b9","#8e44ad"];
+function pgcd(a,b){return b?pgcd(b,a%b):a}
+function draw(){let n=Math.max(0,Math.min(24,+$("n").value||0)),d=Math.max(1,Math.min(24,+$("d").value||1));
+ g.fillStyle="#fffaf0";g.fillRect(0,0,c.width,c.height);const whole=Math.max(1,Math.ceil(n/d));
+ if($("f").value==="pizza"){for(let w=0;w<whole;w++){const cx=150+w*220,cy=190,R=95;for(let i=0;i<d;i++){const k=w*d+i;g.fillStyle=k<n?COL[w%5]:"#f5deb3";g.beginPath();g.moveTo(cx,cy);g.arc(cx,cy,R,-Math.PI/2+i*2*Math.PI/d,-Math.PI/2+(i+1)*2*Math.PI/d);g.closePath();g.fill();g.strokeStyle="#5d4037";g.lineWidth=2;g.stroke()}}}
+ else if($("f").value==="barre"){for(let w=0;w<whole;w++){const x0=40,y0=60+w*110,W=820/Math.max(1,1),H=80;for(let i=0;i<d;i++){const k=w*d+i;g.fillStyle=k<n?"#6d4c41":"#d7ccc8";g.fillRect(x0+i*W/d,y0,W/d-3,H)}}}
+ else{const x0=60,L=780,y=200;const max=Math.max(1,whole);g.strokeStyle="#3d2c1e";g.lineWidth=2;g.beginPath();g.moveTo(x0,y);g.lineTo(x0+L,y);g.stroke();
+  for(let i=0;i<=d*max;i++){const x=x0+i*L/(d*max);g.beginPath();g.moveTo(x,y-(i%d?8:16));g.lineTo(x,y+(i%d?8:16));g.stroke();if(i%d===0){g.fillStyle="#3d2c1e";g.fillText(String(i/d),x-4,y+38)}}
+  g.fillStyle="#c0392b";g.beginPath();g.arc(x0+n*L/(d*max),y,9,0,7);g.fill();g.fillText(`${n}/${d}`,x0+n*L/(d*max)-14,y-24)}
+ const p=pgcd(n,d)||1;let txt=`<b>${n}/${d}</b> : on partage l'unité en ${d} parts égales et on en prend ${n}.`;
+ if(p>1)txt+=` C'est la même chose que <b>${n/p}/${d/p}</b> (on simplifie par ${p}).`;
+ txt+=` En nombre décimal : ${(n/d).toFixed(3).replace(/\.?0+$/,"")}.`;if(n>d)txt+=` C'est plus qu'une unité : ${Math.floor(n/d)} + ${n%d}/${d}.`;if(n===d)txt+=" C'est exactement une unité entière !";
+ if(defi)txt+=`<br>Défi : représente <b>${defi[0]}/${defi[1]}</b>… ${n*defi[1]===defi[0]*d?"Bravo, c'est égal ! 🎉":"pas encore."}`;
+ $("info").innerHTML=txt}
+$("q").onclick=()=>{const d=[2,3,4,5,6,8,10][Math.floor(Math.random()*7)];defi=[1+Math.floor(Math.random()*(d-1)),d];draw()};
+["n","d","f"].forEach(id=>$(id).addEventListener("input",draw));draw();
+</script></body></html>

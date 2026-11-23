@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Circuit électrique</title>
+<style>
+body{margin:0;background:#121212;color:#eee;font:14px system-ui,sans-serif}
+#bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:8px 12px;background:#1f1f1f}
+label{display:flex;gap:6px;align-items:center}canvas{display:block;width:100%}
+#info{padding:6px 12px;color:#bbb;min-height:44px}b{color:#ffd166}
+</style></head><body>
+<div id="bar">
+<label>Tension du générateur U <input id="U" type="range" min="0" max="12" step="0.5" value="6"> <span id="Uv"></span></label>
+<label>R1 <input id="R1" type="range" min="10" max="200" step="10" value="50"> Ω</label>
+<label>R2 <input id="R2" type="range" min="10" max="200" step="10" value="100"> Ω</label>
+<label>Montage <select id="m"><option value="serie">en série</option><option value="derivation">en dérivation</option></select></label>
+<label><input id="sw" type="checkbox" checked> interrupteur fermé</label>
+</div>
+<canvas id="c" width="900" height="440"></canvas>
+<div id="info"></div>
+<script>
+const c=document.getElementById("c"),g=c.getContext("2d"),$=id=>document.getElementById(id);let k=0;
+function lamp(x,y,I,name,R){const glow=Math.min(1,I/0.12);g.fillStyle=`rgba(255,${200+55*glow},80,${0.15+0.85*glow})`;g.shadowColor="#ffd166";g.shadowBlur=40*glow;
+ g.beginPath();g.arc(x,y,26,0,7);g.fill();g.shadowBlur=0;g.strokeStyle="#eee";g.lineWidth=2;g.beginPath();g.arc(x,y,26,0,7);g.stroke();
+ g.beginPath();g.moveTo(x-18,y-18);g.lineTo(x+18,y+18);g.moveTo(x+18,y-18);g.lineTo(x-18,y+18);g.stroke();
+ g.fillStyle="#ddd";g.textAlign="center";g.fillText(`${name} (${R} Ω)`,x,y+46);g.fillText(`I = ${(I*1000).toFixed(0)} mA`,x,y+62)}
+function wire(pts,I){g.strokeStyle="#8ab4f8";g.lineWidth=4;g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.stroke();
+ if(I<=0)return;let L=0;const seg=[];for(let i=1;i<pts.length;i++){const d=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);seg.push(d);L+=d}
+ for(let s=(k*I*400)%40;s<L;s+=40){let r=s,i=0;while(r>seg[i]){r-=seg[i];i++}const a=pts[i],b=pts[i+1],f=r/seg[i];g.fillStyle="#ffd166";g.beginPath();g.arc(a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f,3.5,0,7);g.fill()}}
+function loop(){k+=0.016;const U=+$("U").value*($("sw").checked?1:0),R1=+$("R1").value,R2=+$("R2").value,serie=$("m").value==="serie";$("Uv").textContent=$("U").value+" V";
+ g.fillStyle="#121212";g.fillRect(0,0,c.width,c.height);g.font="13px system-ui";
+ let I,I1,I2,U1,U2;
+ if(serie){I=U/(R1+R2);I1=I2=I;U1=R1*I;U2=R2*I}else{I1=U/R1;I2=U/R2;I=I1+I2;U1=U2=U}
+ g.fillStyle="#eee";g.fillRect(90,180,40,80);g.fillStyle="#121212";g.fillRect(96,186,28,68);g.fillStyle="#eee";g.textAlign="center";g.fillText("+",110,174);g.fillText(`${$("U").value} V`,110,290);
+ if(serie){wire([[110,180],[110,80],[780,80],[780,360],[110,360],[110,260]],I);lamp(330,80,I1,"Lampe 1",R1);lamp(560,80,I2,"Lampe 2",R2)}
+ else{wire([[110,180],[110,80],[780,80],[780,360],[110,360],[110,260]],I);wire([[450,80],[450,360]],I1);wire([[620,80],[620,360]],I2);lamp(450,220,I1,"Lampe 1",R1);lamp(620,220,I2,"Lampe 2",R2)}
+ g.fillStyle=$("sw").checked?"#9be564":"#ff6b6b";g.fillRect(200,352,40,16);g.fillStyle="#ddd";g.fillText($("sw").checked?"fermé":"ouvert",220,390);
+ $("info").innerHTML=serie?`<b>En série</b> : le même courant traverse les deux lampes : I = U / (R1 + R2) = <b>${(I*1000).toFixed(0)} mA</b>. Les tensions s'ajoutent : U1 = ${U1.toFixed(2)} V + U2 = ${U2.toFixed(2)} V = U. Si une lampe grille, tout s'éteint.`:`<b>En dérivation</b> : chaque lampe reçoit toute la tension (${U.toFixed(1)} V). Les courants s'ajoutent : I = I1 + I2 = ${(I1*1000).toFixed(0)} + ${(I2*1000).toFixed(0)} = <b>${(I*1000).toFixed(0)} mA</b> (loi des nœuds). Loi d'Ohm pour chaque lampe : U = R × I.`;
+ requestAnimationFrame(loop)}
+loop();
+</script></body></html>

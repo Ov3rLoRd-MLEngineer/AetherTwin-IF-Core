@@ -180,6 +180,7 @@ core/
     dashboard.js
     ether_scene.js
     logo.svg
+    professeur.js
 modules/
   __init__.py
   gaming_hud/
@@ -276,8 +277,24 @@ modules/
     astro.py
     bio.py
     chem.py
+    curriculum.py
     manifest.json
     module.py
+    programmes.yaml
+    sims/
+      circuit.html
+      coeur.html
+      fluides.html
+      fonctions.html
+      fractions.html
+      gaz_parfait.html
+      neurone.html
+      ondes.html
+      projectile.html
+      systeme_solaire.html
+    sims.py
+    sources.py
+    teacher.py
     tutor.py
   if_game/
     __init__.py
@@ -369,6 +386,7 @@ tests/
   genesis_lab/
     __init__.py
     test_calculs.py
+    test_professeur.py
     test_tutor_module.py
   if_game/
     __init__.py
@@ -872,18 +890,87 @@ Génie chimique : masses molaires, gaz parfait, bilans de matière, équilibres.
 - `def ph_buffer(pka: float, base_mol_l: float, acid_mol_l: float) -> float` — Équation de Henderson-Hasselbalch : pH = pKa + log10([base] / [acide]).
 - `def equilibrium_constant(delta_g_j_mol: float, temperature_k: float=298.15) -> float` — K = exp(−ΔG° / (R T)).
 
+### `modules/genesis_lab/curriculum.py`
+
+Programmes annuels du Professeur : niveaux (CP à terminale), matières, chapitres et calendrier de l'année.
+
+- **`class CurriculumError(ValueError)`** — Niveau, matière ou chapitre inconnu.
+- `def subject_name(subject: str) -> str`
+- `def levels() -> list[dict[str, Any]]` — Niveaux et leurs matières (nombre de chapitres), pour les listes de choix.
+- `def chapters(level: str, subject: str) -> list[dict[str, Any]]`
+- `def chapter(chapter_id: str) -> dict[str, Any]` — Un chapitre et son contexte (niveau, matière, chapitres voisins).
+- `def programme(level: str, subject: str) -> dict[str, Any]` — Programme de l'année : chapitres répartis sur 36 semaines en trois trimestres, dans l'ordre.
+- `def suggest_simulations(text: str, subject: str='') -> list[str]` — Simulations intégrées utiles pour un chapitre (mots du titre, matière compatible).
+
 ### `modules/genesis_lab/module.py`
 
-Module du Hub : calculs scientifiques à la demande et Professeur adaptatif.
+Module du Hub : le Professeur (programmes de l'Éducation nationale, CP à terminale) et le laboratoire de calcul.
 
 - `def compute(tool: str, args: dict[str, Any] | None=None) -> Any` — Appelle un outil de la liste blanche. Lève `ValueError` pour tout autre nom ou des arguments invalides.
-- `def hub_llm(hub_api: str, model: str='', timeout_s: float=300.0) -> Callable[[list[dict[str, str]]], str]` — Fabrique un appel au modèle local **par le Hub** (API compatible OpenAI), jamais directement.
-- `def hub_search(hub_api: str, k: int=3, timeout_s: float=60.0) -> Callable[[str], list[dict[str, str]]]` — Recherche de sources dans la base de connaissances **du Hub** (`/knowledge/search`).
-- **`class GenesisLabModule(ModuleBase)`** — Calculs déterministes et Professeur adaptatif, pilotés par le bus.
+- `def hub_llm(hub_api: str, model: str='', timeout_s: float=300.0, think: bool | None=None, num_ctx: int | None=None) -> Callable[[list[dict[str, str]]], str]` — Fabrique un appel au modèle local **par le Hub** (API compatible OpenAI), jamais directement.
+- `def relevant(hit: dict[str, Any]) -> bool` — Passage assez proche de la question : mêmes seuils que l'assistant du Hub (mesurés le 17/11 : sujets
+- `def hub_search(hub_api: str, k: int=3, timeout_s: float=60.0) -> Callable[[str], list[dict[str, str]]]` — Recherche de sources dans la base de connaissances **du Hub** (`/knowledge/search`), hors sujet écartés.
+- **`class Jobs`** — Travaux en arrière-plan (rédactions du modèle local), suivis par clé ; un seul à la fois par clé.
+  - `def start(self, key: str, label: str, work: Callable[[], Any]) -> dict[str, Any]`
+  - `def view(self, key: str) -> dict[str, Any]`
+  - `def running(self) -> list[dict[str, Any]]`
+- **`class GenesisLabModule(ModuleBase)`** — Le Professeur et le laboratoire de calcul, pilotés par le bus.
   - `def start(self) -> None`
   - `def stop(self) -> None`
   - `def health(self) -> Health`
   - `def handle_event(self, event: Event) -> None`
+
+### `modules/genesis_lab/sims.py`
+
+Simulations du Professeur : pages HTML autonomes (canvas ou SVG, JavaScript en ligne, sans réseau).
+
+- **`class SimError(ValueError)`** — Simulation inconnue, refusée ou indisponible.
+- `def slug(text: str, limit: int=40) -> str`
+- `def validate_html(html: str) -> str` — Renvoie la page si elle est acceptable, lève `SimError` sinon (avec la raison).
+- `def extract_html(text: str) -> str` — Extrait la page d'une réponse de modèle (bloc ```html, ou du <!doctype> au </html>).
+- `def brief(sim_id: str, subject: str, level: str, details: str, chapter: str='') -> str` — Demande écrite pour le Claude Code local (aucun secret, aucun chemin personnel).
+- **`class SimLibrary`** — Bibliothèque des simulations : intégrées, créées par le modèle, programmées par le Claude Code local.
+  - `def list(self) -> list[dict[str, Any]]`
+  - `def for_chapter(self, chapter_id: str) -> list[dict[str, Any]]`
+  - `def path(self, sim_id: str) -> Path`
+  - `def delete(self, sim_id: str) -> dict[str, Any]`
+  - `def generate(self, subject: str, level: str='', details: str='', chapter: str='') -> dict[str, Any]` — Fait écrire la page par le modèle codeur (deux essais : le second avec la raison du refus).
+  - `def generate_async(self, subject: str, level: str='', details: str='', chapter: str='') -> dict[str, Any]` — Lance `generate` en arrière-plan (plusieurs minutes avec un modèle local) ; suivi par `job`.
+  - `def claude_available(self) -> bool`
+  - `def ask_claude(self, subject: str, level: str='', details: str='', chapter: str='') -> dict[str, Any]` — Écrit la demande pour le Claude Code local ; renvoie ce qu'il faut lui dire.
+  - `def collect_claude(self) -> list[dict[str, Any]]` — État des demandes ; importe (après contrôle) les pages que Claude Code a écrites.
+  - `def open_claude(self) -> dict[str, Any]` — Ouvre le Claude Code local dans une nouvelle console (le lanceur n'est pas lu).
+
+### `modules/genesis_lab/sources.py`
+
+Branchements du Professeur sur les outils déjà en place.
+
+- `def wikipedia(cache_dir: Path, journal: Path | None=None, fetcher: Any=None, lang: str='fr') -> Callable[[str], dict[str, str] | None]` — Fabrique la lecture d'un article (titre -> {"title", "url", "text"} ou None).
+- `def hermes_exe() -> str` — Chemin de Hermes Agent s'il est installé (lu par le pont de WoW Assistant), sinon ''.
+- `def hermes_verifier(exe: str='', runner: Callable[..., Any]=subprocess.run, timeout_s: float=600.0) -> Callable[[str], str] | None` — Question -> réponse de Hermes (CLI, outils sûrs uniquement). None si Hermes est introuvable.
+
+### `modules/genesis_lab/teacher.py`
+
+Le Professeur : un enseignant pour chaque niveau (CP à terminale) et chaque matière.
+
+- **`class TeacherError(ValueError)`** — Demande invalide ou cours impossible à préparer.
+- `def style_for(age: int | None) -> str` — Consigne de ton et de vocabulaire selon l'âge de l'élève.
+- `def parse_json(text: str) -> dict[str, Any]` — Premier objet JSON d'une réponse de modèle (blocs ``` et texte autour tolérés).
+- `def normalize(text: Any) -> str` — Minuscules, sans accents ni ponctuation, espaces réduits (pour comparer des réponses courtes).
+- `def on_topic(hit: dict[str, Any], query: str) -> bool` — Passage de la base locale vraiment lié au chapitre : un mot du chapitre dans son titre, ou deux dans son texte.
+- `def clean_schema(raw: Any) -> dict[str, Any] | None` — Schéma vérifié : un type connu et des champs bornés ; sinon rien (le cours s'affiche sans schéma).
+- `def clean_exercise(raw: Any, ident: str) -> dict[str, Any] | None` — Exercice vérifié : type connu, énoncé, réponse cohérente (choix existant, nombre lisible).
+- `def public_exercise(exercise: dict[str, Any]) -> dict[str, Any]` — Ce que voit l'élève : jamais la réponse ni l'explication avant la correction.
+- **`class Teacher`** — Cours, exercices, corrections et progression ; un fichier JSON par chapitre préparé.
+  - `def sources_for(self, info: dict[str, Any]) -> list[dict[str, str]]` — Passages de la base locale et articles Wikipédia proposés par le modèle, lus poliment.
+  - `def lesson(self, chapter_id: str, regenerate: bool=False, simpler: bool=False) -> dict[str, Any]` — Cours du chapitre : lu s'il est déjà préparé, sinon rédigé (le modèle local est alors nécessaire).
+  - `def has_lesson(self, chapter_id: str) -> bool`
+  - `def more_exercises(self, chapter_id: str, difficulty: int=2, count: int=4) -> dict[str, Any]`
+  - `def grade(self, chapter_id: str, answers: dict[str, Any]) -> dict[str, Any]` — Corrige les réponses données (`{id d'exercice: réponse}`) et met à jour la progression.
+  - `def feedback(self, chapter_id: str, kind: str, text: str='', rewrite: bool=True) -> dict[str, Any]` — Garde une remarque sur le cours ; le réécrit en en tenant compte (par défaut).
+  - `def verify(self, chapter_id: str) -> dict[str, Any]` — Hermes relit les faits du cours (recherche web) ; ses remarques sont gardées avec le cours.
+  - `def overview(self, level: str, subject: str) -> dict[str, Any]` — Programme de l'année avec, pour chaque chapitre, cours préparé ou non et progression.
+  - `def prepare_all(self, level: str, subject: str) -> dict[str, Any]` — Prépare en arrière-plan tous les cours de l'année qui manquent (un à la fois).
 
 ### `modules/genesis_lab/tutor.py`
 

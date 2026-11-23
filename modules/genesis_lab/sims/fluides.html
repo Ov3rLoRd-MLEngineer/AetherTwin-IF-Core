@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Écoulement d'un fluide</title>
+<style>
+body{margin:0;background:#0d1b2a;color:#e0e8f0;font:14px system-ui,sans-serif}
+#bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:8px 12px;background:#1b263b}
+label{display:flex;gap:6px;align-items:center}canvas{display:block;width:100%}
+#info{padding:6px 12px;color:#a9bcd0}b{color:#ffd166}
+</style></head><body>
+<div id="bar">
+<label>Débit <input id="Q" type="range" min="1" max="10" value="4"></label>
+<label>Rétrécissement <input id="S" type="range" min="20" max="100" value="45"> %</label>
+<label>Mode <select id="mode"><option value="tube">tube de Venturi (Bernoulli)</option><option value="archi">poussée d'Archimède</option></select></label>
+</div>
+<canvas id="c" width="900" height="420"></canvas>
+<div id="info"></div>
+<script>
+const c=document.getElementById("c"),g=c.getContext("2d"),$=id=>document.getElementById(id);let dots=[],t=0;
+function half(x){const s=$("S").value/100,mid=c.width/2;const k=Math.exp(-((x-mid)/120)**2);return 130*(1-(1-s)*k)}
+function tube(){const Q=+$("Q").value,cy=210;
+ g.fillStyle="#0d1b2a";g.fillRect(0,0,c.width,c.height);
+ g.fillStyle="#1f4e79";g.beginPath();g.moveTo(0,cy-half(0));for(let x=0;x<=c.width;x+=6)g.lineTo(x,cy-half(x));
+ for(let x=c.width;x>=0;x-=6)g.lineTo(x,cy+half(x));g.fill();
+ while(dots.length<260)dots.push({x:Math.random()*c.width,f:Math.random()*2-1});
+ g.fillStyle="#9ad1ff";dots.forEach(d=>{const h=half(d.x),v=Q*130/h;d.x+=v*0.6;if(d.x>c.width){d.x=0;d.f=Math.random()*2-1}
+  g.beginPath();g.arc(d.x,cy+d.f*h*0.92,2.2,0,7);g.fill()});
+ [[120,"A"],[c.width/2,"B"],[c.width-120,"C"]].forEach(([x,n])=>{const h=half(x),v=Q*130/h,p=60-0.5*v*v*0.6;
+  g.fillStyle="#cfe3f5";g.fillText(`${n} : v = ${v.toFixed(1)}`,x-30,cy+h+24);
+  g.fillStyle="#ffd166";g.fillRect(x-4,cy-h-Math.max(5,p*2.2),8,Math.max(5,p*2.2));g.fillText(`P ${p.toFixed(0)}`,x+8,cy-h-10)});
+ const vA=Q*130/half(120),vB=Q*130/half(c.width/2);
+ $("info").innerHTML=`Le même débit passe partout : là où le tube est étroit, le fluide va <b>plus vite</b> (B : ${vB.toFixed(1)} contre ${vA.toFixed(1)} en A). D'après Bernoulli, sa <b>pression baisse</b> (colonnes jaunes) : P + ½ρv² = constante.`}
+function archi(){const cy=120;g.fillStyle="#0d1b2a";g.fillRect(0,0,c.width,c.height);
+ g.fillStyle="#1f4e79";g.fillRect(0,cy,c.width,c.height-cy);
+ const S=$("S").value/100,rho=0.3+S*1.4,size=90,depth=Math.min(size,size*rho);t+=0.03;
+ const y=cy-size+depth+Math.sin(t)*2;g.fillStyle=rho<1?"#c9a26b":"#8d99ae";g.fillRect(c.width/2-size/2,Math.min(y,c.height-size-5),size,size);
+ g.fillStyle="#e0e8f0";g.fillText(`masse volumique du cube : ${(rho*1000).toFixed(0)} kg/m³ (eau : 1000)`,20,30);
+ $("info").innerHTML=rho<1?`Le cube est <b>moins dense</b> que l'eau : il flotte. Il s'enfonce jusqu'à ce que le poids de l'eau déplacée égale son poids (poussée d'Archimède : Π = ρ<sub>eau</sub> · V<sub>immergé</sub> · g). Partie immergée : ${(rho*100).toFixed(0)} %.`:`Le cube est <b>plus dense</b> que l'eau : la poussée d'Archimède (poids du volume d'eau déplacé) est plus faible que son poids, il coule.`}
+function loop(){($("mode").value==="tube"?tube:archi)();requestAnimationFrame(loop)}
+loop();
+</script></body></html>

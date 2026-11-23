@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Gaz parfait</title>
+<style>
+body{margin:0;background:#101418;color:#e6edf3;font:14px system-ui,sans-serif}
+#bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:8px 12px;background:#1a2129}
+label{display:flex;gap:6px;align-items:center}canvas{display:block;width:100%}
+#info{padding:6px 12px;color:#a9b4bf}b{color:#ffd166}
+</style></head><body>
+<div id="bar">
+<label>Température <input id="T" type="range" min="50" max="900" value="300"> <span id="Tv"></span></label>
+<label>Volume <input id="V" type="range" min="30" max="100" value="100"> <span id="Vv"></span></label>
+<label>Particules <input id="N" type="range" min="20" max="400" value="150"> <span id="Nv"></span></label>
+</div>
+<canvas id="c" width="900" height="460"></canvas>
+<div id="info"></div>
+<script>
+const c=document.getElementById("c"),g=c.getContext("2d");let parts=[],hits=0,pHist=[];
+const $=id=>document.getElementById(id);
+function speed(){return Math.sqrt($("T").value/300)*2.2}
+function sync(){const n=+$("N").value;while(parts.length<n){const a=Math.random()*7;parts.push({x:60+Math.random()*300,y:40+Math.random()*380,vx:Math.cos(a),vy:Math.sin(a),k:0.5+Math.random()})}parts.length=n}
+function box(){const w=(c.width-40)*$("V").value/100;return {x:20,y:20,w:w,h:c.height-40}}
+function step(){const b=box(),s=speed();
+ parts.forEach(p=>{const n=Math.hypot(p.vx,p.vy)||1;p.vx=p.vx/n*s*p.k;p.vy=p.vy/n*s*p.k;
+  p.x+=p.vx;p.y+=p.vy;
+  if(p.x<b.x+3){p.x=b.x+3;p.vx=Math.abs(p.vx);hits+=2*p.vx*p.vx}if(p.x>b.x+b.w-3){p.x=b.x+b.w-3;p.vx=-Math.abs(p.vx);hits+=2*p.vx*p.vx}
+  if(p.y<b.y+3){p.y=b.y+3;p.vy=Math.abs(p.vy);hits+=2*p.vy*p.vy}if(p.y>b.y+b.h-3){p.y=b.y+b.h-3;p.vy=-Math.abs(p.vy);hits+=2*p.vy*p.vy}})}
+function draw(){const b=box();g.fillStyle="#101418";g.fillRect(0,0,c.width,c.height);
+ g.strokeStyle="#7aa2f7";g.lineWidth=3;g.strokeRect(b.x,b.y,b.w,b.h);
+ g.fillStyle="#3b4252";g.fillRect(b.x+b.w,b.y,10,b.h);g.fillStyle="#cbd5e1";g.fillText("piston",b.x+b.w+14,b.y+b.h/2);
+ const T=+$("T").value,hot=Math.min(1,(T-50)/850);
+ g.fillStyle=`rgb(${80+175*hot},${140-60*hot},${255-200*hot})`;parts.forEach(p=>{g.beginPath();g.arc(p.x,p.y,3,0,7);g.fill()})}
+let frame=0;
+function loop(){sync();step();draw();frame++;
+ if(frame%30===0){const b=box();pHist.push(hits/(2*(b.w+b.h))/30*3.3);if(pHist.length>6)pHist.shift();hits=0}
+ const T=+$("T").value,V=+$("V").value,N=+$("N").value;$("Tv").textContent=T+" K";$("Vv").textContent=V+" %";$("Nv").textContent=N;
+ const Pm=pHist.length?pHist.reduce((a,b)=>a+b)/pHist.length:0,theory=N*T/V/300;
+ $("info").innerHTML=`Pression mesurée (chocs des particules sur les parois) : <b>${Pm.toFixed(2)}</b> — loi des gaz parfaits P·V = n·R·T, donc P ∝ N·T / V = <b>${theory.toFixed(2)}</b> (unités arbitraires ; les deux valeurs suivent les mêmes variations). Chauffez : les particules vont plus vite, elles frappent plus souvent et plus fort. Réduisez le volume : même effet.`;
+ requestAnimationFrame(loop)}
+loop();
+</script></body></html>

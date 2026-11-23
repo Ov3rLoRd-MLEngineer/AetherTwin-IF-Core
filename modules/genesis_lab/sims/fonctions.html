@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Explorer une fonction</title>
+<style>
+body{margin:0;background:#fafafa;color:#222;font:14px system-ui,sans-serif}
+#bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:8px 12px;background:#eceff4}
+label{display:flex;gap:6px;align-items:center}canvas{display:block;width:100%}
+#info{padding:6px 12px;color:#444;min-height:44px}b{color:#b45309}
+</style></head><body>
+<div id="bar">
+<label>Famille <select id="fam"><option value="aff">affine a·x + b</option><option value="sec">second degré a·x² + b·x + c</option><option value="exp">exponentielle a·e^(b·x)</option><option value="trig">sinus a·sin(b·x)</option></select></label>
+<label>a <input id="a" type="range" min="-5" max="5" step="0.1" value="1"> <span id="av"></span></label>
+<label>b <input id="b" type="range" min="-5" max="5" step="0.1" value="0"> <span id="bv"></span></label>
+<label>c <input id="c0" type="range" min="-5" max="5" step="0.1" value="0"> <span id="cv"></span></label>
+<label><input id="tan" type="checkbox"> tangente (glisser sur la courbe)</label>
+</div>
+<canvas id="c" width="900" height="480"></canvas>
+<div id="info"></div>
+<script>
+const cv=document.getElementById("c"),g=cv.getContext("2d"),$=id=>document.getElementById(id);let mx=1;
+const U=40,OX=450,OY=240;
+function f(x){const a=+$("a").value,b=+$("b").value,c=+$("c0").value;return {aff:a*x+b,sec:a*x*x+b*x+c,exp:a*Math.exp(b*x),trig:a*Math.sin(b*x)}[$("fam").value]}
+function fp(x){const h=1e-4;return (f(x+h)-f(x-h))/(2*h)}
+cv.addEventListener("mousemove",e=>{const r=cv.getBoundingClientRect();mx=((e.clientX-r.left)*cv.width/r.width-OX)/U});
+function draw(){["a","b"].forEach(k=>$(k+"v").textContent=$(k).value);$("cv").textContent=$("c0").value;
+ g.fillStyle="#fff";g.fillRect(0,0,cv.width,cv.height);g.strokeStyle="#e5e7eb";for(let x=OX%U;x<cv.width;x+=U){g.beginPath();g.moveTo(x,0);g.lineTo(x,cv.height);g.stroke()}for(let y=OY%U;y<cv.height;y+=U){g.beginPath();g.moveTo(0,y);g.lineTo(cv.width,y);g.stroke()}
+ g.strokeStyle="#111";g.beginPath();g.moveTo(0,OY);g.lineTo(cv.width,OY);g.moveTo(OX,0);g.lineTo(OX,cv.height);g.stroke();g.fillStyle="#555";g.fillText("x",cv.width-14,OY-6);g.fillText("y",OX+6,12);
+ g.strokeStyle="#2563eb";g.lineWidth=3;g.beginPath();let first=true;for(let px=0;px<=cv.width;px+=2){const x=(px-OX)/U,y=f(x);if(!isFinite(y)||Math.abs(y)>50){first=true;continue}const py=OY-y*U;first?g.moveTo(px,py):g.lineTo(px,py);first=false}g.stroke();g.lineWidth=1;
+ const fam=$("fam").value,a=+$("a").value,b=+$("b").value,c=+$("c0").value;let txt="";
+ if(fam==="aff")txt=`f(x) = ${a}x + ${b} : droite de <b>coefficient directeur ${a}</b> (elle ${a>0?"monte":a<0?"descend":"est horizontale"}) et d'<b>ordonnée à l'origine ${b}</b>.`;
+ if(fam==="sec"){const d=b*b-4*a*c;txt=`f(x) = ${a}x² + ${b}x + ${c} : parabole tournée vers le ${a>0?"haut":"bas"}. Discriminant Δ = b² − 4ac = <b>${d.toFixed(2)}</b> : ${a===0?"(a = 0 : ce n'est plus un second degré)":d>0?`deux racines ${((-b-Math.sqrt(d))/(2*a)).toFixed(2)} et ${((-b+Math.sqrt(d))/(2*a)).toFixed(2)}`:d===0?`une racine double ${(-b/(2*a)).toFixed(2)}`:"pas de racine réelle"}. Sommet en x = −b/(2a) = ${a?(-b/(2*a)).toFixed(2):"—"}.`;
+  if(a&&d>=0){g.fillStyle="#dc2626";[(-b-Math.sqrt(d))/(2*a),(-b+Math.sqrt(d))/(2*a)].forEach(r=>{g.beginPath();g.arc(OX+r*U,OY,5,0,7);g.fill()})}}
+ if(fam==="exp")txt=`f(x) = ${a}·e^(${b}x) : ${b>0?"croissance":"décroissance"} exponentielle${a<0?" (retournée par a < 0)":""}. La dérivée est proportionnelle à la fonction : f'(x) = ${b}·f(x).`;
+ if(fam==="trig")txt=`f(x) = ${a}·sin(${b}x) : amplitude ${Math.abs(a)}, période 2π/|b| = <b>${b?(2*Math.PI/Math.abs(b)).toFixed(2):"∞"}</b>.`;
+ if($("tan").checked&&isFinite(f(mx))){const y=f(mx),m=fp(mx);g.strokeStyle="#dc2626";g.beginPath();g.moveTo(0,OY-(y+m*((0-OX)/U-mx))*U);g.lineTo(cv.width,OY-(y+m*((cv.width-OX)/U-mx))*U);g.stroke();
+  g.fillStyle="#dc2626";g.beginPath();g.arc(OX+mx*U,OY-y*U,5,0,7);g.fill();txt+=` Tangente en x = ${mx.toFixed(2)} : pente (nombre dérivé) f'(x) = <b>${m.toFixed(2)}</b>${Math.abs(m)<0.05?" : la tangente est horizontale, c'est un extremum":""}.`}
+ $("info").innerHTML=txt;requestAnimationFrame(draw)}
+draw();
+</script></body></html>

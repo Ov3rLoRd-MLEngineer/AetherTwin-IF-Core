@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Système solaire</title>
+<style>
+body{margin:0;background:#0b1020;color:#e8ecf5;font:14px system-ui,sans-serif}
+#bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:8px 12px;background:#141b33}
+label{display:flex;gap:6px;align-items:center}canvas{display:block;width:100%}
+#info{padding:6px 12px;color:#aab3cc;min-height:40px}
+</style></head><body>
+<div id="bar">
+<label>Vitesse <input id="speed" type="range" min="1" max="200" value="40"></label>
+<label><input id="real" type="checkbox"> distances réelles (échelle)</label>
+<label><input id="trail" type="checkbox" checked> traces</label>
+<button id="pause">Pause</button>
+</div>
+<canvas id="c" width="900" height="560"></canvas>
+<div id="info">Cliquez sur une planète. Plus une planète est loin du Soleil, plus elle tourne lentement (3e loi de Kepler : T² ∝ a³).</div>
+<script>
+const P=[["Mercure",0.387,0.241,"#b5b5b5",3,"Planète la plus proche du Soleil, sans atmosphère notable."],
+["Vénus",0.723,0.615,"#e3c16f",5,"Atmosphère épaisse de CO₂ : la plus chaude des planètes (≈ 460 °C)."],
+["Terre",1,1,"#4f8ff7",5,"La seule planète connue abritant la vie ; 1 an = 365,25 jours."],
+["Mars",1.524,1.881,"#d9623b",4,"La planète rouge : oxyde de fer en surface, deux petites lunes."],
+["Jupiter",5.203,11.86,"#d8a774",10,"Géante gazeuse, la plus grosse planète : 318 masses terrestres."],
+["Saturne",9.537,29.46,"#e7d08c",9,"Géante gazeuse aux anneaux de glace et de roche."],
+["Uranus",19.19,84.01,"#9fe3e8",7,"Géante de glace qui tourne « couchée » sur le côté."],
+["Neptune",30.07,164.8,"#4b6cf0",7,"La plus lointaine : des vents à plus de 2 000 km/h."]];
+const c=document.getElementById("c"),g=c.getContext("2d");let t=0,run=true,sel=2;
+const pos=[];
+function radius(a){const w=Math.min(c.width,c.height)/2-24;return document.getElementById("real").checked?a/30.07*w:28+Math.sqrt(a)*w/5.6}
+function draw(){
+ if(!document.getElementById("trail").checked||!run){g.fillStyle="#0b1020";g.fillRect(0,0,c.width,c.height)}
+ else{g.fillStyle="rgba(11,16,32,0.18)";g.fillRect(0,0,c.width,c.height)}
+ const cx=c.width/2,cy=c.height/2;
+ g.fillStyle="#ffd34d";g.beginPath();g.arc(cx,cy,14,0,7);g.fill();
+ P.forEach((p,i)=>{const r=radius(p[1]);g.strokeStyle="rgba(255,255,255,0.08)";g.beginPath();g.arc(cx,cy,r,0,7);g.stroke();
+  const ang=2*Math.PI*t/p[2];const x=cx+r*Math.cos(ang),y=cy-r*Math.sin(ang);pos[i]=[x,y];
+  g.fillStyle=p[3];g.beginPath();g.arc(x,y,p[4],0,7);g.fill();
+  if(i===sel){g.strokeStyle="#fff";g.beginPath();g.arc(x,y,p[4]+4,0,7);g.stroke()}
+  g.fillStyle="#cfd6ea";g.font="12px system-ui";g.fillText(p[0],x+p[4]+3,y-p[4]-2)});
+ g.fillStyle="#e8ecf5";g.font="13px system-ui";g.fillText(`Temps écoulé : ${(t).toFixed(2)} années terrestres`,12,20);
+}
+function info(){const p=P[sel];document.getElementById("info").textContent=`${p[0]} : distance moyenne ${p[1]} UA, une révolution en ${p[2]} an(s) terrestre(s). ${p[5]} Vérification Kepler : T²/a³ = ${(p[2]**2/p[1]**3).toFixed(3)} (≈ 1 pour toutes).`}
+c.addEventListener("click",e=>{const b=c.getBoundingClientRect(),x=(e.clientX-b.left)*c.width/b.width,y=(e.clientY-b.top)*c.height/b.height;
+ let best=-1,d=1e9;pos.forEach((q,i)=>{const k=Math.hypot(q[0]-x,q[1]-y);if(k<d){d=k;best=i}});if(d<30){sel=best;info()}});
+document.getElementById("pause").onclick=e=>{run=!run;e.target.textContent=run?"Pause":"Reprendre"};
+function loop(){if(run)t+=document.getElementById("speed").value/6000;draw();requestAnimationFrame(loop)}
+info();loop();
+</script></body></html>

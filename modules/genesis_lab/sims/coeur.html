@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Le cœur et la circulation</title>
+<style>
+body{margin:0;background:#1a1012;color:#f3e9ea;font:14px system-ui,sans-serif}
+#bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:8px 12px;background:#2a171b}
+label{display:flex;gap:6px;align-items:center}canvas{display:block;width:100%}
+#info{padding:6px 12px;color:#d9bfc3;min-height:44px}b{color:#ffd166}
+</style></head><body>
+<div id="bar">
+<label>Fréquence cardiaque <input id="bpm" type="range" min="40" max="180" value="70"> <span id="bv"></span></label>
+<label><input id="slow" type="checkbox"> ralenti</label>
+</div>
+<canvas id="c" width="900" height="520"></canvas>
+<div id="info"></div>
+<script>
+const c=document.getElementById("c"),g=c.getContext("2d"),$=id=>document.getElementById(id);let ph=0,last=performance.now(),flow=[];
+const RED="#e63946",BLUE="#4a6fe3";
+function chamber(x,y,w,h,col,s,label){g.fillStyle=col;g.globalAlpha=0.85;g.beginPath();g.ellipse(x,y,w*s,h*s,0,0,7);g.fill();g.globalAlpha=1;g.fillStyle="#fff";g.font="12px system-ui";g.textAlign="center";g.fillText(label,x,y+4)}
+function valve(x,y,open,label){g.strokeStyle=open?"#9be564":"#ffb703";g.lineWidth=4;g.beginPath();
+ if(open){g.moveTo(x-12,y);g.lineTo(x-4,y+12);g.moveTo(x+12,y);g.lineTo(x+4,y+12)}else{g.moveTo(x-12,y);g.lineTo(x+12,y)}g.stroke();
+ g.fillStyle="#d9bfc3";g.font="11px system-ui";g.textAlign="center";g.fillText(label,x,y-8)}
+function path(pts,col,k){g.strokeStyle=col;g.lineWidth=10;g.globalAlpha=0.35;g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.stroke();g.globalAlpha=1;
+ const L=pts.length-1;for(let j=0;j<6;j++){const u=((k+j/6)%1)*L,i=Math.floor(u),f=u-i,a=pts[i],b=pts[Math.min(L,i+1)];g.fillStyle=col;g.beginPath();g.arc(a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f,5,0,7);g.fill()}}
+function loop(now){const dt=(now-last)/1000;last=now;const bpm=+$("bpm").value;$("bv").textContent=bpm+" bpm";
+ ph=(ph+dt*bpm/60*($("slow").checked?0.25:1))%1;
+ const atria=ph<0.15,vent=ph>=0.15&&ph<0.45;const sa=atria?0.85:1,sv=vent?0.8:1;
+ g.fillStyle="#1a1012";g.fillRect(0,0,c.width,c.height);
+ const k=ph;
+ path([[330,330],[160,330],[110,250],[160,150],[330,150]],BLUE,k);           // corps -> oreillette droite (veines caves)
+ path([[400,120],[400,60],[200,40],[120,60]],BLUE,k);                        // artère pulmonaire -> poumons
+ path([[780,60],[700,40],[520,60],[520,120]],RED,k);                         // veines pulmonaires -> oreillette gauche
+ path([[560,330],[740,330],[790,250],[740,150],[600,150]],RED,k);            // aorte -> corps
+ g.fillStyle="#c9a7ae";g.font="13px system-ui";g.textAlign="center";g.fillText("POUMONS",120,85);g.fillText("POUMONS",780,85);g.fillText("ORGANES DU CORPS",450,470);
+ chamber(400,190,70,55,BLUE,sa,"oreillette droite");chamber(520,190,70,55,RED,sa,"oreillette gauche");
+ chamber(400,300,80,75,BLUE,sv,"ventricule droit");chamber(520,300,80,75,RED,sv,"ventricule gauche");
+ g.fillStyle="#6b2c39";g.fillRect(455,140,10,230);
+ valve(400,240,!vent,"tricuspide");valve(520,240,!vent,"mitrale");valve(400,140,vent,"pulmonaire");valve(560,140,vent,"aortique");
+ const phase=atria?"Les oreillettes se contractent : le sang descend dans les ventricules (valves auriculo-ventriculaires ouvertes).":vent?"<b>Systole</b> : les ventricules se contractent. Le ventricule droit envoie le sang pauvre en oxygène vers les poumons, le gauche envoie le sang riche en oxygène vers tout le corps. Valves pulmonaire et aortique ouvertes.":"<b>Diastole</b> : le cœur se relâche et se remplit de sang. Les valves de sortie sont fermées pour empêcher le retour du sang.";
+ $("info").innerHTML=`${phase} — Débit cardiaque ≈ ${(bpm*70/1000).toFixed(1)} L/min (70 mL par battement). Bleu : sang pauvre en O₂ ; rouge : sang riche en O₂.`;
+ requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script></body></html>

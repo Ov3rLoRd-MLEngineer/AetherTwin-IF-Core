@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Neurone et message nerveux</title>
+<style>
+body{margin:0;background:#11111b;color:#e6e6f0;font:14px system-ui,sans-serif}
+#bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:8px 12px;background:#1e1e2e}
+label{display:flex;gap:6px;align-items:center}canvas{display:block;width:100%}
+#info{padding:6px 12px;color:#b4b4c8;min-height:44px}b{color:#f9e2af}
+</style></head><body>
+<div id="bar">
+<button id="stim">Stimuler le récepteur</button>
+<label>Intensité du stimulus <input id="I" type="range" min="1" max="10" value="5"></label>
+<label><input id="myel" type="checkbox" checked> gaine de myéline</label>
+<label>Mode <select id="mode"><option value="neurone">un neurone</option><option value="reflexe">arc réflexe</option></select></label>
+</div>
+<canvas id="c" width="900" height="440"></canvas>
+<div id="info"></div>
+<script>
+const c=document.getElementById("c"),g=c.getContext("2d"),$=id=>document.getElementById(id);let spikes=[],trace=[],last=performance.now(),muscle=0;
+const AX=[[150,220],[260,220],[380,215],[500,225],[620,220],[740,220]];
+function pt(path,u){const L=path.length-1,x=Math.min(L-1e-6,u*L),i=Math.floor(x),f=x-i;return [path[i][0]+(path[i+1][0]-path[i][0])*f,path[i][1]+(path[i+1][1]-path[i][1])*f]}
+function reflexPath(){return [[90,330],[200,330],[330,250],[450,140],[560,140],[650,250],[760,330],[840,330]]}
+$("stim").onclick=()=>{const I=+$("I").value;const n=Math.round(I/2.5)+1;for(let k=0;k<n;k++)spikes.push({u:-k*0.07})};
+function loop(now){const dt=(now-last)/1000;last=now;const reflex=$("mode").value==="reflexe";const path=reflex?reflexPath():AX;
+ const v=$("myel").checked?0.55:0.12;spikes.forEach(s=>s.u+=dt*v);
+ const arrived=spikes.filter(s=>s.u>=1).length;if(arrived)muscle=1;spikes=spikes.filter(s=>s.u<1);muscle=Math.max(0,muscle-dt*1.5);
+ g.fillStyle="#11111b";g.fillRect(0,0,c.width,c.height);
+ g.strokeStyle="#89b4fa";g.lineWidth=8;g.beginPath();path.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.stroke();
+ if(!reflex){g.fillStyle="#89b4fa";g.beginPath();g.arc(110,220,40,0,7);g.fill();g.fillStyle="#11111b";g.beginPath();g.arc(110,220,14,0,7);g.fill();
+  for(let a=0;a<6;a++){g.strokeStyle="#89b4fa";g.lineWidth=3;g.beginPath();g.moveTo(110+40*Math.cos(a+2),220+40*Math.sin(a+2));g.lineTo(110+80*Math.cos(a+2),220+80*Math.sin(a+2));g.stroke()}
+  if($("myel").checked)for(let x=170;x<720;x+=70){g.fillStyle="#f5c2e7";g.globalAlpha=0.7;g.fillRect(x,206,50,28);g.globalAlpha=1}
+  g.fillStyle="#cdd6f4";g.fillText("corps cellulaire",70,290);g.fillText("dendrites",40,140);g.fillText("axone",420,190);g.fillText("terminaisons (synapses)",700,280);
+  for(let a=-1;a<=1;a++){g.strokeStyle="#89b4fa";g.lineWidth=3;g.beginPath();g.moveTo(740,220);g.lineTo(800,220+a*35);g.stroke()}}
+ else{g.fillStyle="#cdd6f4";g.fillText("récepteur (peau)",60,360);g.fillText("neurone sensitif",250,260);g.fillText("moelle épinière (centre nerveux)",430,120);g.fillText("neurone moteur",660,260);
+  g.fillStyle="#45475a";g.fillRect(470,110,80,60);g.fillStyle=`rgb(${120+135*muscle},80,90)`;g.beginPath();g.ellipse(860,330,30+10*muscle,18-4*muscle,0,0,7);g.fill();g.fillStyle="#cdd6f4";g.fillText("muscle",840,375)}
+ spikes.forEach(s=>{if(s.u<0)return;const [x,y]=pt(path,s.u);g.fillStyle="#f9e2af";g.shadowColor="#f9e2af";g.shadowBlur=16;g.beginPath();g.arc(x,y,8,0,7);g.fill();g.shadowBlur=0});
+ trace.push(spikes.some(s=>s.u>0.45&&s.u<0.5)?1:0);if(trace.length>300)trace.shift();
+ g.strokeStyle="#a6e3a1";g.lineWidth=2;g.beginPath();trace.forEach((t,i)=>{const y=420-(t?60:0)+ (t?0:0);i?g.lineTo(150+i*2,y):g.moveTo(150,y)});g.stroke();
+ g.fillStyle="#a6e3a1";g.fillText("potentiel mesuré au milieu de l'axone (mV)",150,355);
+ $("info").innerHTML=reflex?"<b>Arc réflexe</b> : le récepteur capte le stimulus, le neurone sensitif conduit le message à la moelle épinière, qui le transmet au neurone moteur : le muscle se contracte, sans passer par le cerveau (réflexe rapide).":`Le message nerveux est une suite de <b>potentiels d'action</b>, tous de même amplitude : un stimulus plus <b>intense</b> donne des potentiels plus <b>nombreux</b> (codage en fréquence), pas plus grands. La <b>myéline</b> accélère la conduction (sauts d'un nœud de Ranvier à l'autre) : ${$("myel").checked?"jusqu'à 100 m/s":"environ 1 m/s sans elle"}.`;
+ requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script></body></html>

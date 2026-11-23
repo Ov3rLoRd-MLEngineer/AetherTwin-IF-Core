@@ -88,7 +88,10 @@ def _glossary(series: str) -> Any:
 STATIC_TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
                 ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml"}
 CSP = ("default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' blob:; connect-src 'self'; "
-       "frame-src http://127.0.0.1:5757")  # aperçu de l'overlay OBS (gaming_hud), local lui aussi
+       "frame-src 'self' http://127.0.0.1:5757")  # simulations du Professeur ; aperçu de l'overlay OBS (local)
+# Simulations du Professeur : pages autonomes, servies dans un cadre isolé (origine opaque, aucun accès réseau).
+SIM_CSP = ("default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; "
+           "sandbox allow-scripts")
 
 
 def static(filename: str) -> Response:
@@ -464,6 +467,19 @@ def create_app(daemon: Daemon) -> FastAPI:
     @app.get("/static/{filename}", include_in_schema=False)
     def static_file(filename: str) -> Response:
         return static(filename)
+
+    @app.get("/prof/sims/{sim_id}", include_in_schema=False)
+    def professor_sim(sim_id: str) -> Response:
+        from modules.genesis_lab.sims import SimError, SimLibrary
+
+        profile = Path(str(config.section("genesis_lab").get("profile") or "data/genesis_lab/eleve.json"))
+        try:
+            path = SimLibrary(profile.parent).path(sim_id)
+        except SimError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return Response(path.read_bytes(), media_type="text/html; charset=utf-8",
+                        headers={"Content-Security-Policy": SIM_CSP, "X-Content-Type-Options": "nosniff",
+                                 "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
 
     @app.get("/favicon.ico", include_in_schema=False)
     def favicon() -> Response:
