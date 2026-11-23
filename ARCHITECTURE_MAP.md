@@ -248,6 +248,7 @@ modules/
       ui.py
       vision.py
       voice.py
+      waypoints.py
       web3d/
         viewer.html
       webhost.py
@@ -354,6 +355,7 @@ tests/
     test_settings_bnet.py
     test_simc.py
     test_ui_fixes.py
+    test_waypoints.py
   genesis_lab/
     __init__.py
     test_calculs.py

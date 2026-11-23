@@ -192,10 +192,12 @@ def tool_quests(data, args):
         out.append({"titre": quest.get("title"), "id": quest.get("id"), "niveau": quest.get("level"),
                     "zone": quest.get("zone"), "état": quest.get("status") or "en cours",
                     "suivie": bool(quest.get("tracked")),
-                    "objectifs": [f"{o.get('text', '')}" + (" (fait)" if o.get("finished") else "")
+                    "objectifs": [f"{o.get('text', '')}" + (" (fait)" if o.get("done") or o.get("finished") else "")
                                   for o in quest.get("objectives") or []],
                     "récompenses": [r.get("name") for r in quest.get("rewards") or [] if r.get("name")],
-                    "xp": quest.get("rewardXP") or "aucune (0)", "argent": _money(quest.get("rewardMoney"))})
+                    "xp": quest.get("rewardXP") or "aucune (0)", "argent": _money(quest.get("rewardMoney")),
+                    **({"point_de_route": f"/ha way {w.get('map')} {w.get('x')} {w.get('y')} ({w.get('zone', '')})"}
+                       if (w := quest.get("way")) else {})})
     return {"quêtes_en_cours": q.get("count", len(out)), "maximum": q.get("max", 35),
             "quêtes_terminées_au_total": q.get("completedTotal"), "liste": out}
 

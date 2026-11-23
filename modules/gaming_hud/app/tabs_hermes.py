@@ -338,7 +338,10 @@ def _draw_right(ui, chat, rect):
     approval_h = chatview.APPROVAL_H if chat.job is not None and getattr(chat.job, "approval", None) else 0
     strip_h = ui.draw_attachments(x + 16, 0, w - 32, measure_only=True)
     files_h = chatview.FILE_STRIP_H if chat.files else 0
-    area = pygame.Rect(x + 16, py + 36, w - 32, input_y - 8 - strip_h - files_h - approval_h - (py + 36))
+    ways = chatview.last_waypoints(chat) if chat.job is None else []
+    ways_h = chatview.FILE_STRIP_H if ways else 0
+    area = pygame.Rect(x + 16, py + 36, w - 32,
+                       input_y - 8 - strip_h - files_h - ways_h - approval_h - (py + 36))
     pygame.draw.rect(ui.screen, (14, 14, 18), area.inflate(8, 8), border_radius=6)
     chatview.draw_transcript(ui, chat, area, "hermes_chat",
                              empty="Hermes voit votre personnage, vos quêtes, vos sacs et vos collections (outils de "
@@ -351,6 +354,9 @@ def _draw_right(ui, chat, rect):
     if strip_h:
         ui.draw_attachments(x + 16, ay, w - 32)
         ay += strip_h
+    if ways_h:
+        chatview.draw_waypoints(ui, ways, (x + 16, ay + 2, w - 32, ways_h))
+        ay += ways_h
     chatview.draw_files(ui, chat, (x + 16, ay + 2, w - 32, files_h))
     correcting = bool(state.get("hermes_correcting"))
     chatview.draw_composer(ui, chat, (x + 16, input_y, w - 32, input_h), "hermes_msg",

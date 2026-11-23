@@ -1119,3 +1119,14 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   lectures automatiques : pas d'import fragile. Le texte du rapport est collé (presse-papiers, sur clic), gardé dans
   la base de connaissances (statut joueur, lien du rapport) et analysé par Hermes.
 - **Tests :** 4 nouveaux (`test_simc.py`) ; suite verte.
+
+## 23/11/2026 : feuille de route, étape 5 : montée de niveau et points de route
+- **Agent :** Cloud
+- **Fichiers :** addon (`/ha way`, coordonnées des quêtes : `C_QuestLog.GetNextWaypoint`, `GetQuestsOnMap`),
+  `waypoints.py` (nouveau), `quests.py`, `tabs.py`, `chatview.py`, `tabs_hermes.py`, `hermes_mcp.py`, skill 1.7.0.
+- `/ha way [carte] x y` : `C_Map.SetUserWaypoint` + suivi (virgule française acceptée). Quêtes : bouton « Copier le
+  point de route ». Réponses de Hermes : `/ha way` et `/way #carte x y` (TomTom) repérés et copiables. Question
+  « Niveau » (parcours vérifié en ligne). `wow_quests` donne `point_de_route`.
+- **Bug corrigé** : `wow_quests` lisait `finished` alors que l'addon exporte `done` : les objectifs faits n'étaient
+  jamais marqués « (fait) » pour Hermes.
+- **Tests :** 5 nouveaux, dont 2 qui exécutent l'addon sous Lua (lupa) contre de fausses API du jeu ; suite verte.

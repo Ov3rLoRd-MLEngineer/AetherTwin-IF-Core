@@ -90,7 +90,7 @@ HermesAssistant.toc/.lua (addon) · main.py · config.py · settings.py · llm.p
 lua_parser.py · game_connection.py · gamedata.py · character.py · quests.py · inventory.py · craft.py · history.py ·
 wowhead.py · theme.py · icons_draw.py · ui.py · tabs.py · tabs_data.py · tabs_collections.py · tabutil.py ·
 overlay.py · hotkeys.py · focus.py · widgets.py · widgets_builtin.py · vision.py · voice.py · webhost.py · webwidget.py ·
-chatview.py · tabs_hermes.py · hermes_bridge.py · hermes_mcp.py (outils de jeu pour Hermes) · coach_knowledge.py · gameversion.py · routine.py · tabs_routine.py · combat_report.py · tabs_reports.py · simc.py · hermes_skill/ ·
+chatview.py · tabs_hermes.py · hermes_bridge.py · hermes_mcp.py (outils de jeu pour Hermes) · coach_knowledge.py · gameversion.py · routine.py · tabs_routine.py · combat_report.py · tabs_reports.py · simc.py · waypoints.py · hermes_skill/ ·
 layout.json · chat_history.json · wowhead_links.json · recipes.json
 
 
@@ -142,6 +142,12 @@ layout.json · chat_history.json · wowhead_links.json · recipes.json
 - Heures exactes de remise à zéro : **addon 1.10** (sinon calculées d'après la région). Fichier
   `%APPDATA%\WoWAssistant
 outine.json` (hors du dépôt et du dossier du jeu).
+
+## Points de route et montée de niveau (23/11/2026)
+- Addon **1.10** : `/ha way x y` (zone actuelle) ou `/ha way <carte> x y` pose la flèche du jeu, sans TomTom.
+- Journal des quêtes : « Copier le point de route » (coordonnées exportées par l'addon).
+- Hermes : question « Niveau » (parcours de montée de niveau vérifié en ligne) ; les `/ha way` et `/way` de ses
+  réponses deviennent des boutons sous la conversation : un clic copie, il reste à coller dans la discussion du jeu.
 
 ## Raidbots (23/11/2026)
 - Onglet Personnage (cadre d'équipement), **« Profil Raidbots »** : copie votre profil SimulationCraft (équipement porté avec ses bonus,

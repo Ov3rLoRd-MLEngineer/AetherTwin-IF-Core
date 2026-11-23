@@ -8,6 +8,7 @@ import threading
 
 import pygame
 
+import waypoints
 from theme import C
 
 ROLES = {"user": ("Vous", "gold"), "assistant": ("Hermes", "green"), "error": ("Erreur", "red"), "wait": ("", "gray")}
@@ -21,6 +22,7 @@ QUICK_PROMPTS = (
     ("Équipement", "Quelles pièces de mon équipement améliorer en premier, et où les obtenir à mon niveau ?"),
     ("Talents", "Mes talents sont-ils adaptés à mon niveau et à ma spécialisation ? Propose des ajustements."),
     ("Quêtes", "Classe mes quêtes en cours par priorité et dis-moi dans quel ordre les faire."),
+    ("Niveau", waypoints.LEVELING_PROMPT),
     ("Métiers", "Comment faire progresser mes métiers efficacement d'ici mon prochain palier ?"),
     ("Or", "Quelles sont mes meilleures façons de gagner de l'or avec ce personnage et ses métiers ?"),
 )
@@ -143,6 +145,30 @@ def draw_approval(ui, chat, rect):
 
 
 FILE_STRIP_H = 30
+
+
+def last_waypoints(chat):
+    """Points de route (/ha way, /way) cités dans la dernière réponse."""
+    answer = next((m for m in reversed(chat.messages) if m["role"] == "assistant"), None)
+    return waypoints.extract(answer["text"]) if answer else []
+
+
+def draw_waypoints(ui, ways, rect):
+    """Barre « Points de route » : un clic copie la commande à coller dans la discussion du jeu."""
+    x, y, w, h = rect
+    ui.text("Points de route :", "tiny", "label", (x, y + 6))
+    px = x + 104
+    for way in ways:
+        label = way["cmd"].replace("/ha way ", "") + (f" · {way['label']}" if way["label"] else "")
+        pw = min(ui.fonts["tiny"].size(label)[0] + 20, 260)
+        if px + pw > x + w:
+            break
+        rect_w = pygame.Rect(px, y + 2, pw, 22)
+        ui.pill(rect_w, ui.fit(label, "tiny", pw - 14), False, lambda wy=way: waypoints.copy(ui, wy), font="tiny")
+        ui.tip(rect_w, {"rows": [(way["cmd"], C["light_gray"], ""),
+                                 ("Copié d'un clic : collez-le dans la discussion du jeu (addon 1.10).", C["gray"], "")]})
+        px += pw + 6
+    return h
 
 
 def draw_files(ui, chat, rect):

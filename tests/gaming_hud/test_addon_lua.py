@@ -115,3 +115,66 @@ def test_character_bank_before_tabs() -> None:
     bank = _bank(OLD_BANK)
     assert bank.tabs[1].name == "Banque" and bank.tabs[1]["items"][1].id == 7
     assert bank.tabs[2] is None   # banque de composants vide : pas d'onglet
+
+
+WAY_GAME = """
+local frame = { RegisterEvent = function() end, SetScript = function() end }
+CreateFrame = function() return frame end
+SlashCmdList = {}
+C_Timer = { After = function() end, NewTicker = function() return {} end }
+GetTime = function() return 0 end
+InCombatLockdown = function() return false end
+strtrim = function(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")) end
+LOGS = {}
+print = function(...) local t = {...} LOGS[#LOGS + 1] = table.concat(t, " ", 2) end
+WAYPOINT = nil
+UiMapPoint = { CreateFromCoordinates = function(map, x, y) return { map = map, x = x, y = y } end }
+C_Map = {
+  GetBestMapForUnit = function() return 37 end,
+  GetMapInfo = function(id) return ({ [37] = { name = "Forêt d'Elwynn" }, [2112] = { name = "Valdrakken" } })[id] end,
+  SetUserWaypoint = function(p) WAYPOINT = p end,
+}
+C_SuperTrack = { SetSuperTrackedUserWaypoint = function() end }
+C_QuestLog = {
+  GetNumQuestLogEntries = function() return 3, 2 end,
+  GetMaxNumQuestsCanAccept = function() return 35 end,
+  GetAllCompletedQuestIDs = function() return { 1, 2 } end,
+  GetInfo = function(i)
+    return ({ { isHeader = true, title = "Elwynn" }, { questID = 10, title = "Loups" },
+              { questID = 11, title = "Ailleurs" } })[i]
+  end,
+  GetQuestsOnMap = function(map) return { { questID = 10, x = 0.4537, y = 0.6012 } } end,
+  GetNextWaypoint = function(id) if id == 11 then return 2112, 0.5, 0.25 end end,
+  IsFailed = function() return false end,
+  ReadyForTurnIn = function() return false end,
+  GetQuestObjectives = function() return {} end,
+  GetQuestWatchType = function() return nil end,
+}
+"""
+
+
+def _way_addon():
+    lua = lupa.LuaRuntime(unpack_returned_tuples=True)
+    lua.execute(WAY_GAME)
+    chunk, error = lua.execute(LOAD, ADDON.read_text(encoding="utf-8") + "\nreturn A\n")
+    assert chunk is not None, error
+    return lua, chunk("HermesAssistant", lua.table_from({}))
+
+
+def test_quests_carry_their_coordinates() -> None:
+    _lua, a = _way_addon()
+    quests = a.CollectQuests(a)
+    here, other = quests.list[1], quests.list[2]
+    assert here.way.map == 37 and here.way.x == 45.4 and here.way.y == 60.1 and here.way.zone == "Forêt d'Elwynn"
+    assert other.way.map == 2112 and other.way.x == 50 and other.way.y == 25
+
+
+def test_way_command_sets_a_game_waypoint() -> None:
+    lua, _a = _way_addon()
+    g = lua.globals()
+    g.SlashCmdList.HERMESASSISTANT("way 45,3 60.1 Loups")
+    assert g.WAYPOINT.map == 37 and abs(g.WAYPOINT.x - 0.453) < 1e-9 and abs(g.WAYPOINT.y - 0.601) < 1e-9
+    g.SlashCmdList.HERMESASSISTANT("way #2112 50 25")
+    assert g.WAYPOINT.map == 2112 and "Valdrakken" in g.LOGS[len(g.LOGS)]
+    g.SlashCmdList.HERMESASSISTANT("way nulle part")
+    assert "Usage" in g.LOGS[len(g.LOGS)]

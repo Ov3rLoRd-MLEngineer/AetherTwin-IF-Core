@@ -30,6 +30,7 @@ class QuestTracker:
                 "zone": raw.get("zone", ""),
                 "task": bool(raw.get("task", False)),
                 "freq": raw.get("freq", 0),
+                "way": raw.get("way") or None,        # coordonnées (addon 1.10) : {map, x, y, zone}
                 "tracked": bool(raw.get("tracked", False)),
                 "focus": bool(raw.get("focus", False)),
                 "reward_xp": raw.get("rewardXP", 0),

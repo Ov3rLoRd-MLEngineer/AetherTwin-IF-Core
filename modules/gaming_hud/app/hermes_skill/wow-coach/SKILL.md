@@ -1,7 +1,7 @@
 ---
 name: wow-coach
 description: "Coach World of Warcraft en français : lit l'état réel du personnage du joueur (outils WoW Assistant) et donne des conseils concrets — quêtes, équipement, talents, métiers, donjons, économie."
-version: 1.6.0
+version: 1.7.0
 author: WoW Assistant
 license: MIT
 metadata:
@@ -35,6 +35,10 @@ Le serveur MCP **wow_assistant** (installé par WoW Assistant) donne l'état ré
 | `wow_routine` | la semaine : remise à zéro, chambre forte, monnaies plafonnées, quêtes hebdo, tâches du joueur, autres personnages (`minutes` : temps de jeu) |
 
 Règles :
+- **Points de route** : quand tu connais des coordonnées (Wowhead les donne pour les PNJ, objets et quêtes), écris-les
+  sous la forme `/ha way x y` (zone où se trouve déjà le joueur) ou `/ha way <carte> x y` avec la zone en clair :
+  WoW Assistant les rend copiables et l'addon pose la flèche du jeu. Les quêtes du journal ont déjà le leur
+  (`point_de_route` dans `wow_quests`). Jamais de coordonnées inventées.
 - Avant un conseil qui dépend du personnage (équipement, talents, quête, métier...), **appelle l'outil concerné**
   au lieu de deviner. Le message de WoW Assistant contient souvent déjà un court contexte (nom, niveau, zone) :
   c'est un résumé, les outils font foi.

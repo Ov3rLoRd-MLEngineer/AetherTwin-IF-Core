@@ -197,6 +197,14 @@ def draw_quest_journal(ui, ctx, rect):
             tag_x += tw + 8
     if not quest.get("tracked") and not quest.get("focus"):
         ui.text("Non suivie dans le journal de WoW", "small", "gray", (rx, ry + 4))
+    way = waypoints.quest_way(quest)
+    if way:
+        way_rect = pygame.Rect(right[0] + right[2] - 20 - 170, ry, 170, 26)
+        ui.pill(way_rect, "Copier le point de route", False, lambda w=way: waypoints.copy(ui, w), font="tiny")
+        zone = (quest.get("way") or {}).get("zone") or ""
+        ui.tip(way_rect, {"rows": [(way["cmd"] + (f"  ({zone})" if zone else ""), C["light_gray"], ""),
+                                   ("À coller dans la discussion du jeu : flèche vers l'objectif (addon 1.10).",
+                                    C["gray"], "")]})
     ry += 42
 
     ui.text("Objectifs", "medium", "label", (rx, ry))
@@ -481,6 +489,7 @@ from tabs_bestiary import draw_bestiary  # noqa: E402
 from tabs_market import draw_market  # noqa: E402
 from tabs_hermes import draw_hermes  # noqa: E402
 from tabs_routine import draw_week  # noqa: E402
+import waypoints  # noqa: E402
 from tabs_reports import draw_reports  # noqa: E402
 
 DRAWERS = [None, draw_talents, draw_quest_journal, draw_bags, draw_professions, draw_achievements,

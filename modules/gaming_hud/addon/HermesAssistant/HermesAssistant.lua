@@ -383,6 +383,22 @@ function A:CollectQuests()
 
     local superID = C_SuperTrackedQuest and try(C_SuperTrackedQuest.GetSuperTrackedQuestID)
     local zone = ""
+    -- coordonnées des quêtes (1.10) : quêtes de la carte actuelle, et prochain point de route d'une quête
+    local here = C_Map and C_Map.GetBestMapForUnit and try(C_Map.GetBestMapForUnit, "player")
+    local onMap = {}
+    if here and C_QuestLog.GetQuestsOnMap then
+        for _, q in ipairs(try(C_QuestLog.GetQuestsOnMap, here) or {}) do
+            if q.questID and q.x and q.y then onMap[q.questID] = { map = here, x = q.x, y = q.y } end
+        end
+    end
+    local function questWay(id)
+        local map, x, y
+        if C_QuestLog.GetNextWaypoint then map, x, y = try(C_QuestLog.GetNextWaypoint, id) end
+        if not (map and x and y) and onMap[id] then map, x, y = onMap[id].map, onMap[id].x, onMap[id].y end
+        if not (map and x and y) then return nil end
+        local info = C_Map.GetMapInfo and try(C_Map.GetMapInfo, map)
+        return { map = map, x = round1(x * 100), y = round1(y * 100), zone = info and info.name or "" }
+    end
     for i = 1, numEntries do
         if #out.list >= MAX_QUESTS then break end
         local info = try(C_QuestLog.GetInfo, i)
@@ -428,6 +444,7 @@ function A:CollectQuests()
                     freq = info.frequency or 0,
                     tracked = try(C_QuestLog.GetQuestWatchType, id) ~= nil,
                     focus = (superID ~= nil and superID == id),
+                    way = questWay(id),
                     rewardXP = try(GetQuestLogRewardXP, id) or 0,
                     rewardMoney = try(GetQuestLogRewardMoney, id) or 0,
                     rewards = rewards,
@@ -1666,6 +1683,35 @@ SlashCmdList["HERMESASSISTANT"] = function(msg)
     elseif cmd == "scan" then
         A:StartScans((arg or ""):lower())
 
+    elseif cmd == "way" then
+        -- /ha way [carte] x y [titre] : point de route du jeu (sans TomTom), donné par WoW Assistant / Hermes
+        local tokens = {}
+        for tok in (arg or ""):gmatch("%S+") do tokens[#tokens + 1] = tok end
+        local nums = {}
+        for _, tok in ipairs(tokens) do
+            local n = tonumber((tok:gsub("^#", ""):gsub(",", ".")))
+            if not n or #nums >= 3 then break end
+            nums[#nums + 1] = n
+        end
+        local mapID, x, y
+        if #nums == 3 then
+            mapID, x, y = nums[1], nums[2], nums[3]
+        elseif #nums == 2 then
+            x, y = nums[1], nums[2]
+            mapID = C_Map and C_Map.GetBestMapForUnit and try(C_Map.GetBestMapForUnit, "player")
+        end
+        if not (mapID and x and y and C_Map and C_Map.SetUserWaypoint and UiMapPoint) then
+            Log("Usage : /ha way [carte] x y   (ex. /ha way 45.3 60.1 dans la zone actuelle)")
+        elseif pcall(C_Map.SetUserWaypoint, UiMapPoint.CreateFromCoordinates(mapID, x / 100, y / 100)) then
+            if C_SuperTrack and C_SuperTrack.SetSuperTrackedUserWaypoint then
+                pcall(C_SuperTrack.SetSuperTrackedUserWaypoint, true)
+            end
+            local info = C_Map.GetMapInfo and try(C_Map.GetMapInfo, mapID)
+            Log(string.format("Point de route : %s %.1f %.1f", info and info.name or tostring(mapID), x, y))
+        else
+            Log("Point de route impossible sur cette carte.")
+        end
+
     elseif cmd == "debug" then
         A:Snapshot(true)
         local db = DB()
@@ -1716,6 +1762,6 @@ SlashCmdList["HERMESASSISTANT"] = function(msg)
             Log("Aucune donnée de personnage.")
         end
     else
-        Log("Commandes : /ha | /ha save | /ha scan | /ha combatlog on|off | /ha auto <minutes> | /ha auto off | /ha debug")
+        Log("Commandes : /ha | /ha save | /ha scan | /ha combatlog on|off | /ha auto <minutes> | /ha auto off | /ha way x y | /ha debug")
     end
 end
