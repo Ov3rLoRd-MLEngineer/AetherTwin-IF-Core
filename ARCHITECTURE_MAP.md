@@ -175,6 +175,8 @@ core/
   strata.py
   translate.py
   web/
+    calc_cas.css
+    calc_cas.js
     dashboard.css
     dashboard.html
     dashboard.js
@@ -183,6 +185,18 @@ core/
     professeur.js
 modules/
   __init__.py
+  calc_cas/
+    __init__.py
+    agent.py
+    demos.py
+    engine.py
+    graph.py
+    manifest.json
+    mcp_server.py
+    module.py
+    README.md
+    stats.py
+    worker.py
   gaming_hud/
     __init__.py
     __main__.py
@@ -340,6 +354,14 @@ config/
   local.example.yaml
 tests/
   __init__.py
+  calc_cas/
+    __init__.py
+    test_agent.py
+    test_engine.py
+    test_graph.py
+    test_module.py
+    test_stats.py
+    test_worker.py
   core/
     __init__.py
     sleeper.py
@@ -706,6 +728,115 @@ Traduction générale vers le français : texte, image (capture, photo) ou messa
 - `def voice_available() -> bool`
 - `def transcribe(audio: bytes, lang: str='auto', model_name: str='small') -> dict[str, str]` — Message vocal → texte, sur cette machine (faster-whisper, sur le processeur en int8 : la VRAM reste aux
 
+### `modules/calc_cas/__init__.py`
+
+calc_cas : calculatrice à calcul formel (SymPy), graphes, statistiques, outil de calcul exact pour les agents.
+
+*(aucun symbole public)*
+
+### `modules/calc_cas/agent.py`
+
+Le CAS comme outil des agents locaux : un modèle délègue un calcul exact au lieu de l'inventer.
+
+- `def call_tool(runner: Any, name: str, arguments: dict[str, Any] | None) -> dict[str, Any]` — Exécute un outil. Ne lève jamais : toute erreur devient `{"ok": False, "error": …}`.
+- `def ask(question: str, llm: Callable[[list[dict[str, str]]], str], runner: Any, max_rounds: int=MAX_ROUNDS) -> dict[str, Any]` — Pose une question au modèle local ; chaque ligne `CAS:` est calculée par le moteur et rendue au modèle.
+
+### `modules/calc_cas/demos.py`
+
+Exemples de démonstration (interface, vidéo du concours, tests). Chacun est vérifié par `tests/calc_cas`.
+
+- `def catalog() -> dict[str, Any]`
+
+### `modules/calc_cas/engine.py`
+
+Moteur de calcul formel du module calc_cas (SymPy).
+
+- **`class CasError(ValueError)`** — Erreur lisible destinée à l'utilisateur (saisie invalide, calcul impossible).
+- `def cas_diff(f: Any, x: Any=None, n: Any=1) -> Any`
+- `def cas_integrate(f: Any, x: Any=None, a: Any=None, b: Any=None) -> Any`
+- `def cas_limit(f: Any, x: Any=None, a: Any=0, direction: str='+-') -> Any`
+- `def cas_solve(eq: Any, *variables: Any) -> list[Any]` — Équation ou système. Retourne une liste de solutions, chacune sous forme d'égalités `x = valeur`.
+- `def cas_nsolve(eq: Any, x: Any=None, x0: Any=0) -> Any`
+- `def cas_sum(f: Any, k: Any=None, a: Any=None, b: Any=None) -> Any`
+- `def cas_product(f: Any, k: Any=None, a: Any=None, b: Any=None) -> Any`
+- `def cas_taylor(f: Any, x: Any=None, a: Any=0, n: Any=6) -> Any`
+- `def cas_det(m: Any) -> Any`
+- `def cas_inv(m: Any) -> Any`
+- `def cas_eigenvals(m: Any) -> dict[Any, Any]`
+- `def cas_eigenvects(m: Any) -> list[Any]`
+- `def cas_mean(data: Any) -> Any`
+- `def cas_median(data: Any) -> Any`
+- `def cas_variance(data: Any) -> Any`
+- `def cas_stdev(data: Any) -> Any`
+- `def cas_polar(z: Any) -> list[Any]`
+- `def cas_approx(expr: Any, digits: Any=15) -> Any`
+- `def cas_rref(m: Any) -> Any`
+- `def check_code(code: str) -> str` — Refuse tout code Python qui sortirait du calcul : attributs, noms « _… », appels non nommés…
+- `def wrap_equations(text: str) -> str` — `x^2 = 2` -> `Eq(x^2, 2)`, y compris dans les arguments : `solve(x+y=3, x)` -> `solve(Eq(x+y, 3), x)`.
+- `def normalize(text: str) -> str`
+- **`class Session`** — Variables et fonctions définies par l'utilisateur (`a := 3`, `f(x) := x^2`) et dernier résultat (`ans`).
+  - `def locals(self, exclude: Iterable[str]=()) -> dict[str, Any]`
+  - `def delete(self, name: str) -> bool`
+  - `def listing(self) -> list[dict[str, str]]`
+- `def parse(text: str, session: Session | None=None, extra: dict[str, Any] | None=None, exclude: Iterable[str]=()) -> Any` — Texte -> objet SymPy évalué (aucune simplification forcée).
+- `def text_of(obj: Any) -> str`
+- `def latex_of(obj: Any) -> str`
+- `def mathml_of(obj: Any) -> str` — MathML de présentation (affiché nativement par les navigateurs, sans bibliothèque externe).
+- `def trim_zeros(text: str) -> str` — « 0.500000000000 » -> « 0.5 », « 4.00000 » -> « 4 » (texte, LaTeX et MathML).
+- `def present(obj: Any) -> dict[str, Any]` — Résultat exact + approché, en texte, LaTeX et MathML. L'approché est omis s'il n'apporte rien.
+- `def define(text: str, session: Session) -> dict[str, Any]`
+- `def evaluate(text: str, session: Session | None=None) -> dict[str, Any]` — Évalue une saisie. Ne lève jamais : retourne `{"ok": False, "error": …}` en cas de problème.
+- `def to_float(value: Any, session: Session | None=None) -> float` — Valeur d'une cellule (nombre ou texte « 1/3 », « sqrt(2) ») -> flottant.
+
+### `modules/calc_cas/graph.py`
+
+Graphes : échantillonnage des courbes (y = f(x), paramétriques, polaires) et analyse (zéros, extrema,
+
+- `def plot(curves: list[dict[str, Any]], window: dict[str, Any], session: Session, samples: int=600) -> dict[str, Any]` — Points de chaque courbe. Une courbe invalide reçoit `error` sans empêcher les autres.
+- `def exact_guess(value: float, expr: Any) -> Any` — Forme exacte d'une racine numérique (√2, π/4, 1/3…) si elle annule vraiment `expr` à 50 chiffres.
+- `def analyze(args: dict[str, Any], session: Session) -> dict[str, Any]` — `what` : « zeros », « extrema » ou « intersections » (avec `other`) sur [xmin, xmax].
+
+### `modules/calc_cas/mcp_server.py`
+
+Serveur MCP (stdio, JSON-RPC ligne par ligne) : les outils du CAS pour Hermes Agent ou tout client MCP local.
+
+- `def tool_list() -> list[dict[str, Any]]`
+- `def handle(runner: Any, message: Any) -> dict[str, Any] | None`
+- `def serve(stdin: TextIO, stdout: TextIO, runner: Any) -> None`
+- `def main() -> None`
+
+### `modules/calc_cas/module.py`
+
+Module du Hub : calculatrice à calcul formel (CAS), graphes, statistiques, outil pour les agents locaux.
+
+- `def hub_llm(hub_api: str, model: str='', timeout_s: float=180.0) -> Callable[[list[dict[str, str]]], str]` — Appel du modèle local **par le Hub** (API compatible OpenAI), jamais directement.
+- **`class CalcCasModule(ModuleBase)`**
+  - `def start(self) -> None`
+  - `def stop(self) -> None`
+  - `def health(self) -> Health`
+  - `def handle_event(self, event: Event) -> None`
+  - `def run(self, command: str, payload: dict[str, Any]) -> Any` — Exécute une commande (aussi appelée directement par les tests).
+
+### `modules/calc_cas/stats.py`
+
+Statistiques à une et deux variables, régressions courantes.
+
+- `def one_var(x: np.ndarray, freq: np.ndarray | None=None) -> dict[str, Any]`
+- `def two_var(x: np.ndarray, y: np.ndarray) -> dict[str, Any]`
+- `def describe(args: dict[str, Any], session: Session | None=None) -> dict[str, Any]` — `{"x": [...], "freq"?: [...]}` -> statistiques à une variable ; avec `"y"` -> à deux variables aussi.
+- `def regress(args: dict[str, Any], session: Session | None=None) -> dict[str, Any]` — Ajuste un modèle de `MODELS`. Retourne coefficients, équation lisible, expression traçable et r².
+
+### `modules/calc_cas/worker.py`
+
+Processus de calcul séparé, avec délai maximal.
+
+- `def worker_main(conn: Connection) -> None` — Boucle du processus enfant : (op, args) -> ("ok", résultat) | ("error", message).
+- **`class CasRunner`** — Côté parent : un processus enfant à la fois, relancé après un délai dépassé.
+  - `def start(self) -> None`
+  - `def stop(self) -> None`
+  - `def alive(self) -> bool`
+  - `def call(self, op: str, timeout_s: float | None=None, **args: Any) -> Any` — Exécute une opération dans le processus enfant. Délai dépassé : dictionnaire d'erreur, enfant relancé.
+
 ### `modules/gaming_hud/__init__.py`
 
 gaming_hud — HUD de jeu du Hub (évolution de WoW Assistant).
@@ -935,6 +1066,9 @@ Simulations du Professeur : pages HTML autonomes (canvas ou SVG, JavaScript en l
   - `def path(self, sim_id: str) -> Path`
   - `def delete(self, sim_id: str) -> dict[str, Any]`
   - `def generate(self, subject: str, level: str='', details: str='', chapter: str='') -> dict[str, Any]` — Fait écrire la page par le modèle codeur (deux essais : le second avec la raison du refus).
+  - `def review(self, sim_id: str) -> dict[str, Any]` — Le modèle du Professeur lit le code et liste ce qui est faux (science, pédagogie, interface).
+  - `def improve(self, sim_id: str, feedback: str) -> dict[str, Any]` — Le modèle codeur corrige la page d'après le retour (et les retours déjà donnés).
+  - `def undo(self, sim_id: str) -> dict[str, Any]` — Rétablit la version précédente d'une simulation corrigée.
   - `def generate_async(self, subject: str, level: str='', details: str='', chapter: str='') -> dict[str, Any]` — Lance `generate` en arrière-plan (plusieurs minutes avec un modèle local) ; suivi par `job`.
   - `def claude_available(self) -> bool`
   - `def ask_claude(self, subject: str, level: str='', details: str='', chapter: str='') -> dict[str, Any]` — Écrit la demande pour le Claude Code local ; renvoie ce qu'il faut lui dire.
@@ -947,7 +1081,7 @@ Branchements du Professeur sur les outils déjà en place.
 
 - `def wikipedia(cache_dir: Path, journal: Path | None=None, fetcher: Any=None, lang: str='fr') -> Callable[[str], dict[str, str] | None]` — Fabrique la lecture d'un article (titre -> {"title", "url", "text"} ou None).
 - `def hermes_exe() -> str` — Chemin de Hermes Agent s'il est installé (lu par le pont de WoW Assistant), sinon ''.
-- `def hermes_verifier(exe: str='', runner: Callable[..., Any]=subprocess.run, timeout_s: float=600.0) -> Callable[[str], str] | None` — Question -> réponse de Hermes (CLI, outils sûrs uniquement). None si Hermes est introuvable.
+- `def hermes_verifier(exe: str='', runner: Callable[..., Any]=subprocess.run, timeout_s: float=600.0, reasoning: str='medium') -> Callable[[str], str] | None` — Question -> réponse de Hermes (CLI, outils sûrs uniquement). None si Hermes est introuvable.
 
 ### `modules/genesis_lab/teacher.py`
 

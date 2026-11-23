@@ -36,6 +36,8 @@ FastAPI installe aussi `starlette` (BSD-3-Clause) et `pydantic` (MIT).
 | onnxruntime | 1.32.0 | MIT | exécute LaMa sur le processeur (Scantrad) |
 | faster-whisper (facultatif, `-Voice`) | 1.2.1 | MIT | reconnaissance vocale locale (onglet Traduction) |
 | lupa (développement seulement) | 2.8 | MIT | tests : compile l'addon HermesAssistant et exécute ses fonctions sur un faux jeu |
+| sympy (ajouté le 23/11) | 1.14.0 | BSD-3-Clause | calcul formel du module `calc_cas` |
+| mpmath (apporté par sympy) | 1.3.0 | BSD-3-Clause | arithmétique multiprécision de SymPy |
 
 Services en ligne facultatifs (désactivés tant que l'utilisateur n'y met pas ses identifiants) :
 

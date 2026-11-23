@@ -1239,3 +1239,33 @@ outine.json` ; le serveur MCP ne fait que le lire.
   Demande « La photosynthèse » écrite pour le Claude Code local (non traitée). Simulation « Les phases de la Lune »
   programmée par `qwen3-coder` en 32 s : acceptée par le contrôle et affichée, mais fausse sur le fond (nouvelle
   lune mal placée) ; le contrôle protège la page, pas l’exactitude scientifique.
+
+---
+
+## 2026-11-23 — Calculatrice à calcul formel (`calc_cas`), branche `feature/calc-cas`
+
+- **Agent :** Cloud (worktree `D:\AetherTwin\AetherTwin-calc`, en parallèle d'une autre session sur `main`)
+- **Fichiers :** `modules/calc_cas/` (nouveau : `engine.py`, `worker.py`, `graph.py`, `stats.py`, `agent.py`,
+  `mcp_server.py`, `module.py`, `demos.py`, `manifest.json`, `README.md`), `tests/calc_cas/` (nouveau),
+  `core/web/calc_cas.js` et `calc_cas.css` (nouveaux), `core/web/dashboard.html` (un onglet, un panneau, deux
+  liens), `requirements.txt` (sympy épinglé), `THIRD_PARTY.md`, `PROJECT_STATUS.md`, `ARCHITECTURE_MAP.md`.
+- **Raison :** demande de Jérémy : calculatrice haut de gamme avec CAS, module du Hub, outil exact pour les agents.
+- **Tests :** 211 tests `tests/calc_cas` verts ; ruff propre sur le module. Suite complète : 787 verts, 5 ignorés (152 s) ; le test de la carte, rouge sur `main`, repasse au vert après régénération.
+  Avant le travail, `main` avait déjà 1 test rouge (`test_architecture_map_is_up_to_date`, carte non régénérée)
+  et 1 erreur ruff (`tests/gaming_hud/test_profit.py`, imports non triés) : préexistants, non touchés.
+- **Essais réels :** Hub de test isolé (port 5760, configuration temporaire) piloté dans le navigateur intégré ;
+  délégation par `qwen3-27b` : `solve(x^2 - 2x = 0, x)` puis `integrate(2x - x^2, x, 0, 2)` → 4/3, 22 s.
+
+### Décisions
+
+1. **SymPy** (BSD, Python, déjà présent dans le venv) plutôt que Giac : pas de binaire à embarquer.
+2. **Saisie jamais exécutée telle quelle** : code produit par l'analyseur de SymPy vérifié par son arbre
+   syntaxique (pas d'attributs, de noms `_…`, de lambdas), évalué sans `__builtins__`.
+3. **Délai par processus séparé** (`multiprocessing` spawn) : SymPy ne s'interrompt pas dans un fil ; l'enfant est
+   tué au-delà de `timeout_s` (10 s) et les définitions sont rejouées.
+4. **MathML natif** pour l'affichage (pas de KaTeX/MathJax : aucune ressource externe, CSP inchangée).
+5. **Délégation par protocole texte `CAS:`** : le routeur du Hub ne transmet pas les « tools » natifs ; aucun
+   changement au cœur. Serveur MCP stdio fourni pour Hermes (branchement côté Hermes non fait).
+6. Conventions statistiques et autres choix simples : voir `modules/calc_cas/README.md` (« Choix faits »).
+7. Fichiers de suivi mis à jour dans le dernier commit de la branche seulement, pour limiter les conflits avec
+   la session parallèle.

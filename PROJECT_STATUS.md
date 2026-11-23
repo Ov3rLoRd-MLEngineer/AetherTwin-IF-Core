@@ -123,6 +123,10 @@ Les documents finaux et le gel J9 attendent sa demande.
 | Installation : `Installer AetherTwin.bat`, option `-Voice` | P0 | J8 | `FAIT-NON-TESTÉ` | le `.bat` lance `setup.ps1` avec `-ExecutionPolicy Bypass` pour ce lancement seulement (le réglage de Windows ne change pas) : Windows refusait le script (capture de Jérémy) |
 | `research/overlord_notes.md`, `docs/HARDWARE_FIT.md`, README final | P0 | J8 | `À FAIRE` | README actuel = version provisoire |
 | Gel, branche `concours`, tag `v0.1.0-concours`, scan de l'historique | P0 | J9 | `À FAIRE` | |
+| `calc_cas` : moteur CAS (SymPy), saisie naturelle sûre, exact + approché, délai par processus séparé | P1 | J10 | `FAIT-TESTÉ` | 147 tests (division par zéro, saisies invalides, injection de code, `9^9^9` interrompu en 1 s et moteur relancé) ; branche `feature/calc-cas` |
+| `calc_cas` : onglet « Calcul » (historique, MathML, variables et fonctions, graphes, tableur, régressions) | P1 | J10 | `FAIT-TESTÉ` | tests du module, des graphes (16) et des statistiques (26) + **essai réel** dans le navigateur intégré du Hub (calculs, extrema de x³ − 3x, régression exponentielle) |
+| `calc_cas` : outil de calcul exact pour les agents (bus, MCP stdio, délégation `CAS:`) | P1 | J10 | `FAIT-TESTÉ` | 14 tests (modèle SIMULÉ, MCP en sous-processus) + **essai réel** 23/11 : `qwen3-27b` via le Hub, 2 calculs délégués, aire = 4/3 en 22 s ; branché dans Hermes : `À FAIRE` |
+| `calc_cas` : géométrie dynamique, mode programmation | P2 | — | `À FAIRE` | en cours (hors du délai du concours) |
 
 ## Mesures réelles du poste (16/11/2026)
 
@@ -337,6 +341,7 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 53 | Hermes : question | cliquer « Que faire maintenant ? » (mode CLI, ≈ 20-40 s) | réponse en français qui cite vos vraies quêtes / zone ; ligne « Outils : Données… » sous la réponse |
 | 54 | Hermes : API | « Activer l'API de Hermes », fermer Hermes, « Ouvrir l'application Hermes », attendre 10 s ; reposer une question | mode « API de la passerelle » ; la réponse s'écrit au fil de l'eau, outils affichés pendant ; une session « WoW Assistant » apparaît dans Hermes |
 | 55 | Hermes : overlay | Paramètres > Widgets : cocher « Coach Hermes » ; F9 ; « Que faire ? », puis « Capture + avis » | même conversation que l'onglet ; Stop interrompt ; avec l'API, la capture est analysée |
+| 69 | Calculatrice CAS | onglet **Calcul** : « Exemples », puis Graphes → Extrema, Tableur → Exemple → Régression, « Demander » | résultats exacts affichés proprement ; points remarquables marqués ; réponse du modèle avec ses calculs délégués |
 
 ## Points attendus de Jérémy
 
