@@ -45,7 +45,11 @@ def test_closing_the_main_window_asks_for_confirmation(app) -> None:
     close = pygame.event.Event(pygame.WINDOWCLOSE)  # SDL envoie ceci (et non QUIT) dès qu'il y a 2 fenêtres
     assert app.handle_events([close]) is True       # 1re demande : « Quitter WoW Assistant ? »
     assert app.modal["type"] == "quit"
-    assert app.handle_events([pygame.event.Event(pygame.QUIT)]) is False   # 2e demande d'affilée : on quitte
+    # un clic sur la croix = WINDOWCLOSE puis QUIT (vrai WM_CLOSE, vérifié le 23/11) : la question reste posée
+    assert app.handle_events([pygame.event.Event(pygame.QUIT)]) is True and app.modal["type"] == "quit"
+    assert app.handle_events([close, pygame.event.Event(pygame.QUIT)]) is True and app.modal["type"] == "quit"
+    enter = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN, mod=0, unicode="")
+    assert app.handle_events([enter]) is False                            # seul « Oui » / Entrée quitte
 
 
 def test_quit_confirmation_no_restores_the_previous_window(app) -> None:
@@ -67,7 +71,8 @@ def test_closing_the_overlay_window_does_not_quit(app) -> None:
     assert app.handle_events([close_overlay]) is True and app.overlay_on is False
     # l'overlay est seulement masqué : la fenêtre principale doit toujours pouvoir se fermer (après confirmation)
     assert app.handle_events([pygame.event.Event(pygame.WINDOWCLOSE)]) is True and app.modal["type"] == "quit"
-    assert app.handle_events([pygame.event.Event(pygame.WINDOWCLOSE)]) is False
+    app._quit_now = True                                                  # « Oui »
+    assert app.handle_events([]) is False
 
 
 # --------------------------------------------------------------------------- saisie

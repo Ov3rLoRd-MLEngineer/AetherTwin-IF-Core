@@ -7,6 +7,11 @@ import os
 from config import BASE_DIR
 
 SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
+# Identifiants Battle.net : aussi gardés dans le profil Windows de l'utilisateur, pour que TOUTES les copies de
+# l'appli (dossier du dépôt, D:\Hermes-Agent\wow_assistant_v9...) les retrouvent : recopier le dossier ne les
+# perd plus. Jamais dans le dépôt.
+SHARED_FILE = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "WoWAssistant", "shared.json")
+SHARED_KEYS = ("bnet.client_id", "bnet.client_secret", "bnet.region")
 
 DEFAULTS = {
     "llm": {
@@ -58,8 +63,10 @@ DEFAULTS = {
 
 
 class Settings:
-    def __init__(self, path=SETTINGS_FILE):
+    def __init__(self, path=SETTINGS_FILE, shared_path=None):
         self.path = path
+        # fichier partagé : seulement pour les vrais réglages de l'appli (les tests passent un autre chemin)
+        self.shared_path = shared_path if shared_path is not None else (SHARED_FILE if path == SETTINGS_FILE else "")
         self.data = _merge(DEFAULTS, {})
         self.load()
 
@@ -70,17 +77,22 @@ class Settings:
             self.data = _merge(DEFAULTS, stored if isinstance(stored, dict) else {})
         except (OSError, ValueError):
             pass
+        shared = _read_json(self.shared_path)
+        for key in SHARED_KEYS:          # valeur vide ici, présente dans le profil : on la reprend
+            if not self.get(key) and shared.get(key):
+                self.set(key, shared[key])
+        if self.shared_path and any(self.get(k) and k not in shared for k in SHARED_KEYS):
+            # 1er lancement d'une copie qui a déjà ses identifiants : ils passent dans le profil
+            _write_json(self.shared_path, dict(shared, **{k: self.get(k, "") or "" for k in SHARED_KEYS}))
 
     def save(self):
-        tmp = self.path + ".tmp"
-        try:
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(self.data, f, ensure_ascii=False, indent=2)
-            os.replace(tmp, self.path)
-            return True
-        except OSError as e:
-            print(f"Réglages non sauvegardés : {e}")
-            return False
+        ok = _write_json(self.path, self.data)
+        if ok and self.shared_path:
+            shared = _read_json(self.shared_path)
+            wanted = {key: self.get(key, "") or "" for key in SHARED_KEYS}
+            if any(shared.get(k, "") != v for k, v in wanted.items()):
+                ok = _write_json(self.shared_path, dict(shared, **wanted))
+        return ok
 
     def get(self, dotted, default=None):
         node = self.data
@@ -96,6 +108,30 @@ class Settings:
         for part in parts[:-1]:
             node = node.setdefault(part, {})
         node[parts[-1]] = value
+
+
+def _read_json(path):
+    if not path:
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _write_json(path, data):
+    tmp = path + ".tmp"
+    try:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, path)
+        return True
+    except OSError as e:
+        print(f"Réglages non sauvegardés ({path}) : {e}")
+        return False
 
 
 def _merge(defaults, stored):

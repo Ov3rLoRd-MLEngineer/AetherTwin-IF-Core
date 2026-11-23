@@ -202,10 +202,14 @@ def bnet_settings(ui, rect):
 def _save_bnet(ui):
     ui.settings.set("bnet.client_id", ui.inputs.get("bn_id", "").strip())
     ui.settings.set("bnet.client_secret", ui.inputs.get("bn_secret", "").strip())
-    ui.settings.save()
+    if ui.settings.get("bnet.client_id") and not ui.settings.get("bnet.region"):
+        ui.settings.set("bnet.region", "eu")
+    if not ui.settings.save():
+        ui.notify("Impossible d'enregistrer les identifiants (settings.json) : voir la console", 8)
+        return
     if ui.media is not None and ui.media.bnet is not None:
         ui.media.bnet._token = ""   # nouveaux identifiants : nouveau jeton
-    ui.notify("Identifiants Battle.net enregistrés")
+    ui.notify("Identifiants Battle.net enregistrés (pour toutes les copies de l'appli)")
     _reload(ui)
 
 

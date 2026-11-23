@@ -1454,13 +1454,14 @@ class UI:
 
     # ================================================================== fenêtres modales
     def request_quit(self):
-        """Croix de la fenêtre, Alt+F4 ou Échap : on demande confirmation (2e demande d'affilée : on quitte)."""
+        """Croix de la fenêtre, Alt+F4 ou Échap : on demande confirmation ; seuls « Oui » et Entrée quittent.
+        Windows envoie DEUX événements pour un seul clic sur la croix (WINDOWCLOSE puis QUIT) : une demande alors
+        que la question est déjà posée est ignorée (elle valait « Oui » : l'appli se fermait aussitôt)."""
         previous = self.cur
         self.use("app")
         try:
             m = self.modal
             if m and m.get("type") == "quit":
-                self._quit_now = True
                 return
             self.focus = None
             self._menu = None

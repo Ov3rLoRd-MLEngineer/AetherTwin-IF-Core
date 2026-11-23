@@ -121,6 +121,8 @@ Identifiants Battle.net : maintenant dans **Paramètres généraux > Jeu** (et g
 - **Essayage** (Collections > Transmoglyphe) : votre personnage ; un clic sur une apparence la pose à sa place, un
   ensemble se pose en entier ; un clic sur une pièce dorée la retire ; « Tout retirer ».
 - **Quitter** : la croix, Alt+F4 ou Échap demandent « Quitter WoW Assistant ? » (Entrée = oui, Échap = non).
+- **Identifiants Battle.net** : gardés dans `settings.json` ET dans le profil Windows
+  (`%APPDATA%\WoWAssistant\shared.json`) : une copie de l'appli dans un autre dossier les retrouve.
 - Bestiaire : sans la **journalisation avancée** du jeu, le journal de combat ne donne ni PV, ni niveau, ni carte
   (l'addon complète le niveau et la zone).
 

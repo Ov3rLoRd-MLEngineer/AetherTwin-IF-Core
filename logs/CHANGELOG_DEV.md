@@ -952,3 +952,18 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   (Python 3.11 + pywebview) : vue incrustée sur l'onglet Personnage, masquée sous la confirmation et sur un autre
   onglet.
 - **Non vérifié chez Jérémy** : tests 45 à 48.
+
+## 23/11/2026 : fermeture qui partait seule, identifiants perdus dans la copie Hermes
+- **Agent :** Cloud
+- Tests 45 à 48 : OK (Jérémy), sauf deux défauts.
+- **Fermeture** : reproduit avec un vrai `WM_CLOSE` (l'appli se fermait en 0,1 s) : un clic sur la croix envoie
+  WINDOWCLOSE puis QUIT ; la 2e demande d'affilée valait « Oui ». Une demande pendant que la question est posée est
+  maintenant ignorée ; seuls « Oui » et Entrée quittent. Revérifié : ouverte 6 s après la croix, Échap = Non.
+- **Identifiants** : le code des deux dossiers est identique ; le `settings.json` de `D:\Hermes-Agent` est un fichier à
+  part qui n'a jamais reçu d'identifiants (région vide aussi). Une copie normale de l'appli les garde (tracé de
+  chaque sauvegarde : lancement et fermeture). Désormais `Settings` les garde aussi dans le profil Windows
+  (`%APPDATA%\WoWAssistant\shared.json`, hors dépôt) : repris si vides localement, recopiés à chaque sauvegarde
+  (effacement compris), passés au profil au 1er lancement d'une copie qui les a. Les réglages des tests (autre
+  chemin) n'y touchent jamais. Échec d'écriture signalé au lieu d'être silencieux.
+- **Tests :** 1 nouveau (`test_settings_bnet.py`), tests de fermeture refaits ; suite verte ; ruff propre.
+  Bout en bout : deux vraies copies de l'appli, profil temporaire : la copie sans identifiants les retrouve.
