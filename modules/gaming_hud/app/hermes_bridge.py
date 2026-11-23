@@ -489,7 +489,7 @@ class HermesClient:
 def _tool_label(name, preview):
     name = str(name or "outil")
     if name.startswith("mcp_"):
-        name = name.split(MCP_NAME + "_", 1)[-1] if MCP_NAME in name else name[4:]
+        name = (name.split(MCP_NAME + "_", 1)[-1] if MCP_NAME in name else name[4:]).lstrip("_")
     labels = {"web_search": "Recherche web", "web_extract": "Lecture d'une page", "skill_view": "Skill",
               "memory": "Mémoire", "session_search": "Anciennes conversations", "vision_analyze": "Analyse d'image",
               "wow_character": "Données : personnage", "wow_quests": "Données : quêtes",

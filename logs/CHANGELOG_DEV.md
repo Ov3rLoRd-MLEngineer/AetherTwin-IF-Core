@@ -1036,3 +1036,15 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   `os.startfile`, héritait de sa console (et y écrivait ses erreurs). Lancée maintenant détachée (sans console, sorties
   ignorées).
 - **Tests :** 2 nouveaux ; suite verte.
+
+## 23/11/2026 : vérification d'une vraie réponse de Hermes (API), corrections
+- **Agent :** Cloud
+- Réponse « Analyse mon perso » de Hermes (API, plusieurs minutes : 6 outils de jeu + recherche web) comparée aux
+  vraies données (mêmes outils) : chiffres justes (caractéristiques, métiers, quêtes, hauts faits, or) ; erreurs :
+  qualité « bleue » (vert en réalité), décompte des talents, **talent de héros conseillé au niveau 48** (pas encore
+  accessible), campagne présentée comme source d'XP (les quêtes donnent 0 XP), touche des talents (« R » au lieu de
+  N), et dans une réponse précédente progression du niveau fausse (58 % au lieu de 25,6 %).
+- Outils de jeu : qualité avec sa couleur, progression du niveau calculée (pourcentage, XP restants), « aucune (0) »
+  pour une quête sans XP. Skill wow-coach 1.3.0 : chiffres repris tels quels, fonctionnalité vérifiée selon le niveau,
+  pas de raccourci clavier deviné. Noms d'outils affichés sans « _ » (API).
+- **Tests :** 1 nouveau ; suite verte.

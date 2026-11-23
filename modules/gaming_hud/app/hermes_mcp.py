@@ -130,8 +130,16 @@ def _limit(items, n):
 SLOT_NAMES = {1: "Tête", 2: "Cou", 3: "Épaules", 4: "Chemise", 5: "Torse", 6: "Taille", 7: "Jambes", 8: "Pieds",
               9: "Poignets", 10: "Mains", 11: "Doigt 1", 12: "Doigt 2", 13: "Bijou 1", 14: "Bijou 2", 15: "Dos",
               16: "Main droite", 17: "Main gauche", 19: "Tabard"}
-QUALITIES = {0: "médiocre", 1: "commun", 2: "inhabituel", 3: "rare", 4: "épique", 5: "légendaire", 6: "artefact",
-             7: "héritage"}
+QUALITIES = {0: "médiocre (gris)", 1: "commun (blanc)", 2: "inhabituel (vert)", 3: "rare (bleu)", 4: "épique (violet)",
+             5: "légendaire (orange)", 6: "artefact", 7: "héritage"}
+
+
+def _xp_progress(c):
+    """Progression du niveau calculée ici (les modèles se trompent souvent dans ce calcul)."""
+    xp, xp_max = c.get("xp") or 0, c.get("xpMax") or 0
+    if not xp_max:
+        return "niveau maximum ou inconnu"
+    return f"{100 * xp / xp_max:.1f} % du niveau en cours, {xp_max - xp} XP restants avant le niveau suivant"
 
 
 def tool_character(data, args):
@@ -157,6 +165,7 @@ def tool_character(data, args):
                        "niveau_objet": c.get("ilvl"), "zone": c.get("zone"), "sous_zone": c.get("subzone"),
                        "or": _money(c.get("money")),
                        "expérience": f"{c.get('xp', 0)}/{c.get('xpMax', 0)} (repos : {c.get('restedXP', 0)})",
+                       "progression_du_niveau": _xp_progress(c),
                        "temps_de_jeu_heures": round((played.get("total") or 0) / 3600, 1)},
         "caractéristiques": {**(c.get("stats") or {}), "armure": c.get("armor"), "critique": c.get("crit"),
                              "hâte": c.get("haste"), "maîtrise": c.get("mastery"),
@@ -177,7 +186,7 @@ def tool_quests(data, args):
                     "objectifs": [f"{o.get('text', '')}" + (" (fait)" if o.get("finished") else "")
                                   for o in quest.get("objectives") or []],
                     "récompenses": [r.get("name") for r in quest.get("rewards") or [] if r.get("name")],
-                    "xp": quest.get("rewardXP"), "argent": _money(quest.get("rewardMoney"))})
+                    "xp": quest.get("rewardXP") or "aucune (0)", "argent": _money(quest.get("rewardMoney"))})
     return {"quêtes_en_cours": q.get("count", len(out)), "maximum": q.get("max", 35),
             "quêtes_terminées_au_total": q.get("completedTotal"), "liste": out}
 

@@ -567,3 +567,12 @@ def test_restart_gateway_runs_hermes_command_and_waits_for_the_api(tmp_path, hb)
 
     ok, text = hb.restart_gateway(hb.HermesInfo(str(fake_home(tmp_path))), runner=runner, wait=1)
     assert ok and seen["args"][1:] == ["gateway", "restart"] and "API en marche" in text
+
+
+def test_tool_labels_and_ready_made_figures_for_the_model(hb) -> None:
+    import hermes_mcp
+    assert hb._tool_label("mcp_wow_assistant__wow_character", "") == "Données : personnage"
+    assert hb._tool_label("mcp_wow_assistant_wow_quests", "") == "Données : quêtes"
+    assert hermes_mcp._xp_progress({"xp": 10027, "xpMax": 39165}) == \
+        "25.6 % du niveau en cours, 29138 XP restants avant le niveau suivant"
+    assert hermes_mcp.QUALITIES[2] == "inhabituel (vert)"
