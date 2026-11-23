@@ -170,7 +170,8 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 6. **WoW Assistant : feuille de route (23/11, d'après la recherche sur les outils actuels)**, `À FAIRE` dans cet
    ordre, puis une **version pour WoW Forever** (fonctions absentes de Forever retirées) ; version anglaise
    ensuite si le temps le permet (concours réservé aux francophones : pas prioritaire) :
-   1. base de connaissances liée à la version du jeu (« à revérifier » à chaque nouveau patch) ;
+   1. base de connaissances liée à la version du jeu (« à revérifier » à chaque nouveau patch) : **FAIT-TESTÉ
+      (23/11)**, version lue dans `.build.info` (vrai fichier de Jérémy : 12.1.5.70961) ;
    2. routine de la semaine (Grande chambre forte, écus, Gouffres, Proie, campagne, savoir des métiers, autres
       personnages) et « j'ai 1 h, je fais quoi ? » ;
    3. bilan après donjon ou boss depuis le journal de combat (journalisation avancée) ;

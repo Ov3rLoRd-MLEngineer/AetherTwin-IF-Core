@@ -4,7 +4,8 @@ Base de connaissances du coach (coach_knowledge.json) : ce que Hermes a vérifi�
 Même principe que l'apprentissage de Scantrad sur le mode manuel : le travail du joueur fait foi.
   - **joueur** : correction ou règle donnée par le joueur. Priorité absolue, jamais périmée.
   - **sourcé** : fait vérifié par Hermes sur une page (Wowhead, site officiel, guide...) : lien et date obligatoires ;
-    à revérifier après REVERIFY_DAYS jours (le jeu change à chaque mise à jour).
+    à revérifier après REVERIFY_DAYS jours, ou dès que le jeu change de patch (12.1.5 -> 12.2.0 : version lue dans
+    .build.info, voir gameversion.py).
   - **rejeté** : écarté par le joueur ; gardé pour que Hermes ne le réenregistre pas.
 
 Les textes enregistrés sont des données : ils sont rendus à Hermes comme tels, jamais exécutés. Fichier propre à
@@ -39,8 +40,9 @@ def _words(text):
 
 
 class KnowledgeBase:
-    def __init__(self, path):
+    def __init__(self, path, patch_fn=None):
         self.path = path
+        self.patch_fn = patch_fn      # -> patch du jeu installé (« 12.1.5 ») ; chaque fait est daté avec
         self.entries = []
         self.version = 0
         self._lock = threading.Lock()
@@ -76,6 +78,12 @@ class KnowledgeBase:
         self._mtime = os.path.getmtime(self.path)
         self.version += 1
 
+    def current_patch(self):
+        try:
+            return (self.patch_fn() if self.patch_fn else "") or ""
+        except Exception:
+            return ""
+
     # ------------------------------------------------------------------ écriture
     def add(self, topic, subject, fact, source="", status="sourcé", question=""):
         """Ajoute ou met à jour (même sujet et même thème). Retourne (ok, message, entrée)."""
@@ -88,6 +96,7 @@ class KnowledgeBase:
             return False, "sujet et fait obligatoires", None
         if status == "sourcé" and not re.match(r"^https?://", source):
             return False, "un fait vérifié doit citer la page consultée (lien http/https)", None
+        patch = self.current_patch()
         with self._lock:
             self.reload_if_changed()
             now = time.time()
@@ -98,6 +107,8 @@ class KnowledgeBase:
                         return False, "le joueur a déjà tranché ce sujet : sa version fait foi", e
                     if e["status"] == "rejeté" and status != "joueur" and _norm(e["fact"]) == _norm(fact):
                         return False, "ce fait a été rejeté par le joueur", e
+                    if patch:
+                        e["patch"] = patch
                     e.update(fact=fact, source=source, status=status, verified=now,
                              history=(e.get("history") or [])[-4:] + [{"fact": e["fact"], "at": e["verified"]}])
                     if question:
@@ -106,6 +117,8 @@ class KnowledgeBase:
                     return True, "mis à jour", e
             entry = {"id": f"k{int(now * 1000):x}", "topic": topic, "subject": subject, "fact": fact,
                      "source": source, "status": status, "created": now, "verified": now, "uses": 0}
+            if patch:
+                entry["patch"] = patch
             if question:
                 entry["question"] = question[:300]
             self.entries.append(entry)
@@ -118,6 +131,9 @@ class KnowledgeBase:
             for e in self.entries:
                 if e["id"] == entry_id and status in STATUSES:
                     e["status"], e["verified"] = status, time.time()
+                    patch = self.current_patch()
+                    if patch:
+                        e["patch"] = patch
                     self._save()
                     return True
         return False
@@ -133,14 +149,26 @@ class KnowledgeBase:
         return False
 
     # ------------------------------------------------------------------ lecture
-    def stale(self, e, now=None):
-        return e["status"] == "sourcé" and (now or time.time()) - e.get("verified", 0) > REVERIFY_DAYS * 86400
+    def stale_reason(self, e, now=None, patch=None):
+        """Pourquoi un fait vérifié en ligne est à revérifier ("" sinon). Les corrections du joueur ne périment pas."""
+        if e["status"] != "sourcé":
+            return ""
+        patch = self.current_patch() if patch is None else patch
+        if patch and e.get("patch") and e["patch"] != patch:
+            return f"patch changé : {e['patch']} → {patch}"
+        if (now or time.time()) - e.get("verified", 0) > REVERIFY_DAYS * 86400:
+            return f"vérifié il y a plus de {REVERIFY_DAYS} jours"
+        return ""
+
+    def stale(self, e, now=None, patch=None):
+        return bool(self.stale_reason(e, now, patch))
 
     def search(self, query="", topic="", limit=12, count_use=False):
         """Entrées utiles pour une question : les règles du joueur d'abord, puis les plus proches de la question."""
         self.reload_if_changed()
         words = _words(query)
         now = time.time()
+        patch = self.current_patch()
         scored = []
         for e in self.entries:
             if e["status"] == "rejeté" or (topic and e["topic"] != topic):
@@ -162,8 +190,8 @@ class KnowledgeBase:
                     pass
         return [{"thème": e["topic"], "sujet": e["subject"], "fait": e["fact"],
                  "statut": {"joueur": "corrigé par le joueur (fait foi)", "sourcé": "vérifié en ligne"}[e["status"]]
-                 + (" — à revérifier (ancien)" if self.stale(e, now) else ""),
-                 "source": e.get("source") or None,
+                 + (f" — à revérifier ({self.stale_reason(e, now, patch)})" if self.stale(e, now, patch) else ""),
+                 "source": e.get("source") or None, "version_du_jeu": e.get("patch") or None,
                  "vérifié_le": time.strftime("%d/%m/%Y", time.localtime(e.get("verified", 0)))} for e in found]
 
     def stats(self):
@@ -171,5 +199,6 @@ class KnowledgeBase:
         out = {s: 0 for s in STATUSES}
         for e in self.entries:
             out[e["status"]] = out.get(e["status"], 0) + 1
-        out["à revérifier"] = sum(1 for e in self.entries if self.stale(e))
+        patch = self.current_patch()
+        out["à revérifier"] = sum(1 for e in self.entries if self.stale(e, patch=patch))
         return out

@@ -189,8 +189,10 @@ def knowledge(ui):
     """Base de connaissances du coach (créée à la première utilisation, partagée avec le serveur MCP)."""
     kb = getattr(ui, "knowledge", None)
     if kb is None:
+        import gameversion
         from coach_knowledge import DEFAULT_PATH, KnowledgeBase
-        kb = ui.knowledge = KnowledgeBase(DEFAULT_PATH)
+        from config import WoWConfig
+        kb = ui.knowledge = KnowledgeBase(DEFAULT_PATH, patch_fn=lambda: gameversion.patch_for(WoWConfig.WOW_PATH))
     if ui.chat is not None and ui.chat.knowledge is None:
         ui.chat.knowledge = kb
     return kb
@@ -214,8 +216,11 @@ def _draw_knowledge(ui, rect):
         px += pw + 6
     query = ui.input_box((x + w - 300, y, 300, 26), "kb_search", "Rechercher…").lower()
     stats = kb.stats()
+    patch = kb.current_patch()
     ui.text(f"{stats['joueur']} corrigé(s) par vous · {stats['sourcé']} vérifié(s) en ligne · "
-            f"{stats['à revérifier']} à revérifier · {stats['rejeté']} rejeté(s)", "tiny", "gray", (x, y + 34))
+            f"{stats['à revérifier']} à revérifier · {stats['rejeté']} rejeté(s)"
+            + (f" · jeu en {patch} (un fait vérifié sur un autre patch est à revérifier)" if patch else ""),
+            "tiny", "gray", (x, y + 34))
     flt = state["kb_filter"]
     shown = [e for e in reversed(kb.entries)
              if (flt == "all" or (flt == "stale" and kb.stale(e)) or e["status"] == flt)
@@ -235,6 +240,8 @@ def _draw_knowledge(ui, rect):
             box = pygame.Rect(area.x, py, area.w - 14, rh - 6)
             pygame.draw.rect(ui.screen, (22, 22, 27), box, border_radius=6)
             status = labels[e["status"]] + (" · à revérifier" if kb.stale(e) else "")
+            if e.get("patch"):
+                status += f" · {e['patch']}"
             ui.text(ui.fit(f"{e['topic'].capitalize()} — {e['subject']}", "small", box.w - 230), "small", "text",
                     (box.x + 10, box.y + 6))
             ui.text(status, "tiny", colors[e["status"]], (box.right - 10, box.y + 8), anchor="topright")

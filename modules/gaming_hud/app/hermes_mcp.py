@@ -90,8 +90,9 @@ class GameData:
 
     def knowledge(self):
         if getattr(self, "_knowledge", None) is None:
+            import gameversion
             from coach_knowledge import DEFAULT_PATH, KnowledgeBase
-            self._knowledge = KnowledgeBase(DEFAULT_PATH)
+            self._knowledge = KnowledgeBase(DEFAULT_PATH, patch_fn=lambda: gameversion.patch_for(self._game_path()))
         return self._knowledge
 
     def activity(self):
@@ -326,12 +327,23 @@ def tool_activity(data, args):
     return {"journal_de_l_addon": events, "activité_de_l_appli": history}
 
 
+def _game_version(data):
+    import gameversion
+    try:
+        path = data._game_path()
+    except Exception:
+        path = ""
+    info = gameversion.build_info(path)
+    return f"{info['version']} ({info['flavor']})" if info else "inconnue"
+
+
 def tool_status(data, args):
     s = data.snapshot()
     c = s.get("character") or {}
     file_time = s.get("fileTime") or s.get("cachedAt")
     return {"source": data.source(), "personnage": f"{c.get('name', '?')} ({c.get('realm', '?')})",
             "données_du": time.strftime("%d/%m/%Y %H:%M", time.localtime(file_time)) if file_time else "inconnu",
+            "version_du_jeu": _game_version(data),
             "conseil": "Les données se mettent à jour quand le jeu écrit son fichier : /reload ou /ha save en jeu."}
 
 

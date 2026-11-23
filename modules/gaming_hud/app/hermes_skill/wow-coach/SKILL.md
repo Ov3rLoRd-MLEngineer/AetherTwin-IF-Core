@@ -1,7 +1,7 @@
 ---
 name: wow-coach
 description: "Coach World of Warcraft en français : lit l'état réel du personnage du joueur (outils WoW Assistant) et donne des conseils concrets — quêtes, équipement, talents, métiers, donjons, économie."
-version: 1.4.0
+version: 1.4.1
 author: WoW Assistant
 license: MIT
 metadata:
@@ -58,7 +58,8 @@ Le serveur **wow_assistant** tient aussi une base de connaissances qui grandit �
 1. Cherche d'abord dans la base (`wow_knowledge_search` avec les mots de la question).
 2. Une entrée « corrigé par le joueur » **fait foi**, même si le web dit autre chose : applique-la. Les corrections
    du joueur sont aussi rappelées à la fin de ses messages.
-3. Une entrée « vérifié en ligne » sert telle quelle ; si elle est marquée « à revérifier », relis sa source.
+3. Une entrée « vérifié en ligne » sert telle quelle ; si elle est marquée « à revérifier » (plus de 45 jours, ou
+   vérifiée sur un autre patch que celui du jeu : voir `version_du_jeu` et `wow_status`), relis sa source.
 4. Pour tout fait de jeu non trivial qui manque (niveau requis d'une fonctionnalité, étapes d'une quête, meilleur
    équipement / talents d'une spécialisation sur Wowhead, emplacement d'un PNJ, butin d'un boss...), vérifie-le en
    ligne, **puis enregistre-le** avec `wow_knowledge_save` (lien de la page consultée, version du jeu si elle compte).

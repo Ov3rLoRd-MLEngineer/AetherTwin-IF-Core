@@ -208,6 +208,7 @@ modules/
       focus.py
       game_connection.py
       gamedata.py
+      gameversion.py
       hermes_bridge.py
       hermes_mcp.py
       hermes_skill/
@@ -337,6 +338,7 @@ tests/
     test_bestiary.py
     test_collections_media.py
     test_config_refs.py
+    test_gameversion.py
     test_hermes.py
     test_market.py
     test_model3d.py

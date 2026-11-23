@@ -1073,3 +1073,13 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - Ajouts : bouton **« Faire vérifier »** (Hermes vérifie sa dernière réponse en ligne et enregistre les faits avec
   leur lien) ; vue Connaissances vide qui explique comment la remplir ; compteur relu quand Hermes écrit.
 - **Tests :** 1 nouveau ; suite verte.
+
+## 23/11/2026 : feuille de route WoW Assistant, étape 1 : base liée à la version du jeu
+- **Agent :** Cloud
+- **Fichiers :** `gameversion.py` (nouveau), `coach_knowledge.py`, `hermes_mcp.py`, `tabs_hermes.py`, skill 1.4.1.
+- Version du jeu lue dans `.build.info` (dossier de WoW, lecture seule ; ligne du produit du dossier `_retail_`,
+  `_classic_`... ; variante retail / forever / classic). Chaque fait enregistré porte le patch (12.1.5) ; un fait
+  vérifié en ligne est à revérifier dès que le patch change (les correctifs du même patch ne comptent pas) ou après
+  45 jours ; les corrections du joueur ne périment jamais. `wow_status` donne la version du jeu.
+- Vérifié sur le vrai fichier de Jérémy : 12.1.5.70961, produit `wow`.
+- **Tests :** 2 nouveaux ; suite verte.
