@@ -398,6 +398,19 @@ def normalize(text: str) -> str:
     return text.replace("√", "sqrt").strip()
 
 
+_DEG = sp.pi / 180
+DEGREE_FUNCTIONS: dict[str, Callable[..., Any]] = {
+    "sin": lambda v: sp.sin(v * _DEG), "cos": lambda v: sp.cos(v * _DEG), "tan": lambda v: sp.tan(v * _DEG),
+    "cot": lambda v: sp.cot(v * _DEG), "sec": lambda v: sp.sec(v * _DEG), "csc": lambda v: sp.csc(v * _DEG),
+    "asin": lambda v: sp.asin(v) / _DEG, "acos": lambda v: sp.acos(v) / _DEG, "atan": lambda v: sp.atan(v) / _DEG,
+    "atan2": lambda y, x: sp.atan2(y, x) / _DEG, "arg": lambda z: sp.arg(z) / _DEG,
+}
+DEGREE_FUNCTIONS.update(arcsin=DEGREE_FUNCTIONS["asin"], arccos=DEGREE_FUNCTIONS["acos"],
+                        arctan=DEGREE_FUNCTIONS["atan"])
+SETTINGS = {"angle": ("rad", "deg")}
+STO_RE = re.compile(r"^(.+?)\s*(?:→|->)\s*([^\W\d_]\w{0,30})\s*$", re.S)
+
+
 # ---------------------------------------------------------------- session
 @dataclass
 class Session:
@@ -405,6 +418,7 @@ class Session:
 
     values: dict[str, Any] = field(default_factory=dict)
     sources: dict[str, str] = field(default_factory=dict)  # nom -> texte de la définition (rejouable)
+    settings: dict[str, Any] = field(default_factory=lambda: {"angle": "rad"})
 
     def locals(self, exclude: Iterable[str] = ()) -> dict[str, Any]:
         skip = set(exclude)
@@ -430,7 +444,9 @@ def parse(text: str, session: Session | None = None, extra: dict[str, Any] | Non
     if "__" in text or ":=" in text:
         raise CasError("Expression invalide" if ":=" in text else "Expression refusée")
     text = wrap_equations(text)
-    local_dict = {**(session.locals(exclude) if session else {}), **(extra or {})}
+    degrees = bool(session and session.settings.get("angle") == "deg")
+    local_dict = {**(DEGREE_FUNCTIONS if degrees else {}), **(session.locals(exclude) if session else {}),
+                  **(extra or {})}
     global_dict = {"__builtins__": {}, **GLOBALS}
     try:
         code = stringify_expr(text, local_dict, global_dict, TRANSFORMS)
@@ -647,6 +663,11 @@ def evaluate(text: str, session: Session | None = None) -> dict[str, Any]:
     try:
         if not isinstance(text, str):
             raise CasError("La saisie doit être du texte")
+        sto = STO_RE.match(normalize(text))
+        if sto and not DEF_RE.match(normalize(text)):  # « expr → nom » (touche sto→) = « nom := expr »
+            result = define(f"{sto.group(2)} := {sto.group(1)}", session)
+            result["input"] = text
+            return result
         if DEF_RE.match(normalize(text)):
             return define(text, session)
         result = parse(text, session)

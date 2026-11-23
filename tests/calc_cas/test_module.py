@@ -107,3 +107,30 @@ def test_eval_rejects_non_text(module: CalcCasModule) -> None:
 def test_examples_catalog(module: CalcCasModule) -> None:
     catalog = module.run("examples", {})
     assert len(catalog["examples"]) >= 10 and catalog["graphs"] and catalog["stats"]["x"]
+
+
+def test_settings_and_programs_persist(tmp_path: Path) -> None:
+    m = make(tmp_path)
+    try:
+        assert m.run("settings", {"angle": "deg"}) == {"angle": "deg"}
+        assert m.run("eval", {"text": "sin(90)"})["exact"] == "1"
+        with pytest.raises(ValueError, match="réglage invalide"):
+            m.run("settings", {"angle": "grades"})
+        assert m.run("program_save", {"name": "carres", "code": "for i in range(3):\n    print(i*i)"}) == ["carres"]
+        with pytest.raises(ValueError, match="nom de programme"):
+            m.run("program_save", {"name": "2 mots", "code": "print(1)"})
+        listing = m.run("programs", {})
+        assert listing["programs"]["carres"].startswith("for") and "suite_syracuse" in listing["examples"]
+        run = m.run("program_run", {"code": listing["programs"]["carres"], "seed": 3})
+        assert run["ok"] and run["output"] == "0\n1\n4\n"
+        asks = m.run("program_run", {"code": "print(input('n ? '))"})
+        assert asks["needs_input"] and asks["prompt"] == "n ? "
+    finally:
+        m.stop()
+    m2 = make(tmp_path)
+    try:
+        assert m2.run("eval", {"text": "cos(180)"})["exact"] == "-1"  # mode degrés rejoué
+        assert "carres" in m2.run("programs", {})["programs"]
+        assert m2.run("program_delete", {"name": "carres"}) is True
+    finally:
+        m2.stop()

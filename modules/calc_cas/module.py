@@ -15,6 +15,10 @@ Commandes reçues sur le bus (réponse sur `module.calc_cas.result`, avec le mê
     tool        {"name": "cas_compute", "arguments": {...}}   appel d'outil par un agent (session séparée)
     ask         {"question": "…"}                         le modèle local délègue ses calculs au CAS
     examples    {}                                        exemples de démonstration
+    settings    {"angle": "rad"|"deg"}                    réglages de la session (renvoie les réglages)
+    programs    {}                                        programmes enregistrés + exemples
+    program_save   {"name", "code"}  ·  program_delete {"name"}
+    program_run    {"code", "inputs": [...], "seed"}       exécution dans le bac à sable (`sandbox.py`)
 
 Tous les calculs passent par un processus séparé avec délai maximal (`worker.py`) : un calcul pathologique est
 interrompu et le module répond quand même. Variables, fonctions et historique sont gardés dans
@@ -23,6 +27,8 @@ interrompu et le module répond quand même. Variables, fonctions et historique 
 Configuration (section `calc_cas` de `config/local.yaml`), tout est facultatif :
 
     timeout_s: 10                          # délai maximal d'un calcul
+    program_timeout_s: 10                  # délai maximal d'un programme
+    program_memory_mb: 768                 # mémoire maximale du processus des programmes
     hub_api: "http://127.0.0.1:5750"       # modèle local du Hub, pour `ask` (vide = désactivé)
     model: ""                              # vide = modèle par défaut du Hub
     session: "data/calc_cas/session.json"
@@ -30,6 +36,7 @@ Configuration (section `calc_cas` de `config/local.yaml`), tout est facultatif :
 from __future__ import annotations
 
 import json
+import re
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path
@@ -41,6 +48,8 @@ from modules.calc_cas.worker import CasRunner
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HISTORY_MAX = 200
+PROGRAMS_MAX = 100
+PROGRAM_NAME = re.compile(r"^[^\W\d]\w{0,40}$")
 
 
 def hub_llm(hub_api: str, model: str = "", timeout_s: float = 180.0) -> Callable[[list[dict[str, str]]], str]:
@@ -63,7 +72,10 @@ class CalcCasModule(ModuleBase):
         self.runner = CasRunner(timeout_s=float(self.config.get("timeout_s", 10)))
         hub = str(self.config.get("hub_api", "http://127.0.0.1:5750"))
         self.llm = hub_llm(hub, str(self.config.get("model", ""))) if hub else None
+        self.sandbox = CasRunner(timeout_s=float(self.config.get("program_timeout_s", 10)),
+                                 memory_mb=int(self.config.get("program_memory_mb", 768)))
         self.history: list[dict[str, Any]] = []
+        self.programs: dict[str, str] = {}
         self.load_error = ""
         try:
             if self.save_path.is_file():
@@ -72,6 +84,12 @@ class CalcCasModule(ModuleBase):
                 defs = saved.get("definitions", {})
                 if isinstance(defs, dict):
                     self.runner.definitions["user"] = {str(k): str(v) for k, v in defs.items()}
+                settings = saved.get("settings", {})
+                if isinstance(settings, dict) and settings.get("angle") in ("rad", "deg"):
+                    self.runner.settings["user"] = {"angle": settings["angle"]}
+                programs = saved.get("programs", {})
+                if isinstance(programs, dict):
+                    self.programs = {str(k): str(v) for k, v in programs.items() if PROGRAM_NAME.match(str(k))}
         except (OSError, ValueError, AttributeError) as exc:
             self.load_error = f"session illisible ({exc}) : nouvelle session"
         try:
@@ -82,6 +100,7 @@ class CalcCasModule(ModuleBase):
     def stop(self) -> None:
         self._save()
         self.runner.stop()
+        self.sandbox.stop()
 
     def health(self) -> Health:
         if self.runner.broken:
@@ -96,6 +115,8 @@ class CalcCasModule(ModuleBase):
         try:
             self.save_path.parent.mkdir(parents=True, exist_ok=True)
             self.save_path.write_text(json.dumps({"definitions": self.runner.definitions.get("user", {}),
+                                                  "settings": self.runner.settings.get("user", {}),
+                                                  "programs": self.programs,
                                                   "history": self.history[-HISTORY_MAX:]}, ensure_ascii=False,
                                                  indent=1), encoding="utf-8")
         except OSError:
@@ -159,4 +180,37 @@ class CalcCasModule(ModuleBase):
                 raise RuntimeError(f"modèle local injoignable par le Hub : {exc}") from exc
         if command == "examples":
             return demos.catalog()
+        if command == "settings":
+            values = {k: payload[k] for k in ("angle",) if k in payload}
+            result = self.runner.call("settings", **values)
+            self._save()
+            return result
+        if command == "programs":
+            from modules.calc_cas.sandbox import EXAMPLES
+            return {"programs": self.programs, "examples": EXAMPLES}
+        if command == "program_save":
+            name, code = str(payload.get("name", "")).strip(), payload.get("code")
+            if not PROGRAM_NAME.match(name):
+                raise ValueError("nom de programme invalide (lettres, chiffres, « _ », 41 caractères au plus)")
+            if not isinstance(code, str) or len(code) > 20_000:
+                raise ValueError("programme absent ou trop long (20 000 caractères au plus)")
+            if name not in self.programs and len(self.programs) >= PROGRAMS_MAX:
+                raise ValueError(f"{PROGRAMS_MAX} programmes au plus : supprimes-en un")
+            self.programs[name] = code
+            self._save()
+            return sorted(self.programs)
+        if command == "program_delete":
+            deleted = self.programs.pop(str(payload.get("name", "")), None) is not None
+            self._save()
+            return deleted
+        if command == "program_run":
+            code = payload.get("code")
+            if not isinstance(code, str):
+                raise ValueError("`code` (texte) obligatoire")
+            inputs = payload.get("inputs") or []
+            if not isinstance(inputs, list):
+                raise ValueError("`inputs` doit être une liste")
+            seed = payload.get("seed")
+            return self.sandbox.call("program", code=code, inputs=[str(v) for v in inputs][:200],
+                                     seed=int(seed) if isinstance(seed, int | float) else None, session="program")
         raise ValueError(f"commande inconnue : {command!r}")

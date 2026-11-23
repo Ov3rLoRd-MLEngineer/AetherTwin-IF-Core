@@ -14,12 +14,59 @@ modèles locaux) : un agent ne voit ni ne modifie les variables de l'utilisateur
 from __future__ import annotations
 
 import multiprocessing as mp
+import sys
 import threading
 import time
 from multiprocessing.connection import Connection
 from typing import Any
 
 STARTUP_S = 90.0  # premier import de SymPy (disque froid) : bien plus long qu'un calcul
+_JOB: Any = None  # objet de tâche Windows gardé ouvert tant que le processus vit
+
+
+def limit_memory(megabytes: int) -> bool:
+    """Borne la mémoire du processus courant (objet de tâche Windows, `RLIMIT_AS` ailleurs). `False` si impossible."""
+    limit = int(megabytes) * 1024 * 1024
+    if sys.platform == "win32":
+        import ctypes
+        from ctypes import wintypes
+
+        class Basic(ctypes.Structure):
+            _fields_ = [("PerProcessUserTimeLimit", ctypes.c_int64), ("PerJobUserTimeLimit", ctypes.c_int64),
+                        ("LimitFlags", wintypes.DWORD), ("MinimumWorkingSetSize", ctypes.c_size_t),
+                        ("MaximumWorkingSetSize", ctypes.c_size_t), ("ActiveProcessLimit", wintypes.DWORD),
+                        ("Affinity", ctypes.c_size_t), ("PriorityClass", wintypes.DWORD),
+                        ("SchedulingClass", wintypes.DWORD)]
+
+        class Extended(ctypes.Structure):
+            _fields_ = [("BasicLimitInformation", Basic), ("IoInfo", ctypes.c_ulonglong * 6),
+                        ("ProcessMemoryLimit", ctypes.c_size_t), ("JobMemoryLimit", ctypes.c_size_t),
+                        ("PeakProcessMemoryUsed", ctypes.c_size_t), ("PeakJobMemoryUsed", ctypes.c_size_t)]
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+        kernel32.CreateJobObjectW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR]
+        kernel32.SetInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+        kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+        kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+        job = kernel32.CreateJobObjectW(None, None)
+        if not job:
+            return False
+        info = Extended()
+        info.BasicLimitInformation.LimitFlags = 0x100  # JOB_OBJECT_LIMIT_PROCESS_MEMORY
+        info.ProcessMemoryLimit = limit
+        ok = kernel32.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info)) and \
+            kernel32.AssignProcessToJobObject(job, kernel32.GetCurrentProcess())
+        global _JOB
+        _JOB = job
+        return bool(ok)
+    try:
+        import resource
+
+        resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
+        return True
+    except (ImportError, ValueError, OSError):
+        return False
 
 
 def _dispatch(sessions: dict[str, Any], op: str, args: dict[str, Any]) -> Any:
@@ -30,6 +77,16 @@ def _dispatch(sessions: dict[str, Any], op: str, args: dict[str, Any]) -> Any:
         from modules.calc_cas import graph
     if op in ("stats", "regress"):
         from modules.calc_cas import stats
+    if op == "program":
+        from modules.calc_cas.sandbox import run_program
+
+        return run_program(str(args.get("code", "")), list(args.get("inputs") or []), args.get("seed"), session)
+    if op == "settings":
+        for key, value in args.items():
+            if key not in engine.SETTINGS or value not in engine.SETTINGS[key]:
+                raise ValueError(f"réglage invalide : {key} = {value!r}")
+            session.settings[key] = value
+        return dict(session.settings)
     if op == "eval":
         return engine.evaluate(args["text"], session)
     if op == "restore":  # rejoue des définitions (après une relance)
@@ -54,8 +111,10 @@ def _dispatch(sessions: dict[str, Any], op: str, args: dict[str, Any]) -> Any:
     raise ValueError(f"opération inconnue : {op!r}")
 
 
-def worker_main(conn: Connection) -> None:
+def worker_main(conn: Connection, memory_mb: int | None = None) -> None:
     """Boucle du processus enfant : (op, args) -> ("ok", résultat) | ("error", message)."""
+    if memory_mb:
+        limit_memory(memory_mb)
     try:
         import modules.calc_cas.engine  # noqa: F401 — import lourd fait une fois, avant le signal « prêt »
         conn.send(("ready", None))
@@ -82,8 +141,10 @@ def worker_main(conn: Connection) -> None:
 class CasRunner:
     """Côté parent : un processus enfant à la fois, relancé après un délai dépassé."""
 
-    def __init__(self, timeout_s: float = 10.0) -> None:
+    def __init__(self, timeout_s: float = 10.0, memory_mb: int | None = None) -> None:
         self.timeout_s = float(timeout_s)
+        self.memory_mb = memory_mb
+        self.settings: dict[str, dict[str, Any]] = {}  # session -> réglages (angle…), rejoués après relance
         self.lock = threading.Lock()
         self.proc: Any = None
         self.conn: Connection | None = None
@@ -96,7 +157,7 @@ class CasRunner:
     def start(self) -> None:
         ctx = mp.get_context("spawn")
         parent, child = ctx.Pipe()
-        self.proc = ctx.Process(target=worker_main, args=(child,), daemon=True, name="calc_cas-worker")
+        self.proc = ctx.Process(target=worker_main, args=(child, self.memory_mb), daemon=True, name="calc_cas-worker")
         self.proc.start()
         child.close()
         self.conn, self.ready = parent, False
@@ -113,6 +174,10 @@ class CasRunner:
             self._kill()
             raise RuntimeError(f"moteur de calcul indisponible : {detail}")
         self.ready = True
+        for session, values in self.settings.items():
+            self.conn.send(("settings", {"session": session, **values}))
+            if self.conn.poll(self.timeout_s):
+                self.conn.recv()
         for session, defs in self.definitions.items():
             if defs:
                 self.conn.send(("restore", {"session": session, "sources": list(defs.values())}))
@@ -190,7 +255,10 @@ class CasRunner:
             name = value["definition"]["name"]
             defs.pop(name, None)  # une redéfinition passe en dernier (ordre de rejeu)
             defs[name] = value["definition"]["source"]
+        elif op == "settings" and isinstance(value, dict):
+            self.settings[session] = dict(value)
         elif op == "delete":
             defs.pop(str(args.get("name")), None)
         elif op == "reset":
             self.definitions.pop(str(args.get("target", "user")), None)
+            self.settings.pop(str(args.get("target", "user")), None)

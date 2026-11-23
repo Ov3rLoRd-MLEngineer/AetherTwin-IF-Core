@@ -181,3 +181,20 @@ def test_non_text_input() -> None:
 @pytest.mark.parametrize("title, text, exact", EXAMPLES)
 def test_demo_examples(title: str, text: str, exact: str) -> None:
     assert ok(text)["exact"] == exact, title
+
+
+def test_degree_mode() -> None:
+    s = Session()
+    s.settings["angle"] = "deg"
+    assert ok("sin(30)", s)["exact"] == "1/2" and ok("cos(180)", s)["exact"] == "-1"
+    assert ok("asin(1)", s)["exact"] == "90" and ok("atan(1)", s)["exact"] == "45"
+    s.settings["angle"] = "rad"
+    assert ok("sin(pi/6)", s)["exact"] == "1/2"
+
+
+def test_sto_arrow_defines_a_variable() -> None:
+    s = Session()
+    r = ok("3^2 + 1 → b", s)
+    assert r["kind"] == "définition" and r["input"] == "3^2 + 1 → b" and ok("b", s)["exact"] == "10"
+    assert ok("x^2 -> g", s) and ok("g + 1", s)["exact"] == "x**2 + 1"
+    assert "réservé" in err("5 → pi", s)
