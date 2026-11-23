@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import ast
 import html.entities
+import math
 import re
 import unicodedata
 from collections.abc import Callable, Iterable
@@ -685,6 +686,8 @@ def to_float(value: Any, session: Session | None = None) -> float:
         number = complex(sp.N(obj))
     except (TypeError, ValueError):
         raise CasError(f"« {value} » n'est pas un nombre") from None
+    if not (math.isfinite(number.real) and math.isfinite(number.imag)):
+        raise CasError(f"« {value} » n'est pas un nombre fini (division par zéro ?)")
     if abs(number.imag) > 1e-12:
         raise CasError(f"« {value} » n'est pas un nombre réel")
     return number.real
