@@ -214,6 +214,11 @@ class BattleNet:
         creature = self.get(f"/data/wow/creature/{int(creature_id)}", "static", max_age=WEEK * 4)
         return self._display_image(creature.get("creature_displays") or [], f"pet_{int(species_id)}", "mascotte")
 
+    def creature_image(self, creature_id):
+        """Image d'une créature du bestiaire (même source que les montures et les mascottes)."""
+        creature = self.get(f"/data/wow/creature/{int(creature_id)}", "static", max_age=WEEK * 4)
+        return self._display_image(creature.get("creature_displays") or [], f"npc_{int(creature_id)}", "créature")
+
     def set_pieces(self, set_id):
         """Pièces d'un ensemble de transmogrification : [{"item": id d'un objet qui la donne, "slot": nom}].
         Battle.net ne propose pas de rendu des objets : l'appli affiche leurs icônes."""

@@ -64,6 +64,10 @@ def _simple_url(kind, ident):
     return f"{WoWConfig.WOWHEAD_BASE}/{kind}={ident}" if ident else ""
 
 
+def npc_url(npc_id):
+    return _simple_url("npc", npc_id)
+
+
 def spell_url(spell_id):
     return _simple_url("spell", spell_id)
 

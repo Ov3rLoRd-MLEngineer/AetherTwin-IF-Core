@@ -1390,6 +1390,107 @@ function A:ScheduleRecipeScan()
     end)
 end
 
+---------------------------------------------------------------------------
+-- Bestiaire (1.9) : créatures croisées (cible, survol, barres d'info) et butin de chaque corps.
+-- Le nombre de créatures tuées et leurs aptitudes viennent du journal de combat, lu par l'appli.
+---------------------------------------------------------------------------
+local BESTIARY_MAX_ITEMS = 40
+local function plainNumber(v)
+    -- depuis Midnight, certaines valeurs d'ennemis sont « secrètes » en combat : on ne les garde pas
+    if type(v) ~= "number" then return nil end
+    if type(issecretvalue) == "function" and issecretvalue(v) then return nil end
+    return v
+end
+
+local function NpcID(guid)
+    if type(guid) ~= "string" then return nil end
+    local kind, _, _, _, _, id = strsplit("-", guid)
+    if kind ~= "Creature" and kind ~= "Vehicle" then return nil end
+    return tonumber(id)
+end
+A.NpcID = NpcID
+
+local function BestiaryEntry(id, name)
+    local db = DB()
+    db.bestiary = db.bestiary or {}
+    local e = db.bestiary[id]
+    if not e then
+        e = { name = name or "", loots = 0, money = 0, items = {}, zones = {} }
+        db.bestiary[id] = e
+    end
+    if name and name ~= "" then e.name = name end
+    return e
+end
+
+local noted = {}   -- GUID déjà relevés pendant la session : une fiche par créature, pas à chaque image
+function A:NoteCreature(unit)
+    if not (type(UnitExists) == "function" and try(UnitExists, unit)) or try(UnitIsPlayer, unit) then return end
+    local guid = try(UnitGUID, unit)
+    if type(guid) ~= "string" or (type(issecretvalue) == "function" and issecretvalue(guid)) then return end
+    local id = NpcID(guid)
+    if not id or noted[guid] then return end
+    noted[guid] = true
+    local e = BestiaryEntry(id, try(UnitName, unit))
+    local level = plainNumber(try(UnitLevel, unit))
+    if level and level > 0 then
+        e.lvl = (e.lvl and math.min(e.lvl, level)) or level
+        e.lvlMax = math.max(e.lvlMax or 0, level)
+    end
+    e.class = try(UnitClassification, unit) or e.class
+    e.ctype = try(UnitCreatureType, unit) or e.ctype
+    e.family = try(UnitCreatureFamily, unit) or e.family
+    local hp = plainNumber(try(UnitHealthMax, unit))
+    if hp and hp > (e.hp or 0) then e.hp = hp end
+    local power = plainNumber(try(UnitPowerMax, unit))
+    if power and power > 0 then e.power, e.ptype = math.max(power, e.power or 0), plainNumber(try(UnitPowerType, unit)) end
+    local mapID = C_Map and try(C_Map.GetBestMapForUnit, "player")
+    local info = mapID and C_Map and try(C_Map.GetMapInfo, mapID)
+    if info and info.name then e.zones[info.name] = (e.zones[info.name] or 0) + 1 end
+    e.seen = time()
+end
+
+local looted = {}  -- corps déjà comptés (on peut rouvrir la fenêtre de butin)
+function A:NoteLoot()
+    if type(GetNumLootItems) ~= "function" then return end
+    local corpses = {}
+    for slot = 1, (try(GetNumLootItems) or 0) do
+        local sources = { try(GetLootSourceInfo, slot) }
+        local slotType = try(GetLootSlotType, slot)
+        local link = try(GetLootSlotLink, slot)
+        local _, name, quantity, _, quality = try(GetLootSlotInfo, slot)
+        for i = 1, #sources, 2 do
+            local guid, amount = sources[i], sources[i + 1]
+            local id = NpcID(guid)
+            if id and not looted[guid] then
+                corpses[guid] = id
+                local e = BestiaryEntry(id)
+                if slotType == 2 then                       -- pièces : la quantité est en cuivre
+                    e.money = (e.money or 0) + (tonumber(amount) or 0)
+                elseif type(link) == "string" then
+                    local itemID = tonumber(link:match("item:(%d+)"))
+                    if itemID and (e.items[itemID] or A.CountKeys(e.items) < BESTIARY_MAX_ITEMS) then
+                        local it = e.items[itemID] or { name = link:match("%[(.-)%]") or name or "", q = quality or 1, n = 0, c = 0 }
+                        it.n = it.n + 1
+                        it.c = it.c + (tonumber(amount) or quantity or 1)
+                        e.items[itemID] = it
+                    end
+                end
+            end
+        end
+    end
+    for guid, id in pairs(corpses) do
+        looted[guid] = true
+        local e = BestiaryEntry(id)
+        e.loots = (e.loots or 0) + 1
+    end
+end
+
+function A.CountKeys(t)
+    local n = 0
+    for _ in pairs(t) do n = n + 1 end
+    return n
+end
+
 function A:ScheduleBankScan(guild)
     local key = guild and "guildPending" or "bankPending"
     if A[key] then return end
@@ -1426,6 +1527,7 @@ local optionalEvents = {
     "QUEST_WATCH_LIST_CHANGED", "SUPER_TRACKING_CHANGED", "QUEST_TURNED_IN", "PLAYER_DEAD",
     "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "GUILDBANKFRAME_OPENED", "GUILDBANKBAGSLOTS_CHANGED",
     "CHALLENGE_MODE_COMPLETED", "CHALLENGE_MODE_MAPS_UPDATE",
+    "PLAYER_TARGET_CHANGED", "UPDATE_MOUSEOVER_UNIT", "NAME_PLATE_UNIT_ADDED", "LOOT_OPENED",
 }
 for _, ev in ipairs(optionalEvents) do
     pcall(frame.RegisterEvent, frame, ev)
@@ -1472,6 +1574,14 @@ frame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         A.bankOpen = false
     elseif event == "GUILDBANKFRAME_OPENED" or event == "GUILDBANKBAGSLOTS_CHANGED" then
         A:ScheduleBankScan(true)
+    elseif event == "PLAYER_TARGET_CHANGED" then
+        pcall(A.NoteCreature, A, "target")
+    elseif event == "UPDATE_MOUSEOVER_UNIT" then
+        pcall(A.NoteCreature, A, "mouseover")
+    elseif event == "NAME_PLATE_UNIT_ADDED" then
+        pcall(A.NoteCreature, A, arg1)
+    elseif event == "LOOT_OPENED" then
+        pcall(A.NoteLoot, A)
     else
         if event == "PLAYER_DEAD" then
             A:AddLog("death", "Mort")

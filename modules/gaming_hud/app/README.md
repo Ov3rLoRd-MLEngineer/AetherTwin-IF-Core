@@ -101,6 +101,16 @@ layout.json · chat_history.json · wowhead_links.json · recipes.json
   apparences en grande icône (Battle.net ne propose pas de rendu des objets) ; ensembles : icônes de leurs pièces.
 - **Personnage** : le rendu officiel est recadré pour remplir le cadre.
 
+## Bestiaire (23/11/2026)
+Onglet **Bestiaire** : créatures croisées et tuées, nombre de fois tuées, aptitudes, PV et ressource, niveau, rang,
+lieu, butin (avec le pourcentage de corps qui l'ont donné), or moyen, image Battle.net, note personnelle, Wowhead,
+Hermes. Il faut :
+- le **journal de combat** du jeu : `/ha combatlog on` (une fois) ; pour les PV / niveau / carte, cochez aussi la
+  journalisation avancée du jeu (Options > Système > Réseau) ;
+- l'**addon 1.9** : il relève les créatures ciblées ou survolées et le butin des corps fouillés (puis /ha save).
+Tout est gardé dans `bestiary.json`, à côté de l'appli.
+Identifiants Battle.net : maintenant dans **Paramètres généraux > Jeu** (et gardés d'un lancement à l'autre).
+
 ## Correctifs du 17/11/2026
 - **Fermeture** : la croix de la fenêtre principale ferme bien l'appli, même après avoir ouvert (puis fermé) l'overlay.
 - **Champs de saisie** : rester appuyé sur une touche la répète ; curseur déplaçable (flèches, Début, Fin, clic), touche Suppr ;

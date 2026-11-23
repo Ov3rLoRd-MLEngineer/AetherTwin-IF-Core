@@ -909,3 +909,21 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - Tests 40 à 42 : OK (Jérémy), sauf les identifiants Battle.net qui ne survivaient pas à la fermeture.
 - Cause : `Settings` ne gardait au chargement que les clés des valeurs par défaut ; `bnet` n'y était pas. Corrigé (valeurs par défaut + clés inconnues gardées). FAIT-TESTÉ (enregistrer, relire, réenregistrer).
 - Identifiants déplacés dans Paramètres généraux > Jeu (demande de Jérémy) ; l'onglet Hôtel des ventes garde l'état et un bouton « Régler ».
+
+## 23/11/2026 : WoW Assistant, onglet Bestiaire
+- Demande de Jérémy : créatures rencontrées et tuées, aptitudes, nombre de fois tuées, PV / mana, niveau, lieu,
+  objets obtenus et or moyen, note, image, Wowhead, Hermes.
+- Deux sources (aucune ne suffit seule) :
+  - **journal de combat** (`Logs/WoWCombatLog*.txt`, `/ha combatlog on`), lu par l'appli toutes les 5 s dans un
+    fil (`bestiary.py`) : tuée = `UNIT_DIED` d'une créature que « moi » (drapeau d'affiliation) a engagée, ou
+    `PARTY_KILL` ; aptitudes = sorts lancés par une créature engagée ; PV, ressource, carte, niveau = champs de la
+    journalisation avancée. Positions mémorisées par fichier ; un fichier antérieur à la création du bestiaire
+    n'est pas relu ; 24 Mo au plus par passage. Depuis Midnight les addons n'ont plus le journal de combat, le
+    fichier reste écrit ;
+  - **addon 1.9** : cible, survol, barres d'info → niveau, rang, type, famille, PV max (sauf valeurs « secrètes »),
+    zone ; fenêtre de butin (`GetLootSourceInfo`) → objets et or par corps, un corps compté une fois.
+- `bestiary.json` (ignoré par Git) garde les fiches, les positions de lecture et les notes.
+- Image : API Battle.net (`/data/wow/creature/{id}` → affichage → image).
+- Barre d'onglets : marges et police réduites automatiquement pour que les 12 onglets tiennent.
+- **Non vérifié** : pas de fichier de journal de combat chez Jérémy ; format Midnight du journal à confirmer (test 44).
+- **Tests :** 9 nouveaux (`test_bestiary.py`) ; suite verte ; ruff propre.

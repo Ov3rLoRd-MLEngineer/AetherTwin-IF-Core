@@ -197,6 +197,7 @@ modules/
         HermesAssistant.toc
     app/
       addon_data.py
+      bestiary.py
       bnet.py
       character.py
       clipboard.py
@@ -223,6 +224,7 @@ modules/
       settings.py
       snapcache.py
       tabs.py
+      tabs_bestiary.py
       tabs_collections.py
       tabs_data.py
       tabs_market.py
@@ -321,6 +323,7 @@ tests/
     conftest.py
     test_adapters.py
     test_addon_lua.py
+    test_bestiary.py
     test_collections_media.py
     test_config_refs.py
     test_market.py

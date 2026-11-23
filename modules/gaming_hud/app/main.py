@@ -17,6 +17,7 @@ from gamedata import GameData, make_context
 from game_connection import GameConnection
 from ui import UI
 import overlay as ov
+from bestiary import Bestiary
 from focus import CombatMonitor, FocusManager
 from hotkeys import Hotkeys
 from vision import VisionManager
@@ -84,6 +85,7 @@ def main():
     ui.media = MediaStore(BattleNet(settings, os.path.join(BASE_DIR, "cache", "bnet")))
     focus = FocusManager(settings)
     monitor = CombatMonitor(os.path.join(WoWConfig.WOW_PATH, "Logs"), settings.get("focus.quiet_seconds", 5))
+    ui.bestiary = Bestiary(os.path.join(BASE_DIR, "bestiary.json"), os.path.join(WoWConfig.WOW_PATH, "Logs"))
     hotkeys = Hotkeys()
     overlay_state = {"visible": True, "geometry": None, "checked": 0.0}
 
@@ -132,6 +134,7 @@ def main():
         connection.set_path(WoWConfig.WOW_PATH)
         monitor.logs_dir = os.path.join(WoWConfig.WOW_PATH, "Logs")
         monitor._path = None
+        ui.bestiary.logs_dir = monitor.logs_dir
         print(f"Dossier du jeu : {WoWConfig.WOW_PATH}")
         ui.refresh_requested = True
 
@@ -347,6 +350,8 @@ def main():
             handle_voice_event(kind, payload)
         # mode Focus : combat détecté par le journal de combat du jeu
         focus.combat = monitor.update(now)
+        ui.bestiary.poll(now)             # bestiaire : suite du journal de combat, lue dans un fil
+        ui.bestiary.set_addon(data.bestiary)
         manager.focus_active = focus.active
         # l'overlay suit la fenêtre de WoW
         if ui.overlay_on and settings.get("overlay.anchor_game", True) and now - overlay_state["checked"] > 2:

@@ -32,7 +32,7 @@ SLOT_SHORT = {1: "Tête", 2: "Cou", 3: "Épaul.", 15: "Dos", 5: "Torse", 4: "Che
 
 TAB_NAMES = ["Personnage", "Talents et grimoire", "Journal des quêtes", "Sacs", "Métiers",
              "Hauts Faits", "Collections du bataillon", "Historique d'activité",
-             "Réputations et monnaies", "Instances et Chambre", "Hôtel des ventes"]
+             "Réputations et monnaies", "Instances et Chambre", "Hôtel des ventes", "Bestiaire"]
 
 
 class UI:
@@ -68,6 +68,7 @@ class UI:
         self.settings = settings
         self.llm = llm
         self.media = None                 # MediaStore (rendus Battle.net), branché par main.py
+        self.bestiary = None              # Bestiary (journal de combat + addon), branché par main.py
         self.market = None                # Market (prix HdV : Battle.net, TSM, Auctionator), branché par main.py
         self.manager = None               # WidgetManager (mode overlay)
         self.chat = None                  # ChatState (widget Assistant)
@@ -787,15 +788,21 @@ class UI:
     # ------------------------------------------------------------------ barre d'onglets + état
     def _draw_tab_bar(self, ctx):
         x, y = 24, self.BOTTOM + 8
+        # les onglets tiennent sur la largeur : marges réduites, puis police plus petite si besoin
+        available = self.W - 48 - 5 * (len(self.TABS) - 1)
+        font, pad, min_w = "small", 26, 92
+        for font, pad, min_w in (("small", 26, 92), ("small", 16, 70), ("small", 10, 56), ("tiny", 10, 48)):
+            if sum(max(min_w, self.fonts[font].size(n)[0] + pad) for n in self.TABS) <= available:
+                break
         for index, name in enumerate(self.TABS):
-            width = max(92, self.fonts["small"].size(name)[0] + 26)
+            width = max(min_w, self.fonts[font].size(name)[0] + pad)
             active = index == self.active_tab
             rect = pygame.Rect(x, y - (4 if active else 0), width, 38 if active else 34)
             pygame.draw.rect(self.screen, (34, 32, 26) if active else (22, 22, 26), rect,
                              border_bottom_left_radius=6, border_bottom_right_radius=6)
             pygame.draw.rect(self.screen, C["gold"] if active else C["frame"], rect, 2 if active else 1,
                              border_bottom_left_radius=6, border_bottom_right_radius=6)
-            self.text(name, "small", "text" if active else "gray", rect.center, anchor="center", shadow=True)
+            self.text(name, font, "text" if active else "gray", rect.center, anchor="center", shadow=True)
             self.click(rect, lambda i=index: self._switch_tab(i))
             x += width + 5
 

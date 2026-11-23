@@ -142,6 +142,20 @@ def _normalize_guild_bank(raw):
     return {"guild": raw.get("guild", ""), "money": raw.get("money", 0), "updated": raw.get("updated", 0), "tabs": tabs}
 
 
+def _normalize_bestiary(raw):
+    """Bestiaire de l'addon (1.9) : {id de créature (texte): fiche}, objets et zones en dictionnaires."""
+    out = {}
+    for key, entry in _as_dict(raw).items():
+        entry = _as_dict(entry)
+        if not entry or not _int(key):
+            continue
+        entry = dict(entry)
+        entry["items"] = {str(_int(i)): _as_dict(v) for i, v in _as_dict(entry.get("items")).items() if _int(i)}
+        entry["zones"] = {str(z): _int(n) for z, n in _as_dict(entry.get("zones")).items()}
+        out[str(_int(key))] = entry
+    return out
+
+
 def _normalize_lockouts(raw):
     raw = _as_dict(raw)
     instances = []
@@ -375,6 +389,7 @@ class GameConnection:
             "vault": _normalize_vault(db.get("vault")),
             "mythicPlus": _normalize_mythic(db.get("mythicPlus")),
             "characterBank": _normalize_bank(db.get("characterBank")),
+            "bestiary": _normalize_bestiary(db.get("bestiary")),
             "warbandBank": _normalize_bank(db.get("warbandBank")),
             "guildBank": _normalize_guild_bank(db.get("guildBank")),
             "log": _dict_list(db.get("log")),
