@@ -59,7 +59,7 @@ def hermes_exe() -> str:
 
 
 def hermes_verifier(exe: str = "", runner: Callable[..., Any] = subprocess.run,
-                    timeout_s: float = 600.0) -> Callable[[str], str] | None:
+                    timeout_s: float = 600.0, reasoning: str = "medium") -> Callable[[str], str] | None:
     """Question -> réponse de Hermes (CLI, outils sûrs uniquement). None si Hermes est introuvable."""
     exe = exe or hermes_exe()
     if not exe:
@@ -73,8 +73,9 @@ def hermes_verifier(exe: str = "", runner: Callable[..., Any] = subprocess.run,
         toolsets = "web,memory,session_search,todo"
 
     def ask(prompt: str) -> str:
-        result = runner([exe, "-z", prompt, "-t", toolsets], stdin=subprocess.DEVNULL, capture_output=True,
-                        cwd=tempfile.gettempdir(), timeout=timeout_s, creationflags=NO_WINDOW)
+        # Niveau de réflexion explicite : « high » (réglage par défaut de Hermes) est refusé par Qwen (essai réel).
+        result = runner([exe, "-z", prompt, "-t", toolsets, "--reasoning", reasoning], stdin=subprocess.DEVNULL,
+                        capture_output=True, cwd=tempfile.gettempdir(), timeout=timeout_s, creationflags=NO_WINDOW)
         text = (result.stdout or b"").decode("utf-8", "replace").strip()
         if any(marker in text for marker in FAILED) and not re.search(r"verdict\s*:", text, re.I):
             # Essai réel du 23/11 : erreur du fournisseur de Hermes rendue comme une réponse ordinaire.

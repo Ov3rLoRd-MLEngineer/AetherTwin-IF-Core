@@ -3,7 +3,7 @@
 // Dépend de dashboard.js (chargé avant) : $, el, api, post, modulesByName.
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const prof = { levels: [], level: "", subject: "", programme: null, chapter: "", lesson: null, prepTimer: 0 };
+const prof = { levels: [], level: "", subject: "", programme: null, chapter: "", lesson: null, prepTimer: 0, sims: {}, sim: "" };
 
 function svg(tag, attrs = {}, ...children) {
   const node = document.createElementNS(SVG_NS, tag);
@@ -460,12 +460,60 @@ function plotFunction(s) {
 }
 
 // ---------- simulations ----------
-function showSim(id, title) {
+function showSim(id, title, scroll = true) {
+  const info = prof.sims[id] || {};
+  prof.sim = id;
   $("sim-view").hidden = false;
-  $("sim-title").textContent = title || id;
-  $("sim-frame").src = `/prof/sims/${encodeURIComponent(id)}`;
-  $("sim-newtab").href = `/prof/sims/${encodeURIComponent(id)}`;
-  $("sim-view").scrollIntoView({ behavior: "smooth", block: "start" });
+  $("sim-title").textContent = (title || info.titre || id) + (info.version > 1 ? ` (version ${info.version})` : "");
+  // Paramètre de version : le cadre recharge bien la page corrigée.
+  const url = `/prof/sims/${encodeURIComponent(id)}?v=${info.version || 1}-${info.date || 0}`;
+  $("sim-frame").src = url;
+  $("sim-newtab").href = url;
+  const history = info.retours || [];
+  $("sim-history").replaceChildren(...(history.length ? [el("p", {}, "Retours déjà pris en compte :"),
+    el("ol", {}, ...history.map((text) => el("li", {}, text)))] : []));
+  $("sim-undo").hidden = !(info.version > 1);
+  $("sim-fix-status").hidden = true;
+  if (scroll) $("sim-view").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function reviewSim(event) {
+  if (!prof.sim) return;
+  const status = $("sim-fix-status");
+  const started = await profCall("relire_simulation", { id: prof.sim }, event.currentTarget, status);
+  if (!started) return;
+  const review = await waitJob(started.travail, status);
+  if (!review) return;
+  status.hidden = false;
+  if (review.rien) {
+    status.replaceChildren(el("p", { class: "good" }, "Le Professeur n'a rien trouvé à corriger."));
+    return;
+  }
+  $("sim-fix-text").value = review.retour;  // à relire et compléter avant d'envoyer
+  status.replaceChildren(el("p", { class: "muted" }, "Relecture du Professeur placée dans le retour : vérifie-la, complète-la, puis « Corriger »."));
+}
+
+async function fixSim(event) {
+  event.preventDefault();
+  if (!prof.sim) return;
+  const status = $("sim-fix-status");
+  const started = await profCall("corriger_simulation", { id: prof.sim, retour: $("sim-fix-text").value }, event.submitter, status);
+  if (!started) return;
+  const sim = await waitJob(started.travail, status);
+  if (!sim) return;
+  $("sim-fix-text").value = "";
+  await loadSims();
+  showSim(sim.id, sim.titre, false);
+  status.hidden = false;
+  status.replaceChildren(el("p", { class: "good" }, `Version ${sim.version} prête et contrôlée. Regarde-la, et donne un autre retour si besoin.`));
+}
+
+async function undoSim(event) {
+  if (!prof.sim) return;
+  const sim = await profCall("revenir_simulation", { id: prof.sim }, event.currentTarget, $("sim-fix-status"));
+  if (!sim) return;
+  await loadSims();
+  showSim(sim.id, sim.titre, false);
 }
 
 async function loadSims() {
@@ -473,7 +521,8 @@ async function loadSims() {
   const data = await profCall("simulations", {}, null, $("sim-result"));
   if (!data) return;
   const groups = {};
-  for (const sim of data.simulations) (groups[sim.origine] ||= []).push(sim);
+  prof.sims = {};
+  for (const sim of data.simulations) { (groups[sim.origine] ||= []).push(sim); prof.sims[sim.id] = sim; }
   const blocks = [];
   for (const [origin, sims] of Object.entries(groups)) {
     const row = el("div", { class: "sim-grid" });
@@ -567,7 +616,10 @@ $("prof-feedback").addEventListener("submit", async (event) => {
 $("sim-form").addEventListener("submit", createSim);
 $("sim-refresh").addEventListener("click", loadSims);
 $("sim-open-claude").addEventListener("click", (event) => profCall("ouvrir_claude", {}, event.currentTarget, $("sim-result")));
-$("sim-close").addEventListener("click", () => { $("sim-frame").removeAttribute("src"); $("sim-view").hidden = true; });
+$("sim-close").addEventListener("click", () => { $("sim-frame").removeAttribute("src"); $("sim-view").hidden = true; prof.sim = ""; });
+$("sim-fix").addEventListener("submit", fixSim);
+$("sim-review").addEventListener("click", reviewSim);
+$("sim-undo").addEventListener("click", undoSim);
 
 // Chargé à la première ouverture de l'onglet.
 let profStarted = false;

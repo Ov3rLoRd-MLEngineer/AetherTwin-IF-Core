@@ -14,6 +14,9 @@ Professeur (voir `teacher.py`, `curriculum.py`, `sims.py`) :
     travail                {"cle"}                                    état d'un travail (résultat quand il est fini)
     simulations            {}                                         bibliothèque + demandes au Claude Code local
     creer_simulation       {"sujet", "niveau"?, "details"?, "chapitre"?, "moteur": "local" | "claude"}
+    relire_simulation      {"id"}                                     le Professeur liste les erreurs (travail)
+    corriger_simulation    {"id", "retour"}                           le codeur corrige d'après le retour (travail)
+    revenir_simulation     {"id"}                                     rétablit la version précédente
     ouvrir_claude          {}                                         ouvre le Claude Code local (nouvelle console)
     supprimer_simulation   {"id"}
 
@@ -224,7 +227,7 @@ class GenesisLabModule(ModuleBase):
         claude_dir = str(self.config.get("claude_local_dir") or "")
         launcher = str(self.config.get("claude_local_launcher") or "")
         self.sims = SimLibrary(data_dir, coder=coder, claude_dir=Path(claude_dir) if claude_dir else None,
-                               claude_launcher=Path(launcher) if launcher else None)
+                               claude_launcher=Path(launcher) if launcher else None, reviewer=writer)
 
     def stop(self) -> None:
         self.tutor = self.teacher = self.sims = None
@@ -345,6 +348,22 @@ class GenesisLabModule(ModuleBase):
                 raise SimError("modèle local indisponible (le Hub ne répond pas)")
             return {"travail": self.jobs.start(f"simulation:{subject[:40]}", f"Simulation « {subject[:60]} »",
                                                lambda: sims.generate(subject, level, details, chapter_id))}
+        if command == "relire_simulation":
+            sim_id = str(payload.get("id", ""))
+            sims.path(sim_id)
+            return {"travail": self.jobs.start(f"simulation:relire:{sim_id}", "Relecture de la simulation",
+                                               lambda: sims.review(sim_id))}
+        if command == "corriger_simulation":
+            sim_id, feedback = str(payload.get("id", "")), str(payload.get("retour", ""))
+            sims.path(sim_id)
+            if not feedback.strip():
+                raise SimError("retour vide : dis ce qui ne va pas")
+            if sims.coder is None:
+                raise SimError("modèle local indisponible (le Hub ne répond pas)")
+            return {"travail": self.jobs.start(f"simulation:corriger:{sim_id}", "Correction de la simulation",
+                                               lambda: sims.improve(sim_id, feedback))}
+        if command == "revenir_simulation":
+            return sims.undo(str(payload.get("id", "")))
         if command == "ouvrir_claude":
             return sims.open_claude()
         if command == "supprimer_simulation":

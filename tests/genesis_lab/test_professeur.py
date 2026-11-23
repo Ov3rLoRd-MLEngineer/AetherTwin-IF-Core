@@ -238,6 +238,47 @@ def test_local_model_writes_a_simulation_after_one_correction(tmp_path: Path) ->
         SimLibrary(tmp_path, coder=FakeLlm("rien")).generate("Les volcans")
 
 
+def test_feedback_rounds_improve_a_simulation_and_can_be_undone(tmp_path: Path) -> None:
+    v2 = GOOD_PAGE.replace("let t = 0", "let t = 2")
+    v3 = GOOD_PAGE.replace("let t = 0", "let t = 3")
+    coder = FakeLlm(GOOD_PAGE, f"```html\n{v2}\n```", "<html>sans dessin</html>", v3)
+    reviewer = FakeLlm("<think>…</think>1. La nouvelle lune doit être entre la Terre et le Soleil.")
+    library = SimLibrary(tmp_path, coder=coder, reviewer=reviewer)
+    sim_id = library.generate("Les phases de la Lune", "CM2")["id"]
+    review = library.review(sim_id)
+    assert review["retour"].startswith("1. La nouvelle lune") and review["rien"] is False
+    assert GOOD_PAGE in reviewer.calls[0][-1]["content"]  # le Professeur lit le code
+    with pytest.raises(SimError, match="vide"):
+        library.improve(sim_id, "  ")
+    assert library.improve(sim_id, "Nouvelle lune mal placée")["version"] == 2
+    assert library.path(sim_id).read_text(encoding="utf-8") == v2
+    assert GOOD_PAGE in coder.calls[1][-1]["content"]  # le codeur reçoit la page actuelle et le retour
+    third = library.improve(sim_id, "Le curseur ne fait rien")  # un refus, puis une page acceptable
+    assert third["version"] == 3 and "ni canvas ni SVG" in coder.calls[3][-1]["content"]
+    assert "Nouvelle lune mal placée" in coder.calls[2][1]["content"]  # les retours précédents sont rappelés
+    listed = next(s for s in library.list() if s["id"] == sim_id)
+    assert listed["version"] == 3 and listed["retours"] == ["Nouvelle lune mal placée", "Le curseur ne fait rien"]
+    assert library.undo(sim_id)["version"] == 2
+    assert library.path(sim_id).read_text(encoding="utf-8") == v2
+    library.undo(sim_id)
+    with pytest.raises(SimError, match="précédente"):
+        library.undo(sim_id)
+    library.delete(sim_id)
+    assert not list((tmp_path / "simulations" / "versions").glob("*"))
+
+
+def test_a_builtin_simulation_is_never_overwritten(tmp_path: Path) -> None:
+    from modules.genesis_lab.sims import BUILTIN_DIR
+    before = (BUILTIN_DIR / "systeme_solaire.html").read_bytes()
+    library = SimLibrary(tmp_path, coder=FakeLlm(GOOD_PAGE), reviewer=FakeLlm("Rien à corriger."))
+    assert library.review("systeme_solaire")["rien"] is True
+    copy = library.improve("systeme_solaire", "Ajoute les lunes de Jupiter")
+    assert copy["id"] != "systeme_solaire" and copy["base"] == "systeme_solaire"
+    assert (BUILTIN_DIR / "systeme_solaire.html").read_bytes() == before
+    with pytest.raises(SimError):
+        library.undo("systeme_solaire")
+
+
 @pytest.mark.parametrize("bad", ["../secret", "..\\x", "a/b", "", "X" * 60, "coeur.html"])
 def test_simulation_ids_are_confined(tmp_path: Path, bad: str) -> None:
     with pytest.raises(SimError):
@@ -301,6 +342,7 @@ def test_hermes_verifier_uses_safe_toolsets_only() -> None:
     args = seen[0]
     assert args[:3] == ["hermes.exe", "-z", "relis"] and "-s" not in args
     assert "terminal" not in args[args.index("-t") + 1] and "web" in args[args.index("-t") + 1]
+    assert args[args.index("--reasoning") + 1] == "medium"  # « high » est refusé par Qwen (essai réel du 23/11)
     empty = hermes_verifier("hermes.exe",
                             runner=lambda a, **k: SimpleNamespace(stdout=b"", stderr=b"boom", returncode=1))
     with pytest.raises(RuntimeError):
