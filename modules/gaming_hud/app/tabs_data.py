@@ -144,7 +144,7 @@ def draw_achievements(ui, ctx, rect):
     ui.frame(right, sel_name)
     px = right[0] + 16
     for key, label in (("all", "Tous"), ("done", "Obtenus"), ("todo", "À obtenir"), ("legacy", "Prouesses / non obtenables")):
-        pw = ui.fonts["small"].size(label)[0] + 28
+        pw = ui.width(label, "small") + 28
         ui.pill((px, right[1] + 44, pw, 28), label, ui.state["ach_filter"] == key, lambda k=key: ui.state.update(ach_filter=k))
         px += pw + 6
     query = ui.input_box((right[0] + 16, right[1] + 80, 380, 28), "ach_search", "Rechercher un haut fait…")
@@ -493,7 +493,7 @@ def _draw_journal(ui, ctx, rect):
     ui.frame(left, f"Journal d'activité ({len(events)})")
     px, py = left[0] + 16, left[1] + 44
     for key, label in [("all", "Tout")] + list(_KIND_LABELS.items()):
-        pw = ui.fonts["small"].size(label)[0] + 24
+        pw = ui.width(label, "small") + 24
         if px + pw > left[0] + left[2] - 16:
             px, py = left[0] + 16, py + 32
         ui.pill((px, py, pw, 26), label, ui.state["event_filter"] == key, lambda k=key: ui.state.update(event_filter=k))

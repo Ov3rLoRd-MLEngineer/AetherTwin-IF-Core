@@ -63,6 +63,8 @@ def main():
     history = History(WoWConfig.HISTORY_FILE, WoWConfig.HISTORY_MIN_INTERVAL, WoWConfig.HISTORY_MAX_ENTRIES)
     activity = ActivityLog(WoWConfig.ACTIVITY_FILE)
     settings = Settings()
+    import i18n
+    i18n.load(settings.get("ui.language") or "fr")
     resolve_game_path(settings)
     connection = GameConnection()
     llm = LLMClient(settings)

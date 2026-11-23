@@ -32,6 +32,7 @@ DEFAULTS = {
     # (low / medium / xhigh, ou "hermes" = réglage de Hermes). « high » est refusé par le modèle de Qwen 3.5.
     "hermes": {"transport": "auto", "session_id": "", "reasoning": "medium"},
     "online_icons": True,
+    "ui": {"language": "fr"},                 # langue de l'interface : "fr" ou "en" (i18n.py)
     "app": {"pos": None},                     # dernière position de la fenêtre principale
     "game": {"path": ""},                     # dossier _retail_ de WoW (vide = détection automatique)
     "bnet": {"client_id": "", "client_secret": "", "region": ""},   # API Battle.net (facultative)

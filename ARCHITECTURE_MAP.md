@@ -218,6 +218,8 @@ modules/
           SKILL.md
       history.py
       hotkeys.py
+      i18n.py
+      i18n_en.json
       icons_draw.py
       inventory.py
       Lancer WoW Assistant.bat
@@ -309,6 +311,7 @@ modules/
     typeset.py
 scripts/
   __init__.py
+  extract_ui_strings.py
   gen_architecture_map.py
   relay_orchestrator.py
   setup.ps1
@@ -350,6 +353,7 @@ tests/
     test_forever.py
     test_gameversion.py
     test_hermes.py
+    test_i18n.py
     test_market.py
     test_model3d.py
     test_module.py
@@ -1113,6 +1117,12 @@ Réincrustation : texte traduit centré dans la bulle, taille ajustée, retours 
 - `def wrap(text: str, font: ImageFont.FreeTypeFont | ImageFont.ImageFont, width: int, draw: ImageDraw.ImageDraw) -> list[str] | None` — Coupe aux espaces pour tenir dans `width`. `None` si un mot seul est trop large.
 - `def fit(text: str, width: int, height: int, load: FontLoader, draw: ImageDraw.ImageDraw, max_size: int=30, min_size: int=8) -> tuple[int, list[str], int]` — Plus grande taille de police qui fait tenir le texte : (taille, lignes, hauteur de ligne).
 - `def make_typesetter(font_path: str='', color: tuple[int, int, int]=(0, 0, 0)) -> Callable[..., np.ndarray]`
+
+### `scripts/extract_ui_strings.py`
+
+Relève les textes d'interface de WoW Assistant (français) pour le catalogue de traduction anglais.
+
+- `def strings()`
 
 ### `scripts/gen_architecture_map.py`
 

@@ -105,7 +105,7 @@ def _draw_left(ui, chat, rect):
     rx = x + 96
     level = ui.settings.get("hermes.reasoning", "medium")
     for value, label in hermes_bridge.REASONING:
-        rw = ui.fonts["tiny"].size(label)[0] + 16
+        rw = ui.width(label, "tiny") + 16
         def pick(v=value):
             ui.settings.set("hermes.reasoning", v)
             ui.settings.save()
@@ -210,7 +210,7 @@ def _draw_knowledge(ui, rect):
     state.setdefault("kb_filter", "all")
     px = x
     for value, label in KB_FILTERS:
-        pw = ui.fonts["tiny"].size(label)[0] + 20
+        pw = ui.width(label, "tiny") + 20
         ui.pill((px, y, pw, 26), label, state["kb_filter"] == value, lambda v=value: state.update(kb_filter=v),
                 font="tiny")
         px += pw + 6
@@ -261,7 +261,7 @@ def _draw_knowledge(ui, rect):
                               ("C'est juste", lambda i=e["id"]: kb.set_status(i, "joueur"))):
                 if (label == "Rejeter" and e["status"] == "rejeté") or (label == "C'est juste" and e["status"] == "joueur"):
                     continue
-                bw = ui.fonts["tiny"].size(label)[0] + 18
+                bw = ui.width(label, "tiny") + 18
                 bx -= bw
                 ui.pill((bx, ly - 2, bw, 22), label, False, fn, font="tiny")
                 bx -= 6
@@ -312,7 +312,7 @@ def _draw_right(ui, chat, rect):
     tabs = (("chat", "Conversation"), ("kb", f"Connaissances ({len(kb.entries)})"))
     tx = x + w - 16
     for value, label in reversed(tabs):
-        tw = ui.fonts["tiny"].size(label)[0] + 22
+        tw = ui.width(label, "tiny") + 22
         tx -= tw
         ui.pill((tx, y + 9, tw, 24), label, view == value, lambda v=value: state.update(hermes_view=v), font="tiny")
         tx -= 6
@@ -321,7 +321,7 @@ def _draw_right(ui, chat, rect):
         return
     px, py = x + 16, y + 44
     for label, prompt in chatview.QUICK_PROMPTS:
-        pw = ui.fonts["tiny"].size(label)[0] + 20
+        pw = ui.width(label, "tiny") + 20
         if px + pw > x + w - 16:
             break
         ui.pill((px, py, pw, 26), label, False, lambda p=prompt: chatview.send_from(ui, chat, "hermes_msg", p),

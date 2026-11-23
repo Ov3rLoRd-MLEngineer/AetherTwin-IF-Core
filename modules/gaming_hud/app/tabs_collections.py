@@ -45,7 +45,7 @@ def draw_collections(ui, ctx, rect):
     if ui.state["collection"] not in dict(subtabs):
         ui.state["collection"] = subtabs[0][0]
     for key, label in subtabs:
-        pw = ui.fonts["small"].size(label)[0] + 36
+        pw = ui.width(label, "small") + 36
         ui.pill((px, y, pw, 32), label, ui.state["collection"] == key, lambda k=key: ui.state.update(collection=k))
         px += pw + 6
     ui.text("Or du bataillon : " + format_gold(ctx.data.collections.get("warbandMoney", 0)), "small", "gold",
@@ -165,7 +165,7 @@ def _detail(ui, rect, caption, tint, shape, title, title_color, lines, url, llm_
 def _filters(ui, x, y, key, options):
     px = x
     for value, label in options:
-        pw = ui.fonts["small"].size(label)[0] + 26
+        pw = ui.width(label, "small") + 26
         ui.pill((px, y, pw, 28), label, ui.state[key] == value, lambda v=value: ui.state.update({key: v}))
         px += pw + 6
 
@@ -248,7 +248,7 @@ def _pets(ui, ctx, rect):
     # filtre par famille
     px, py = left[0] + 16, left[1] + 116
     for tid, name in [(None, "Toutes familles")] + list(PET_TYPES.items()):
-        pw = ui.fonts["tiny"].size(name)[0] + 22
+        pw = ui.width(name, "tiny") + 22
         if px + pw > left[0] + left[2] - 14:
             px, py = left[0] + 16, py + 30
         ui.pill((px, py, pw, 24), name, ui.state["pet_type"] == tid, lambda t=tid: ui.state.update(pet_type=t), font="tiny")
@@ -433,7 +433,7 @@ def _transmog(ui, ctx, rect):
     ui.text("Classe :", "small", "label", (x + 16, y + 62))
     px = x + 90
     for cid, label in [(None, "Toutes")] + [(c[0], c[1]) for c in CLASSES]:
-        pw = ui.fonts["small"].size(label)[0] + 22
+        pw = ui.width(label, "small") + 22
         key = CLASSES[cid - 1][2] if cid else None
         color = CLASS_COLORS.get(key, C["text"]) if key else C["text"]
         rc = pygame.Rect(px, y + 56, pw, 28)

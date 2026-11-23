@@ -1160,3 +1160,16 @@ outine.json` ; le serveur MCP ne fait que le lire.
   `QuestieLoader:ImportModule("QuestieDB")` (`GetQuest`, `GetNPC`, `ZoneDB:GetUiMapIdByAreaId`), appels protégés.
 - **Tests :** 4 nouveaux (`test_forever.py`, Lua `test_classic_quest_log_and_questie`) ; suite verte.
 
+## 23/11/2026 : feuille de route, étape 8 : version anglaise
+- **Agent :** Cloud
+- **Fichiers :** `i18n.py`, `i18n_en.json` (nouveaux), `scripts/extract_ui_strings.py` (nouveau), `ui.py`
+  (`text` / `fit` / `wrap` traduisent, `raw=True` pour la saisie de l'utilisateur, `width()` pour dimensionner
+  boutons et onglets sur le libellé traduit, choix de la langue, infobulles), `chatview.py`, `tabs*.py`,
+  `widgets_builtin.py` (largeurs), `llm.py` (consigne système anglaise), `main.py`, `settings.py` (`ui.language`),
+  addon (messages en anglais si `GetLocale() ~= "frFR"`), skill 1.10.0.
+- Choix : pas de réécriture du code (1 600 textes dans 40 fichiers) mais une traduction à l'affichage : texte
+  exact, puis modèle de f-string (`{0} objets` → `{0} items`, valeurs traduites à leur tour), puis morceaux connus ;
+  mémoire cache. Les clés internes (noms d'onglets, états) restent en français : le code ne change pas.
+- **Tests :** 5 nouveaux (`test_i18n.py` : tous les onglets en anglais sans texte coupé ; messages de l'addon) ;
+  suite verte.
+

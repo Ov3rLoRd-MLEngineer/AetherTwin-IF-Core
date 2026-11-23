@@ -186,8 +186,12 @@ class LLMClient:
         if not self.is_configured():
             raise RuntimeError("Assistant non configuré : renseignez l'endpoint et le modèle dans les Paramètres généraux.")
         messages = []
-        if self._cfg("system_prompt"):
-            messages.append({"role": "system", "content": self._cfg("system_prompt")})
+        system = self._cfg("system_prompt")
+        import i18n
+        if system and i18n.language() == "en" and "Réponds en français" in system:
+            system = "You are an expert World of Warcraft assistant. Answer in English, clearly and concisely."
+        if system:
+            messages.append({"role": "system", "content": system})
         if images:   # format "vision" compatible OpenAI (Ollama, Open WebUI, LM Studio...)
             content = [{"type": "text", "text": prompt}]
             content += [{"type": "image_url", "image_url": {"url": f"data:{mime};base64,{data}"}} for mime, data in images]

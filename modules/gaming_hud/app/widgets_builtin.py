@@ -385,7 +385,7 @@ def draw_assistant(ui, ctx, rect):
             lambda: setattr(chat, "include_player", not chat.include_player), font="tiny")
     ui.pill((x + 182, row, 84, 24), "Capture", False, lambda: ui.actions["capture"]() if "capture" in ui.actions else None, font="tiny")
     voice_label = ui.voice.STATUS_LABELS[ui.voice.status] if ui.voice else "Micro"
-    ui.pill((x + 272, row, max(110, ui.fonts["tiny"].size(voice_label)[0] + 22), 24), voice_label,
+    ui.pill((x + 272, row, max(110, ui.width(voice_label, "tiny") + 22), 24), voice_label,
             bool(ui.voice and ui.voice.status in ("listening", "idle")),
             lambda: ui.actions["mic_cycle"]() if "mic_cycle" in ui.actions else None, font="tiny")
 
@@ -402,7 +402,7 @@ def draw_coach(ui, ctx, rect):
                ("Quêtes", chatview.QUICK_PROMPTS[4][1]))
     px, busy = x, chat.job is not None
     for label, prompt in buttons:
-        pw = ui.fonts["tiny"].size(label)[0] + 18
+        pw = ui.width(label, "tiny") + 18
         ui.pill((px, y, pw, 24), label, False, lambda p=prompt: chatview.send_from(ui, chat, "coach_msg", p), font="tiny")
         px += pw + 4
 
@@ -443,7 +443,7 @@ def draw_toolbar(ui, ctx, rect):
              ("Focus : " + focus_short, lambda: actions["cycle_focus"](), manager.focus_active, "Mode Focus : auto, forcé actif, forcé inactif"),
              ("Widgets", lambda: actions["open_widgets"](), False, "Choisir les widgets affichés")]
     gap = 6
-    widths = [ui.fonts["tiny"].size(label)[0] + 22 for label, _fn, _a, _t in items]
+    widths = [ui.width(label, "tiny") + 22 for label, _fn, _a, _t in items]
     needed = sum(widths) + gap * (len(items) - 1) + 28          # 28 = poignée de la barre
     entry = manager.layout.get("barre")
     if entry and entry["w"] < needed:

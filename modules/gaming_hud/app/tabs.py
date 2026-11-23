@@ -72,7 +72,7 @@ def draw_talents(ui, ctx, rect):
     px, py = right[0] + 16, right[1] + 48
     line_index = min(ui.state["spell_line"], len(book) - 1)
     for i, line in enumerate(book):
-        pw = max(90, ui.fonts["small"].size(line["name"])[0] + 26)
+        pw = max(90, ui.width(line["name"], "small") + 26)
         ui.pill((px, py, pw, 28), line["name"], i == line_index,
                 lambda i=i: ui.state.update(spell_line=i))
         px += pw + 6
@@ -190,7 +190,7 @@ def draw_quest_journal(ui, ctx, rect):
     for label, active, tag_color in (("Quête suivie", quest.get("tracked"), C["green"]),
                                       ("Objectif suivi (flèche)", quest.get("focus"), C["gold"])):
         if active:
-            tw = ui.fonts["small"].size(label)[0] + 22
+            tw = ui.width(label, "small") + 22
             pygame.draw.rect(ui.screen, (28, 28, 34), (tag_x, ry, tw, 26), border_radius=13)
             pygame.draw.rect(ui.screen, tag_color, (tag_x, ry, tw, 26), 1, border_radius=13)
             ui.text(label, "small", tag_color, (tag_x + tw // 2, ry + 13), anchor="center")

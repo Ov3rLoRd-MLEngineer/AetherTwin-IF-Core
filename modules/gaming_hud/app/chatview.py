@@ -138,7 +138,7 @@ def draw_approval(ui, chat, rect):
     for choice, label in labels:
         if choice not in choices and choice != "deny":
             continue
-        pw = ui.fonts["tiny"].size(label)[0] + 20
+        pw = ui.width(label, "tiny") + 20
         ui.pill((px, y + 70, pw, 24), label, choice == "deny", lambda c=choice: chat.approve(c), font="tiny")
         px += pw + 6
     return APPROVAL_H
@@ -160,7 +160,7 @@ def draw_waypoints(ui, ways, rect):
     px = x + 104
     for way in ways:
         label = way["cmd"].replace("/ha way ", "") + (f" · {way['label']}" if way["label"] else "")
-        pw = min(ui.fonts["tiny"].size(label)[0] + 20, 260)
+        pw = min(ui.width(label, "tiny") + 20, 260)
         if px + pw > x + w:
             break
         rect_w = pygame.Rect(px, y + 2, pw, 22)
@@ -180,7 +180,7 @@ def draw_files(ui, chat, rect):
     px = x
     for i, f in enumerate(list(files)):
         label = ("Image : " if "image" in f else "Fichier : ") + f["name"]
-        pw = min(260, ui.fonts["tiny"].size(label)[0] + 40)
+        pw = min(260, ui.width(label, "tiny") + 40)
         if px + pw > x + w:
             ui.text(f"+{len(files) - i}", "tiny", "gray", (px, y + 5))
             break
@@ -219,6 +219,9 @@ def send_from(ui, chat, key, text=None):
     """Envoie la saisie (ou un texte tout prêt) avec les captures jointes."""
     images = ui.vision.payload() if ui.vision else []
     message = ui.inputs.get(key, "") if text is None else text
+    if text is not None and message.strip():
+        import i18n
+        message += i18n.answer_note()          # questions toutes prêtes (en français) : réponse dans la langue choisie
     if chat.submit(message, ui.ctx, images):
         if text is None:
             ui.inputs[key] = ""

@@ -49,7 +49,7 @@ def draw_bestiary(ui, ctx, rect):
 
     px = x + 16
     for value, label in FILTERS:
-        pw = ui.fonts["small"].size(label)[0] + 26
+        pw = ui.width(label, "small") + 26
         ui.pill((px, y + 44, pw, 28), label, state["bestiary_filter"] == value,
                 lambda v=value: state.update(bestiary_filter=v))
         px += pw + 6
@@ -57,7 +57,7 @@ def draw_bestiary(ui, ctx, rect):
     ui.text("Trier :", "tiny", "gray", (px, y + 88))
     px += 52
     for value, label in SORTS:
-        pw = ui.fonts["tiny"].size(label)[0] + 20
+        pw = ui.width(label, "tiny") + 20
         ui.pill((px, y + 82, pw, 24), label, state["bestiary_sort"] == value,
                 lambda v=value: state.update(bestiary_sort=v), font="tiny")
         px += pw + 4

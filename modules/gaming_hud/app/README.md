@@ -149,6 +149,14 @@ outine.json` (hors du dépôt et du dossier du jeu).
 - Hermes : question « Niveau » (parcours de montée de niveau vérifié en ligne) ; les `/ha way` et `/way` de ses
   réponses deviennent des boutons sous la conversation : un clic copie, il reste à coller dans la discussion du jeu.
 
+## English version (23/11/2026)
+- Paramètres généraux > Jeu > **Langue** : Français ou English, appliqué tout de suite et gardé dans
+  `settings.json` (`ui.language`).
+- Traduction à l'affichage (`i18n.py` + `i18n_en.json`) : un texte ajouté au code reste en français tant qu'il
+  n'est pas dans le catalogue ; `python scripts/extract_ui_strings.py --missing` liste ceux qui manquent.
+- Les questions toutes prêtes envoyées à Hermes ou à l'assistant demandent une réponse en anglais ; l'addon écrit
+  ses messages en anglais sur un client du jeu non français. Noms des objets, quêtes, zones : ceux du client.
+
 ## WoW Forever et Questie (23/11/2026)
 - Choisissez le dossier `_forever_` du jeu (Paramètres > Jeu) : l'appli affiche « WoW Forever » et cache ce qui
   n'existe pas sur Forever (Mythique+, Grande Chambre forte, décors du logis, Raidbots). L'assistant et Hermes

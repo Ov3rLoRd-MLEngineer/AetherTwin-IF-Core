@@ -24,8 +24,76 @@ local PLAYED_REFRESH_SECONDS = 600
 -- bas : main droite, main gauche
 local EQUIP_SLOTS = { 1, 2, 3, 15, 5, 4, 19, 9, 10, 6, 7, 8, 11, 12, 13, 14, 16, 17 }
 
+-- Messages en jeu : français sur un client français, anglais sinon (1.12). Morceaux de phrases remplacés tels quels,
+-- du plus long au plus court ; ce qui n'est pas dans la liste reste en français.
+local EN_TEXT = {
+    { " min (hors combat, hors instance, personnage à l'arrêt, seulement si quelque chose a changé).", " min (out of combat, outside instances, character standing still, only if something changed)." },
+    { "Journal de combat activé (dossier Logs de WoW) : l'appli s'en sert pour le mode Focus.", "Combat log enabled (WoW Logs folder): the app uses it for Focus mode." },
+    { "Sync auto désactivée (/ha auto 5 pour l'activer, /ha save pour forcer l'écriture)", "Auto sync disabled (/ha auto 5 to enable it, /ha save to force writing)" },
+    { "Analyse terminée. Tapez /ha save pour envoyer les résultats à l'application.", "Scan finished. Type /ha save to send the results to the app." },
+    { "Données enregistrées, rechargement de l'interface pour écrire le fichier...", "Data saved, reloading the interface to write the file..." },
+    { "Usage : /ha way [carte] x y   (ex. /ha way 45.3 60.1 dans la zone actuelle)", "Usage: /ha way [map] x y   (e.g. /ha way 45.3 60.1 in the current zone)" },
+    { "Synchronisation automatique (rechargement de l'interface)...", "Automatic sync (reloading the interface)..." },
+    { "Analyse en cours (découpée pour ne pas gêner le jeu)...", "Scanning (in small steps so the game is not disturbed)..." },
+    { " (ouvrez la fenêtre d'un métier pour les importer)", " (open a profession window to import them)" },
+    { "Point de route impossible sur cette carte.", "No waypoint possible on this map." },
+    { "Synchronisation automatique désactivée.", "Automatic sync disabled." },
+    { "Synchronisation automatique toutes les ", "Automatic sync every " },
+    { "Usage : /ha auto <minutes> (minimum ", "Usage: /ha auto <minutes> (minimum " },
+    { "Journal de combat désactivé.", "Combat log disabled." },
+    { "Aucune donnée de personnage.", "No character data." },
+    { " onglets / hauts faits : ", " tabs / achievements: " },
+    { " emplacements - Quêtes : ", " slots - Quests: " },
+    { "Recettes enregistrées : ", "Recipes saved: " },
+    { "Analyses : hauts faits ", "Scans: achievements " },
+    { "Sync auto : toutes les ", "Auto sync: every " },
+    { "Analyse déjà en cours.", "Scan already running." },
+    { "Analyses possibles : ", "Possible scans: " },
+    { " points / grimoire : ", " points / spellbook: " },
+    { "Journal de combat : ", "Combat log: " },
+    { " - Objets équipés : ", " - Equipped items: " },
+    { " / verrouillages : ", " / lockouts: " },
+    { " / Chambre forte : ", " / Great Vault: " },
+    { " pts / montures : ", " pts / mounts: " },
+    { ") ou /ha auto off", ") or /ha auto off" },
+    { "Point de route : ", "Waypoint: " },
+    { "Spécialisation : ", "Specialization: " },
+    { " (tapez /ha scan)", " (type /ha scan)" },
+    { " / réputations : ", " / reputations: " },
+    { " avec infobulle", " with tooltip" },
+    { "Temps de jeu : ", "Play time: " },
+    { "pas encore reçu", "not received yet" },
+    { "Équipement : ", "Gear: " },
+    { " / mascottes ", " / pets " },
+    { " - Métiers : ", " - Professions: " },
+    { " / montures ", " / mounts " },
+    { "Commandes : ", "Commands: " },
+    { "Monnaies : ", "Currencies: " },
+    { "Talents : ", "Talents: " },
+    { " activités", " activities" },
+    { " - Niveau ", " - Level " },
+    { "désactivé", "disabled" },
+    { " objets, ", " items, " },
+    { "Sacs : ", "Bags: " },
+    { "activé", "enabled" }
+}
+
+local function Translate(s)
+    if type(s) ~= "string" or type(GetLocale) ~= "function" or GetLocale() == "frFR" then return s end
+    for _, pair in ipairs(EN_TEXT) do
+        local i, j = s:find(pair[1], 1, true)
+        while i do
+            s = s:sub(1, i - 1) .. pair[2] .. s:sub(j + 1)
+            i, j = s:find(pair[1], i + #pair[2], true)
+        end
+    end
+    return s
+end
+
 local function Log(...)
-    print("|cff33ff99[HermesAssistant]|r", ...)
+    local parts = { ... }
+    for k = 1, select("#", ...) do parts[k] = Translate(parts[k]) end
+    print("|cff33ff99[HermesAssistant]|r", (unpack or table.unpack)(parts, 1, select("#", ...)))
 end
 
 -- Appel protégé : retourne les 5 premières valeurs, ou nil en cas d'erreur / fonction absente

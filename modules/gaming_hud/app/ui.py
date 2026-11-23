@@ -13,6 +13,7 @@ import webbrowser
 
 import clipboard
 import features
+import i18n
 import mousepos
 import overlay as overlay_win
 import pygame
@@ -183,9 +184,10 @@ class UI:
     def color(self, color):
         return C[color] if isinstance(color, str) else color
 
-    def text(self, text, font, color, pos, anchor="topleft", shadow=False):
+    def text(self, text, font, color, pos, anchor="topleft", shadow=False, raw=False):
+        """Affiche un texte (traduit si l'interface est en anglais ; `raw` : saisie de l'utilisateur, telle quelle)."""
         color = self.color(color)
-        text = self._glyphs(text)
+        text = self._glyphs(text if raw else i18n.tr(text))
         surface = self.fonts[font].render(text, True, color)
         rect = surface.get_rect(**{anchor: pos})
         if self._track_y is not None:
@@ -195,9 +197,13 @@ class UI:
         self.screen.blit(surface, rect)
         return rect
 
-    def fit(self, text, font, max_width):
+    def width(self, text, font):
+        """Largeur à l'écran d'un libellé, une fois traduit (pour dimensionner boutons et onglets)."""
+        return self.fonts[font].size(self._glyphs(i18n.tr(text)))[0]
+
+    def fit(self, text, font, max_width, raw=False):
         f = self.fonts[font]
-        text = self._glyphs(text)
+        text = self._glyphs(text if raw else i18n.tr(text))
         if f.size(text)[0] <= max_width:
             return text
         dots = self.ellipsis
@@ -207,7 +213,7 @@ class UI:
 
     def wrap(self, text, font, width):
         lines, current = [], ""
-        for word in self._glyphs(text).split(" "):
+        for word in self._glyphs(i18n.tr(text)).split(" "):
             test = (current + " " + word).strip()
             if not current or self.fonts[font].size(test)[0] <= width:
                 current = test
@@ -359,13 +365,13 @@ class UI:
             if self.select_all == key and visible:
                 pygame.draw.rect(self.screen, (58, 78, 120), (rect.x + 6, rect.y + 5, width(visible) + 4, rect.h - 10), border_radius=3)
             if visible:
-                self.text(visible, "small", "text", (rect.x + 8, mid), anchor="midleft")
+                self.text(visible, "small", "text", (rect.x + 8, mid), anchor="midleft", raw=True)
             if (pygame.time.get_ticks() // 500) % 2 == 0:
                 cx = rect.x + 8 + width(shown[start:caret])
                 pygame.draw.line(self.screen, C["gold"], (cx, rect.y + 6), (cx, rect.bottom - 7), 1)
         elif value:
-            self.text(self.fit(shown, "small", rect.w - 16), "small", "text", (rect.x + 8, rect.y + rect.h // 2),
-                      anchor="midleft")
+            self.text(self.fit(shown, "small", rect.w - 16, raw=True), "small", "text",
+                      (rect.x + 8, rect.y + rect.h // 2), anchor="midleft", raw=True)
         else:
             self.text(placeholder, "small", "gray", (rect.x + 8, rect.y + rect.h // 2), anchor="midleft")
         self._input_rects[key] = (self.cur, rect.copy(), self._frame, start)
@@ -565,7 +571,7 @@ class UI:
             key = self.settings.get("voice.ptt_key", "F8") if self.settings else "F8"
             text += (f" · maintenir {key}" if voice.mode == "ptt" else " · activation vocale")
         color = {"listening": C["red"], "transcribing": C["orange"], "speaking": C["blue"], "error": C["red"]}.get(status, C["green"])
-        width = max(210, min(self.W - 40, self.fonts["tiny"].size(text)[0] + 90))
+        width = max(210, min(self.W - 40, self.width(text, "tiny") + 90))
         rect = (pygame.Rect(300, 12, width, 28) if self.mode == "app" else pygame.Rect(20, self.H - 44, width, 28))
         pygame.draw.rect(self.screen, (16, 16, 20), rect, border_radius=14)
         pygame.draw.rect(self.screen, color, rect, 1, border_radius=14)
@@ -803,10 +809,10 @@ class UI:
         available = self.W - 48 - 5 * (len(self.TABS) - 1)
         font, pad, min_w = "small", 26, 92
         for font, pad, min_w in (("small", 26, 92), ("small", 16, 70), ("small", 10, 56), ("tiny", 10, 48)):
-            if sum(max(min_w, self.fonts[font].size(n)[0] + pad) for n in self.TABS) <= available:
+            if sum(max(min_w, self.width(n, font) + pad) for n in self.TABS) <= available:
                 break
         for index, name in enumerate(self.TABS):
-            width = max(min_w, self.fonts[font].size(name)[0] + pad)
+            width = max(min_w, self.width(name, font) + pad)
             active = index == self.active_tab
             rect = pygame.Rect(x, y - (4 if active else 0), width, 38 if active else 34)
             pygame.draw.rect(self.screen, (34, 32, 26) if active else (22, 22, 26), rect,
@@ -905,6 +911,14 @@ class UI:
                 return
         self.ask_assistant("Simulation Raidbots", simc.RESULT_PROMPT + text)
 
+    def set_language(self, code):
+        """Français ou anglais : appliqué tout de suite, gardé dans settings.json."""
+        i18n.load(code)
+        if self.settings is not None:
+            self.settings.set("ui.language", code)
+            self.settings.save()
+        self.notify("Langue : français." if code == "fr" else "Language: English.")
+
     def notify(self, text, seconds=5):
         self.refresh_note = (text, time.time() + seconds)
 
@@ -946,7 +960,7 @@ class UI:
 
         gold, silver, cop = Character.split_money(c.money)
         self.text("Or", "small", "gray", (x + 16, y + 168))
-        self.text(f"{gold:,} or".replace(",", " "), "medium", "gold", (x + 50, y + 164))
+        self.text(f"{gold:,} or".replace(",", " "), "medium", "gold", (x + 28 + self.width("Or", "small"), y + 164))
         self.text(f"{silver} arg  {cop} cu", "small", "light_gray", (x + 180, y + 168))
         self.text(self.fit(f"Zone : {c.location or '—'}", "small", w - 32), "small", "light_gray", (x + 16, y + 200))
 
@@ -1295,10 +1309,11 @@ class UI:
         rows = []
         for left, color, right in tip.get("rows", []):
             color = self.color(color)
+            right = i18n.tr(right) if right else right
             right_w = font.size(right)[0] + 16 if right else 0
             for i, piece in enumerate(self.wrap(left, "small", max_w - right_w)):
                 rows.append((piece, color, right if i == 0 else ""))
-        footer = tip.get("footer", "")
+        footer = i18n.tr(tip.get("footer", ""))
         border = self.color(tip.get("border") or C["frame_hi"])
 
         width = 140
@@ -1564,8 +1579,8 @@ class UI:
             return
         images = self.vision.payload() if self.vision else []
         note = features.coach_note()
-        m["job"] = self.llm.ask(f"{m['context']}\n\n" + (f"{note}\n\n" if note else "") + f"Question : {message}",
-                                images)
+        m["job"] = self.llm.ask(f"{m['context']}\n\n" + (f"{note}\n\n" if note else "") + f"Question : {message}"
+                                + i18n.answer_note(), images)
         if self.vision:
             self.vision.clear()
         m["stage"] = "wait"
@@ -1650,7 +1665,7 @@ class UI:
         py = y + 256
         px = x
         for suggestion in m["suggestions"]:
-            pw = self.fonts["small"].size(suggestion)[0] + 26
+            pw = self.width(suggestion, "small") + 26
             if px + pw > rect.right - 24:
                 px, py = x, py + 34
             self.pill((px, py, pw, 28), suggestion, False,
@@ -1902,6 +1917,12 @@ class UI:
         threading.Thread(target=work, daemon=True).start()
 
     def _settings_game(self, m, x, y, rect):
+        self.text("Langue de l'interface", "medium", "gold", (x, y), shadow=True)
+        lang_x = x + 260
+        for code, name in i18n.LANGUAGES.items():
+            self.pill((lang_x, y - 2, 130, 30), name, i18n.language() == code, lambda c=code: self.set_language(c))
+            lang_x += 138
+        y += 44
         self.text("Jeu : emplacement de World of Warcraft", "medium", "gold", (x, y), shadow=True)
         y += 34
         for line in ("Choisis le dossier « _retail_ » (celui qui contient WTF et Interface). Le dossier du jeu ou même",
@@ -1984,7 +2005,7 @@ class UI:
                 several = len({url for _n, url, _k in m["models"]}) > 1
                 for name, url, key in m["models"][:24]:
                     label = f"{name}  · {m.get('providers', {}).get(url) or self._server_label(url)}" if several else name
-                    pw = self.fonts["small"].size(label)[0] + 24
+                    pw = self.width(label, "small") + 24
                     if px + pw > rect.right - 24:
                         px, y = x + label_w, y + 32
                     chosen = self.inputs.get("set_model") == name and self.inputs.get("set_endpoint", "").rstrip("/") == url

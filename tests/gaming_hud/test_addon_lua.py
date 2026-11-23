@@ -276,3 +276,16 @@ def test_classic_quest_log_and_questie() -> None:
     assert q.objectives[1].done is True and q.objectives[1].have == 8
     assert q.questie.finisher == "Marshal Dughan" and q.questie.required == 5
     assert q.way.map == 37 and q.way.x == 42.1 and q.way.zone == "Forêt d'Elwynn"     # rendu : chez Dughan
+
+
+def test_addon_messages_follow_the_game_language() -> None:
+    lua, _a = _way_addon()
+    g = lua.globals()
+    g.GetLocale = lua.eval("function() return 'enUS' end")
+    g.SlashCmdList.HERMESASSISTANT("way nulle part")
+    assert "Usage: /ha way [map] x y" in g.LOGS[len(g.LOGS)]
+    g.SlashCmdList.HERMESASSISTANT("auto off")
+    assert g.LOGS[len(g.LOGS)] == "Automatic sync disabled."
+    g.GetLocale = lua.eval("function() return 'frFR' end")
+    g.SlashCmdList.HERMESASSISTANT("auto off")
+    assert g.LOGS[len(g.LOGS)] == "Synchronisation automatique désactivée."
