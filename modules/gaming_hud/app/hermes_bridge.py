@@ -263,7 +263,7 @@ class HermesJob:
     def status(self):
         if self.approval:
             return "En attente de votre autorisation"
-        if self.events and self.events[-1][1] == "tool":
+        if self.events and self.events[-1][1] in ("tool", "start"):
             return self.events[-1][2]
         return "Hermes réfléchit…" if not self.text else "Hermes répond…"
 
@@ -467,7 +467,7 @@ class HermesClient:
         if images:
             prompt += "\n\n(Le joueur a joint une capture d'écran : non transmise en mode CLI. Activez l'API de " \
                       "Hermes pour l'analyse d'images.)"
-        job.note("tool", "Lancement de Hermes (CLI)…")
+        job.note("start", "Lancement de Hermes (CLI)…")
         proc = self._run(self.cli_args(prompt), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE, cwd=tempfile.gettempdir(), creationflags=NO_WINDOW)
         job._proc = proc
