@@ -15,7 +15,7 @@ SHARED_KEYS = ("bnet.client_id", "bnet.client_secret", "bnet.region")
 
 DEFAULTS = {
     "llm": {
-        "mode": "api",                       # "api" (compatible OpenAI : Ollama, LM Studio, vLLM, Open WebUI, Omniroute...) ou "exe"
+        "mode": "api",                       # "hermes" (Hermes Agent), "api" (compatible OpenAI : Ollama, LM Studio, vLLM, Open WebUI, Omniroute...) ou "exe"
         "endpoint": "",                      # ex. http://127.0.0.1:11434/v1
         "servers": [],                       # serveurs enregistrés : [{"url", "api_key", "enabled"}] ; l'actif reste "endpoint"
         "model": "",
@@ -24,6 +24,7 @@ DEFAULTS = {
         "exe_args": "{prompt}",              # {prompt} est remplacé par la question ; sans {prompt} elle est envoyée sur l'entrée standard
         "system_prompt": "Tu es un assistant expert de World of Warcraft. Réponds en français, de façon claire et concise.",
     },
+    "hermes": {"transport": "auto", "session_id": ""},   # Hermes Agent : auto / api / cli ; session de la conversation
     "online_icons": True,
     "app": {"pos": None},                     # dernière position de la fenêtre principale
     "game": {"path": ""},                     # dossier _retail_ de WoW (vide = détection automatique)

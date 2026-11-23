@@ -200,12 +200,18 @@ modules/
       bestiary.py
       bnet.py
       character.py
+      chatview.py
       clipboard.py
       config.py
       craft.py
       focus.py
       game_connection.py
       gamedata.py
+      hermes_bridge.py
+      hermes_mcp.py
+      hermes_skill/
+        wow-coach/
+          SKILL.md
       history.py
       hotkeys.py
       icons_draw.py
@@ -228,6 +234,7 @@ modules/
       tabs_bestiary.py
       tabs_collections.py
       tabs_data.py
+      tabs_hermes.py
       tabs_market.py
       tabutil.py
       theme.py
@@ -329,6 +336,7 @@ tests/
     test_bestiary.py
     test_collections_media.py
     test_config_refs.py
+    test_hermes.py
     test_market.py
     test_model3d.py
     test_module.py

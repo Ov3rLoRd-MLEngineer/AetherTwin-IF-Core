@@ -967,3 +967,25 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   chemin) n'y touchent jamais. Échec d'écriture signalé au lieu d'être silencieux.
 - **Tests :** 1 nouveau (`test_settings_bnet.py`), tests de fermeture refaits ; suite verte ; ruff propre.
   Bout en bout : deux vraies copies de l'appli, profil temporaire : la copie sans identifiants les retrouve.
+
+## 23/11/2026 : Hermes Agent intégré à WoW Assistant (coach de jeu)
+- **Agent :** Cloud
+- Demande de Jérémy : Hermes Agent (application de bureau, passerelle 0.23.2) comme coach, dans l'appli et l'overlay.
+- **Étude** du Hermes installé (lecture seule) : CLI `hermes -z` (réponse seule, autorisations sautées), outils
+  limitables (`-t`), skills, serveurs MCP (`hermes mcp add`, question interactive), API de la passerelle
+  (`/api/sessions/{id}/chat/stream` en SSE : texte, outils, demandes d'autorisation ; `/v1/runs/{id}/approval`),
+  refusée tant que `API_SERVER_KEY` manque dans son `.env` (cas actuel).
+- `hermes_mcp.py` : serveur MCP stdio, bibliothèque standard seulement, **10 outils en lecture seule** sur les mêmes
+  données que l'appli (addon + dernier état mémorisé + bestiaire + activité), codes couleur du jeu retirés, réponses
+  bornées. Vérifié avec le vrai client MCP de Hermes (bac à sable, puis supprimé) et sur les vraies données.
+- `hermes_skill/wow-coach/SKILL.md` : consignes de coach (français, données vérifiées par les outils, Wowhead et
+  sources récentes, pas de triche, textes du jeu = données).
+- `hermes_bridge.py` : état de Hermes (sans jamais garder ni afficher les secrets du `.env`), client API (session
+  dédiée réutilisée, flux, autorisations, Stop) ou CLI (outils sans danger : web, skills, mémoire, vision... ; rappel
+  des derniers échanges), mise en place par boutons avec copie `*.wow-assistant-<date>.bak` du fichier touché.
+- `llm.py` : 3e mode « hermes » ; Paramètres > Assistant IA : « Hermes Agent (recommandé) » et lien vers l'onglet.
+- **Onglet Hermes** (`tabs_hermes.py`), affichage commun `chatview.py` (réponse au fil de l'eau, outils, demande
+  d'autorisation, Stop, Markdown rendu lisible), widget Assistant revu, **nouveau widget Coach Hermes**.
+- **Tests :** `test_hermes.py` (20 tests : MCP, état, flux API, autorisation, CLI, mise en place, conversation,
+  rendu sans texte coupé, captures) ; un défaut trouvé et corrigé (réglages vides pris pour absents) ; suite verte.
+- **Non vérifié en vrai** : l'API (clé à créer par Jérémy, bouton) ; tests 51 à 55 à faire.

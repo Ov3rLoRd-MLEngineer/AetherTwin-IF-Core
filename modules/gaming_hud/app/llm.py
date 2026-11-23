@@ -1,6 +1,7 @@
 """
 Connexion à l'assistant IA (Hermes pour le moment).
-Deux modes, choisis dans les Paramètres généraux :
+Trois modes, choisis dans les Paramètres généraux :
+  - "hermes" : Hermes Agent installé sur le PC (hermes_bridge : session dédiée, skills, mémoire, outils de jeu)
   - "api" : serveur compatible OpenAI (Ollama, LM Studio, vLLM, Open WebUI, Omniroute, Hermes API Server...)
   - "exe" : programme local lancé sans shell (ex. hermes.exe), la question lui est passée en argument ou sur stdin
 
@@ -71,19 +72,35 @@ def enabled_servers(settings, current_endpoint="", current_key=""):
 class LLMClient:
     TIMEOUT = 180
 
-    def __init__(self, settings):
+    def __init__(self, settings, hermes=None):
         self.settings = settings
+        self._hermes = hermes
+
+    @property
+    def hermes(self):
+        """Client Hermes Agent (créé à la première utilisation)."""
+        if self._hermes is None:
+            from hermes_bridge import HermesClient
+            self._hermes = HermesClient(self.settings)
+        return self._hermes
 
     # ------------------------------------------------------------------ configuration
     def _cfg(self, key):
         return self.settings.get(f"llm.{key}", "")
 
+    def uses_hermes(self):
+        return self._cfg("mode") == "hermes"
+
     def is_configured(self):
+        if self.uses_hermes():
+            return self.hermes.is_configured()
         if self._cfg("mode") == "exe":
             return bool(self._cfg("exe_path"))
         return bool(self._cfg("endpoint")) and bool(self._cfg("model"))
 
     def describe(self):
+        if self.uses_hermes():
+            return self.hermes.describe()
         if self._cfg("mode") == "exe":
             return f"Exécutable : {self._cfg('exe_path')}"
         return f"{self._cfg('endpoint') or 'endpoint non défini'}  ·  {self._cfg('model') or 'modèle non défini'}"
@@ -145,8 +162,11 @@ class LLMClient:
         return [], last_error or "Aucun modèle trouvé"
 
     # ------------------------------------------------------------------ envoi
-    def ask(self, prompt, images=None):
-        """images : liste de (type MIME, base64) à joindre à la question (vision)."""
+    def ask(self, prompt, images=None, history=None):
+        """images : liste de (type MIME, base64) à joindre à la question (vision).
+        history : derniers échanges [(rôle, texte)] (utile à Hermes en mode CLI, qui n'a pas de session)."""
+        if self.uses_hermes():
+            return self.hermes.ask(prompt, images, history)
         job = Job()
         threading.Thread(target=self._run, args=(prompt, list(images or []), job), daemon=True).start()
         return job

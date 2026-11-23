@@ -5,10 +5,12 @@ Aucun widget n'exécute de commande système ni n'accède aux fichiers de l'appl
 """
 import json
 import os
+import threading
 import time
 
 import pygame
 
+import chatview
 from character import EQUIPMENT_LAYOUT, Character, format_duration
 from tabutil import format_remaining
 from theme import C, QUALITY_COLORS
@@ -169,13 +171,14 @@ def draw_lockouts(ui, ctx, rect):
 #  Assistant : conversation
 # ===========================================================================
 class ChatState:
-    """Historique de conversation (gardé dans chat_history.json) et envois à l'assistant."""
+    """Historique de conversation (gardé dans chat_history.json) et envois à l'assistant. Partagé par l'onglet Hermes,
+    le widget Assistant et le widget Coach : la même conversation partout."""
 
     MAX_MESSAGES = 60
 
     def __init__(self, path, llm):
         self.path, self.llm = path, llm
-        self.messages = []        # {"role": "user"|"assistant"|"error", "text": str}
+        self.messages = []        # {"role": "user"|"assistant"|"error", "text": str, "tools": [str]}
         self.job = None
         self.include_player = True
         self.scroll_bottom = True
@@ -194,11 +197,20 @@ class ChatState:
         except OSError:
             pass
 
+    def uses_hermes(self):
+        check = getattr(self.llm, "uses_hermes", None)
+        return bool(check and check())
+
+    def history(self):
+        """Derniers échanges (rôle, texte) : rappelés à Hermes quand il n'a pas de session (mode CLI)."""
+        return [(m["role"], m["text"]) for m in self.messages if m["role"] in ("user", "assistant")][-6:]
+
     def submit(self, text, ctx, images=None):
         text = text.strip()
         if not text or self.job is not None:
             return False
         images = list(images or [])
+        history = self.history()
         self.messages.append({"role": "user", "text": text + (f"  [+{len(images)} image(s)]" if images else "")})
         prompt = text
         if self.include_player and ctx is not None:
@@ -207,6 +219,8 @@ class ChatState:
                       f"niveau d'objet {c.ilvl:g}.\n\n{text}")
         if not self.llm.is_configured():
             self.messages.append({"role": "error", "text": "Assistant non configuré : Paramètres généraux > Assistant IA."})
+        elif self.uses_hermes():
+            self.job = self.llm.ask(prompt, images, history)
         else:
             self.job = self.llm.ask(prompt, images)
         self.scroll_bottom = True
@@ -216,15 +230,48 @@ class ChatState:
     def poll(self):
         if self.job is not None and self.job.done:
             job, self.job = self.job, None
-            self.messages.append({"role": "error" if job.error else "assistant", "text": job.error or job.text})
+            tools = [t for _t, kind, t in getattr(job, "events", []) if kind == "tool"]
+            if job.text:
+                entry = {"role": "assistant", "text": job.text}
+                if tools:
+                    entry["tools"] = tools[-8:]
+                self.messages.append(entry)
+            if job.error:
+                self.messages.append({"role": "error", "text": job.error})
             self.scroll_bottom = True
             self._save()
-            if self.on_answer and not job.error:
+            if self.on_answer and job.text and not job.error:
                 self.on_answer(job.text)
+
+    def stop(self):
+        """Interrompt la réponse en cours (Hermes : run arrêté ; autre assistant : réponse ignorée)."""
+        job = self.job
+        if job is None:
+            return
+        if self.uses_hermes() and hasattr(job, "stopped"):
+            threading.Thread(target=self.llm.hermes.stop, args=(job,), daemon=True).start()
+        else:
+            self.job = None
+            self.messages.append({"role": "error", "text": "Arrêté."})
+            self._save()
+
+    def approve(self, choice):
+        """Réponse du joueur à une demande d'autorisation de Hermes (envoyée en arrière-plan)."""
+        job = self.job
+        if job is not None and getattr(job, "approval", None) and self.uses_hermes():
+            threading.Thread(target=self.llm.hermes.approve, args=(job, choice), daemon=True).start()
 
     def clear(self):
         self.messages, self.job = [], None
         self._save()
+
+    def new_conversation(self):
+        """Efface le fil ; avec Hermes, la prochaine question ouvre aussi une nouvelle session."""
+        if self.job is not None:
+            self.stop()
+        self.clear()
+        if self.uses_hermes():
+            self.llm.hermes.new_session()
 
 
 def draw_assistant(ui, ctx, rect):
@@ -235,50 +282,17 @@ def draw_assistant(ui, ctx, rect):
         return
     chat.poll()
     input_h = 34
+    approval_h = chatview.APPROVAL_H if chat.job is not None and getattr(chat.job, "approval", None) else 0
     strip_h = ui.draw_attachments(x, y + h - input_h - 34 - 62, w, measure_only=True)
-    area = pygame.Rect(x, y, w, h - input_h - 34 - strip_h)
-    entries = list(chat.messages)
-    if chat.job is not None:
-        dots = "." * (1 + (pygame.time.get_ticks() // 400) % 3)
-        entries.append({"role": "wait", "text": "Hermes réfléchit" + dots})
-    rows = []   # (texte, couleur, taille)
-    for m in entries:
-        label, color = {"user": ("Vous", C["gold"]), "assistant": ("Hermes", C["green"]), "error": ("Erreur", C["red"]),
-                        "wait": ("", C["gray"])}[m["role"]]
-        if label:
-            rows.append((label, color, "tiny"))
-        for para in m["text"].split("\n"):
-            for line in ui.wrap(para, "small", area.w - 20) if para.strip() else [""]:
-                rows.append((line, C["text"] if m["role"] != "error" else C["red"], "small"))
-        rows.append(("", C["text"], "tiny"))
-    content_h = sum(20 if kind == "small" else 16 for _, _, kind in rows) + 8
-    if chat.scroll_bottom:
-        ui.scroll["w_chat"] = 10 ** 9
-        chat.scroll_bottom = False
-    top = ui.scroll_begin("w_chat", area, content_h)
-    py = top
-    for text, color, kind in rows:
-        lh = 20 if kind == "small" else 16
-        if text and area.y - lh < py < area.bottom:
-            ui.text(text, kind, color, (area.x + 4, py))
-        py += lh
-    ui.scroll_end()
-
+    area = pygame.Rect(x, y, w, h - input_h - 34 - strip_h - approval_h)
+    chatview.draw_transcript(ui, chat, area, "w_chat",
+                             empty="Posez une question à Hermes : il voit votre personnage, vos quêtes et vos sacs.")
+    if approval_h:
+        chatview.draw_approval(ui, chat, (x, area.bottom + 4, w, approval_h))
     if strip_h:
-        ui.draw_attachments(x, area.bottom + 2, w)
-    iy = area.bottom + strip_h + 4
-
-    def send():
-        images = ui.vision.payload() if ui.vision else []
-        if chat.submit(ui.inputs.get("chat_msg", ""), ui.ctx, images):
-            ui.inputs["chat_msg"] = ""
-            if ui.vision:
-                ui.vision.clear()
-
-    ui.on_submit["chat_msg"] = send
-    ui.input_box((x, iy, w - 150, input_h), "chat_msg", "Message pour Hermes (Entrée)…")
-    ui.pill((x + w - 144, iy, 70, input_h), "Envoyer", True, send, font="tiny")
-    ui.pill((x + w - 70, iy, 70, input_h), "Effacer", False, chat.clear, font="tiny")
+        ui.draw_attachments(x, area.bottom + approval_h + 2, w)
+    iy = area.bottom + approval_h + strip_h + 4
+    chatview.draw_composer(ui, chat, (x, iy, w, input_h), "chat_msg")
     row = iy + input_h + 4
     ui.pill((x, row, 176, 24), ("[x] " if chat.include_player else "[ ] ") + "Joindre mon personnage", False,
             lambda: setattr(chat, "include_player", not chat.include_player), font="tiny")
@@ -287,6 +301,41 @@ def draw_assistant(ui, ctx, rect):
     ui.pill((x + 272, row, max(110, ui.fonts["tiny"].size(voice_label)[0] + 22), 24), voice_label,
             bool(ui.voice and ui.voice.status in ("listening", "idle")),
             lambda: ui.actions["mic_cycle"]() if "mic_cycle" in ui.actions else None, font="tiny")
+
+
+def draw_coach(ui, ctx, rect):
+    """Widget « Coach Hermes » : conseils en un clic (que faire, capture...) et dernière réponse, sans le fil entier."""
+    x, y, w, h = rect
+    chat = ui.chat
+    if chat is None:
+        ui.text("Coach indisponible", "small", "gray", (x, y))
+        return
+    chat.poll()
+    buttons = (("Que faire ?", chatview.QUICK_PROMPTS[0][1]), ("Mon perso", chatview.QUICK_PROMPTS[1][1]),
+               ("Quêtes", chatview.QUICK_PROMPTS[4][1]))
+    px, busy = x, chat.job is not None
+    for label, prompt in buttons:
+        pw = ui.fonts["tiny"].size(label)[0] + 18
+        ui.pill((px, y, pw, 24), label, False, lambda p=prompt: chatview.send_from(ui, chat, "coach_msg", p), font="tiny")
+        px += pw + 4
+
+    def capture_and_ask():
+        if "capture" in ui.actions:
+            ui.actions["capture"]()
+        ui.state["coach_after_capture"] = True
+    if busy:
+        ui.pill((x + w - 56, y, 56, 24), "Stop", True, chat.stop, font="tiny")
+    else:
+        ui.pill((px, y, 84, 24), "Capture + avis", False, capture_and_ask, font="tiny")
+    if ui.state.get("coach_after_capture") and ui.vision and ui.vision.attachments and not busy:
+        ui.state["coach_after_capture"] = False
+        chatview.send_from(ui, chat, "coach_msg", chatview.CAPTURE_PROMPT)
+    approval_h = chatview.APPROVAL_H if busy and getattr(chat.job, "approval", None) else 0
+    area = pygame.Rect(x, y + 30, w, h - 30 - approval_h)
+    chatview.draw_transcript(ui, chat, area, "w_coach", last_only=True,
+                             empty="Un clic sur un bouton : Hermes regarde votre personnage et vous conseille.")
+    if approval_h:
+        chatview.draw_approval(ui, chat, (x, area.bottom + 4, w, approval_h))
 
 
 # ===========================================================================
@@ -360,6 +409,8 @@ def build_specs():
         WidgetSpec("quetes", "Quêtes", (340, 300), draw_quests, focus="shrink", note="Quêtes suivies et objectifs"),
         WidgetSpec("assistant", "Assistant (Hermes)", (440, 420), draw_assistant, min_size=(340, 300), focus="hide",
                    note="Conversation avec l'assistant IA"),
+        WidgetSpec("coach", "Coach Hermes", (380, 260), draw_coach, min_size=(320, 180), focus="hide",
+                   note="Conseils de Hermes en un clic (que faire, capture d'écran) et dernière réponse"),
         WidgetSpec("sacs", "Sacs", (300, 220), draw_bags, focus="hide", enabled=False, note="Remplissage et objets les plus nombreux"),
         WidgetSpec("metiers", "Métiers", (260, 180), draw_professions, focus="hide", enabled=False, note="Niveaux de métiers"),
         WidgetSpec("monnaies", "Monnaies", (280, 340), draw_currencies, focus="hide", enabled=False, note="Monnaies de l'extension"),

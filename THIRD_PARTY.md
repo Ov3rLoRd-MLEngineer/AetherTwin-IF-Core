@@ -61,6 +61,7 @@ Modèles téléchargés (non versionnés, dans `models/` ou le cache Hugging Fac
 | Claude Code | agent cloud du relais de développement |
 | Aider, OpenCode | agent local du relais de développement |
 | Git | gestion de versions |
+| Hermes Agent (Nous Research), installé par l'utilisateur | coach de WoW Assistant : appelé par sa CLI ou l'API locale de sa passerelle (127.0.0.1) ; WoW Assistant lui fournit un skill et un serveur MCP (bibliothèque standard) |
 
 Le produit final ne fait aucune requête de génération vers un service cloud. Le cloud ne sert qu'au
 développement du projet.

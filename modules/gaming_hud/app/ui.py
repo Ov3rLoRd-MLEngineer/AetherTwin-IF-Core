@@ -32,7 +32,7 @@ SLOT_SHORT = {1: "Tête", 2: "Cou", 3: "Épaul.", 15: "Dos", 5: "Torse", 4: "Che
 
 TAB_NAMES = ["Personnage", "Talents et grimoire", "Journal des quêtes", "Sacs", "Métiers",
              "Hauts Faits", "Collections du bataillon", "Historique d'activité",
-             "Réputations et monnaies", "Instances et Chambre", "Hôtel des ventes", "Bestiaire"]
+             "Réputations et monnaies", "Instances et Chambre", "Hôtel des ventes", "Bestiaire", "Hermes"]
 
 
 class UI:
@@ -1893,11 +1893,21 @@ class UI:
         label_w, field_w = 190, rect.w - 48 - 190
         self.text("Assistant IA (orchestrateur : Hermes pour le moment)", "medium", "gold", (x, y), shadow=True)
         y += 38
-        self.pill((x, y, 440, 32), "Serveur API  (Ollama, LM Studio, Open WebUI, Omniroute…)", m["mode"] == "api",
+        self.pill((x, y, 300, 32), "Hermes Agent  (recommandé)", m["mode"] == "hermes", lambda: m.update(mode="hermes"))
+        self.pill((x + 310, y, 330, 32), "Serveur API  (Ollama, LM Studio, Omniroute…)", m["mode"] == "api",
                   lambda: m.update(mode="api"))
-        self.pill((x + 452, y, 440, 32), "Programme local  (hermes.exe)", m["mode"] == "exe", lambda: m.update(mode="exe"))
+        self.pill((x + 650, y, 250, 32), "Programme local  (exe)", m["mode"] == "exe", lambda: m.update(mode="exe"))
         y += 48
-        if m["mode"] == "api":
+        if m["mode"] == "hermes":
+            describe = self.llm.hermes.describe() if self.llm else "Hermes Agent"
+            self.text(describe, "small", "text", (x, y + 4))
+            self.text("Session dédiée, skills, mémoire et outils de jeu de Hermes. Réglages, installation du skill "
+                      "« wow-coach » et des outils de jeu : onglet Hermes.", "tiny", "gray", (x, y + 30))
+            self.pill((x + w - 48 - 200, y, 200, 30), "Ouvrir l'onglet Hermes", False,
+                      lambda: (self._apply_settings_inputs(True), self.close_modal(),
+                               self._switch_tab(self.TABS.index("Hermes"))))
+            y += 60
+        elif m["mode"] == "api":
             y = self._field(x, y, "Endpoint API", "set_endpoint", "http://127.0.0.1:11434/v1   (ou Open WebUI / Omniroute)", label_w, field_w)
             y = self._settings_servers(x, y, label_w, rect)
             y = self._field(x, y, "Modèle", "set_model", "nom du modèle (ex. claude-sonnet, llama3…)", label_w, field_w)
@@ -1921,7 +1931,8 @@ class UI:
         else:
             y = self._field(x, y, "Exécutable", "set_exe", "hermes.exe  (ou chemin complet)", label_w, field_w)
             y = self._field(x, y, "Arguments", "set_args", "{prompt}   (sans {prompt} : envoyé sur l'entrée standard)", label_w, field_w)
-        y = self._field(x, y, "Consigne système", "set_system", "rôle donné à l'assistant", label_w, field_w)
+        if m["mode"] != "hermes":    # Hermes : le rôle vient du skill wow-coach et de sa propre configuration
+            y = self._field(x, y, "Consigne système", "set_system", "rôle donné à l'assistant", label_w, field_w)
         self.pill((x, y, 230, 32), "Tester la connexion", False, self._test_llm)
         if m["status"]:
             self.text(self.fit(m["status"], "small", w - 330), "small", "green" if m["status_ok"] else "red", (x + 244, y + 8))

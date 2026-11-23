@@ -6,7 +6,8 @@ Lecture seule : aucune automatisation du jeu.
 ## Onglets (touches 1 à 9 et 0)
 Personnage · Talents et grimoire · Journal des quêtes · Sacs (+ banque de bataillon / de guilde) · Métiers ·
 Hauts Faits · Collections du bataillon (Montures, Codex des mascottes, Jouets, Héritage, Transmoglyphe) ·
-Historique d'activité (Évolution, Journal, Statistiques) · Réputations et monnaies · Instances et Chambre
+Historique d'activité (Évolution, Journal, Statistiques) · Réputations et monnaies · Instances et Chambre ·
+Hôtel des ventes · Bestiaire · Hermes (coach)
 
 ## Commandes en jeu
 - `/ha` : état                      - `/ha save` : écrit le fichier tout de suite (fait un /reload)
@@ -54,15 +55,30 @@ Une section vide (déconnexion, fichier en cours d'écriture) ne remplace jamais
 Le bouton « Actualiser » (onglet Personnage) relit le fichier du jeu.
 
 ## Assistant IA (Hermes)
-Paramètres généraux (onglet Personnage) : serveur API compatible OpenAI (Ollama, LM Studio, Open WebUI,
-Omniroute, Hermes API Server...) ou programme local (hermes.exe). Réglages dans `settings.json`.
+Paramètres généraux (onglet Personnage) : **Hermes Agent** (recommandé), serveur API compatible OpenAI (Ollama,
+LM Studio, Open WebUI, Omniroute...) ou programme local (exe). Réglages dans `settings.json`.
 Boutons « Envoyer à Hermes » : quêtes, montures, mascottes, jouets, apparences, ensembles.
+
+### Hermes Agent comme coach (onglet Hermes)
+- **État** : Hermes trouvé, passerelle, modèle, API, skill, outils de jeu ; connexion Auto / API / CLI.
+- **Mise en place** (un clic chacun, copie de sauvegarde du fichier de Hermes modifié) :
+  1. « Installer le skill wow-coach » : consignes de coach dans `%LOCALAPPDATA%\hermes\skills\gaming\wow-coach` ;
+  2. « Ajouter les outils de jeu (MCP) » : `hermes mcp add wow_assistant` → `hermes_mcp.py` (10 outils, lecture
+     seule) ; à refaire si le dossier de l'appli change (le chemin y est enregistré) ;
+  3. « Activer l'API de Hermes » (facultatif) : clé aléatoire dans le `.env` de Hermes (jamais affichée), puis
+     fermer et rouvrir Hermes (« Ouvrir l'application Hermes »).
+- **Sans l'API** : `hermes -z` (≈ 20 s par question, outils sans danger seulement, captures non transmises).
+  **Avec l'API** : réponse au fil de l'eau, outils affichés, captures analysées, session visible dans Hermes ; une
+  commande sensible demandée par Hermes attend « Autoriser » / « Refuser » dans l'appli.
+- **Overlay** : widgets « Assistant (Hermes) » (conversation) et « Coach Hermes » (questions en un clic,
+  « Capture + avis », dernière réponse) ; même fil que l'onglet.
 
 ## Fichiers
 HermesAssistant.toc/.lua (addon) · main.py · config.py · settings.py · llm.py · snapcache.py ·
 lua_parser.py · game_connection.py · gamedata.py · character.py · quests.py · inventory.py · craft.py · history.py ·
 wowhead.py · theme.py · icons_draw.py · ui.py · tabs.py · tabs_data.py · tabs_collections.py · tabutil.py ·
 overlay.py · hotkeys.py · focus.py · widgets.py · widgets_builtin.py · vision.py · voice.py · webhost.py · webwidget.py ·
+chatview.py · tabs_hermes.py · hermes_bridge.py · hermes_mcp.py (outils de jeu pour Hermes) · hermes_skill/ ·
 layout.json · chat_history.json · wowhead_links.json · recipes.json
 
 
