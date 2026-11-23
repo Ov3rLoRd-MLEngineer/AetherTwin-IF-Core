@@ -25,6 +25,12 @@ QUICK_PROMPTS = (
     ("Or", "Quelles sont mes meilleures façons de gagner de l'or avec ce personnage et ses métiers ?"),
 )
 CAPTURE_PROMPT = "Analyse la capture d'écran jointe (ce que je vois en jeu) et conseille-moi."
+# « Faire vérifier » : Hermes relit sa dernière réponse, la vérifie en ligne et remplit la base de connaissances
+VERIFY_PROMPT = ("Vérifie en ligne (Wowhead en priorité, sinon une source fiable) les affirmations factuelles de ta "
+                 "réponse précédente : quêtes (XP, niveau, étapes), niveaux requis, objets, talents, lieux. Pour chaque "
+                 "fait vérifié, enregistre-le avec wow_knowledge_save (thème, sujet court, fait précis, lien de la "
+                 "page). Ne contredis pas une correction du joueur. Puis dis en quelques lignes ce qui était juste, "
+                 "ce qui était faux, et le conseil corrigé s'il change.")
 
 
 def plain(text):

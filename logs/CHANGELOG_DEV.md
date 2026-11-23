@@ -1063,3 +1063,13 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   seulement). Corrections rappelées dans chaque question à Hermes. Onglet : « Corriger la réponse », vue
   « Connaissances » (filtres, recherche, C'est juste / Rejeter / Supprimer, règle ajoutée à la main).
 - **Tests :** 4 nouveaux, 2 adaptés ; suite verte.
+
+## 23/11/2026 : test 57, bouton « Faire vérifier »
+- **Agent :** Cloud
+- Test 57 de Jérémy : après la relance de la passerelle, Hermes a bien les 12 outils et cherche dans la base
+  (`wow_knowledge_search` dans ses journaux), mais n'enregistre rien : sa réponse n'a pas fait de recherche web, et
+  aucune correction n'est partie (aucun message reçu par Hermes). « Corriger » vérifié par un clic simulé : la
+  correction est bien enregistrée.
+- Ajouts : bouton **« Faire vérifier »** (Hermes vérifie sa dernière réponse en ligne et enregistre les faits avec
+  leur lien) ; vue Connaissances vide qui explique comment la remplir ; compteur relu quand Hermes écrit.
+- **Tests :** 1 nouveau ; suite verte.

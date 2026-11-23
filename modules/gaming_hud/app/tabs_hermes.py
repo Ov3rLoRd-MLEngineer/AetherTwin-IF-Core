@@ -261,8 +261,13 @@ def _draw_knowledge(ui, rect):
         py += rh
     ui.scroll_end()
     if not rows:
-        ui.text("Rien pour l'instant : Hermes enregistre ce qu'il vérifie en ligne, et vos corrections arrivent ici.",
-                "small", "gray", (area.x + 4, area.y + 4))
+        for i, line in enumerate((
+                "Rien pour l'instant. La base se remplit de trois façons :",
+                "• « Corriger la réponse » (sous la conversation) : votre correction fait foi ;",
+                "• « Faire vérifier » : Hermes vérifie sa réponse en ligne et enregistre les faits avec leur lien ;",
+                "• une règle ajoutée ci-dessous.",
+                "Hermes enregistre aussi de lui-même ce qu'il vérifie sur le web pendant une réponse.")):
+            ui.text(line, "small", "gray", (area.x + 4, area.y + 4 + i * 22))
     iy = y + h - 36
     ui.on_submit["kb_rule"] = lambda: _add_rule(ui, kb)
     ui.input_box((x, iy, w - 170, 32), "kb_rule", "Ajouter une règle ou un fait sûr (il fera foi pour Hermes)…")
@@ -294,6 +299,7 @@ def _draw_right(ui, chat, rect):
     ui.frame(rect, "Coach de jeu")
     chat.poll()
     kb = knowledge(ui)
+    kb.reload_if_changed()            # Hermes (serveur MCP) peut avoir enregistré pendant sa réponse
     state = ui.state
     view = state.setdefault("hermes_view", "chat")
     tabs = (("chat", "Conversation"), ("kb", f"Connaissances ({len(kb.entries)})"))
@@ -361,7 +367,14 @@ def _draw_right(ui, chat, rect):
         ui.tip(fix_rect, {"rows": [("Une erreur dans la dernière réponse ? Écrivez ce qui est juste :", C["light_gray"], ""),
                                    ("enregistré comme correction qui fait foi, rappelé à Hermes à chaque question.",
                                     C["gray"], "")]})
-    ui.text(ui.fit(ui.llm.describe(), "tiny", w - 700), "tiny", "gray", (x + w - 16, options_y + 5),
+        if not correcting and chat.uses_hermes():
+            check_rect = pygame.Rect(x + 680, options_y, 120, 24)
+            ui.pill(check_rect, "Faire vérifier", False,
+                    lambda: chatview.send_from(ui, chat, "hermes_msg", chatview.VERIFY_PROMPT), font="tiny")
+            ui.tip(check_rect, {"rows": [("Hermes vérifie sa dernière réponse en ligne (Wowhead...)", C["light_gray"], ""),
+                                         ("et enregistre les faits vérifiés, avec leur lien, dans « Connaissances ».",
+                                          C["gray"], "")]})
+    ui.text(ui.fit(ui.llm.describe(), "tiny", w - 830), "tiny", "gray", (x + w - 16, options_y + 5),
             anchor="topright")
 
 

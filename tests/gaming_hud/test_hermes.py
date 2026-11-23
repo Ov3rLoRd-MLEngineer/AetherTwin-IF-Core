@@ -663,3 +663,21 @@ def test_knowledge_view_renders_without_cut_text(hermes_app) -> None:
     app.draw(app.test_ctx)
     assert app.screen.cut == []
     shot(app, "hermes_correcting")
+
+
+def test_verify_button_asks_hermes_to_check_and_save(hermes_app) -> None:
+    import chatview
+    app = hermes_app
+    app.state["hermes_view"] = "kb"
+    app.screen.cut.clear()
+    app.draw(app.test_ctx)
+    assert app.screen.cut == []                                       # base vide : explication sans texte coupé
+    shot(app, "hermes_knowledge_empty")
+    app.state["hermes_view"] = "chat"
+    app.chat.messages = [{"role": "user", "text": "?"}, {"role": "assistant", "text": "Réponse."}]
+    app.draw(app.test_ctx)
+    verify = [fn for rect, fn in app._buttons if rect.w == 120 and rect.h == 24]
+    sent = []
+    app.chat.submit = lambda text, ctx, images=None: sent.append(text) or True
+    verify[-1]()
+    assert sent == [chatview.VERIFY_PROMPT] and "wow_knowledge_save" in sent[0]
