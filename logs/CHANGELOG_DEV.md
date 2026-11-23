@@ -927,3 +927,28 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - Barre d'onglets : marges et police réduites automatiquement pour que les 12 onglets tiennent.
 - **Non vérifié** : pas de fichier de journal de combat chez Jérémy ; format Midnight du journal à confirmer (test 44).
 - **Tests :** 9 nouveaux (`test_bestiary.py`) ; suite verte ; ruff propre.
+
+## 23/11/2026 : WoW Assistant, vue 3D incrustée, Essayage, confirmation de fermeture
+- **Agent :** Cloud
+- Tests 43 et 44 : OK (Jérémy). Demandes : la vue 3D (déjà vue en fenêtre à part) **incrustée** dans la fenêtre
+  de l'appli, partout où c'est possible ; confirmation avant de quitter.
+- **Vue 3D** (`model3d.py`, `web3d/viewer.html`, `webhost.py --embedded`) : visionneuse de Wowhead (ZamModelViewer)
+  relayée par un serveur local 127.0.0.1 (seuls `modelviewer/live/…` et jQuery de cdnjs ; cache disque) ; la page
+  pywebview est rattachée comme fenêtre enfant (Win32 `SetParent`, styles enfant) de la fenêtre pygame et placée à
+  chaque image sur le cadre de l'aperçu, mise à l'échelle SCALED et bandes noires comprises (`client_rect`).
+  Masquée sans aperçu, sous une modale ou un menu. Option désactivée par défaut ; images Battle.net par défaut.
+  Constats : la page restait blanche tant que pywebview n'avait pas reçu « show » (fenêtre créée masquée) ;
+  ensuite le rendu est correct avec les moteurs SDL direct3d, opengl et software (captures).
+- **Modèles** : personnage (Battle.net « appearance » : race, sexe, personnalisation, apparences portées),
+  montures, mascottes, créatures (affichage Battle.net) ; essayage = pièces remplaçant leur emplacement.
+- **Essayage** (Transmoglyphe) : fiche de personnage ; apparence → son emplacement, ensemble → toutes ses pièces
+  (`bnet.set_pieces` donne maintenant `slotType` et `display`) ; mise en page calculée sur la hauteur du cadre.
+- **Quitter** : `UI.request_quit` (croix, Alt+F4, Échap) → modale « Quitter WoW Assistant ? » ; « Non » rend la
+  modale précédente ; une 2e demande d'affilée quitte.
+- Vrai journal de combat de Jérémy relu : version 22, build 12.1.5, `ADVANCED_LOG_ENABLED,0` ; `PARTY_KILL` puis
+  `UNIT_DIED` au format attendu ; nouvel événement `SWING_DAMAGE_LANDED` (sans effet sur le bestiaire).
+- **Tests :** 6 nouveaux (`test_model3d.py`), 2 (`test_collections_media.py` : essayage), 1 (`test_ui_fixes.py` :
+  confirmation) ; tests de fermeture adaptés ; suite verte ; ruff propre. Bout en bout dans de vraies fenêtres
+  (Python 3.11 + pywebview) : vue incrustée sur l'onglet Personnage, masquée sous la confirmation et sur un autre
+  onglet.
+- **Non vérifié chez Jérémy** : tests 45 à 48.

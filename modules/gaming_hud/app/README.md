@@ -111,6 +111,19 @@ Hermes. Il faut :
 Tout est gardé dans `bestiary.json`, à côté de l'appli.
 Identifiants Battle.net : maintenant dans **Paramètres généraux > Jeu** (et gardés d'un lancement à l'autre).
 
+## Vue 3D, Essayage, confirmation de fermeture (23/11/2026)
+- **Vue 3D (facultative, désactivée par défaut)** : Paramètres généraux > Jeu > « Vue 3D (Wowhead) ». Le modèle
+  s'affiche **dans** le cadre de l'aperçu (Personnage, Essayage, Montures, Mascottes, Bestiaire) : glisser pour
+  tourner, molette pour zoomer, Ctrl+glisser pour déplacer ; bouton « Image » pour revenir au rendu Battle.net.
+  Il faut pywebview (WebView2, déjà présent sous Windows 10/11) et les identifiants Battle.net. La visionneuse et
+  les modèles viennent de Wowhead (usage personnel), relayés par un petit serveur local (127.0.0.1) avec un cache
+  dans `cache/zam/`. Sans pywebview : bouton « Vue 3D » qui ouvre la page dans le navigateur.
+- **Essayage** (Collections > Transmoglyphe) : votre personnage ; un clic sur une apparence la pose à sa place, un
+  ensemble se pose en entier ; un clic sur une pièce dorée la retire ; « Tout retirer ».
+- **Quitter** : la croix, Alt+F4 ou Échap demandent « Quitter WoW Assistant ? » (Entrée = oui, Échap = non).
+- Bestiaire : sans la **journalisation avancée** du jeu, le journal de combat ne donne ni PV, ni niveau, ni carte
+  (l'addon complète le niveau et la zone).
+
 ## Correctifs du 17/11/2026
 - **Fermeture** : la croix de la fenêtre principale ferme bien l'appli, même après avoir ouvert (puis fermé) l'overlay.
 - **Champs de saisie** : rester appuyé sur une touche la répète ; curseur déplaçable (flèches, Début, Fin, clic), touche Suppr ;

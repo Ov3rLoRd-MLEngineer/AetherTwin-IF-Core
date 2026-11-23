@@ -2,8 +2,11 @@
 Onglet Collections du bataillon : Montures, Codex des mascottes, Jouets, Héritage, Transmoglyphe.
 Chaque collection s'affiche sur deux colonnes, avec un emplacement réservé au futur modèle 3D à droite.
 """
+import json
+
 import pygame
 
+import model3d
 from character import CLASS_COLORS
 from icons_draw import draw_icon
 from tabutil import format_age, hover, message
@@ -118,42 +121,6 @@ def _icon_preview(ui, box, item_id, border, fallback=""):
     ui.text(ui.fit(NO_ITEM_RENDER, "tiny", bw - 12), "tiny", "gray", (bx + bw - 6, by + bh - 4), anchor="bottomright")
 
 
-def _pieces_preview(ui, box, set_id, caption):
-    """Pièces d'un ensemble (liste Battle.net), en icônes avec leur emplacement."""
-    bx, by, bw, bh = box
-    if ui.media is None or not ui.media.available():
-        ui.model_placeholder(box, caption, (46, 46, 56), "person", note="pièces : API Battle.net (onglet Hôtel des ventes)")
-        return
-    key = f"set:{set_id}"
-    ui.media.request(key, lambda: ui.media.bnet.set_pieces(set_id))
-    pieces = ui.media.value(key)
-    if not pieces:
-        state = ui.media.state(key)
-        ui.model_placeholder(box, caption, (46, 46, 56), "person",
-                             note="chargement…" if state in ("en cours", "absente") else "indisponible")
-        if state == "erreur":
-            ui.tip(pygame.Rect(box), {"rows": [(ui.media.error(key), C["orange"], "")], "footer": "Clic : réessayer"})
-            ui.click(pygame.Rect(box), lambda: ui.media.retry(key))
-        return
-    pygame.draw.rect(ui.screen, (8, 8, 11), box, border_radius=4)
-    cols = max(1, min(len(pieces), (bw - 16) // 110))
-    rows_n = (len(pieces) + cols - 1) // cols
-    cell_w, cell_h = (bw - 16) // cols, min(130, (bh - 30) // rows_n)
-    size = max(28, min(64, cell_h - 30))
-    top = by + max(8, (bh - 22 - rows_n * cell_h) // 2)
-    for i, piece in enumerate(pieces):
-        cx = bx + 8 + (i % cols) * cell_w + cell_w // 2
-        rc = pygame.Rect(cx - size // 2, top + (i // cols) * cell_h, size, size)
-        ui.icon("item", piece["item"], rc, border=C["frame"], fallback=piece.get("name", ""))
-        ui.text(ui.fit(piece.get("slot", ""), "tiny", cell_w - 8), "tiny", "light_gray", (cx, rc.bottom + 4),
-                anchor="midtop")
-        ui.tip(rc, {"rows": [(piece.get("name") or f"Objet {piece['item']}", C["gold"], ""),
-                             (piece.get("slot", ""), C["light_gray"], "")], "footer": "Clic : ouvrir sur Wowhead"})
-        ui.link(rc, item_url(piece["item"]))
-    pygame.draw.rect(ui.screen, C["frame_lo"], box, 1, border_radius=4)
-    ui.text("Pièces de l'ensemble (Battle.net)", "tiny", "gray", (bx + bw - 6, by + bh - 4), anchor="bottomright")
-
-
 def _draw_text(ui, rect, top, title, title_color, rows, bottom):
     x, y, w, h = rect
     ui.text(ui.fit(title, "large", w - 32), "large", title_color, (x + 16, top), shadow=True)
@@ -169,7 +136,7 @@ def _draw_text(ui, rect, top, title, title_color, rows, bottom):
 
 
 def _detail(ui, rect, caption, tint, shape, title, title_color, lines, url, llm_title, llm_context, media=None,
-            icon=None):
+            icon=None, view3d=None):
     """L'aperçu prend toute la hauteur que le texte laisse libre.
     `media` : (clé, fonction qui rend le chemin de l'image) pour une image Battle.net (montures, mascottes) ;
     `icon` : (id de l'objet, couleur du cadre) pour les objets, que Battle.net ne rend pas."""
@@ -184,6 +151,8 @@ def _detail(ui, rect, caption, tint, shape, title, title_color, lines, url, llm_
         ui.media_view(box, media[0], caption, tint, shape)
     else:
         ui.model_placeholder(box, caption, tint, shape, note=NEEDS_BNET if media else "à venir")
+    if view3d:
+        ui.view3d_box(box, *view3d)
     _draw_text(ui, rect, box[1] + box[3] + 14, title, title_color, rows, y + h - BUTTONS_H + 6)
     ui.detail_buttons(x + 16, y + h - 50, url, llm_title, llm_context)
 
@@ -254,7 +223,9 @@ def _mounts(ui, ctx, rect):
             [("Obtenue" if m["collected"] else "Pas encore obtenue", C["green"] if m["collected"] else C["orange"]),
              (source, C["light_gray"]), (desc, C["gray"])], url, f"Monture : {m['name']}",
             _context("Monture", m["name"], "obtenue" if m["collected"] else "pas encore obtenue", [f"Source : {source}", desc], url),
-            media=(f"mount:{m['id']}", lambda mid=m["id"]: ui.media.bnet.mount_image(mid)))
+            media=(f"mount:{m['id']}", lambda mid=m["id"]: ui.media.bnet.mount_image(mid)),
+            view3d=(f"mount:{m['id']}",
+                    lambda mid=m["id"], n=m["name"]: model3d.mount_model(ui.media.bnet, mid, n)))
 
 
 # ===========================================================================
@@ -315,7 +286,9 @@ def _pets(ui, ctx, rect):
             C["gold"], lines, url, f"Mascotte : {p['name']}",
             _context("Mascotte de combat", p["name"], "possédée" if p["owned"] else "pas encore possédée",
                      [f"Famille : {PET_TYPES.get(p['type'], '?')}", f"Source : {source}", desc], url),
-            media=(f"pet:{p['id']}", lambda sid=p["id"], cid=p.get("creature", 0): ui.media.bnet.pet_image(sid, cid)))
+            media=(f"pet:{p['id']}", lambda sid=p["id"], cid=p.get("creature", 0): ui.media.bnet.pet_image(sid, cid)),
+            view3d=(f"pet:{p['id']}", lambda sid=p["id"], cid=p.get("creature", 0), n=p["name"]:
+                    model3d.pet_model(ui.media.bnet, sid, cid, n)))
 
 
 # ===========================================================================
@@ -442,7 +415,7 @@ def _transmog(ui, ctx, rect):
     ui.frame(left, "Apparences obtenues par le compte")
     if not tm["cats"] and not tm["sets"]:
         message(ui, left, ["Transmogrification non exportée", "Tapez /ha scan en jeu (transmog, ensembles), puis /ha save."])
-        _tm_detail(ui, right, info)
+        _tm_detail(ui, ctx, right, info)
         return
 
     # ------------------------------------------------ liste dépliable
@@ -525,7 +498,7 @@ def _transmog(ui, ctx, rect):
     ui.scroll_end()
     if not rows:
         message(ui, area, ["Aucune apparence ne correspond"])
-    _tm_detail(ui, right, info)
+    _tm_detail(ui, ctx, right, info)
 
 
 def _tm_selection(ui, ctx, sel):
@@ -544,7 +517,8 @@ def _tm_selection(ui, ctx, sel):
                 lines = [(f"Catégorie : {cat}", C["light_gray"]), (_classes_of_item(item), C["gray"]),
                          ("Apparence obtenue par le compte", C["green"])]
                 return {"title": name, "color": QUALITY_COLORS.get(item["quality"], C["gold"]), "lines": lines, "url": url,
-                        "caption": "Apparence", "item": item["id"], "llm_title": f"Apparence : {name}",
+                        "caption": "Apparence", "item": item["id"], "equipLoc": item["equipLoc"],
+                        "quality": item["quality"], "llm_title": f"Apparence : {name}",
                         "llm_context": _context("Apparence de transmogrification", name, "obtenue", [f"Catégorie : {cat}", _classes_of_item(item)], url)}
     else:
         for s in tm["sets"]:
@@ -560,19 +534,137 @@ def _tm_selection(ui, ctx, sel):
     return None
 
 
-def _tm_detail(ui, rect, info):
-    x, y, w, h = rect
-    ui.frame(rect, "Aperçu")
-    if not info:
-        ui.model_placeholder((x + 16, y + 46, w - 32, h - 200), "Aperçu", (46, 46, 56), "person", note="")
-        ui.text("Choisissez un élément dans la liste", "small", "gray", (x + w // 2, y + h - 90), anchor="center")
-        return
-    rows = _text_rows(ui, info["lines"], w - 36)
-    box = _preview_box(rect, rows, reserve=-BUTTONS_H + 18)
+# ===========================================================================
+#  Essayage : fenêtre de personnage où l'on pose des apparences et des ensembles
+# ===========================================================================
+TM_LEFT = [(1, "Tête"), (3, "Épaules"), (15, "Dos"), (5, "Torse"), (4, "Chemise"), (19, "Tabard"), (9, "Poignets")]
+TM_RIGHT = [(10, "Mains"), (6, "Taille"), (7, "Jambes"), (8, "Pieds")]
+TM_BOTTOM = [(16, "Main droite"), (17, "Main gauche")]
+# emplacement de l'objet (addon : INVTYPE_… ; Battle.net : type d'apparence) → emplacement du personnage
+TM_SLOT = {"HEAD": 1, "SHOULDER": 3, "SHOULDERS": 3, "CLOAK": 15, "BACK": 15, "CHEST": 5, "ROBE": 5, "BODY": 4,
+           "SHIRT": 4, "TABARD": 19, "WRIST": 9, "WRISTS": 9, "HAND": 10, "HANDS": 10, "WAIST": 6, "LEGS": 7,
+           "FEET": 8, "WEAPON": 16, "WEAPONMAINHAND": 16, "2HWEAPON": 16, "TWOHWEAPON": 16, "RANGED": 16,
+           "RANGEDRIGHT": 16, "WEAPONOFFHAND": 17, "SHIELD": 17, "HOLDABLE": 17}
+
+
+def tm_slot_of(kind):
+    return TM_SLOT.get(str(kind or "").replace("INVTYPE_", "").upper())
+
+
+def _tm_apply(ui, info):
+    """Pose la sélection sur le personnage : une apparence dans son emplacement, un ensemble en entier."""
+    tried = ui.state.setdefault("tm_try", {})
+    if info.get("item"):
+        slot = tm_slot_of(info.get("equipLoc"))
+        if slot:
+            tried[slot] = {"item": info["item"], "name": info["title"], "quality": info.get("quality", 1),
+                           "display": None}
+        return True
     if info.get("set"):
-        _pieces_preview(ui, box, info["set"], info["caption"])
-    elif info.get("item"):
-        _icon_preview(ui, box, info["item"], info["color"], fallback=info["title"])
+        if ui.media is None or not ui.media.available():
+            return True                        # sans Battle.net, pas de liste des pièces : rien à poser
+        key = f"set:{info['set']}"
+        ui.media.request(key, lambda sid=info["set"]: ui.media.bnet.set_pieces(sid))
+        pieces = ui.media.value(key)
+        if not pieces:
+            return ui.media.state(key) == "erreur"   # pas encore chargé : on réessaiera à l'image suivante
+        for piece in pieces:
+            slot = tm_slot_of(piece.get("slotType"))
+            if slot:
+                tried[slot] = {"item": piece["item"], "name": piece.get("name", ""), "quality": 4,
+                               "display": piece.get("display")}
+        return True
+    return True
+
+
+def _tm_3d_loader(ui, c, tried):
+    """Le personnage (Battle.net) avec les pièces essayées."""
+    pieces = sorted((slot, t["item"], t.get("display")) for slot, t in tried.items())
+
+    def load():
+        base = model3d.character_model(ui.media.bnet, c.realm, c.name)
+        displays = []
+        for _slot, item, display in pieces:
+            found = model3d.appearance_display(ui.media.bnet, item)
+            if found:
+                displays.append((found[0], int(display) if display else found[1]))
+        return dict(model3d.try_on(base, displays), caption="Essayage")
+    return "tm:" + json.dumps(pieces), load
+
+
+def _tm_slot(ui, rect, slot_id, label, tried, worn):
+    rect = pygame.Rect(rect)
+    piece = tried.get(slot_id)
+    pygame.draw.rect(ui.screen, (9, 9, 12), rect, border_radius=4)
+    if piece:
+        quality = QUALITY_COLORS.get(piece.get("quality", 1), C["gold"])
+        ui.icon("item", piece["item"], rect, border=C["gold"], fallback=piece.get("name", ""))
+        pygame.draw.rect(ui.screen, C["gold"], rect.inflate(4, 4), 1, border_radius=6)
+        ui.tip(rect, {"rows": [(piece.get("name") or f"Objet {piece['item']}", quality, ""),
+                               (f"{label} : essayé", C["gold"], "")], "footer": "Clic : retirer"})
+        ui.click(rect, lambda s=slot_id: ui.state["tm_try"].pop(s, None))
+    elif worn:
+        ui.icon("item", worn["id"], rect, border=QUALITY_COLORS.get(worn.get("quality", 1), C["frame"]),
+                fallback=worn.get("name", label))
+        ui.tip(rect, {"rows": [(worn.get("name") or label, QUALITY_COLORS.get(worn.get("quality", 1), C["text"]), ""),
+                               (f"{label} : porté", C["light_gray"], "")]})
     else:
-        ui.model_placeholder(box, info["caption"], (46, 46, 56), "person")
-    _draw_text(ui, rect, box[1] + box[3] + 14, info["title"], info["color"], rows, y + h - 12)
+        pygame.draw.rect(ui.screen, (52, 52, 58), rect, 1, border_radius=4)
+        ui.text(label[:4] + ".", "tiny", (78, 78, 86), rect.center, anchor="center")
+
+
+def _tm_detail(ui, ctx, rect, info):
+    x, y, w, h = rect
+    ui.frame(rect, "Essayage")
+    c = ctx.character
+    tried = ui.state.setdefault("tm_try", {})
+    if info and ui.state.get("tm_applied") != ui.state.get("tm_sel"):
+        if _tm_apply(ui, info):
+            ui.state["tm_applied"] = ui.state.get("tm_sel")
+
+    # tailles calculées sur la hauteur du cadre : 7 rangées + les armes, puis le texte (aide, nom, 2 lignes)
+    text_h = 18 + 38 + 2 * 21 + 8
+    pitch = max(36, min(58, (h - 46 - text_h - 10) // (len(TM_LEFT) + 1)))
+    size = pitch - 8
+    top = y + 46
+    left_x = x + 16
+    right_x = x + w - 16 - size
+    model = (left_x + size + 12, top, right_x - left_x - size - 24, len(TM_LEFT) * pitch - (pitch - size))
+    for row, (slot, label) in enumerate(TM_LEFT):
+        _tm_slot(ui, (left_x, top + row * pitch, size, size), slot, label, tried, c.equipment.get(slot))
+    for row, (slot, label) in enumerate(TM_RIGHT):
+        _tm_slot(ui, (right_x, top + row * pitch, size, size), slot, label, tried, c.equipment.get(slot))
+    wy = top + len(TM_LEFT) * pitch - 4
+    for i, (slot, label) in enumerate(TM_BOTTOM):
+        wx = model[0] + model[2] // 2 - size - 6 + i * (size + 12)
+        _tm_slot(ui, (wx, wy, size, size), slot, label, tried, c.equipment.get(slot))
+
+    # le personnage : rendu Battle.net (fixe) ; l'essayage se voit dans la vue 3D
+    if c.name and c.realm and ui.media is not None and ui.media.available():
+        key = f"char:{c.realm}:{c.name}"
+        ui.media.request(key, lambda: ui.media.bnet.character_render(c.realm, c.name))
+        ui.media_view(model, key, "Votre personnage", (46, 46, 56), "person")
+        loader_key, loader = _tm_3d_loader(ui, c, tried)
+        ui.view3d_box(model, loader_key, loader)
+    else:
+        ui.model_placeholder(model, "Votre personnage", (46, 46, 56), "person",
+                             note="image : API Battle.net (Paramètres > Jeu)")
+
+    by = wy + size + 10
+    n = len(tried)
+    if ui.view3d_enabled():
+        hint = "Cliquez une apparence ou un ensemble : il se pose sur le personnage (vue 3D)."
+    else:
+        hint = "Cliquez une apparence ou un ensemble pour le poser. Voir l'essayage : Paramètres > Jeu > Vue 3D."
+    ui.text(ui.fit(hint, "tiny", w - 32), "tiny", "gray", (x + 16, by))
+    ui.pill((x + w - 16 - 190, by + 20, 190, 28), f"Tout retirer ({n})" if n else "Rien d'essayé", False,
+            lambda: (ui.state["tm_try"].clear(), ui.state.update(tm_applied=ui.state.get("tm_sel"))))
+    if not info:
+        ui.text("Choisissez une apparence ou un ensemble dans la liste", "small", "gray", (x + 16, by + 24))
+        return
+    ui.text(ui.fit(info["title"], "large", w - 240), "large", info["color"], (x + 16, by + 20), shadow=True)
+    ry = by + 58
+    for text, color in info["lines"]:
+        if text and ry + 20 < y + h - 8:
+            ui.text(ui.fit(text, "small", w - 32), "small", color, (x + 16, ry))
+            ry += 21

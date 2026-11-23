@@ -215,6 +215,7 @@ modules/
       lua_parser.py
       main.py
       media.py
+      model3d.py
       mousepos.py
       overlay.py
       quests.py
@@ -233,6 +234,8 @@ modules/
       ui.py
       vision.py
       voice.py
+      web3d/
+        viewer.html
       webhost.py
       webwidget.py
       widgets.py
@@ -327,6 +330,7 @@ tests/
     test_collections_media.py
     test_config_refs.py
     test_market.py
+    test_model3d.py
     test_module.py
     test_obs_hud.py
     test_settings_bnet.py

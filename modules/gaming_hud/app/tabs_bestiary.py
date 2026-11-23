@@ -4,6 +4,8 @@ leurs aptitudes, leur butin, l'or moyen, une note personnelle, Wowhead et Hermes
 """
 import pygame
 
+import model3d
+
 from character import Character
 from theme import C, QUALITY_COLORS
 from tabutil import format_age, hover, message
@@ -127,6 +129,8 @@ def _detail(ui, rect, e, bestiary):
         key = f"npc:{e['id']}"
         ui.media.request(key, lambda cid=e["id"]: ui.media.bnet.creature_image(cid))
         ui.media_view(box, key, "Image de la créature", (50, 40, 40), "object")
+        ui.view3d_box(box, key,
+                      lambda cid=e["id"], n=e["name"]: model3d.creature_model(ui.media.bnet, cid, n))
     else:
         ui.model_placeholder(box, "Image de la créature", (50, 40, 40), "object",
                              note="image : API Battle.net (Paramètres > Jeu)")

@@ -189,6 +189,14 @@ def bnet_settings(ui, rect):
     ui.text("Créer des identifiants (gratuit) : develop.battle.net", "tiny",
             "light_gray" if not hover(link) else "gold", (x, y))
     ui.link(link, "https://develop.battle.net/access/clients")
+    y += 34
+    enabled = bool(ui.settings.get("model3d.enabled", False))
+    ui.pill((x, y, 300, 28), "Vue 3D (Wowhead) : " + ("activée" if enabled else "désactivée"), enabled,
+            lambda: ui._toggle_setting("model3d.enabled"))
+    for i, line in enumerate(("Facultatif. Personnage, montures, mascottes, créatures et essayage en 3D, incrustés",
+                              "dans les aperçus (souris : tourner, molette : zoom, Ctrl+glisser : déplacer). Modèles :",
+                              "Wowhead (usage personnel) ; identifiants Battle.net requis. Par défaut : images.")):
+        ui.text(line, "tiny", "gray", (x + 316, y + 1 + i * 15))
 
 
 def _save_bnet(ui):

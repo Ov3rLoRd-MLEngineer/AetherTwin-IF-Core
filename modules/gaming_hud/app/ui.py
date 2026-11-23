@@ -50,6 +50,7 @@ class UI:
         self._track_y = None              # (suivi de la hauteur du contenu des réglages)
         self.cur = "app"                  # fenêtre en cours de traitement : "app" ou "overlay"
         self._modals = {}                 # une fenêtre modale par fenêtre (app / overlay)
+        self._quit_now = False            # « Oui » dans la confirmation : la boucle principale s'arrête
         self._ctx_store = {"overlay": None}
         self.overlay_win = self.overlay_ren = None   # 2e fenêtre SDL (overlay), indépendante de la fenêtre principale
         self.overlay_on = False
@@ -69,6 +70,10 @@ class UI:
         self.llm = llm
         self.media = None                 # MediaStore (rendus Battle.net), branché par main.py
         self.bestiary = None              # Bestiary (journal de combat + addon), branché par main.py
+        self.viewer3d = None              # Viewer3D (vue 3D facultative de Wowhead), branché par main.py
+        self._view3d = None               # (clé, chargeur) de ce que la vue 3D doit montrer (image en cours)
+        self._embed = None                # cadre (logique) où incruster la vue 3D sur cette image
+        self._can_embed = None
         self.market = None                # Market (prix HdV : Battle.net, TSM, Auctionator), branché par main.py
         self.manager = None               # WidgetManager (mode overlay)
         self.chat = None                  # ChatState (widget Assistant)
@@ -761,6 +766,7 @@ class UI:
         self.screen.blit(self.background, (0, 0))
         self._buttons, self._tips, self._scroll_regions = [], [], []
         self._clip = None
+        self._view3d = self._embed = None
         mouse = self.mouse_pos()
 
         self.text("WoW Assistant", "huge", "gold", (28, 12), shadow=True)
@@ -775,6 +781,7 @@ class UI:
         self._draw_tab_bar(ctx)
         self._draw_toasts()
         self._draw_voice_chip()
+        self._sync_view3d()
 
         if self.modal:
             self._buttons, self._tips, self._scroll_regions, self._scrollbars = [], [], [], []
@@ -985,6 +992,9 @@ class UI:
 
         model_h = 8 * self.PITCH - (self.PITCH - self.SLOT)
         self._draw_model_placeholder((model_x, top, model_w, model_h), c)
+        if c.name and c.realm:
+            self.view3d_box((model_x, top, model_w, model_h), f"char:{c.realm}:{c.name}",
+                            lambda: self.character_3d(c.realm, c.name))
 
         bottom_y = top + 8 * self.PITCH + 4
         weapons = EQUIPMENT_LAYOUT["bottom"]
@@ -1003,6 +1013,96 @@ class UI:
             if self.media_view(rect, key, "Rendu officiel du personnage", tint, "person"):
                 return
         self.model_placeholder(rect, "Modèle 3D", tint, shape="person")
+
+    # ------------------------------------------------------------------ vue 3D (facultative)
+    VIEW3D_STRIP = 28        # bandeau au-dessus de la vue incrustée (aide + bouton Image / 3D)
+
+    def view3d_enabled(self):
+        return bool(self.settings and self.settings.get("model3d.enabled", False) and self.viewer3d is not None
+                    and self.media is not None and self.media.available())
+
+    def view3d_embeddable(self):
+        if self._can_embed is None:
+            self._can_embed = bool(self.viewer3d is not None and self.viewer3d.can_embed() and self._main_hwnd())
+        return self._can_embed
+
+    def _main_hwnd(self):
+        try:
+            return pygame.display.get_wm_info().get("window")
+        except pygame.error:
+            return None
+
+    def view3d_box(self, box, key, loader):
+        """Vue 3D (option activée) sur le cadre d'un aperçu : incrustée dans la fenêtre (rotation à la souris, molette :
+        zoom, Ctrl+clic : déplacer), sinon bouton qui ouvre la page dans le navigateur. Rien si l'option est coupée."""
+        if not self.view3d_enabled():
+            return
+        box = pygame.Rect(box)
+        self._view3d = (key, loader)
+        if not self.view3d_embeddable():
+            rect = (box.right - 84, box.y + 6, 78, 24)
+            self.pill(rect, "Vue 3D", self.viewer3d.window_open(), self._open_view3d, font="tiny")
+            self.tip(pygame.Rect(rect), {"rows": [("Vue 3D (visionneuse de Wowhead)", C["gold"], ""),
+                                                  ("Ouvre la page dans le navigateur ; elle suit la sélection.",
+                                                   C["light_gray"], "")]})
+            return
+        flat = bool(self.state.get("view3d_flat"))
+        strip = pygame.Rect(box.x, box.y, box.w, self.VIEW3D_STRIP)
+        if not flat:
+            pygame.draw.rect(self.screen, (11, 11, 14), strip, border_top_left_radius=6, border_top_right_radius=6)
+        if self.viewer3d.error:
+            hint, color = "Vue 3D : " + self.viewer3d.error, "red"
+        elif flat:
+            hint, color = "", "gray"
+        else:
+            hint, color = ("Glisser : tourner  ·  molette : zoom  ·  Ctrl+glisser : déplacer" if box.w >= 420
+                           else "Souris · molette · Ctrl"), "gray"
+            self.tip(strip, {"rows": [("Vue 3D (visionneuse de Wowhead)", C["gold"], ""),
+                                      ("Glisser : tourner · molette : zoom", C["light_gray"], ""),
+                                      ("Ctrl + glisser : déplacer le modèle", C["light_gray"], "")]})
+            self._embed = pygame.Rect(box.x + 1, box.y + self.VIEW3D_STRIP, box.w - 2, box.h - self.VIEW3D_STRIP - 1)
+        if hint:
+            self.text(self.fit(hint, "tiny", box.w - 100), "tiny", color, (box.x + 8, box.y + 7))
+        pill = (box.right - 76, box.y + 3, 72, 22)
+        self.pill(pill, "Image" if not flat else "3D", False,
+                  lambda: self.state.update(view3d_flat=not self.state.get("view3d_flat")), font="tiny")
+        self.tip(pygame.Rect(pill), {"rows": [("Image Battle.net" if not flat else "Vue 3D (Wowhead)", C["gold"], ""),
+                                              ("Bascule entre l'image fixe et la vue 3D.", C["light_gray"], "")]})
+
+    def _open_view3d(self):
+        try:
+            self.viewer3d.open_window()
+        except OSError as e:
+            self.notify(f"Vue 3D impossible : {e}")
+
+    def character_3d(self, realm, name):
+        import model3d
+        return model3d.character_model(self.media.bnet, realm, name)
+
+    def _sync_view3d(self):
+        """En fin d'image : place (ou masque) la vue incrustée et lui donne le modèle de l'aperçu affiché."""
+        if self.viewer3d is None:
+            return
+        embedded = False
+        if self.view3d_embeddable():
+            rect = None
+            hwnd = self._main_hwnd()
+            if self._embed is not None and not self.modal and not self._menu and self.view3d_enabled():
+                import model3d
+                rect = model3d.client_rect(hwnd, (self.W, self.H), self._embed)
+            embedded = self.viewer3d.embed(hwnd, rect) or rect is not None
+        if not self._view3d or not (embedded or self.viewer3d.window_open()):
+            return
+        key, loader = self._view3d
+        media_key = "3d:" + key
+        self.media.request(media_key, loader)
+        model = self.media.value(media_key)
+        if model:
+            self.viewer3d.show(model)
+        elif self.media.state(media_key) == "erreur":
+            self.viewer3d.show({"kind": "none", "message": "Vue 3D : " + self.media.error(media_key)})
+        else:
+            self.viewer3d.show({"kind": "none", "message": "Chargement du modèle…"})
 
     def media_view(self, rect, key, caption, tint, shape="object"):
         """Image Battle.net dans un emplacement de modèle ; False si elle n'est pas affichable (placeholder alors
@@ -1180,14 +1280,16 @@ class UI:
         try:
             for event in events:
                 if event.type == pygame.QUIT:
-                    return False
+                    self.request_quit()
+                    continue
                 if event.type == getattr(pygame, "WINDOWCLOSE", -1):
                     # Dès que l'overlay a existé (même masqué), SDL gère deux fenêtres : la croix de la fenêtre
                     # principale n'envoie plus QUIT mais WINDOWCLOSE. Il faut donc quitter ici.
                     if self._event_context(event) == "overlay":
                         self.close_overlay()    # fermer l'overlay ne quitte pas l'application
                         continue
-                    return False
+                    self.request_quit()
+                    continue
                 if event.type == getattr(pygame, "WINDOWFOCUSLOST", -1):
                     self._keys_down.clear()     # les relâchements de touches ne nous parviendront pas
                 name = self._event_context(event)
@@ -1204,8 +1306,10 @@ class UI:
                     continue
                 self.use(name)
                 if not self._handle_event(event):
+                    self.request_quit()
+                if self._quit_now:
                     return False
-            return True
+            return not self._quit_now
         finally:
             self.use("app")
 
@@ -1236,7 +1340,9 @@ class UI:
                 self._type(event)
                 return True
             if self.modal:
-                if event.key == pygame.K_ESCAPE:
+                if self.modal.get("type") == "quit" and event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                    self._quit_now = True
+                elif event.key == pygame.K_ESCAPE:
                     self.close_modal()
                 return True
             if event.key == pygame.K_ESCAPE:
@@ -1347,7 +1453,26 @@ class UI:
                 self._set_input(key, text[:caret] + event.unicode + text[caret:], caret + len(event.unicode))
 
     # ================================================================== fenêtres modales
+    def request_quit(self):
+        """Croix de la fenêtre, Alt+F4 ou Échap : on demande confirmation (2e demande d'affilée : on quitte)."""
+        previous = self.cur
+        self.use("app")
+        try:
+            m = self.modal
+            if m and m.get("type") == "quit":
+                self._quit_now = True
+                return
+            self.focus = None
+            self._menu = None
+            self.modal = {"type": "quit", "previous": m}
+        finally:
+            self.use(previous)
+
     def close_modal(self):
+        m = self.modal
+        if m and m.get("type") == "quit" and m.get("previous"):
+            self.modal = m["previous"]          # « Non » : on retrouve la fenêtre qui était ouverte
+            return
         self.modal = None
         self.focus = None
 
@@ -1383,10 +1508,23 @@ class UI:
             dim.fill((0, 0, 0, 175))
             self.screen.blit(dim, (0, 0))
         self.click(pygame.Rect(0, 0, self.W, self.H), lambda: None)   # les clics hors de la fenêtre sont ignorés
-        if self.modal["type"] == "compose":
+        if self.modal["type"] == "quit":
+            self._draw_quit()
+        elif self.modal["type"] == "compose":
             self._draw_compose(self.modal)
         else:
             self._draw_settings(self.modal)
+
+    def _draw_quit(self):
+        w, h = 460, 190
+        rect = pygame.Rect((self.W - w) // 2, (self.H - h) // 2, w, h)
+        self.frame(rect, "WoW Assistant")
+        self.text("Quitter WoW Assistant ?", "large", "gold", (rect.centerx, rect.y + 62), anchor="center",
+                  shadow=True)
+        self.text("Entrée : oui  —  Échap : non", "tiny", "gray", (rect.centerx, rect.y + 92), anchor="center")
+        by = rect.bottom - 62
+        self.pill((rect.centerx - 140, by, 130, 38), "Oui", True, lambda: setattr(self, "_quit_now", True))
+        self.pill((rect.centerx + 10, by, 130, 38), "Non", False, self.close_modal)
 
     def _draw_compose(self, m):
         w, h = 960, 640

@@ -23,6 +23,7 @@ DEFAULTS = {
     "app": {"pos": None},                     # dernière position de la fenêtre principale
     "game": {"path": ""},                     # dossier _retail_ de WoW (vide = détection automatique)
     "bnet": {"client_id": "", "client_secret": "", "region": ""},   # API Battle.net (facultative)
+    "model3d": {"enabled": False},            # vue 3D (visionneuse de Wowhead), désactivée par défaut
     "overlay": {
         "start_in_overlay": False,
         "opacity": 100,                       # 40 à 100 %

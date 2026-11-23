@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>WoW Assistant — vue 3D</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0b0e; overflow: hidden; color: #8a8a94;
+               font: 13px "Segoe UI", sans-serif; }
+  #model { position: absolute; inset: 0; }
+  #msg { position: absolute; left: 10px; bottom: 8px; pointer-events: none; }
+  #credit { position: absolute; right: 10px; bottom: 8px; font-size: 11px; color: #55555e; pointer-events: none; }
+</style>
+<script>
+  // Vue 3D de WoW Assistant : visionneuse 3D de Wowhead (ZamModelViewer), fichiers relayés par l'appli sur
+  // 127.0.0.1. Globales attendues par la visionneuse (d'après le paquet wow-model-viewer, licence ISC).
+  window.CONTENT_PATH = location.origin + "/zam/modelviewer/live/";
+  window.WH = {
+    debug: function () {},
+    defaultAnimation: "Stand",
+    WebP: { getImageExtension: function () { return ".webp"; } },
+    Wow: { Item: { INVENTORY_TYPE_SHOULDERS: 3, INVENTORY_TYPE_CHEST: 5, INVENTORY_TYPE_ROBE: 20 } }
+  };
+</script>
+<script src="/jquery.js"></script>
+<script src="/zam/modelviewer/live/viewer/viewer.min.js"></script>
+</head>
+<body>
+<div id="model"></div>
+<div id="msg">Chargement…</div>
+<div id="credit">Visionneuse 3D : Wowhead</div>
+<script>
+  var viewer = null, shown = null, version = -1;
+
+  function say(text) { document.getElementById("msg").textContent = text || ""; }
+
+  function sameBody(a, b) {
+    return a && b && a.kind === "character" && b.kind === "character" && a.race === b.race &&
+      a.gender === b.gender && JSON.stringify(a.options) === JSON.stringify(b.options);
+  }
+
+  function build(m) {
+    var box = document.getElementById("model");
+    if (viewer && viewer.destroy) { try { viewer.destroy(); } catch (e) {} }
+    box.innerHTML = "";
+    viewer = null;
+    if (m.kind === "none") { say(m.message || ""); return; }
+    aspect = innerWidth / Math.max(1, innerHeight);
+    var opts = { type: 2, contentPath: window.CONTENT_PATH, container: jQuery(box), hd: true,
+                 aspect: Math.max(0.2, innerWidth / Math.max(1, innerHeight)) };
+    if (m.kind === "character") {
+      opts.models = { id: m.race * 2 - 1 + m.gender, type: 16 };
+      opts.items = m.items;
+      opts.charCustomization = { options: m.options };
+    } else {
+      opts.models = { id: m.id, type: m.type };
+    }
+    try {
+      viewer = new ZamModelViewer(opts);
+      say(m.caption || "");
+    } catch (e) {
+      say("Vue 3D impossible : " + e);
+    }
+  }
+
+  function updateItems(before, after) {
+    // essayage : seules les pièces qui changent sont retirées / posées
+    var old = {}, now = {};
+    before.items.forEach(function (i) { old[i[0]] = i[1]; });
+    after.items.forEach(function (i) { now[i[0]] = i[1]; });
+    Object.keys(old).forEach(function (slot) {
+      if (now[slot] !== old[slot]) { viewer.method("clearSlots", String(slot)); }
+    });
+    Object.keys(now).forEach(function (slot) {
+      if (now[slot] !== old[slot]) {
+        viewer.method("setItems", [[{ slot: Number(slot), display: now[slot], visual: 0 }]]);
+      }
+    });
+    say(after.caption || "");
+  }
+
+  function poll() {
+    fetch("/model.json", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (m) {
+      if (m.version === version) { return; }
+      version = m.version;
+      if (typeof ZamModelViewer === "undefined") { say("Visionneuse injoignable (réseau ?)"); return; }
+      if (viewer && sameBody(shown, m)) { updateItems(shown, m); } else { build(m); }
+      shown = m;
+    }).catch(function () { say("Appli WoW Assistant fermée"); });
+  }
+  // vue incrustée : le cadre change de proportions (autre aperçu, fenêtre redimensionnée) → on reconstruit
+  var aspect = 0;
+  window.addEventListener("resize", function () {
+    var now = innerWidth / Math.max(1, innerHeight);
+    if (shown && shown.kind !== "none" && Math.abs(now - aspect) > 0.03) { build(shown); }
+  });
+  setInterval(poll, 400);
+  poll();
+</script>
+</body>
+</html>

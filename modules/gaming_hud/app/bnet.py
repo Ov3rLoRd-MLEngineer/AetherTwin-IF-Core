@@ -230,8 +230,10 @@ class BattleNet:
             appearance = self.get(f"/data/wow/item-appearance/{int(ref['id'])}", "static", max_age=WEEK * 4)
             items = [i for i in appearance.get("items") or [] if isinstance(i, dict) and i.get("id")]
             if items:
+                slot = appearance.get("slot") or {}
                 pieces.append({"item": int(items[0]["id"]), "name": items[0].get("name", ""),
-                               "slot": (appearance.get("slot") or {}).get("name", "")})
+                               "slot": slot.get("name", ""), "slotType": slot.get("type", ""),
+                               "display": appearance.get("item_display_info_id")})
         if not pieces:
             raise BnetError("aucune pièce connue pour cet ensemble")
         return pieces

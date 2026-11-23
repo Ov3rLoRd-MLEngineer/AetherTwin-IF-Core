@@ -28,8 +28,8 @@ class CollectionsBnet(FakeBnet):
         if "/item-appearance/1?" in url or "/item-appearance/2?" in url:
             self.urls.append(url)
             n = 1 if "/item-appearance/1?" in url else 2
-            return self.reply({"slot": {"name": "Torse" if n == 1 else "Mains"},
-                               "items": [{"id": 1000 + n, "name": f"Pièce {n}"}]})
+            return self.reply({"slot": {"name": "Torse" if n == 1 else "Mains", "type": "CHEST" if n == 1 else "HAND"},
+                               "item_display_info_id": 500 + n, "items": [{"id": 1000 + n, "name": f"Pièce {n}"}]})
         return super().__call__(request, timeout)
 
 
@@ -42,8 +42,8 @@ def test_pet_image_and_set_pieces_from_battle_net(tmp_path: Path) -> None:
     assert api.pet_image(39, 2671) == path  # créature exportée par l'addon : pas besoin de la fiche
     assert not any("/data/wow/pet/" in u for u in fake.urls)
     pieces = api.set_pieces(1000)
-    assert pieces == [{"item": 1001, "name": "Pièce 1", "slot": "Torse"},
-                      {"item": 1002, "name": "Pièce 2", "slot": "Mains"}]
+    assert pieces == [{"item": 1001, "name": "Pièce 1", "slot": "Torse", "slotType": "CHEST", "display": 501},
+                      {"item": 1002, "name": "Pièce 2", "slot": "Mains", "slotType": "HAND", "display": 502}]
 
 
 def test_transparent_margins_are_trimmed() -> None:
@@ -182,3 +182,46 @@ def test_character_bank_in_the_bags_tab(app) -> None:
     _shot(app, "bags_character_bank.png")
     app.test_ctx.data.characterBank = {"updated": 0, "money": 0, "tabs": []}
     app.draw(app.test_ctx)   # jamais consultée : message, pas d'erreur
+
+
+def test_transmog_try_on_sheet_applies_a_whole_set_and_fits_the_frame(app, tmp_path: Path) -> None:
+    from media import MediaStore
+
+    class FakeApi:
+        def configured(self):
+            return True
+
+        def character_render(self, realm, name):
+            return _image(tmp_path, "c.png")
+
+        def set_pieces(self, set_id):
+            kinds = ("HEAD", "SHOULDER", "CHEST", "HAND", "WAIST", "LEGS", "FEET", "WRIST")
+            return [{"item": 1000 + i, "name": f"Pièce {i}", "slot": k, "slotType": k, "display": 500 + i}
+                    for i, k in enumerate(kinds)]
+
+    app.media = MediaStore(FakeApi())
+    app.test_ctx.character.realm = "Ysondre"
+    data = app.test_ctx.data
+    data.transmog = {"updated": 0, "setsUpdated": 0,
+                     "cats": [{"id": 1, "name": "Tête", "weapon": False, "collected": 1, "total": 1}],
+                     "items": {"1": [{"source": 7, "id": 50177, "name": "Heaume", "quality": 4, "classID": 4,
+                                      "subClassID": 3, "equipLoc": "INVTYPE_HEAD"}]},
+                     "sets": [{"id": 1000, "name": "Habits de seconde vue", "label": "Normal", "classMask": 0,
+                               "expansion": 0, "have": 3, "total": 8}]}
+    app.active_tab = app.TABS.index("Collections du bataillon")
+    app.state["collection"] = "transmog"
+    app.state["tm_sel"] = ("set", 1000)
+    app.draw(app.test_ctx)
+    assert _wait(lambda: app.media.state("set:1000") == "prête")
+    app.draw(app.test_ctx)
+    assert sorted(app.state["tm_try"]) == [1, 3, 5, 6, 7, 8, 9, 10]      # l'ensemble entier est posé
+    assert app.state["tm_try"][5]["display"] == 502
+    app.state["tm_sel"] = ("item", 1, 7)                                  # une apparence : remplace la tête
+    app.draw(app.test_ctx)
+    assert app.state["tm_try"][1]["item"] == 50177 and len(app.state["tm_try"]) == 8
+    app.screen.cut.clear()
+    app.draw(app.test_ctx)
+    assert app.screen.cut == []
+    inside = [rect for rect, _fn in app._buttons if rect.top < app.BOTTOM and rect.w < app.W]   # (hors barre d'onglets)
+    assert inside and all(rect.bottom <= app.BOTTOM - 4 for rect in inside), "rien ne déborde du cadre"
+    _shot(app, "collections_transmog_tryon.png")

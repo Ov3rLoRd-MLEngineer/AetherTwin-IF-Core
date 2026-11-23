@@ -34,6 +34,9 @@ def main():
     parser.add_argument("--storage", default="")
     parser.add_argument("--title", default="Widget web")
     parser.add_argument("--rect", default="100,100,480,360")
+    parser.add_argument("--framed", action="store_true", help="fenêtre normale (bordure, redimensionnable)")
+    parser.add_argument("--embedded", action="store_true",
+                        help="vue 3D : fenêtre cachée au départ, que l'appli rattache à la sienne (fenêtre enfant)")
     args = parser.parse_args()
     allowed = [h for h in args.allowed.split(",") if h.strip()]
 
@@ -56,10 +59,14 @@ def main():
     # (WS_EX_NOACTIVATE) et aucune frappe au clavier ne lui parvient jamais (identifiants, recherche...).
     options = dict(x=x, y=y, width=w, height=h, frameless=True, on_top=True, easy_drag=False, resizable=False,
                    text_select=True, focus=True)
+    if args.framed:   # vue 3D : fenêtre ordinaire, déplaçable et redimensionnable, pas au premier plan
+        options.update(frameless=False, on_top=False, resizable=True, text_select=False)
+    if args.embedded:
+        options.update(frameless=True, on_top=False, resizable=False, text_select=False, hidden=True)
     try:
         window = webview.create_window(args.title, args.url, **options)
     except TypeError:                       # versions plus anciennes : sans certains paramètres
-        for key in ("focus", "text_select", "easy_drag"):
+        for key in ("focus", "text_select", "easy_drag", "hidden"):
             options.pop(key, None)
         window = webview.create_window(args.title, args.url, **options)
 

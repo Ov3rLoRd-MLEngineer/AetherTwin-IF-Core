@@ -18,6 +18,7 @@ from game_connection import GameConnection
 from ui import UI
 import overlay as ov
 from bestiary import Bestiary
+from model3d import Viewer3D
 from focus import CombatMonitor, FocusManager
 from hotkeys import Hotkeys
 from vision import VisionManager
@@ -86,6 +87,7 @@ def main():
     focus = FocusManager(settings)
     monitor = CombatMonitor(os.path.join(WoWConfig.WOW_PATH, "Logs"), settings.get("focus.quiet_seconds", 5))
     ui.bestiary = Bestiary(os.path.join(BASE_DIR, "bestiary.json"), os.path.join(WoWConfig.WOW_PATH, "Logs"))
+    ui.viewer3d = Viewer3D(os.path.join(BASE_DIR, "cache", "zam"))   # vue 3D facultative (Paramètres > Jeu)
     hotkeys = Hotkeys()
     overlay_state = {"visible": True, "geometry": None, "checked": 0.0}
 
@@ -413,6 +415,7 @@ def main():
         pass
     hotkeys.stop()
     webhost.stop_all()
+    ui.viewer3d.close()               # fenêtre 3D et serveur local
     voice.stop()
     vision.stop_watch()
     print("WoW Assistant fermé.")

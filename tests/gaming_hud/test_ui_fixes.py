@@ -41,10 +41,23 @@ def field(app):
 
 
 # --------------------------------------------------------------------------- fermeture de la fenêtre
-def test_closing_the_main_window_quits_even_after_the_overlay_existed(app) -> None:
+def test_closing_the_main_window_asks_for_confirmation(app) -> None:
     close = pygame.event.Event(pygame.WINDOWCLOSE)  # SDL envoie ceci (et non QUIT) dès qu'il y a 2 fenêtres
-    assert app.handle_events([close]) is False
-    assert app.handle_events([pygame.event.Event(pygame.QUIT)]) is False
+    assert app.handle_events([close]) is True       # 1re demande : « Quitter WoW Assistant ? »
+    assert app.modal["type"] == "quit"
+    assert app.handle_events([pygame.event.Event(pygame.QUIT)]) is False   # 2e demande d'affilée : on quitte
+
+
+def test_quit_confirmation_no_restores_the_previous_window(app) -> None:
+    app.modal = {"type": "compose-test"}
+    assert app.handle_events([pygame.event.Event(pygame.QUIT)]) is True
+    assert app.modal["type"] == "quit"
+    app.close_modal()                                # « Non » / Échap
+    assert app.modal == {"type": "compose-test"} and app._quit_now is False
+    app.modal = None
+    app.request_quit()
+    enter = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN, mod=0, unicode="")
+    assert app.handle_events([enter]) is False       # Entrée : oui
 
 
 def test_closing_the_overlay_window_does_not_quit(app) -> None:
@@ -52,7 +65,8 @@ def test_closing_the_overlay_window_does_not_quit(app) -> None:
         pytest.skip(f"overlay indisponible en mode headless : {app.overlay_error}")
     close_overlay = pygame.event.Event(pygame.WINDOWCLOSE, window=app.overlay_win)
     assert app.handle_events([close_overlay]) is True and app.overlay_on is False
-    # l'overlay est seulement masqué : la fenêtre principale doit toujours pouvoir se fermer
+    # l'overlay est seulement masqué : la fenêtre principale doit toujours pouvoir se fermer (après confirmation)
+    assert app.handle_events([pygame.event.Event(pygame.WINDOWCLOSE)]) is True and app.modal["type"] == "quit"
     assert app.handle_events([pygame.event.Event(pygame.WINDOWCLOSE)]) is False
 
 
@@ -86,7 +100,7 @@ def test_held_escape_does_not_quit_after_closing_a_field(field) -> None:
     assert ui._handle_event(key(pygame.K_ESCAPE)) is True and ui.focus is None  # 1er appui : ferme la saisie
     assert ui._handle_event(key(pygame.K_ESCAPE)) is True  # répétition de la touche maintenue : ignorée
     ui._handle_event(pygame.event.Event(pygame.KEYUP, key=pygame.K_ESCAPE))
-    assert ui._handle_event(key(pygame.K_ESCAPE)) is False  # nouvel appui hors saisie : Échap quitte, comme avant
+    assert ui._handle_event(key(pygame.K_ESCAPE)) is False  # nouvel appui hors saisie : demande à quitter
 
 
 def test_number_keys_do_not_repeat_tab_switches(app) -> None:

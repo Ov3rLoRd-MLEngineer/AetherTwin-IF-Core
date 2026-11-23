@@ -42,6 +42,9 @@ Services en ligne facultatifs (désactivés tant que l'utilisateur n'y met pas s
 | Service | Conditions | Usage |
 |---|---|---|
 | API Battle.net (Blizzard) | conditions d'utilisation des API de Blizzard (développeur gratuit) | WoW Assistant : rendus du personnage, images des montures, prix de l'Hôtel des ventes |
+| Visionneuse 3D de Wowhead (ZamModelViewer) et ses modèles (`wow.zamimg.com/modelviewer/live/`) | propriété de Wowhead / Blizzard, non redistribués : téléchargés à la demande (option désactivée par défaut), cache local non versionné, usage personnel, mention « Visionneuse 3D : Wowhead » | WoW Assistant : vue 3D facultative (personnage, essayage, montures, mascottes, créatures) |
+| wow-model-viewer (globales `window.WH` reprises dans `web3d/viewer.html`) | ISC | WoW Assistant : page de la vue 3D |
+| jQuery 3.7.1 (cdnjs, téléchargé à la demande, non versionné) | MIT | exigé par la visionneuse de Wowhead |
 
 Modèles téléchargés (non versionnés, dans `models/` ou le cache Hugging Face) :
 
