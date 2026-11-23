@@ -39,6 +39,8 @@ SKILL_CATEGORY = "gaming"
 # outils autorisés en mode CLI (approbations sautées par Hermes) : rien qui exécute, écrive ou pilote le PC
 SAFE_TOOLSETS = ("web", "skills", "memory", "session_search", "vision", "todo")
 SESSION_TITLE = "WoW Assistant"
+REASONING = (("low", "Rapide"), ("medium", "Équilibrée"), ("xhigh", "Poussée"), ("hermes", "Hermes"))
+FAILED_MARKERS = ("couldn't finish this reply", "Your request was not processed", "Something went wrong")
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
@@ -165,6 +167,9 @@ def explain_error(text):
         return (f"Le modèle de Hermes n'a que {small.group(1).strip()} jetons de contexte ; Hermes en demande au moins "
                 f"{small.group(2).strip()}. Dans Hermes : Paramètres > Fournisseurs > Points de terminaison > "
                 "Contexte : 64000 ou plus (assez de mémoire vidéo nécessaire).")
+    if "reasoning effort" in (text or "").lower():
+        return ("Le modèle refuse le niveau de réflexion demandé par Hermes (souvent « high » avec Qwen 3.5). Onglet "
+                "Hermes > Réflexion : Rapide ou Équilibrée ; dans Hermes, choisir Medium à côté du modèle.")
     if "Connection refused" in (text or "") or "ConnectError" in (text or ""):
         return "Hermes n'arrive pas à joindre son serveur de modèles (Ollama lancé ?). Détail : " + text[:200]
     return text
@@ -332,6 +337,11 @@ class HermesClient:
         req = urllib.request.Request(self._url(path), data=data, headers=headers, method=method)
         return self._open(req, timeout=timeout)
 
+    def reasoning(self):
+        """Niveau de réflexion demandé à chaque question ("" = celui de Hermes)."""
+        level = self.settings.get("hermes.reasoning", "medium") if self.settings is not None else "medium"
+        return level if level in {k for k, _ in REASONING} - {"hermes"} else ""
+
     def _session(self, fresh=False):
         sid = "" if fresh else (self.settings.get("hermes.session_id", "") if self.settings is not None else "")
         if sid:
@@ -356,14 +366,17 @@ class HermesClient:
             message = [{"type": "text", "text": prompt}] + [
                 {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{data}"}} for mime, data in images]
         sid = self._session()
+        body = {"message": message}
+        if self.reasoning():
+            body["model_options"] = {"reasoning_effort": self.reasoning()}
         try:
-            response = self._request("POST", f"/api/sessions/{sid}/chat/stream", {"message": message}, stream=True,
+            response = self._request("POST", f"/api/sessions/{sid}/chat/stream", body, stream=True,
                                      timeout=self.TIMEOUT)
         except urllib.error.HTTPError as e:
             if e.code != 404:
                 raise RuntimeError(_http_error(e))
             sid = self._session(fresh=True)                                # session supprimée dans Hermes
-            response = self._request("POST", f"/api/sessions/{sid}/chat/stream", {"message": message},
+            response = self._request("POST", f"/api/sessions/{sid}/chat/stream", body,
                                      stream=True, timeout=self.TIMEOUT)
         job.session_id = sid
         with response:
@@ -441,6 +454,8 @@ class HermesClient:
         st = self.info.refresh()
         toolsets = list(SAFE_TOOLSETS) + ([f"mcp-{MCP_NAME}"] if st.get("mcp") else [])
         args = [st["exe"], "-z", prompt, "-t", ",".join(toolsets)]
+        if self.reasoning():
+            args += ["--reasoning", self.reasoning()]
         if st.get("skill"):
             args += ["-s", SKILL_NAME]
         return args
@@ -462,7 +477,7 @@ class HermesClient:
             proc.kill()
             raise RuntimeError("Hermes n'a pas répondu à temps.")
         text = (out or b"").decode("utf-8", "replace").strip()
-        if "couldn't finish this reply" in text or "Something went wrong" in text[:80]:
+        if any(marker in text for marker in FAILED_MARKERS) and len(text) < 600:
             detail = last_error(self.info.home, job.started)
             raise RuntimeError(explain_error(detail) if detail else
                                "Hermes n'a pas pu répondre (détails : commande « hermes logs »).")

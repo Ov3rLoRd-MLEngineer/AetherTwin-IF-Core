@@ -24,7 +24,9 @@ DEFAULTS = {
         "exe_args": "{prompt}",              # {prompt} est remplacé par la question ; sans {prompt} elle est envoyée sur l'entrée standard
         "system_prompt": "Tu es un assistant expert de World of Warcraft. Réponds en français, de façon claire et concise.",
     },
-    "hermes": {"transport": "auto", "session_id": ""},   # Hermes Agent : auto / api / cli ; session de la conversation
+    # Hermes Agent : auto / api / cli ; session de la conversation ; réflexion demandée au modèle à chaque question
+    # (low / medium / xhigh, ou "hermes" = réglage de Hermes). « high » est refusé par le modèle de Qwen 3.5.
+    "hermes": {"transport": "auto", "session_id": "", "reasoning": "medium"},
     "online_icons": True,
     "app": {"pos": None},                     # dernière position de la fenêtre principale
     "game": {"path": ""},                     # dossier _retail_ de WoW (vide = détection automatique)

@@ -1003,3 +1003,15 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - Mode « Programme local (exe) » retiré des Paramètres (il servait à lancer Hermes) ; un réglage « exe » devient
   « hermes ».
 - **Tests :** 5 nouveaux dans `test_hermes.py` (25) ; suite verte.
+
+## 23/11/2026 : Hermes, réflexion « high » refusée par Qwen 3.5
+- **Agent :** Cloud
+- Retours de Jérémy (tests 51 à 56) : toutes les questions échouaient, Ollama répondait 500 : « Unexpected reasoning
+  effort high. Supported types are xhigh (default), medium, and low » (modèle de conversation de `qwen3-27b`). Hermes
+  a `agent.reasoning_effort: high` et réessaie 3 fois par appel : d'où les 5 min 20 du test précédent (pas le
+  modèle : 28 jetons/s en direct).
+- WoW Assistant choisit la réflexion à chaque question (`--reasoning` en CLI, `model_options.reasoning_effort` par
+  l'API), « medium » par défaut ; choix dans l'onglet Hermes ; erreur expliquée en français ; « Your request was not
+  processed » reconnu comme un échec.
+- Vérifié en vrai : question via la CLI en 16 s, réponse tirée des outils de jeu.
+- **Tests :** 1 nouveau (26 dans `test_hermes.py`) ; suite verte.

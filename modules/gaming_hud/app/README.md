@@ -72,6 +72,8 @@ Boutons « Envoyer à Hermes » : quêtes, montures, mascottes, jouets, apparenc
   commande sensible demandée par Hermes attend « Autoriser » / « Refuser » dans l'appli.
 - **Fichiers et liens** : « Joindre un fichier » ou glisser un fichier sur la fenêtre (texte : txt, md, lua, json,
   csv, log... lu par l'appli et envoyé comme données ; images) ; un lien dans la question est lu par Hermes.
+- **Réflexion** : Rapide / Équilibrée (défaut) / Poussée, envoyée à chaque question ; « Hermes » garde son
+  réglage (« high » est refusé par Qwen 3.5 : erreur 500).
 - **Modèle** : Hermes exige au moins 64 000 jetons de contexte (Hermes > Paramètres > Fournisseurs > Points de
   terminaison > Contexte) ; sinon l'onglet explique l'erreur.
 - **Overlay** : widgets « Assistant (Hermes) » (conversation) et « Coach Hermes » (questions en un clic,

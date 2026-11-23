@@ -237,6 +237,7 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 45–48 | — | — | **OK (Jérémy, 23/11)** sauf : la question de fermeture partait seule (corrigé) ; identifiants perdus dans la copie Hermes (corrigé) |
 | 49 | Fermeture | recopier `modules\gaming_hud\app` ; croix de la fenêtre et attendre 10 s ; « Non » ; Alt+F4 puis « Oui » | la question reste affichée tant qu'on ne répond pas |
 | 49–50 | — | — | **OK (Jérémy, 23/11)** |
+| 51–56 | — | — | **Essayés par Jérémy (23/11)** : état, skill et MCP OK ; questions en échec (erreur 500 d'Ollama) : Hermes demandait une réflexion « high », refusée par le modèle de conversation de Qwen 3.5. Corrigé (réflexion choisie dans l'onglet, « Équilibrée » par défaut) : vraie question via la CLI en 16 s avec les données du jeu. API : relancer Hermes ; à refaire |
 | 50 | Identifiants partout | lancer une fois la copie qui a les identifiants (dossier du dépôt), la fermer ; lancer la copie Hermes | Paramètres > Jeu : « Identifiants enregistrés » dans la copie Hermes aussi |
 | 56 | Hermes : fichiers et liens | « Joindre un fichier » (ou glisser un fichier .txt / .md / image sur la fenêtre), puis une question ; une autre question avec un lien Wowhead | le fichier apparaît au-dessus de la saisie puis dans « [fichiers : …] » ; Hermes s'appuie sur son contenu et sur la page du lien |
 | 51 | Hermes : état | lancer Hermes Agent, puis WoW Assistant > onglet **Hermes** | Hermes trouvé, passerelle en marche, modèle affiché ; mode « CLI » |

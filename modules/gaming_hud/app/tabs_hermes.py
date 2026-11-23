@@ -107,11 +107,26 @@ def _draw_left(ui, chat, rect):
             ui.settings.save()
         ui.pill((px, py, 64, 26), label, current == value, choose, font="tiny")
         px += 70
+    reason_y = py + 32
+    ui.text("Réflexion :", "tiny", "gray", (x + 16, reason_y + 6))
+    rx = x + 96
+    level = ui.settings.get("hermes.reasoning", "medium")
+    for value, label in hermes_bridge.REASONING:
+        rw = ui.fonts["tiny"].size(label)[0] + 16
+        def pick(v=value):
+            ui.settings.set("hermes.reasoning", v)
+            ui.settings.save()
+        ui.pill((rx, reason_y, rw, 26), label, level == value, pick, font="tiny")
+        rx += rw + 4
+    ui.tip(pygame.Rect(x + 16, reason_y, w - 32, 26),
+           {"rows": [("Temps de réflexion du modèle avant de répondre (Rapide = réponses plus vite).",
+                      C["light_gray"], ""),
+                     ("« Hermes » : le réglage de Hermes (« high » est refusé par Qwen 3.5).", C["gray"], "")]})
     tip_rect = pygame.Rect(x + 16, py, w - 32, 26)
     ui.tip(tip_rect, {"rows": [("Auto : l'API si elle tourne, sinon la CLI.", C["light_gray"], ""),
                                ("API : réponse au fil de l'eau, images, autorisations dans l'appli.", C["gray"], ""),
                                ("CLI : sans réglage, ≈ 20 s par question, outils sans danger seulement.", C["gray"], "")]})
-    py += 38
+    py += 70
 
     ui.text("Mise en place (un clic, sauvegarde automatique) :", "tiny", "gray", (x + 16, py))
     py += 20

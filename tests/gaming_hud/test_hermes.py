@@ -524,3 +524,18 @@ def test_model_context_and_hermes_errors_are_explained(tmp_path, hb) -> None:
     job = client.ask("?")
     wait(job)
     assert job.text == "" and "Contexte" in job.error
+
+
+def test_reasoning_level_is_sent_on_both_paths(tmp_path, hb) -> None:
+    home = fake_home(tmp_path, api=False)
+    client = hb.HermesClient(Settings(), hb.HermesInfo(str(home)))
+    args = client.cli_args("?")
+    assert args[args.index("--reasoning") + 1] == "medium"                 # défaut : « high » refusé par Qwen 3.5
+    client.settings.set("hermes.reasoning", "hermes")
+    assert "--reasoning" not in client.cli_args("?")
+    opener = FakeOpener([("assistant.completed", {"content": "ok"}), ("done", {})])
+    api = hb.HermesClient(Settings({"hermes.reasoning": "low"}), hb.HermesInfo(str(fake_home(tmp_path / "b"))),
+                          opener=opener)
+    wait(api.ask("?"))
+    assert opener.calls[-1][2]["model_options"] == {"reasoning_effort": "low"}
+    assert "Réflexion" in hb.explain_error("HTTP 500: Jinja Exception: Unexpected reasoning effort high.")
