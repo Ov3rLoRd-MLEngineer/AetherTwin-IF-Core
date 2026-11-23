@@ -173,6 +173,7 @@ core/
   module_runner.py
   scheduler.py
   strata.py
+  terminals.py
   translate.py
   web/
     calc_app.css
@@ -184,9 +185,19 @@ core/
     dashboard.css
     dashboard.html
     dashboard.js
+    dev.css
+    dev.js
     ether_scene.js
+    LICENSE.xterm-addon-fit.txt
+    LICENSE.xterm.txt
     logo.svg
     professeur.js
+    terminal.css
+    terminal.html
+    terminal.js
+    xterm-addon-fit.js
+    xterm.css
+    xterm.js
 modules/
   __init__.py
   calc_cas/
@@ -204,6 +215,16 @@ modules/
     sandbox.py
     stats.py
     worker.py
+  dev_launcher/
+    __init__.py
+    bridge_mcp.py
+    catalog.py
+    hermes_link.py
+    launch.py
+    manifest.json
+    module.py
+    relay_check.py
+    tasks.py
   gaming_hud/
     __init__.py
     __main__.py
@@ -392,6 +413,9 @@ tests/
     scantrad/
       page_test.json
       page_test.png
+  dev_launcher/
+    __init__.py
+    test_dev_launcher.py
   gaming_hud/
     __init__.py
     conftest.py
@@ -726,6 +750,27 @@ Strata : moteur d'inférence secondaire, pour les modèles de langage « mélang
   - `def starting(self) -> bool`
   - `def state(self) -> dict[str, Any]` — Ne lève jamais. `status` : désactivé | non installé | arrêté | démarrage | actif.
 
+### `core/terminals.py`
+
+Terminaux du Hub : une console Windows (pseudo-terminal) affichée dans le tableau de bord.
+
+- `def child_env() -> dict[str, str]` — Environnement d'un terminal : sans le bus du Hub ni les variables d'une session Claude Code qui aurait
+- **`class TerminalError(ValueError)`** — Session inconnue, lancement refusé ou pseudo-terminal indisponible.
+- **`class Session`** — Un pseudo-terminal, sa sortie récente et ses abonnés (les pages ouvertes).
+  - `def feed(self, text: str) -> None`
+  - `def subscribe(self, listener: Callable[[str], None]) -> str`
+  - `def unsubscribe(self, listener: Callable[[str], None]) -> None`
+  - `def alive(self) -> bool`
+  - `def view(self) -> dict[str, Any]`
+- **`class TerminalManager`** — Sessions ouvertes. `launches_dir` : seul dossier d'où un fichier de lancement peut être exécuté.
+  - `def open(self, launch: str='', cwd: str='', title: str='', rows: int=30, cols: int=110) -> dict[str, Any]` — Ouvre `cmd.exe` (dans `cwd`), ou exécute un fichier de lancement du module dev_launcher.
+  - `def get(self, sid: str) -> Session`
+  - `def write(self, sid: str, data: str) -> None`
+  - `def resize(self, sid: str, rows: int, cols: int) -> None`
+  - `def close(self, sid: str) -> dict[str, Any]`
+  - `def list(self) -> list[dict[str, Any]]`
+  - `def close_all(self) -> None`
+
 ### `core/translate.py`
 
 Traduction générale vers le français : texte, image (capture, photo) ou message vocal.
@@ -885,6 +930,115 @@ Processus de calcul séparé, avec délai maximal.
   - `def stop(self) -> None`
   - `def alive(self) -> bool`
   - `def call(self, op: str, timeout_s: float | None=None, **args: Any) -> Any` — Exécute une opération dans le processus enfant. Délai dépassé : dictionnaire d'erreur, enfant relancé.
+
+### `modules/dev_launcher/__init__.py`
+
+Module Développement : lanceur de Claude Code local, pont MCP avec Hermes, tâches confiées, relais quota.
+
+*(aucun symbole public)*
+
+### `modules/dev_launcher/bridge_mcp.py`
+
+Pont MCP entre Claude Code local, Hermes Agent et le Hub AetherTwin (transport stdio, bibliothèque standard).
+
+- **`class HubError(RuntimeError)`**
+- `def command(name: str, payload: dict | None=None, timeout: float=60.0) -> object` — Commande au module dev_launcher (activé au besoin).
+- `def wait_job(job: dict, seconds: float, sleep=time.sleep) -> dict`
+- `def t_hub_state(args: dict) -> object`
+- `def t_knowledge(args: dict) -> object`
+- `def t_delegate(args: dict) -> object`
+- `def t_follow(args: dict) -> object`
+- `def t_tasks(args: dict) -> object`
+- `def t_folders(args: dict) -> object`
+- `def t_ask_hermes(args: dict) -> object`
+- `def t_follow_hermes(args: dict) -> object`
+- `def tools_for(role: str) -> list`
+- `def tool_list(role: str) -> list[dict]`
+- `def call_tool(role: str, name: str, args: dict) -> dict`
+- `def handle(role: str, message: object) -> dict | None`
+- `def serve(role: str, stdin, stdout) -> None`
+- `def main() -> None`
+
+### `modules/dev_launcher/catalog.py`
+
+Catalogue des modèles pour Claude Code local : Ollama (direct) et OmniRoute (facultatif).
+
+- `def service_up(url: str, timeout: float=3.0) -> bool` — Le service répond-il (même par une erreur HTTP : il est lancé) ?
+- `def num_ctx(base: str, name: str, timeout: float=4.0) -> int` — Contexte réglé dans le Modelfile du modèle (`PARAMETER num_ctx`), 0 s'il n'y en a pas.
+- `def ollama_models(base: str, timeout: float=4.0) -> dict[str, Any]` — Modèles installés (et chargés) dans Ollama. Les modèles d'embedding sont écartés.
+- `def omniroute_models(url: str, key_env: str='OMNIROUTE_API_KEY', fallback: Path | None=None, timeout: float=4.0) -> dict[str, Any]` — Modèles d'OmniRoute : liste en direct avec la clé (variable d'environnement), sinon la liste exportée.
+
+### `modules/dev_launcher/hermes_link.py`
+
+Lien avec Hermes Agent : pont MCP déclaré chez Hermes, questions posées à Hermes.
+
+- `def hermes_home() -> Path`
+- `def registered(config_text: str, name: str=MCP_NAME) -> bool` — Le serveur figure-t-il dans la section `mcp_servers` de config.yaml ? (lecture texte, sans YAML).
+- `def state(exe: str) -> dict[str, Any]`
+- `def backup(path: Path) -> str`
+- `def register(exe: str, runner: Callable[..., Any]=subprocess.run) -> dict[str, Any]` — Déclare le pont chez Hermes avec sa propre commande, config.yaml sauvegardé avant.
+
+### `modules/dev_launcher/launch.py`
+
+Lancement de Claude Code local : fichier de lancement (.bat), Windows Terminal ou terminal du Hub.
+
+- **`class LaunchError(ValueError)`** — Modèle, dossier ou mode de lancement refusé.
+- `def claude_command(claude_dir: Path | None) -> list[str]` — Claude Code installé dans le dossier du Claude Code local, sinon celui du PATH, sinon npx.
+- `def windows_terminal() -> str`
+- `def route_env(route: str, model: str, context: int, ollama_url: str, omniroute_url: str) -> dict[str, str]` — Variables d'environnement de Claude Code pour la route choisie.
+- `def mcp_config(path: Path, role: str='claude') -> Path` — Configuration MCP passée à Claude Code (`--mcp-config`) : le pont vers Hermes et le Hub.
+- `def batch_script(env: dict[str, str], folder: Path, command: list[str], title: str, mcp: Path | None=None, tools: str='') -> str` — Contenu du .bat : variables, dossier de travail, puis Claude Code.
+- `def write_launch(launches: Path, script: str, keep: int=30) -> Path` — Écrit le fichier de lancement (dossier du module, ignoré par Git) ; garde les 30 derniers.
+- `def open_in_windows_terminal(bat: Path, folder: Path, title: str, spawner: Any=subprocess.Popen) -> str` — Ouvre le lancement dans Windows Terminal (repli : une console classique).
+
+### `modules/dev_launcher/module.py`
+
+Module du Hub : lanceur de Claude Code local, pont MCP avec Hermes, tâches confiées, relais quota.
+
+- **`class Jobs`** — Travaux en arrière-plan suivis par clé (même forme que ceux du Professeur).
+  - `def start(self, key: str, label: str, work: Callable[[], Any]) -> dict[str, Any]`
+  - `def view(self, key: str) -> dict[str, Any]`
+- **`class DevLauncherModule(ModuleBase)`**
+  - `def claude_dir(self) -> Path | None`
+  - `def roots(self) -> list[Path]`
+  - `def served_context(self, model: str) -> int` — Contexte servi par Ollama pour ce modèle (`num_ctx` du Modelfile, sinon le défaut d'Ollama).
+  - `def task_model(self, wanted: str='') -> str` — Modèle des tâches sans surveillance : demandé, configuré, sinon un modèle servi avec ≥ 64 k.
+  - `def env_for(self, model: str='', route: str='ollama', context: int=0) -> dict[str, str]`
+  - `def context_warning(env: dict[str, str]) -> str`
+  - `def hermes_exe(self) -> str`
+  - `def start(self) -> None`
+  - `def stop(self) -> None`
+  - `def health(self) -> Health`
+  - `def handle_event(self, event: Event) -> None`
+  - `def prefs(self) -> dict[str, Any]`
+  - `def save_prefs(self, values: dict[str, Any]) -> None`
+  - `def state(self) -> dict[str, Any]`
+  - `def models(self) -> dict[str, Any]`
+  - `def launch(self, payload: dict[str, Any]) -> dict[str, Any]`
+
+### `modules/dev_launcher/relay_check.py`
+
+Essai du relais quota : l'agent local reçoit la passation et en accuse réception, sans rien modifier.
+
+- `def load_relay(repo: Path) -> Any`
+- `def run_ack_test(repo: Path, claude: list[str], env: dict[str, str], out: Path, runner: Callable[..., Any]=subprocess.run, timeout_s: float=900.0, now: Callable[[], float]=time.time) -> dict[str, Any]`
+- `def last_report(out: Path) -> dict[str, Any] | None`
+- `def relay_state(repo: Path) -> dict[str, Any] | None` — État du relais complet s'il a tourné (`logs/relay_state.json`).
+
+### `modules/dev_launcher/tasks.py`
+
+Tâches confiées à Claude Code local (par Hermes, par le Hub) : exécution sans surveillance, encadrée.
+
+- **`class TaskError(ValueError)`** — Dossier non autorisé, tâche vide ou inconnue.
+- `def clean_env(extra: dict[str, str]) -> dict[str, str]` — Environnement du processus sans secrets, plus les variables de la route (jeton factice compris).
+- `def inside(path: Path, roots: list[Path]) -> bool`
+- `def brief(task: str, workdir: Path) -> str` — Consigne envoyée au modèle : la tâche, précédée de son dossier (sinon il écrit ailleurs, et c'est refusé).
+- **`class TaskRunner`** — Lance, suit et garde la trace des tâches (`<data>/taches/<id>.json` et `.log`).
+  - `def folder(self, wanted: str, task_id: str) -> Path`
+  - `def settings_file(self) -> Path`
+  - `def start(self, task: str, folder: str='', model: str='', origin: str='hub') -> dict[str, Any]`
+  - `def view(self, task_id: str, tail: int=6000) -> dict[str, Any]`
+  - `def list(self, limit: int=20) -> list[dict[str, Any]]`
 
 ### `modules/gaming_hud/__init__.py`
 
@@ -1473,6 +1627,8 @@ Relais Cloud <-> Local : continuer à développer pendant les coupures de quota.
   - `def stop(self) -> None`
 - `def ollama_base_url(host: str) -> str`
 - `def ollama_has_model(host: str, model: str, timeout_s: float=5.0) -> tuple[bool, str]` — Interroge /api/tags du serveur Ollama configuré (machine locale ou réseau local).
+- `def is_direct_ollama(router_url: str) -> bool` — Ollama sert lui-même le format de Claude Code (`/v1/messages`) : adresse sans routeur intermédiaire.
+- `def claude_model(router_url: str, model: str) -> str` — Nom du modèle pour Claude Code : `ollama/<nom>` par OmniRoute, le nom seul en direct sur Ollama.
 - `def router_is_up(router_url: str, timeout_s: float=5.0) -> tuple[bool, str]` — Vérifie que le routeur local (OmniRoute) répond sur /models.
 - **`class SubprocessLocalAgent`** — Agent local branché sur Ollama : Claude Code via un routeur local, Aider, ou OpenCode.
   - `def prompt_file(self) -> Path`

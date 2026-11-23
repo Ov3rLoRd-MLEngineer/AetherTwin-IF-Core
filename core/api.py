@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -39,9 +39,11 @@ from core import config
 from core.daemon import REPO_ROOT, Daemon
 from core.llm_router import LlmError, LlmRefused, openai_to_ollama
 from core.strata import StrataError, is_strata
+from core.terminals import TerminalError, TerminalManager
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 SCANTRAD_DIR = REPO_ROOT / "data" / "scantrad"
+LAUNCHES_DIR = REPO_ROOT / "data" / "dev_launcher" / "lancements"  # écrits par le module dev_launcher
 IMAGE_TYPES = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
 MAX_UPLOAD = 25 * 1024 * 1024
 
@@ -89,6 +91,9 @@ STATIC_TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=
                 ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml"}
 CSP = ("default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' blob:; connect-src 'self'; "
        "frame-src 'self' http://127.0.0.1:5757")  # simulations du Professeur ; aperçu de l'overlay OBS (local)
+# Page du terminal (cadre du tableau de bord) : xterm.js ajoute ses propres règles de style ; WebSocket locale.
+TERM_CSP = ("default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+            "connect-src 'self' ws://127.0.0.1:5750 ws://localhost:5750; frame-ancestors 'self'")
 # Simulations du Professeur : pages autonomes, servies dans un cadre isolé (origine opaque, aucun accès réseau).
 SIM_CSP = ("default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; "
            "sandbox allow-scripts")
@@ -467,6 +472,87 @@ def create_app(daemon: Daemon) -> FastAPI:
     @app.get("/static/{filename}", include_in_schema=False)
     def static_file(filename: str) -> Response:
         return static(filename)
+
+    # -- terminaux (onglet Développement)
+    terminals = TerminalManager(LAUNCHES_DIR)
+    app.state.terminals = terminals
+
+    def terminal_call(fn: Any) -> Any:
+        try:
+            return fn()
+        except TerminalError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/terminal", include_in_schema=False)
+    def terminal_page() -> Response:
+        page = static("terminal.html")
+        page.headers["Content-Security-Policy"] = TERM_CSP
+        return page
+
+    @app.get("/terminals")
+    def terminals_list() -> list[dict[str, Any]]:
+        return terminals.list()
+
+    @app.post("/terminals")
+    def terminals_open(payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        body = payload or {}
+        return terminal_call(lambda: terminals.open(launch=str(body.get("lancement", "")),
+                                                    cwd=str(body.get("dossier", "")),
+                                                    title=str(body.get("titre", "")),
+                                                    rows=int(body.get("lignes") or 30),
+                                                    cols=int(body.get("colonnes") or 110)))
+
+    @app.post("/terminals/{sid}/close")
+    def terminals_close(sid: str) -> dict[str, Any]:
+        return terminal_call(lambda: terminals.close(sid))
+
+    @app.websocket("/terminals/{sid}/ws")
+    async def terminal_ws(websocket: WebSocket, sid: str) -> None:
+        # Le contrôle HTTP (local_only) ne s'applique pas aux WebSockets : hôte et origine vérifiés ici.
+        host = (websocket.headers.get("host") or "").rsplit(":", 1)[0].strip("[]").lower()
+        origin = websocket.headers.get("origin")
+        if host not in TRUSTED_HOSTS or (origin is not None and urlsplit(origin).hostname not in TRUSTED_HOSTS):
+            await websocket.close(code=4403)
+            return
+        try:
+            session = terminals.get(sid)
+        except TerminalError:
+            await websocket.close(code=4404)
+            return
+        await websocket.accept()
+        import asyncio
+
+        loop = asyncio.get_running_loop()
+        outbox: asyncio.Queue[str] = asyncio.Queue()
+
+        def listener(text: str) -> None:
+            loop.call_soon_threadsafe(outbox.put_nowait, text)
+
+        replay = session.subscribe(listener)
+        if replay:
+            await websocket.send_text(json.dumps({"t": "o", "d": replay}))
+
+        async def pump_out() -> None:
+            while True:
+                text = await outbox.get()
+                while not outbox.empty() and len(text) < 65536:
+                    text += outbox.get_nowait()
+                await websocket.send_text(json.dumps({"t": "o", "d": text}))
+
+        sender = asyncio.create_task(pump_out())
+        try:
+            while True:
+                message = json.loads(await websocket.receive_text())
+                if message.get("t") == "i":
+                    await run_in_threadpool(terminals.write, sid, str(message.get("d", "")))
+                elif message.get("t") == "r":
+                    await run_in_threadpool(terminals.resize, sid, int(message.get("rows") or 30),
+                                            int(message.get("cols") or 110))
+        except (WebSocketDisconnect, ValueError, TerminalError):
+            pass
+        finally:
+            sender.cancel()
+            session.unsubscribe(listener)
 
     @app.get("/prof/sims/{sim_id}", include_in_schema=False)
     def professor_sim(sim_id: str) -> Response:

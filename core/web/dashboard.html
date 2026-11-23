@@ -5,11 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AetherTwin — Hub</title>
   <link rel="stylesheet" href="/static/dashboard.css">
+  <link rel="stylesheet" href="/static/dev.css">
   <script src="/static/ether_scene.js" defer></script>
   <script src="/static/dashboard.js" defer></script>
   <script src="/static/professeur.js" defer></script>
   <link rel="stylesheet" href="/static/calc_cas.css">
   <script src="/static/calc_cas.js" defer></script>
+  <script src="/static/dev.js" defer></script>
 </head>
 <body>
   <header>
@@ -26,12 +28,13 @@
     <button role="tab" data-tab="jeu">Jeu</button>
     <button role="tab" data-tab="assistant">Assistant</button>
     <button role="tab" data-tab="professeur">Professeur</button>
-    <button role="tab" data-tab="outils">Outils</button>
     <button role="tab" data-tab="connaissances">Connaissances</button>
     <button role="tab" data-tab="scantrad">Scantrad</button>
     <button role="tab" data-tab="traduction">Traduction</button>
     <button role="tab" data-tab="studio">Studio</button>
     <button role="tab" data-tab="ether">Éther</button>
+    <button role="tab" data-tab="developpement">Développement</button>
+    <button role="tab" data-tab="outils">Outils</button>
     <button role="tab" data-tab="journal">Journal</button>
   </nav>
 
@@ -537,6 +540,104 @@
         </div>
       </section>
     </div>
+
+    <!-- Développement -->
+    <div class="panel dev" data-panel="developpement" hidden>
+      <section>
+        <div class="dev-head">
+          <h2>Claude Code local</h2>
+          <span class="grow"></span>
+          <button id="dev-refresh" type="button" class="ghost small">Actualiser</button>
+        </div>
+        <div id="dev-services" class="dev-services"><p class="muted">Vérification des services…</p></div>
+        <div class="dev-launcher">
+          <div class="dev-models">
+            <div class="row dev-filter">
+              <input id="dev-search" class="grow" type="search" placeholder="Rechercher un modèle (nom, fournisseur)" autocomplete="off">
+              <div class="dev-chips" role="radiogroup" aria-label="Filtre">
+                <button type="button" class="chip" data-filter="tous" aria-pressed="true">Tous</button>
+                <button type="button" class="chip" data-filter="ollama" aria-pressed="false">Ollama</button>
+                <button type="button" class="chip" data-filter="omniroute" aria-pressed="false">OmniRoute</button>
+                <button type="button" class="chip" data-filter="charges" aria-pressed="false">Chargés</button>
+              </div>
+            </div>
+            <div id="dev-model-list" class="dev-model-list" role="listbox" aria-label="Modèles"></div>
+            <p id="dev-model-note" class="muted small-text"></p>
+          </div>
+          <form id="dev-launch" class="dev-launch">
+            <div id="dev-selected" class="dev-selected"><p class="muted">Choisis un modèle dans la liste.</p></div>
+            <label>Contexte (jetons)
+              <span class="row tight"><input id="dev-context" type="number" min="4096" max="2000000" step="1024" value="65536">
+                <button type="button" class="chip" data-ctx="32768">32 k</button><button type="button" class="chip" data-ctx="65536">64 k</button>
+                <button type="button" class="chip" data-ctx="131072">128 k</button><button type="button" class="chip" data-ctx="200000">200 k</button></span>
+            </label>
+            <label>Dossier de travail <input id="dev-folder" class="full" autocomplete="off" placeholder="Dossier du projet"></label>
+            <fieldset class="dev-mode">
+              <legend>Ouvrir dans</legend>
+              <label><input type="radio" name="dev-mode" value="windows" checked> Windows Terminal</label>
+              <label><input type="radio" name="dev-mode" value="hub"> le Hub (sous le lanceur)</label>
+            </fieldset>
+            <label class="check"><input id="dev-mcp" type="checkbox" checked> Pont MCP : Hermes et le Hub disponibles dans Claude Code</label>
+            <label class="check"><input id="dev-tools" type="checkbox" checked> Outils essentiels seulement (lire, écrire, chercher, commandes, plus le pont MCP ; sans tes autres serveurs MCP) : conseillé avec un modèle local, qui se trompe moins dans ses appels d'outils</label>
+            <div class="row">
+              <button id="dev-go" type="submit">Lancer Claude Code</button>
+              <button id="dev-shell" type="button" class="ghost">Invite de commandes</button>
+            </div>
+            <div id="dev-launch-result" class="answer" hidden></div>
+          </form>
+        </div>
+      </section>
+
+      <section id="dev-terminals" hidden>
+        <div class="dev-head">
+          <h2>Terminaux</h2>
+          <div id="dev-term-tabs" class="dev-term-tabs" role="tablist"></div>
+          <span class="grow"></span>
+          <a id="dev-term-full" target="_blank" rel="noopener noreferrer">Plein écran</a>
+          <button id="dev-term-close" type="button" class="ghost small danger">Fermer ce terminal</button>
+        </div>
+        <iframe id="dev-term-frame" class="dev-term-frame" title="Terminal"></iframe>
+      </section>
+
+      <section>
+        <h2>Hermes ⇄ Claude Code local</h2>
+        <p class="muted">Le pont MCP du Hub relie les deux : Hermes peut confier une tâche de développement à Claude Code
+          local (quel que soit le moyen de lui parler : application, <code>hermes.exe</code>, WoW Assistant…), et Claude
+          Code peut poser une question à Hermes. Une tâche confiée ne travaille que dans un dossier autorisé, sans
+          commandes système, sans web, sans accès aux secrets.</p>
+        <div id="dev-hermes" class="row"></div>
+        <div class="dev-split">
+          <form id="dev-task-form">
+            <h3>Confier une tâche à Claude Code local</h3>
+            <textarea id="dev-task" rows="3" maxlength="4000" required placeholder="Ex. : écris un script Python qui convertit un CSV en JSON, avec un test"></textarea>
+            <div class="row">
+              <select id="dev-task-folder" aria-label="Dossier autorisé"></select>
+              <button type="submit">Confier</button>
+            </div>
+          </form>
+          <form id="dev-ask-form">
+            <h3>Poser une question à Hermes</h3>
+            <textarea id="dev-question" rows="3" maxlength="4000" required placeholder="Ex. : quelle est la dernière version stable de Python ?"></textarea>
+            <div class="row"><button type="submit">Demander</button></div>
+          </form>
+        </div>
+        <div id="dev-ask-result" class="answer" hidden></div>
+        <h3>Tâches confiées</h3>
+        <div id="dev-tasks"><p class="muted">Aucune tâche pour l'instant.</p></div>
+      </section>
+
+      <section>
+        <h2>Relais quand le quota de Claude Code API est épuisé</h2>
+        <p class="muted">Le relais (<code>scripts/relay_orchestrator.py</code>) bascule sur Claude Code local pendant la
+          coupure, puis rend la main à Claude Code API avec un résumé à relire (journal, commits, diff). L'essai
+          ci-dessous provoque une bascule à la main : l'agent local reçoit la passation et en accuse réception, sans
+          rien modifier.</p>
+        <div class="row"><button id="dev-relay-test" type="button" class="ghost">Tester le relais (accusé de réception)</button></div>
+        <div id="dev-relay"></div>
+      </section>
+    </div>
+
+    <!-- Outils -->
 
     <!-- Journal -->
     <div class="panel" data-panel="journal" hidden>

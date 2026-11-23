@@ -1,0 +1,17 @@
+{
+  "name": "dev_launcher",
+  "version": "0.1.0",
+  "description": "Développement : lanceur de Claude Code local (Ollama direct ou OmniRoute), terminal dans le Hub, pont MCP avec Hermes, tâches confiées, relais quota",
+  "entry": "modules.dev_launcher.module:DevLauncherModule",
+  "vram_min_gb": 0,
+  "vram_comfort_gb": 0,
+  "python_deps": [],
+  "optional_deps": [],
+  "triggers": {
+    "processes": [],
+    "windows": [],
+    "ports": []
+  },
+  "network": [],
+  "experimental": false
+}
