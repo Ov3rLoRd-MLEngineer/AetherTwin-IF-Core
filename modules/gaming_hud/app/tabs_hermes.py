@@ -6,7 +6,6 @@ Assistant de l'overlay, avec des questions toutes prêtes.
 Les réglages de Hermes ne changent que par un clic du joueur sur ces boutons (copie de sauvegarde avant chaque
 modification) ; la clé de l'API n'est jamais affichée.
 """
-import os
 import threading
 
 import pygame
@@ -39,21 +38,13 @@ def _run_setup(ui, label, fn):
 
 
 def _open_desktop(ui, info):
-    path = info.desktop_app()
-    if not path:
-        ui.state["hermes_note"] = (False, "Application Hermes introuvable.")
-        return
-    try:
-        os.startfile(path)                          # noqa: S606 - application installée par le joueur
-        ui.state["hermes_note"] = (True, "Application Hermes ouverte.")
-    except OSError as e:
-        ui.state["hermes_note"] = (False, f"Ouverture de Hermes impossible : {e}")
+    ui.state["hermes_note"] = hermes_bridge.open_desktop(info)
 
 
 def _status_rows(st, mode, in_use):
     yes, no, warn = C["green"], C["red"], C["orange"]
     api_text = ("en marche" if st.get("api_up") else
-                "activée, relancez Hermes" if st.get("api_enabled") and st.get("api_key") else
+                "activée, relancez la passerelle" if st.get("api_enabled") and st.get("api_key") else
                 "clé manquante" if st.get("api_enabled") else "désactivée")
     return [
         ("Hermes Agent", f"trouvé {st.get('version') or ''}".strip() if st.get("found") else "introuvable",
@@ -145,8 +136,13 @@ def _draw_left(ui, chat, rect):
          lambda: _run_setup(ui, "Activation de l'API", lambda: hermes_bridge.enable_api(info)),
          not (st.get("api_enabled") and st.get("api_key")),
          "Écrit API_SERVER_ENABLED et une clé aléatoire dans le .env de Hermes (jamais affichée), puis relancez Hermes."),
+        ("Relancer la passerelle (API)",
+         lambda: _run_setup(ui, "Relance de la passerelle", lambda: hermes_bridge.restart_gateway(info)),
+         bool(st.get("api_enabled") and st.get("api_key") and not st.get("api_up")),
+         "La passerelle de Hermes tourne en arrière-plan (fermer l'application ne l'arrête pas) : la relancer "
+         "applique l'activation de l'API."),
         ("Ouvrir l'application Hermes", lambda: _open_desktop(ui, info), False,
-         "Lance Hermes Agent (à faire après l'activation de l'API, une fois Hermes fermé)."),
+         "Lance Hermes Agent, détaché de WoW Assistant."),
         ("Nouvelle conversation", chat.new_conversation, False,
          "Efface le fil ici et ouvre une nouvelle session dans Hermes."),
     ]
@@ -159,12 +155,13 @@ def _draw_left(ui, chat, rect):
     note = state.get("hermes_note")
     if note:
         ok, text = note
-        for line in ui.wrap(text, "small", w - 32)[:4]:
+        for line in ui.wrap(text, "small", w - 32)[:3]:
             ui.text(line, "small", "green" if ok else "red", (x + 16, py + 4))
             py += 20
     elif not found:
         message(ui, (x, py, w, 80), ["Installez Hermes Agent puis revenez ici."])
-    _draw_help(ui, (x + 16, y + h - 150, w - 32, 140), st)
+    top = max(py + 18, y + h - 150)                     # l'aide prend la place qui reste, sans chevaucher
+    _draw_help(ui, (x + 16, top, w - 32, y + h - 10 - top), st)
 
 
 HELP = ("Hermes lit votre personnage, vos quêtes, vos sacs, vos métiers et vos collections grâce aux outils de jeu "

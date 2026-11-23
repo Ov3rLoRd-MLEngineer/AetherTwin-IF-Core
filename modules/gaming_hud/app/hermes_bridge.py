@@ -579,6 +579,50 @@ def register_mcp(info, python=None, runner=subprocess.run):
     return False, "Échec de « hermes mcp add » : " + " / ".join(tail)
 
 
+def restart_gateway(info, runner=subprocess.run, wait=60):
+    """Relance la passerelle de Hermes (`hermes gateway restart`) : c'est elle qui lit le .env au démarrage. Fermer
+    l'application Hermes ne l'arrête pas (service en arrière-plan)."""
+    st = info.refresh(force=True)
+    if not st.get("exe"):
+        return False, "Commande hermes introuvable."
+    result = runner([st["exe"], "gateway", "restart"], capture_output=True, text=True, encoding="utf-8",
+                    errors="replace", timeout=180, creationflags=NO_WINDOW)
+    end = time.monotonic() + wait
+    while time.monotonic() < end:
+        st = info.refresh(force=True)
+        if st.get("api_up") or not (st.get("api_enabled") and st.get("api_key")):
+            break
+        time.sleep(1)
+    if st.get("api_up"):
+        return True, ("Passerelle relancée : API en marche. Si l'application Hermes était ouverte, fermez-la et "
+                      "rouvrez-la (elle a perdu sa connexion).")
+    if st.get("gateway"):
+        return True, "Passerelle relancée."
+    tail = ((result.stdout or "") + (result.stderr or "")).strip().splitlines()[-2:]
+    return False, "Relance de la passerelle : " + (" / ".join(tail) or "sans réponse")
+
+
+def open_desktop(info, runner=subprocess.Popen):
+    """Lance l'application Hermes détachée : sans console partagée avec WoW Assistant (sinon le terminal de
+    l'appli reste ouvert après sa fermeture et reçoit les messages de Hermes)."""
+    path = info.desktop_app()
+    if not path:
+        return False, "Application Hermes introuvable."
+    flags = (getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+             | getattr(subprocess, "CREATE_BREAKAWAY_FROM_JOB", 0))
+    try:
+        runner([path], cwd=os.path.dirname(path), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+               stderr=subprocess.DEVNULL, close_fds=True, creationflags=flags)
+    except OSError:
+        try:          # pas le droit de sortir du « job » du lanceur : sans cette option
+            runner([path], cwd=os.path.dirname(path), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                   stderr=subprocess.DEVNULL, close_fds=True,
+                   creationflags=flags & ~getattr(subprocess, "CREATE_BREAKAWAY_FROM_JOB", 0))
+        except OSError as e:
+            return False, f"Ouverture de Hermes impossible : {e}"
+    return True, "Application Hermes ouverte."
+
+
 def enable_api(info):
     """Active l'API de la passerelle : API_SERVER_ENABLED=true et une clé aléatoire (si absente) dans le .env de
     Hermes, sauvegardé avant. La passerelle doit être relancée (fermer / rouvrir l'application Hermes)."""
@@ -608,4 +652,4 @@ def enable_api(info):
         f.write("\n".join(out) + "\n")
     os.replace(tmp, path)
     info.refresh(force=True)
-    return True, "API activée dans Hermes. Fermez puis rouvrez l'application Hermes pour la démarrer."
+    return True, "API activée dans Hermes : cliquez « Relancer la passerelle » pour la démarrer."

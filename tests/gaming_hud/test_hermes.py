@@ -539,3 +539,31 @@ def test_reasoning_level_is_sent_on_both_paths(tmp_path, hb) -> None:
     wait(api.ask("?"))
     assert opener.calls[-1][2]["model_options"] == {"reasoning_effort": "low"}
     assert "Réflexion" in hb.explain_error("HTTP 500: Jinja Exception: Unexpected reasoning effort high.")
+
+
+def test_desktop_app_is_launched_detached_from_the_app_console(tmp_path, hb) -> None:
+    import subprocess
+    home = fake_home(tmp_path)
+    exe = home / "hermes-agent" / "apps" / "desktop" / "release" / "win-unpacked" / "Hermes.exe"
+    exe.parent.mkdir(parents=True)
+    exe.write_bytes(b"")
+    seen = {}
+
+    def runner(args, **kwargs):
+        seen.update(kwargs, args=args)
+
+    ok, _text = hb.open_desktop(hb.HermesInfo(str(home)), runner=runner)
+    assert ok and seen["args"] == [str(exe)] and seen["stdout"] is subprocess.DEVNULL
+    if hasattr(subprocess, "DETACHED_PROCESS"):
+        assert seen["creationflags"] & subprocess.DETACHED_PROCESS
+
+
+def test_restart_gateway_runs_hermes_command_and_waits_for_the_api(tmp_path, hb) -> None:
+    seen = {}
+
+    def runner(args, **kwargs):
+        seen["args"] = args
+        return type("R", (), {"stdout": "", "stderr": ""})()
+
+    ok, text = hb.restart_gateway(hb.HermesInfo(str(fake_home(tmp_path))), runner=runner, wait=1)
+    assert ok and seen["args"][1:] == ["gateway", "restart"] and "API en marche" in text
