@@ -4,6 +4,7 @@ fil des messages avec la réponse qui s'écrit au fil de l'eau, outils utilisés
 zone de saisie avec Envoyer / Stop.
 """
 import re
+import threading
 
 import pygame
 
@@ -133,6 +134,53 @@ def draw_approval(ui, chat, rect):
         ui.pill((px, y + 70, pw, 24), label, choice == "deny", lambda c=choice: chat.approve(c), font="tiny")
         px += pw + 6
     return APPROVAL_H
+
+
+FILE_STRIP_H = 30
+
+
+def draw_files(ui, chat, rect):
+    """Rangée des fichiers joints (× pour retirer). Retourne la hauteur utilisée."""
+    files = getattr(chat, "files", None)
+    if not files:
+        return 0
+    x, y, w, _h = rect
+    px = x
+    for i, f in enumerate(list(files)):
+        label = ("Image : " if "image" in f else "Fichier : ") + f["name"]
+        pw = min(260, ui.fonts["tiny"].size(label)[0] + 40)
+        if px + pw > x + w:
+            ui.text(f"+{len(files) - i}", "tiny", "gray", (px, y + 5))
+            break
+        box = pygame.Rect(px, y, pw, 24)
+        pygame.draw.rect(ui.screen, (30, 30, 36), box, border_radius=5)
+        pygame.draw.rect(ui.screen, C["frame_hi"], box, 1, border_radius=5)
+        ui.text(ui.fit(label, "tiny", pw - 34), "tiny", "light_gray", (px + 8, y + 5))
+        close = pygame.Rect(box.right - 22, y + 2, 20, 20)
+        ui.text("×", "small", "gray", close.center, anchor="center")
+        ui.click(close, lambda n=i: chat.remove_file(n))
+        px += pw + 6
+    return FILE_STRIP_H
+
+
+def pick_files(ui, chat):
+    """Sélecteur de fichiers Windows (en arrière-plan, comme celui du dossier du jeu)."""
+    def work():
+        try:
+            import tkinter
+            from tkinter import filedialog
+            root = tkinter.Tk()
+            root.withdraw()
+            root.attributes("-topmost", True)
+            chosen = filedialog.askopenfilenames(title="Fichiers à joindre à la question pour Hermes")
+            root.destroy()
+        except Exception as e:
+            ui.notify(f"Sélecteur de fichiers indisponible ({e}) : glissez le fichier sur la fenêtre.")
+            return
+        for path in chosen or ():
+            ok, text = chat.attach_file(path)
+            ui.notify(text, 6)
+    threading.Thread(target=work, daemon=True).start()
 
 
 def send_from(ui, chat, key, text=None):

@@ -989,3 +989,17 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
 - **Tests :** `test_hermes.py` (20 tests : MCP, état, flux API, autorisation, CLI, mise en place, conversation,
   rendu sans texte coupé, captures) ; un défaut trouvé et corrigé (réglages vides pris pour absents) ; suite verte.
 - **Non vérifié en vrai** : l'API (clé à créer par Jérémy, bouton) ; tests 51 à 55 à faire.
+
+## 23/11/2026 : Hermes, suite : fichiers, liens, erreurs expliquées
+- **Agent :** Cloud
+- Tests 49 et 50 : OK (Jérémy).
+- Le vrai Hermes échouait à chaque question : modèle servi avec 32 000 jetons de contexte, Hermes en exige 64 000
+  (journal `errors.log`). Jérémy a réglé 65 536. L'appli lit maintenant ce journal et explique l'erreur en français ;
+  l'onglet affiche le contexte du modèle.
+- **Liens** : `web_extract` de Hermes lit une vraie page Wowhead sans clé (vérifié) ; le skill wow-coach (1.2.0) lui
+  demande de lire les liens donnés.
+- **Fichiers** : bouton « Joindre un fichier » et glisser-déposer ; textes lus par l'appli (60 000 caractères au
+  plus) et envoyés comme données encadrées ; images envoyées comme captures.
+- Mode « Programme local (exe) » retiré des Paramètres (il servait à lancer Hermes) ; un réglage « exe » devient
+  « hermes ».
+- **Tests :** 5 nouveaux dans `test_hermes.py` (25) ; suite verte.

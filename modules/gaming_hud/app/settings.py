@@ -78,6 +78,8 @@ class Settings:
             self.data = _merge(DEFAULTS, stored if isinstance(stored, dict) else {})
         except (OSError, ValueError):
             pass
+        if self.get("llm.mode") == "exe":     # « Programme local » retiré (23/11) : il servait à lancer Hermes
+            self.set("llm.mode", "hermes")
         shared = _read_json(self.shared_path)
         for key in SHARED_KEYS:          # valeur vide ici, présente dans le profil : on la reprend
             if not self.get(key) and shared.get(key):

@@ -56,7 +56,7 @@ Le bouton « Actualiser » (onglet Personnage) relit le fichier du jeu.
 
 ## Assistant IA (Hermes)
 Paramètres généraux (onglet Personnage) : **Hermes Agent** (recommandé), serveur API compatible OpenAI (Ollama,
-LM Studio, Open WebUI, Omniroute...) ou programme local (exe). Réglages dans `settings.json`.
+LM Studio, Open WebUI, Omniroute...). Réglages dans `settings.json` (l'ancien « Programme local » devient Hermes).
 Boutons « Envoyer à Hermes » : quêtes, montures, mascottes, jouets, apparences, ensembles.
 
 ### Hermes Agent comme coach (onglet Hermes)
@@ -70,6 +70,10 @@ Boutons « Envoyer à Hermes » : quêtes, montures, mascottes, jouets, apparenc
 - **Sans l'API** : `hermes -z` (≈ 20 s par question, outils sans danger seulement, captures non transmises).
   **Avec l'API** : réponse au fil de l'eau, outils affichés, captures analysées, session visible dans Hermes ; une
   commande sensible demandée par Hermes attend « Autoriser » / « Refuser » dans l'appli.
+- **Fichiers et liens** : « Joindre un fichier » ou glisser un fichier sur la fenêtre (texte : txt, md, lua, json,
+  csv, log... lu par l'appli et envoyé comme données ; images) ; un lien dans la question est lu par Hermes.
+- **Modèle** : Hermes exige au moins 64 000 jetons de contexte (Hermes > Paramètres > Fournisseurs > Points de
+  terminaison > Contexte) ; sinon l'onglet explique l'erreur.
 - **Overlay** : widgets « Assistant (Hermes) » (conversation) et « Coach Hermes » (questions en un clic,
   « Capture + avis », dernière réponse) ; même fil que l'onglet.
 

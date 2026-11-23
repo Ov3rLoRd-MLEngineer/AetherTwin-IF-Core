@@ -115,6 +115,61 @@ def mcp_registered(config_text, name=MCP_NAME):
     return False
 
 
+MIN_CONTEXT = 64000          # Hermes refuse les modèles servis avec moins de contexte
+
+
+def model_context(config_text, model):
+    """Contexte réglé dans Hermes pour ce modèle (section providers), 0 si non précisé."""
+    if not model:
+        return 0
+    lines = config_text.splitlines()
+    for i, line in enumerate(lines):
+        if re.match(rf"^(\s+)['\"]?{re.escape(model)}['\"]?\s*:\s*$", line):
+            indent = len(line) - len(line.lstrip())
+            for nxt in lines[i + 1:]:
+                if not nxt.strip():
+                    continue
+                if len(nxt) - len(nxt.lstrip()) <= indent:
+                    break
+                found = re.match(r"^\s+context_length\s*:\s*(\d+)", nxt)
+                if found:
+                    return int(found.group(1))
+    return 0
+
+
+def last_error(home, since):
+    """Dernière erreur notée par Hermes (logs/errors.log) depuis l'heure `since` : « Type : message »."""
+    path = os.path.join(home, "logs", "errors.log")
+    try:
+        with open(path, "rb") as f:
+            f.seek(max(0, os.path.getsize(path) - 65536))
+            tail = f.read().decode("utf-8", "replace")
+    except OSError:
+        return ""
+    stamp, found = "", ""
+    limit = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(since - 2))
+    for line in tail.splitlines():
+        head = re.match(r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)", line)
+        if head:
+            stamp = head.group(1)
+        err = re.match(r"^([A-Za-z_.]*(?:Error|Exception)): (.+)", line)
+        if err and stamp >= limit:
+            found = f"{err.group(1)}: {err.group(2)}"
+    return found
+
+
+def explain_error(text):
+    """Erreurs connues de Hermes expliquées en français, avec quoi faire."""
+    small = re.search(r"context window of ([\d,. ]+) tokens.*?minimum ([\d,. ]+)", text or "")
+    if small:
+        return (f"Le modèle de Hermes n'a que {small.group(1).strip()} jetons de contexte ; Hermes en demande au moins "
+                f"{small.group(2).strip()}. Dans Hermes : Paramètres > Fournisseurs > Points de terminaison > "
+                "Contexte : 64000 ou plus (assez de mémoire vidéo nécessaire).")
+    if "Connection refused" in (text or "") or "ConnectError" in (text or ""):
+        return "Hermes n'arrive pas à joindre son serveur de modèles (Ollama lancé ?). Détail : " + text[:200]
+    return text
+
+
 class HermesInfo:
     """État de Hermes sur ce PC (relu au plus toutes les 5 s)."""
 
@@ -158,6 +213,7 @@ class HermesInfo:
             "api_up": enabled and bool(self._key) and _port_open(port),
             "skill": os.path.isfile(self.skill_path()),
             "mcp": mcp_registered(config),
+            "context": model_context(config, model.group(1).strip() if model else ""),
         }
         return self.state
 
@@ -338,7 +394,7 @@ class HermesClient:
                             "choices": p.get("choices") or ["once", "deny"]}
             job.note("approval", "Autorisation demandée : " + (p.get("description") or p.get("command") or "")[:160])
         elif name in ("run.failed", "error"):
-            job.error = p.get("message") or p.get("error") or "Échec de Hermes"
+            job.error = explain_error(str(p.get("message") or p.get("error") or "Échec de Hermes"))
         elif name == "run.cancelled":
             job.error = job.error or "Interrompu."
 
@@ -406,6 +462,10 @@ class HermesClient:
             proc.kill()
             raise RuntimeError("Hermes n'a pas répondu à temps.")
         text = (out or b"").decode("utf-8", "replace").strip()
+        if "couldn't finish this reply" in text or "Something went wrong" in text[:80]:
+            detail = last_error(self.info.home, job.started)
+            raise RuntimeError(explain_error(detail) if detail else
+                               "Hermes n'a pas pu répondre (détails : commande « hermes logs »).")
         if proc.returncode and not text:
             raise RuntimeError((err or b"").decode("utf-8", "replace").strip()[-400:] or f"code {proc.returncode}")
         job.text = text or "(réponse vide)"

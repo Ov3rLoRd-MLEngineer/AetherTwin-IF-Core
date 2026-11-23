@@ -1325,6 +1325,11 @@ class UI:
             self._keys_down.discard(event.key)
             return True
 
+        if event.type == pygame.DROPFILE and self.chat is not None:   # fichier glissé sur la fenêtre : joint à Hermes
+            ok, text = self.chat.attach_file(event.file)
+            self.notify(text, 6)
+            return True
+
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
             self._open_menu(event.pos)          # clic droit sur un champ : Couper / Copier / Coller
             return True
@@ -1893,12 +1898,11 @@ class UI:
         label_w, field_w = 190, rect.w - 48 - 190
         self.text("Assistant IA (orchestrateur : Hermes pour le moment)", "medium", "gold", (x, y), shadow=True)
         y += 38
-        self.pill((x, y, 300, 32), "Hermes Agent  (recommandé)", m["mode"] == "hermes", lambda: m.update(mode="hermes"))
-        self.pill((x + 310, y, 330, 32), "Serveur API  (Ollama, LM Studio, Omniroute…)", m["mode"] == "api",
+        self.pill((x, y, 380, 32), "Hermes Agent  (recommandé)", m["mode"] != "api", lambda: m.update(mode="hermes"))
+        self.pill((x + 390, y, 420, 32), "Serveur API  (Ollama, LM Studio, Omniroute…)", m["mode"] == "api",
                   lambda: m.update(mode="api"))
-        self.pill((x + 650, y, 250, 32), "Programme local  (exe)", m["mode"] == "exe", lambda: m.update(mode="exe"))
         y += 48
-        if m["mode"] == "hermes":
+        if m["mode"] != "api":
             describe = self.llm.hermes.describe() if self.llm else "Hermes Agent"
             self.text(describe, "small", "text", (x, y + 4))
             self.text("Session dédiée, skills, mémoire et outils de jeu de Hermes. Réglages, installation du skill "
@@ -1928,10 +1932,7 @@ class UI:
                 y += 38
             self._clear_key_button((x + label_w + field_w - 38, y, 38, 34), "set_key", "llm.api_key")
             y = self._field(x, y, "Clé API (facultative)", "set_key", "laisser vide si le serveur n'en demande pas", label_w, field_w - 46, mask=True)
-        else:
-            y = self._field(x, y, "Exécutable", "set_exe", "hermes.exe  (ou chemin complet)", label_w, field_w)
-            y = self._field(x, y, "Arguments", "set_args", "{prompt}   (sans {prompt} : envoyé sur l'entrée standard)", label_w, field_w)
-        if m["mode"] != "hermes":    # Hermes : le rôle vient du skill wow-coach et de sa propre configuration
+        if m["mode"] == "api":    # Hermes : le rôle vient du skill wow-coach et de sa propre configuration
             y = self._field(x, y, "Consigne système", "set_system", "rôle donné à l'assistant", label_w, field_w)
         self.pill((x, y, 230, 32), "Tester la connexion", False, self._test_llm)
         if m["status"]:

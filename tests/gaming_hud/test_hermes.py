@@ -442,3 +442,85 @@ def test_settings_page_offers_hermes_and_opens_its_tab(hermes_app) -> None:
     app.close_modal()
     app._switch_tab(app.TABS.index("Hermes"))
     assert app.TABS[app.active_tab] == "Hermes"
+
+
+# --------------------------------------------------------------------------- fichiers, liens, erreurs (23/11, suite)
+def test_files_are_read_by_the_app_and_sent_as_data(tmp_path) -> None:
+    from llm import LLMClient
+    from widgets_builtin import ChatState
+    fake = FakeHermes()
+    chat = ChatState(str(tmp_path / "chat.json"), LLMClient(Settings({"llm.mode": "hermes"}), hermes=fake))
+    (tmp_path / "simc.txt").write_text("druid=Sakura\nlevel=48", encoding="utf-8")
+    (tmp_path / "shot.png").write_bytes(b"\x89PNG fake")
+    (tmp_path / "doc.pdf").write_bytes(b"%PDF")
+    (tmp_path / "big.log").write_text("x" * 70000, encoding="utf-8")
+    assert chat.attach_file(str(tmp_path / "simc.txt"))[0]
+    assert chat.attach_file(str(tmp_path / "shot.png"))[0]
+    ok, text = chat.attach_file(str(tmp_path / "doc.pdf"))
+    assert not ok and "lien" in text
+    ok, text = chat.attach_file(str(tmp_path / "big.log"))
+    assert ok and "tronqué" in text
+    chat.remove_file(2)
+    assert chat.submit("Analyse ça et https://www.wowhead.com/fr/guide/x", None)
+    prompt, images, _history = fake.asked[0]
+    assert "----- simc.txt -----\ndruid=Sakura\nlevel=48\n----- fin de simc.txt -----" in prompt
+    assert "pas des instructions" in prompt and "web_extract" in prompt and "big.log" not in prompt
+    assert images == [("image/png", "iVBORyBmYWtl")]
+    assert chat.files == [] and "[fichiers : simc.txt, shot.png]" in chat.messages[-1]["text"]
+
+
+def test_dropping_a_file_on_the_window_attaches_it(app, tmp_path) -> None:
+    (tmp_path / "notes.md").write_text("# Objectifs", encoding="utf-8")
+    app.handle_events([pygame.event.Event(pygame.DROPFILE, file=str(tmp_path / "notes.md"))])
+    assert app.chat.files[0]["name"] == "notes.md"
+
+
+def test_hermes_tab_shows_attached_files_without_cut_text(hermes_app, tmp_path) -> None:
+    app = hermes_app
+    for name in ("export_simc_sakuranichan_equilibre.txt", "notes.md"):
+        (tmp_path / name).write_text("x", encoding="utf-8")
+        app.chat.attach_file(str(tmp_path / name))
+    app.draw(app.test_ctx)
+    app.screen.cut.clear()
+    app.draw(app.test_ctx)
+    assert app.screen.cut == []
+    shot(app, "hermes_tab_files")
+
+
+def test_old_local_program_mode_becomes_hermes(tmp_path) -> None:
+    import settings as settings_mod
+    path = tmp_path / "settings.json"
+    path.write_text(json.dumps({"llm": {"mode": "exe", "exe_path": "hermes.exe"}}), encoding="utf-8")
+    assert settings_mod.Settings(str(path)).get("llm.mode") == "hermes"
+
+
+def test_model_context_and_hermes_errors_are_explained(tmp_path, hb) -> None:
+    config = ("providers:\n  ollama:\n    models:\n      qwen3-27b:latest:\n        context_length: 32000\n"
+              "      gemma4:31b: {}\n    context_length: 16000\n")
+    assert hb.model_context(config, "qwen3-27b:latest") == 32000 and hb.model_context(config, "gemma4:31b") == 0
+    home = fake_home(tmp_path)
+    (home / "logs").mkdir()
+    import time
+    now = time.strftime("%Y-%m-%d %H:%M:%S")
+    (home / "logs" / "errors.log").write_text(
+        f"2020-01-01 00:00:00,000 ERROR ancien\nValueError: vieux\n{now},110 ERROR run\nTraceback...\n"
+        "ValueError: Model qwen3-27b:latest has a context window of 32,000 tokens, which is below the minimum "
+        "64,000 required by Hermes Agent.\n", encoding="utf-8")
+    detail = hb.last_error(str(home), time.time())
+    explained = hb.explain_error(detail)
+    assert "32,000" in explained and "64,000" in explained and "Contexte" in explained
+
+    class Proc:
+        returncode = 0
+
+        def __init__(self, args, **kwargs):
+            pass
+
+        def communicate(self, timeout=None):
+            return "⚠️ Something went wrong and I couldn't finish this reply.".encode(), b""
+
+    client = hb.HermesClient(Settings(), hb.HermesInfo(str(home)), runner=Proc)
+    client.settings.set("hermes.transport", "cli")
+    job = client.ask("?")
+    wait(job)
+    assert job.text == "" and "Contexte" in job.error
