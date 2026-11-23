@@ -10,6 +10,7 @@ import pygame
 from config import BASE_DIR, WoWConfig
 from character import Character
 from quests import QuestTracker
+from routine import RoutineStore
 from craft import CraftSystem
 from inventory import Inventory
 from history import ActivityLog, History, snapshot_state
@@ -66,6 +67,7 @@ def main():
     llm = LLMClient(settings)
     cache = SnapshotCache(WoWConfig.SNAPSHOT_CACHE_FILE)
     ui = UI(settings=settings, llm=llm)
+    ui.routine = RoutineStore()
     ui.icons.enabled = bool(settings.get("online_icons", True))
     cached = cache.load()
 
@@ -281,6 +283,10 @@ def main():
         craft.load_professions(snapshot.get("professions"))
         craft.load_game_recipes(snapshot.get("recipes"))
         data.load(snapshot)
+        try:
+            ui.routine.record(snapshot)       # routine de la semaine : résumé de ce personnage (profil Windows)
+        except Exception as e:                # noqa: BLE001 - jamais bloquant
+            print(f"Routine non enregistrée : {e}")
         if from_cache:
             return
         extras = {"quests": quests.count(), "ach_points": data.achievements.get("points", 0)}

@@ -136,6 +136,10 @@ function A:CollectCharacter()
         titleName = try(UnitPVPName, "player") or name,   -- nom + titre, comme dans la fenêtre de personnage
         realm = try(GetRealmName) or "",
         region = (GetCurrentRegionName and try(GetCurrentRegionName)) or "",   -- « EU », « US »… (API Battle.net)
+        -- remises à zéro (horodatages) pour la routine de la semaine de WoW Assistant (1.10)
+        weeklyReset = (C_DateAndTime and C_DateAndTime.GetSecondsUntilWeeklyReset
+                       and (time() + (try(C_DateAndTime.GetSecondsUntilWeeklyReset) or 0))) or 0,
+        dailyReset = (GetQuestResetTime and (time() + (try(GetQuestResetTime) or 0))) or 0,
         level = try(UnitLevel, "player") or 1,
         race = race or "",
         raceFile = raceFile or "",

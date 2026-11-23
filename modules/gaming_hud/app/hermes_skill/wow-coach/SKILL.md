@@ -1,7 +1,7 @@
 ---
 name: wow-coach
 description: "Coach World of Warcraft en français : lit l'état réel du personnage du joueur (outils WoW Assistant) et donne des conseils concrets — quêtes, équipement, talents, métiers, donjons, économie."
-version: 1.4.1
+version: 1.5.0
 author: WoW Assistant
 license: MIT
 metadata:
@@ -31,6 +31,7 @@ Le serveur MCP **wow_assistant** (installé par WoW Assistant) donne l'état ré
 | `wow_collections` | montures, mascottes, jouets, héritages (compteurs, recherche) |
 | `wow_bestiary` | créatures rencontrées et tuées : niveau, zones, PV, aptitudes, butin, or moyen, note |
 | `wow_recent_activity` | derniers événements (niveaux, quêtes, butin) |
+| `wow_routine` | la semaine : remise à zéro, chambre forte, monnaies plafonnées, quêtes hebdo, tâches du joueur, autres personnages (`minutes` : temps de jeu) |
 
 Règles :
 - Avant un conseil qui dépend du personnage (équipement, talents, quête, métier...), **appelle l'outil concerné**

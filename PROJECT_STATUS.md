@@ -173,7 +173,8 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
    1. base de connaissances liée à la version du jeu (« à revérifier » à chaque nouveau patch) : **FAIT-TESTÉ
       (23/11)**, version lue dans `.build.info` (vrai fichier de Jérémy : 12.1.5.70961) ;
    2. routine de la semaine (Grande chambre forte, écus, Gouffres, Proie, campagne, savoir des métiers, autres
-      personnages) et « j'ai 1 h, je fais quoi ? » ;
+      personnages) et « j'ai 1 h, je fais quoi ? » : **FAIT-NON-TESTÉ (23/11)**, onglet Semaine, widget, outil
+      `wow_routine`, addon 1.10 (test 58) ;
    3. bilan après donjon ou boss depuis le journal de combat (journalisation avancée) ;
    4. équipement : export SimulationCraft pour Raidbots, import du résultat Droptimizer dans la base ;
    5. parcours de montée de niveau ;
@@ -255,6 +256,7 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 50 | Identifiants partout | lancer une fois la copie qui a les identifiants (dossier du dépôt), la fermer ; lancer la copie Hermes | Paramètres > Jeu : « Identifiants enregistrés » dans la copie Hermes aussi |
 | 56 | Hermes : fichiers et liens | « Joindre un fichier » (ou glisser un fichier .txt / .md / image sur la fenêtre), puis une question ; une autre question avec un lien Wowhead | le fichier apparaît au-dessus de la saisie puis dans « [fichiers : …] » ; Hermes s'appuie sur son contenu et sur la page du lien |
 | 57 | Hermes : base de connaissances | recopier le dossier ; « Mettre à jour le skill wow-coach » ; « Relancer la passerelle » ; poser une question, puis « Corriger la réponse » et écrire ce qui est juste ; reposer une question proche ; ouvrir « Connaissances » | la correction apparaît « Corrigé par vous » et Hermes la respecte ; après une recherche web, des faits « Vérifié en ligne » avec leur lien |
+| 58 | Semaine | copier l'addon **1.10** dans `Interface/AddOns`, /reload ; recopier l'appli ; onglet **Semaine** ; ajouter une tâche « Proie » (Quotidien), la cocher ; se connecter sur un autre personnage puis revenir ; « J'ai 1 h » | remise à zéro affichée (mercredi 05:00 en France), chambre forte et monnaies de la semaine ; l'autre personnage apparaît à droite ; Hermes propose un plan qui cite la routine |
 | 51 | Hermes : état | lancer Hermes Agent, puis WoW Assistant > onglet **Hermes** | Hermes trouvé, passerelle en marche, modèle affiché ; mode « CLI » |
 | 52 | Hermes : mise en place | cliquer « Installer le skill wow-coach » puis « Ajouter les outils de jeu (MCP) » | deux messages verts ; pastilles vertes « installé » / « ajoutés » ; dans Hermes, `hermes mcp list` montre `wow_assistant` |
 | 53 | Hermes : question | cliquer « Que faire maintenant ? » (mode CLI, ≈ 20-40 s) | réponse en français qui cite vos vraies quêtes / zone ; ligne « Outils : Données… » sous la réponse |

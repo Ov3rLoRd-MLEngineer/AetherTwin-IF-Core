@@ -1083,3 +1083,15 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   45 jours ; les corrections du joueur ne périment jamais. `wow_status` donne la version du jeu.
 - Vérifié sur le vrai fichier de Jérémy : 12.1.5.70961, produit `wow`.
 - **Tests :** 2 nouveaux ; suite verte.
+
+## 23/11/2026 : feuille de route, étape 2 : routine de la semaine
+- **Agent :** Cloud
+- **Fichiers :** `routine.py`, `tabs_routine.py` (nouveaux), `ui.py`, `tabs.py`, `main.py`, `widgets_builtin.py`,
+  `hermes_mcp.py` (outil `wow_routine` : 13 outils), `hermes_bridge.py`, skill 1.5.0, addon 1.10, tests.
+- Onglet **Semaine** : remises à zéro (addon 1.10 : `C_DateAndTime.GetSecondsUntilWeeklyReset`,
+  `GetQuestResetTime` ; sinon EU mercredi 04:00 UTC, Amériques mardi 15:00 UTC), liste automatique (chambre forte,
+  monnaies plafonnées, quêtes hebdo / journalières via `freq`, verrouillages, M+), tâches perso décochées à la remise
+  à zéro, autres personnages (résumé gardé à chaque lecture : le fichier de l'addon n'a que le dernier joué), plan
+  demandé à Hermes selon le temps de jeu. Progression d'avant la remise à zéro comptée comme zéro.
+- Données dans `%APPDATA%\WoWAssistantoutine.json` ; le serveur MCP ne fait que le lire.
+- **Tests :** 7 nouveaux (`test_routine.py`) ; les tests n'écrivent plus jamais dans le profil Windows (fixture).

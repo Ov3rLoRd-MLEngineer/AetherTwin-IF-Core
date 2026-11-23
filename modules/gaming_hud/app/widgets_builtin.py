@@ -486,6 +486,11 @@ def make_web_draw(wid):
 # ===========================================================================
 #  Catalogue
 # ===========================================================================
+def _draw_week_widget(ui, ctx, rect):
+    from tabs_routine import draw_week_widget
+    draw_week_widget(ui, ctx, rect)
+
+
 def build_specs():
     return [
         WidgetSpec("barre", "Barre d'outils", (640, 34), draw_toolbar, min_size=(560, 30), chrome=False, closable=False,
@@ -507,5 +512,7 @@ def build_specs():
                    enabled=False, web=True, note="Interface Open WebUI (processus isolé)"),
         WidgetSpec("video", "Lecteur vidéo", (480, 320), make_web_draw("video"), min_size=(280, 200), focus="hide",
                    enabled=False, web=True, note="YouTube / Twitch (processus isolé)"),
+        WidgetSpec("semaine", "Semaine", (320, 260), _draw_week_widget, focus="hide", enabled=False,
+                   note="Ce qu'il reste à faire avant la remise à zéro"),
         WidgetSpec("session", "Session", (220, 110), draw_session, focus="shrink", enabled=False, note="Gains depuis le lancement"),
     ]

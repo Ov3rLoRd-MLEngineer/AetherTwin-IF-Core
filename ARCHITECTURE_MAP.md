@@ -230,6 +230,7 @@ modules/
       README.md
       recipes.json
       requirements.txt
+      routine.py
       settings.py
       snapcache.py
       tabs.py
@@ -238,6 +239,7 @@ modules/
       tabs_data.py
       tabs_hermes.py
       tabs_market.py
+      tabs_routine.py
       tabutil.py
       theme.py
       ui.py
@@ -344,6 +346,7 @@ tests/
     test_model3d.py
     test_module.py
     test_obs_hud.py
+    test_routine.py
     test_settings_bnet.py
     test_ui_fixes.py
   genesis_lab/

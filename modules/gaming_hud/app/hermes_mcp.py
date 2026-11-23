@@ -347,6 +347,21 @@ def tool_status(data, args):
             "conseil": "Les données se mettent à jour quand le jeu écrit son fichier : /reload ou /ha save en jeu."}
 
 
+def tool_routine(data, args):
+    """Semaine du joueur : personnage joué (instantané actuel) + autres personnages et tâches (routine.json)."""
+    import routine
+    store = routine.RoutineStore(getattr(data, "routine_path", routine.ROUTINE_PATH))
+    summary = routine.summarize(data.snapshot())
+    key = routine.char_key(summary)
+    if summary["updated"] >= (store.characters.get(key) or {}).get("updated", 0):
+        store.characters[key] = summary          # en mémoire seulement : ce serveur n'écrit pas ce fichier
+    minutes = args.get("minutes")
+    out = routine.describe(store, key)
+    if minutes:
+        out["temps_de_jeu_annoncé"] = f"{minutes} min"
+    return out
+
+
 def tool_knowledge_search(data, args):
     kb = data.knowledge()
     found = kb.search(args.get("query") or "", args.get("topic") or "", limit=12, count_use=True)
@@ -388,6 +403,10 @@ TOOLS = [
      {"query": {"type": "string", "description": "nom de la créature"}}, tool_bestiary),
     ("wow_recent_activity", "Derniers événements de jeu notés par l'addon et par WoW Assistant (niveaux, quêtes, "
      "butin...).", {}, tool_activity),
+    ("wow_routine", "Routine de la semaine : temps avant la remise à zéro, ce qui reste à faire (grande chambre "
+     "forte, monnaies plafonnées, quêtes hebdomadaires et journalières, verrouillages, Mythique+), tâches notées par "
+     "le joueur, et la semaine de ses autres personnages. À appeler pour « que faire cette semaine / en N minutes ».",
+     {"minutes": {"type": "integer", "description": "temps de jeu disponible (facultatif)"}}, tool_routine),
     ("wow_knowledge_search", "Base de connaissances du coach : corrections du joueur (elles font foi) et faits déjà "
      "vérifiés en ligne (avec leur source et leur date). À consulter AVANT de répondre.",
      {"query": {"type": "string", "description": "mots de la question (quête, objet, classe, donjon...)"},

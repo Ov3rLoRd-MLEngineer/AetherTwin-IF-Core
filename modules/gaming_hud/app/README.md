@@ -6,7 +6,7 @@ Lecture seule : aucune automatisation du jeu.
 ## Onglets (touches 1 à 9 et 0)
 Personnage · Talents et grimoire · Journal des quêtes · Sacs (+ banque de bataillon / de guilde) · Métiers ·
 Hauts Faits · Collections du bataillon (Montures, Codex des mascottes, Jouets, Héritage, Transmoglyphe) ·
-Historique d'activité (Évolution, Journal, Statistiques) · Réputations et monnaies · Instances et Chambre ·
+Historique d'activité (Évolution, Journal, Statistiques) · Réputations et monnaies · Semaine · Instances et Chambre ·
 Hôtel des ventes · Bestiaire · Hermes (coach)
 
 ## Commandes en jeu
@@ -90,7 +90,7 @@ HermesAssistant.toc/.lua (addon) · main.py · config.py · settings.py · llm.p
 lua_parser.py · game_connection.py · gamedata.py · character.py · quests.py · inventory.py · craft.py · history.py ·
 wowhead.py · theme.py · icons_draw.py · ui.py · tabs.py · tabs_data.py · tabs_collections.py · tabutil.py ·
 overlay.py · hotkeys.py · focus.py · widgets.py · widgets_builtin.py · vision.py · voice.py · webhost.py · webwidget.py ·
-chatview.py · tabs_hermes.py · hermes_bridge.py · hermes_mcp.py (outils de jeu pour Hermes) · coach_knowledge.py · gameversion.py · hermes_skill/ ·
+chatview.py · tabs_hermes.py · hermes_bridge.py · hermes_mcp.py (outils de jeu pour Hermes) · coach_knowledge.py · gameversion.py · routine.py · tabs_routine.py · hermes_skill/ ·
 layout.json · chat_history.json · wowhead_links.json · recipes.json
 
 
@@ -128,6 +128,20 @@ layout.json · chat_history.json · wowhead_links.json · recipes.json
 - **Collections** : aperçu plus grand. Mascottes en image (API Battle.net, comme les montures) ; jouets, héritage et
   apparences en grande icône (Battle.net ne propose pas de rendu des objets) ; ensembles : icônes de leurs pièces.
 - **Personnage** : le rendu officiel est recadré pour remplir le cadre.
+
+## Semaine : routine avant la remise à zéro (23/11/2026)
+- Onglet **Semaine** : temps avant les remises à zéro (hebdomadaire et quotidienne), et ce qu'il reste à faire,
+  détecté tout seul : Grande Chambre forte (emplacements et prochain palier), monnaies plafonnées à la semaine,
+  quêtes hebdomadaires et journalières du journal, verrouillages, clés Mythique+.
+- **Mes tâches** : ce que l'addon ne voit pas (Proie, commandes d'artisanat, logis...), hebdo ou quotidiennes,
+  décochées toutes seules à la remise à zéro.
+- **Autres personnages** : chacun est gardé dès que vous le connectez une fois (le fichier de l'addon ne garde que le
+  dernier joué) ; une semaine d'avance est signalée « nouvelle semaine ».
+- **Plan avec Hermes** : « J'ai 30 min / 1 h / 2 h » ; Hermes a aussi l'outil `wow_routine`. Widget d'overlay
+  « Semaine ».
+- Heures exactes de remise à zéro : **addon 1.10** (sinon calculées d'après la région). Fichier
+  `%APPDATA%\WoWAssistant
+outine.json` (hors du dépôt et du dossier du jeu).
 
 ## Bestiaire (23/11/2026)
 Onglet **Bestiaire** : créatures croisées et tuées, nombre de fois tuées, aptitudes, PV et ressource, niveau, rang,
