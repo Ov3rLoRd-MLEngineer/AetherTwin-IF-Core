@@ -68,6 +68,15 @@ genesis_lab:
   claude_local_dir: ""                      # dossier d'un Claude Code local : demandes de simulations
   claude_local_launcher: ""                 # son lanceur (.bat), ouvert d'un clic, jamais lu
 
+dev_launcher:
+  claude_local_dir: ""          # dossier du Claude Code local (Claude Code installé dans node_modules) ; vide = PATH ou npx
+  ancien_lanceur: ""            # dossier de l'ancien lanceur : liste des modèles OmniRoute exportée (repli sans clé)
+  ollama_url: "http://127.0.0.1:11434"      # Ollama sert directement le format de Claude Code
+  omniroute_url: "http://127.0.0.1:20128"   # facultatif : fournisseurs d'OmniRoute
+  omniroute_cle_env: ""   # NOM de la variable d'environnement de la clé d'OmniRoute (vide = nom par défaut du module) ; jamais la clé
+  dossiers_autorises: []        # où une tâche confiée (par Hermes) peut écrire ; vide = <claude_local_dir>/travaux
+  modele_taches: ""   # vide = modèle Ollama servi avec au moins 64 k de contexte
+
 mangastudio:
   handsegnet_weights: ""   # chemin local des poids (non versionnés)
   footsegnet_weights: ""

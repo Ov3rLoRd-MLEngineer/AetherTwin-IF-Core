@@ -11,3 +11,5 @@ nvidia-ml-py==13.615.71   # lecture NVML (pynvml). Absent ou sans GPU : repli nv
 opencv-python-headless==5.0.0.93  # scantrad : détection des bulles, effacement (inpainting)
 numpy==2.4.6              # requis par OpenCV
 onnxruntime==1.32.0          # scantrad : LaMa (effacement par reconstruction, sur le processeur ; poids : setup.ps1 -Weights)
+pywinpty==3.1.2; sys_platform == "win32"  # terminal du Hub (pseudo-terminal Windows)
+websockets==17.4          # WebSocket du terminal du Hub (uvicorn)

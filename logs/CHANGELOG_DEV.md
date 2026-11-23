@@ -1270,3 +1270,38 @@ outine.json` ; le serveur MCP ne fait que le lire.
   - Leçon : le modèle codeur corrige bien ce qu'on lui montre précisément ; les erreurs de géométrie (sens des
     angles du canvas) demandent un retour avec la formule.
 
+## 23/11/2026 : onglets Développement et Outils, Claude Code local dans le Hub, pont MCP avec Hermes
+
+- **Agent :** Cloud
+- **Fichiers :** `modules/dev_launcher/` (nouveau : `catalog.py`, `launch.py`, `tasks.py`, `hermes_link.py`,
+  `bridge_mcp.py`, `relay_check.py`, `module.py`), `core/terminals.py` (nouveau), `core/api.py`,
+  `core/web/dashboard.html`, `core/web/dev.*`, `core/web/terminal.*`, `core/web/xterm*` (+ licences),
+  `scripts/relay_orchestrator.py`, `config/local.example.yaml`, `requirements.txt`, `THIRD_PARTY.md`,
+  `tests/dev_launcher/`, `PROJECT_STATUS.md`, `README.md`.
+- **Raison :** Jérémy : onglets « Développement » puis « Outils » ; son lanceur Claude Code Local en premier module,
+  amélioré ; lancement dans Windows Terminal ou dans le Hub ; MCP entre Claude Code local et Hermes dans les deux
+  sens, quel que soit le canal de Hermes ; vérifier que le relais fonctionne (accusé de réception seulement, aucun
+  travail sur le dépôt du concours).
+- **Choix :**
+  - OmniRoute facultatif : Ollama 0.40 sert `/v1/messages` ; route directe par défaut, `claude_model` dans le relais.
+  - Lancement : `.bat` sans secret (jeton factice « ollama », `ANTHROPIC_API_KEY` vidée), variables de la session
+    Claude Code parente effacées, contexte servi (`num_ctx`) annoncé à Claude Code, réserve de réponse 8 k.
+  - Terminal du Hub : pywinpty, WebSocket `/terminals/{id}/ws` (hôte et origine vérifiés, id aléatoire), page
+    `/terminal` sous CSP propre ; seuls les `.bat` du dossier de lancements du module s'ouvrent.
+  - Pont MCP `bridge_mcp.py` (bibliothèque standard), rôle `hermes` (confier, suivre, tâches, dossiers) ou `claude`
+    (demander à Hermes, suivre) ; déclaré chez Hermes par un bouton (`hermes mcp add`, sauvegarde `.bak`).
+  - Tâches confiées : dossier autorisé seulement, `--tools Read,Write,Edit,Glob,Grep`, Bash et web refusés, lecture
+    des fichiers sensibles refusée, variables secrètes retirées, `--strict-mcp-config`.
+- **Tests :** 15 nouveaux (`tests/dev_launcher/`) ; suite complète : 596 tests, 592 verts, 4 réels sur GPU ignorés par défaut
+  (le garde-fou a refusé `OMNIROUTE_API_KEY` dans `local.example.yaml` : valeur laissée vide, nom par défaut dans le module).
+- **Essais réels :**
+  - Hermes → Claude Code : 1er essai sans outil (la passerelle de Hermes n'avait chargé le serveur MCP qu'après la
+    question) ; 2e : tâche confiée et suivie, mais « Autocompact is thrashing » (32 k servis par Ollama) ; avec
+    `devstral:24b-64k`, le modèle décrit l'appel sans le faire ; avec `qwen3-coder` 64 k (variante créée dans Ollama,
+    `PARAMETER num_ctx 65536`, mêmes poids) et 5 outils, `bonjour.py` créé en 5 s ; chaîne complète par Hermes en 184 s.
+  - Claude Code → Hermes : « La capitale de l'Australie est Canberra. » (60 s).
+  - Terminal du Hub : réponse « : » vide puis appel `mcp__rea__hub_etat` : les serveurs MCP globaux (dont un de ~300
+    outils) remplissaient le contexte (« 0 % until auto-compact ») ; option « Outils essentiels » =
+    `--tools` + `--strict-mcp-config` ; ensuite `hub_etat` appelé et réponse juste (14 s).
+  - Relais : « RELAI REÇU » (sans S, toléré), titre daté de `AGENT_HANDOFF.md` recopié, `git status` identique avant
+    et après.

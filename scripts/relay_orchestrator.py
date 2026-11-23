@@ -394,6 +394,16 @@ def ollama_has_model(host: str, model: str, timeout_s: float = 5.0) -> tuple[boo
     return False, f"Modèle {model} non installé sur {url} (ollama pull {model})"
 
 
+def is_direct_ollama(router_url: str) -> bool:
+    """Ollama sert lui-même le format de Claude Code (`/v1/messages`) : adresse sans routeur intermédiaire."""
+    return ":11434" in router_url and "/v1" not in router_url.rstrip("/")[-3:]
+
+
+def claude_model(router_url: str, model: str) -> str:
+    """Nom du modèle pour Claude Code : `ollama/<nom>` par OmniRoute, le nom seul en direct sur Ollama."""
+    return model if is_direct_ollama(router_url) else f"ollama/{model}"
+
+
 def router_is_up(router_url: str, timeout_s: float = 5.0) -> tuple[bool, str]:
     """Vérifie que le routeur local (OmniRoute) répond sur /models."""
     url = router_url.rstrip("/") + "/models"
@@ -444,6 +454,9 @@ class SubprocessLocalAgent:
             env["ANTHROPIC_AUTH_TOKEN"] = "ollama"  # noqa: S105 — valeur factice attendue par le routeur local
             env["ANTHROPIC_API_KEY"] = ""  # la vraie clé ne doit jamais partir vers le routeur local
             env["ANTHROPIC_CONTEXT_LENGTH"] = str(self.num_ctx)
+            name = claude_model(self.router_url, self.model)
+            for var in ("ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_SMALL_FAST_MODEL"):
+                env[var] = name  # tâches de fond de Claude Code : même modèle local
         return env
 
     def build_command(self, prompt: str) -> list[str]:
@@ -451,7 +464,7 @@ class SubprocessLocalAgent:
         self.prompt_file.write_text(prompt, encoding="utf-8")
         prompt_file = self.prompt_file
         if self.kind == "claude-code":  # le prompt passe par l'entrée standard (voir start)
-            return ["claude", "-p", "--model", f"ollama/{self.model}", *self.extra_args]
+            return ["claude", "-p", "--model", claude_model(self.router_url, self.model), *self.extra_args]
         if self.kind == "opencode":
             return ["opencode", "run", "--model", f"ollama/{self.model}", prompt]
         settings = self.logs_dir / "aider_model_settings.yml"

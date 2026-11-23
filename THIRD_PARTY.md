@@ -37,6 +37,13 @@ FastAPI installe aussi `starlette` (BSD-3-Clause) et `pydantic` (MIT).
 | faster-whisper (facultatif, `-Voice`) | 1.2.1 | MIT | reconnaissance vocale locale (onglet Traduction) |
 | lupa (développement seulement) | 2.8 | MIT | tests : compile l'addon HermesAssistant et exécute ses fonctions sur un faux jeu |
 
+| Ajouté le 23/11/2026 (onglet Développement) | Version | Licence | Usage |
+|---|---|---|---|
+| pywinpty (Windows) | 3.1.2 | MIT | terminal intégré au Hub (pseudo-console, `core/terminals.py`) |
+| websockets | 17.4 | BSD-3-Clause | WebSocket du terminal intégré (serveur uvicorn) |
+| xterm.js (`@xterm/xterm`, copié dans `core/web/xterm.*`) | 6.0.0 | MIT (`core/web/LICENSE.xterm.txt`) | affichage du terminal intégré |
+| `@xterm/addon-fit` (`core/web/xterm-addon-fit.js`) | 0.11.0 | MIT (`core/web/LICENSE.xterm-addon-fit.txt`) | ajuste le terminal à son cadre |
+
 Services en ligne facultatifs (désactivés tant que l'utilisateur n'y met pas ses identifiants) :
 
 | Service | Conditions | Usage |
@@ -61,6 +68,7 @@ Modèles téléchargés (non versionnés, dans `models/` ou le cache Hugging Fac
 | Claude Code | agent cloud du relais de développement |
 | Aider, OpenCode | agent local du relais de développement |
 | Git | gestion de versions |
+| Claude Code local (Claude Code avec des modèles Ollama, OmniRoute facultatif) | onglet Développement : lancé depuis le Hub (Windows Terminal ou terminal intégré) ou par Hermes via le pont MCP `aethertwin_dev` |
 | Hermes Agent (Nous Research), installé par l'utilisateur | coach de WoW Assistant : appelé par sa CLI ou l'API locale de sa passerelle (127.0.0.1) ; WoW Assistant lui fournit un skill et un serveur MCP (bibliothèque standard) |
 
 Le produit final ne fait aucune requête de génération vers un service cloud. Le cloud ne sert qu'au

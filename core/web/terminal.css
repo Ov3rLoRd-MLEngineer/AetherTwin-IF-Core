@@ -1,0 +1,8 @@
+/* Terminal du Hub (page affichée dans un cadre de l'onglet Développement). */
+html, body { margin: 0; height: 100%; background: #0d1117; overflow: hidden; }
+#term { position: absolute; inset: 0 0 0 0; padding: 6px 4px 4px 8px; box-sizing: border-box; }
+.term-status { position: absolute; right: 10px; top: 6px; z-index: 5; font: 12px "Segoe UI", sans-serif;
+               color: #8b949e; background: rgba(13, 17, 23, .85); padding: 2px 8px; border-radius: 10px;
+               pointer-events: none; }
+.term-status.ok { display: none; }
+.term-status.bad { color: #ff7b72; }
