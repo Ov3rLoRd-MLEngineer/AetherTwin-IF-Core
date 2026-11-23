@@ -1026,3 +1026,13 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   persistants. À recopier.
 - **Tests :** 2 nouveaux (`test_settings_bnet.py`) ; suite verte.
 
+## 23/11/2026 : API de Hermes démarrée, terminal qui restait ouvert
+- **Agent :** Cloud
+- L'API ne démarrait pas malgré la clé : la passerelle de Hermes est un service en arrière-plan (lancé le 22/11 à
+  13:45) que fermer l'application ne relance pas ; elle lit le `.env` à son démarrage. Relancée avec
+  `hermes gateway restart` (aucun agent actif) : port 8642 ouvert, question via l'API en 35 s avec les données du jeu.
+- Bouton « Relancer la passerelle (API) » dans l'onglet Hermes ; message de l'activation corrigé.
+- Terminal de WoW Assistant resté ouvert après fermeture : l'application Hermes, lancée par le bouton avec
+  `os.startfile`, héritait de sa console (et y écrivait ses erreurs). Lancée maintenant détachée (sans console, sorties
+  ignorées).
+- **Tests :** 2 nouveaux ; suite verte.

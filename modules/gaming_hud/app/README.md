@@ -66,7 +66,7 @@ Boutons « Envoyer à Hermes » : quêtes, montures, mascottes, jouets, apparenc
   2. « Ajouter les outils de jeu (MCP) » : `hermes mcp add wow_assistant` → `hermes_mcp.py` (10 outils, lecture
      seule) ; à refaire si le dossier de l'appli change (le chemin y est enregistré) ;
   3. « Activer l'API de Hermes » (facultatif) : clé aléatoire dans le `.env` de Hermes (jamais affichée), puis
-     fermer et rouvrir Hermes (« Ouvrir l'application Hermes »).
+     « Relancer la passerelle (API) » (service en arrière-plan : fermer l'application Hermes ne la relance pas).
 - **Sans l'API** : `hermes -z` (≈ 20 s par question, outils sans danger seulement, captures non transmises).
   **Avec l'API** : réponse au fil de l'eau, outils affichés, captures analysées, session visible dans Hermes ; une
   commande sensible demandée par Hermes attend « Autoriser » / « Refuser » dans l'appli.
