@@ -305,6 +305,8 @@ function bindCanvas() {
   window.addEventListener("resize", drawGraph);
 }
 
+const both = (exact, value) => (exact && exact !== String(value) ? `${exact} ≈ ${value}` : String(value));
+
 async function analyze(what) {
   const ys = calc.curves.filter((c) => c.kind === "y" && c.expr?.trim());
   if (!ys.length || (what === "intersections" && ys.length < 2)) {
@@ -319,8 +321,8 @@ async function analyze(what) {
     const labels = { zeros: "Zéros", extrema: "Extrema", intersections: "Intersections" };
     $("calc-analysis").replaceChildren(el("h3", {}, `${labels[what]} de y = ${result.expr} dans la fenêtre`),
       result.points.length ? el("table", { class: "calc-points" }, el("tbody", {}, ...result.points.map((p) =>
-        el("tr", {}, el("td", {}, p.type), el("td", {}, "x = ", p.x_exact ? `${p.x_exact} ≈ ${p.x}` : String(p.x)),
-          el("td", {}, "y = ", p.y === null ? "—" : p.y_exact ? `${p.y_exact} ≈ ${p.y}` : String(p.y))))))
+        el("tr", {}, el("td", {}, p.type), el("td", {}, "x = ", both(p.x_exact, p.x)),
+          el("td", {}, "y = ", p.y === null ? "—" : both(p.y_exact, p.y))))))
         : el("p", { class: "muted" }, "Aucun point dans la fenêtre."));
     drawGraph();
   } catch (error) {
