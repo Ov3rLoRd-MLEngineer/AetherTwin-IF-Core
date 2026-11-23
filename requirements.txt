@@ -9,5 +9,6 @@ pygame==2.6.1             # interface de WoW Assistant / gaming_hud
 pillow==13.0.0            # captures d'écran et presse-papier image
 nvidia-ml-py==13.615.71   # lecture NVML (pynvml). Absent ou sans GPU : repli nvidia-smi, puis « inconnu »
 opencv-python-headless==5.0.0.93  # scantrad : détection des bulles, effacement (inpainting)
-numpy==2.4.6              # requis par OpenCV
+numpy==2.4.6              # requis par OpenCV et calc_cas (graphes, statistiques)
+sympy==1.14.0             # calc_cas : calcul formel (BSD, apporte mpmath)
 onnxruntime==1.32.0          # scantrad : LaMa (effacement par reconstruction, sur le processeur ; poids : setup.ps1 -Weights)
