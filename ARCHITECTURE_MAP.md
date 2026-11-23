@@ -935,6 +935,9 @@ Simulations du Professeur : pages HTML autonomes (canvas ou SVG, JavaScript en l
   - `def path(self, sim_id: str) -> Path`
   - `def delete(self, sim_id: str) -> dict[str, Any]`
   - `def generate(self, subject: str, level: str='', details: str='', chapter: str='') -> dict[str, Any]` — Fait écrire la page par le modèle codeur (deux essais : le second avec la raison du refus).
+  - `def review(self, sim_id: str) -> dict[str, Any]` — Le modèle du Professeur lit le code et liste ce qui est faux (science, pédagogie, interface).
+  - `def improve(self, sim_id: str, feedback: str) -> dict[str, Any]` — Le modèle codeur corrige la page d'après le retour (et les retours déjà donnés).
+  - `def undo(self, sim_id: str) -> dict[str, Any]` — Rétablit la version précédente d'une simulation corrigée.
   - `def generate_async(self, subject: str, level: str='', details: str='', chapter: str='') -> dict[str, Any]` — Lance `generate` en arrière-plan (plusieurs minutes avec un modèle local) ; suivi par `job`.
   - `def claude_available(self) -> bool`
   - `def ask_claude(self, subject: str, level: str='', details: str='', chapter: str='') -> dict[str, Any]` — Écrit la demande pour le Claude Code local ; renvoie ce qu'il faut lui dire.
@@ -947,7 +950,7 @@ Branchements du Professeur sur les outils déjà en place.
 
 - `def wikipedia(cache_dir: Path, journal: Path | None=None, fetcher: Any=None, lang: str='fr') -> Callable[[str], dict[str, str] | None]` — Fabrique la lecture d'un article (titre -> {"title", "url", "text"} ou None).
 - `def hermes_exe() -> str` — Chemin de Hermes Agent s'il est installé (lu par le pont de WoW Assistant), sinon ''.
-- `def hermes_verifier(exe: str='', runner: Callable[..., Any]=subprocess.run, timeout_s: float=600.0) -> Callable[[str], str] | None` — Question -> réponse de Hermes (CLI, outils sûrs uniquement). None si Hermes est introuvable.
+- `def hermes_verifier(exe: str='', runner: Callable[..., Any]=subprocess.run, timeout_s: float=600.0, reasoning: str='medium') -> Callable[[str], str] | None` — Question -> réponse de Hermes (CLI, outils sûrs uniquement). None si Hermes est introuvable.
 
 ### `modules/genesis_lab/teacher.py`
 

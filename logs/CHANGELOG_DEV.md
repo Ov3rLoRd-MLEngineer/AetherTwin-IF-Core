@@ -1239,3 +1239,34 @@ outine.json` ; le serveur MCP ne fait que le lire.
   Demande « La photosynthèse » écrite pour le Claude Code local (non traitée). Simulation « Les phases de la Lune »
   programmée par `qwen3-coder` en 32 s : acceptée par le contrôle et affichée, mais fausse sur le fond (nouvelle
   lune mal placée) ; le contrôle protège la page, pas l’exactitude scientifique.
+
+## 23/11/2026 : retours sur les simulations, Hermes réglé
+
+- **Agent :** Cloud
+- **Fichiers :** `modules/genesis_lab/sims.py`, `module.py`, `sources.py`, `core/web/professeur.js`,
+  `core/web/dashboard.html`, `tests/genesis_lab/test_professeur.py`, `PROJECT_STATUS.md`.
+- **Raison :** Jérémy : « il a juste besoin de deux ou trois retours » pour la simulation de la Lune ;
+  « corrige le réglage de Hermes ».
+- **Choix :**
+  - `review` : le modèle du Professeur lit le code et liste au plus 5 erreurs (science d'abord) ; le texte
+    est placé dans le champ de retour, à relire avant d'envoyer.
+  - `improve` : le codeur reçoit la page actuelle, le nouveau retour et les retours précédents ; même contrôle
+    qu'à la création (deux essais). L'ancienne version va dans `simulations/versions/`, `undo` la rétablit.
+    Une simulation intégrée (dans le dépôt) n'est jamais réécrite : sa version corrigée est une nouvelle page.
+  - Hermes : `reasoning_effort: "high"` → `"medium"` dans `%LOCALAPPDATA%\hermes\config.yaml`, sauvegarde
+    horodatée `.bak` à côté ; `hermes_verifier` passe aussi `--reasoning medium` (ne dépend plus du réglage).
+- **Tests :** 2 nouveaux (allers-retours, versions, retour arrière, intégrée jamais modifiée) ; contrôle de
+  `--reasoning` ajouté ; tests du Professeur et du tableau de bord verts.
+- **Essai réel :**
+  - Hermes : relecture du cours « L'électricité » en 305 s, « Verdict : correct », avec sources (programme du
+    cycle 4, Eduscol) et deux remarques (sécurité électrique absente, puissance P = U × I).
+  - « Les phases de la Lune » (`qwen3-coder`, ~40 s par tour) : la relecture du Professeur (32 s) trouve des
+    erreurs réelles (période synodique et non sidérale, étiquettes décalées, bouton Pause) mais pas la
+    principale (position de la nouvelle lune). Six retours : 1) positions et angle Soleil-Terre-Lune ;
+    2) méthode exacte (Soleil à gauche, angle a = π + 2π·d/29,53, fraction éclairée) : vue de dessus juste ;
+    3) et 4) code exact de la fonction qui dessine la Lune vue de la Terre (ma première formule était fausse pour
+    la Lune décroissante, corrigée et vérifiée aux 8 phases dans le navigateur) ; 5) bug `innerHTML +=` qui
+    effaçait les vignettes ; 6) redessin en pause et mise en page. Version 7 juste aux 8 phases.
+  - Leçon : le modèle codeur corrige bien ce qu'on lui montre précisément ; les erreurs de géométrie (sens des
+    angles du canvas) demandent un retour avec la formule.
+
