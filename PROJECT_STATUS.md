@@ -198,6 +198,21 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
       `scripts/extract_ui_strings.py`, modèles des textes formatés), réponses de l'assistant et de Hermes en
       anglais, messages de l'addon selon la langue du client du jeu ; les données du jeu restent dans la langue
       du client (test 66).
+7. **Strata, moteur secondaire pour les gros modèles « mélange d'experts » (23/11, demande de Jérémy)** :
+   **FAIT-TESTÉ côté Hub (23/11, en réel)**, à essayer par Jérémy (test 67). Mesures dans
+   `config/hardware_profiles.yaml` : 36 à 48 jetons/s ; sur la RTX 5060 Ti seule (la 5080 reste au jeu) ; mais
+   **21 à 24 Go de RAM** pris par Strata : à arrêter avant une grosse session de jeu ou un traitement scantrad. `core/strata.py` (client OpenAI local, démarrage et arrêt par le
+   lanceur installé), `core/llm_router.py` (modèles `strata/<id>`, repli sur Ollama si Strata est arrêté),
+   arbitrage Inoue (gros modèles Ollama déchargés avant Strata ; gros modèle Ollama refusé tant que Strata tourne,
+   car Strata ne se décharge pas sans être arrêté), Accueil du tableau de bord (état, Démarrer / Arrêter),
+   WoW Assistant (bouton « Ajouter Strata », fournisseur Strata). Strata 0.2.20 installé dans `D:\Strata` (hors
+   dépôt, PATH inchangé) avec Qwen3.6-35B-A3B UD-Q4_K_XL (préréglage « AetherTwin » : carte 1, contexte 64K,
+   port 8090). Laissé **arrêté** : « Démarrer Strata » sur l'Accueil (≈ 3 min de chargement).
+   `docs/HARDWARE_FIT.md` : à écrire avec les documents finaux (sur demande), mesures déjà relevées.
+   Corrections de la note de départ : Qwen3.8-Flash-Next (125B) ne tient pas avec 32 Go de RAM (les experts vont
+   en RAM, pas en VRAM : 34 Go pour Q2_0, 50 Go pour IQ3_S) ; `config/local.yaml` et `--resident-budget-gib`
+   n'existent pas chez Strata ; le profil 2 GPU existait déjà (`dual_gpu_32gb_nvidia`).
+   Hermes Agent : à brancher par Jérémy (`strata connect hermes`), ou par le Hub (`strata/…` dans /v1/models).
 
 ## Problèmes rencontrés et solutions
 
@@ -284,6 +299,7 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 64 | WoW Forever | Paramètres > Jeu : dossier `_forever_` ; addon 1.12 dans son Interface/AddOns, /reload | « WoW Forever » à côté du titre ; pas de cadre Mythique+, pas de Chambre forte, pas de Décors du logis ni de boutons Raidbots ; le journal de quêtes se remplit (sinon me dire) |
 | 65 | Questie | Questie + QuestieDB (version Forever) installés ; une quête terminée dans le journal, /ha save | détail de la quête : « À rendre à : … (Questie) » et « Copier le point de route » vers le PNJ ; Hermes cite Questie dans `wow_quests` |
 | 66 | Version anglaise | Paramètres généraux > Jeu > Langue : English ; parcourir les onglets ; onglet Hermes : « What now? » | interface en anglais (sauf noms venant du jeu), boutons et onglets non coupés ; Hermes répond en anglais ; retour en Français : tout revient |
+| 67 | Strata | Hub lancé ; Accueil : « Démarrer Strata », attendre « actif » ; WoW Assistant > Paramètres > Assistant IA : « Ajouter Strata », « Charger la liste des modèles », choisir le modèle Strata, poser une question ; puis « Arrêter Strata » | Strata actif sur 127.0.0.1:8090 ; réponse ; un gros modèle Ollama est refusé tant que Strata tourne ; Strata arrêté : VRAM rendue, les questions `strata/…` passent sur Ollama |
 | 51 | Hermes : état | lancer Hermes Agent, puis WoW Assistant > onglet **Hermes** | Hermes trouvé, passerelle en marche, modèle affiché ; mode « CLI » |
 | 52 | Hermes : mise en place | cliquer « Installer le skill wow-coach » puis « Ajouter les outils de jeu (MCP) » | deux messages verts ; pastilles vertes « installé » / « ajoutés » ; dans Hermes, `hermes mcp list` montre `wow_assistant` |
 | 53 | Hermes : question | cliquer « Que faire maintenant ? » (mode CLI, ≈ 20-40 s) | réponse en français qui cite vos vraies quêtes / zone ; ligne « Outils : Données… » sous la réponse |

@@ -13,6 +13,21 @@ ollama:
   num_ctx: 32768
   keep_alive: "5m"
 
+strata:
+  # Moteur secondaire optionnel pour les gros modèles « mélange d'experts » (MoE) : https://github.com/Niko1221/Strata
+  # Ollama reste le moteur principal (vision, embeddings, modèles denses). Désactivé : le Hub l'ignore.
+  # Ses modèles apparaissent dans le Hub sous le nom strata/<id> ; Strata arrêté = repli sur Ollama.
+  enabled: false
+  host: "127.0.0.1:8090"   # 8080 est souvent pris par Open WebUI ; garder 127.0.0.1 (--access local)
+  model: ""                # id servi par Strata ; vide = le premier de /v1/models
+  launcher: ""             # chemin de strata.cmd (ex. <dossier Strata>\terminal\current\bin\strata.cmd)
+  data_dir: ""             # STRATA_DATA_DIR de l'installation, si elle n'est pas à l'endroit par défaut
+  preset: ""               # préréglage enregistré par `strata launch --save-preset` (modèle, contexte, cartes, port)
+  key_env: ""              # nom d'une variable d'environnement si Strata demande une clé ; jamais la clé ici
+  fallback_to_ollama: true
+  vram_gb: 0               # place annoncée à Inoue quand Strata tourne ; 0 = la mesure des cartes suffit
+  timeout_s: 600
+
 router:
   # Routeur local (OmniRoute) : expose Ollama au format attendu par Claude Code.
   # Garde-le en écoute sur 127.0.0.1 (OMNIROUTE_SERVER_HOST=127.0.0.1).

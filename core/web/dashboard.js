@@ -78,9 +78,39 @@ async function refreshHub() {
       ? `Ollama joignable (${llm.host}) — modèle par défaut : ${llm.default_model}, contexte ${llm.num_ctx}`
         + ` — chargé : ${loaded || "aucun"}`
       : `Ollama injoignable (${llm.host}) : ${llm.error || "?"}`;
+    showStrata(llm.strata);
   } catch (error) {
     $("hub-line").textContent = `Hub injoignable : ${error.message}`;
   }
+}
+
+// ---------- Strata (moteur secondaire optionnel, gros modèles MoE) ----------
+const STRATA_TEXT = {
+  "désactivé": "désactivé (section strata de config/local.yaml)",
+  "non installé": "non installé (strata.launcher dans config/local.yaml)",
+  "arrêté": "arrêté : les questions strata/… passent sur Ollama",
+  "démarrage": "démarrage en cours (chargement du modèle)…",
+  "actif": "actif",
+};
+function showStrata(strata) {
+  $("strata-line").hidden = !strata;
+  $("strata-actions").hidden = !strata || !strata.enabled || !strata.installed;
+  if (!strata) return;
+  const models = (strata.models || []).join(", ");
+  $("strata-line").textContent = `Strata (${strata.host}) : ${STRATA_TEXT[strata.status] || strata.status}`
+    + (models ? ` — modèles : ${models}` : "")
+    + (strata.status === "actif" ? " — tient la place du gros modèle : les gros modèles Ollama attendent son arrêt" : "");
+  $("strata-start").disabled = ["actif", "démarrage"].includes(strata.status);
+  $("strata-stop").disabled = strata.status !== "actif";
+}
+for (const [id, path, ask] of [["strata-start", "/strata/start", ""],
+  ["strata-stop", "/strata/stop", "Arrêter Strata ? Son modèle sort de la mémoire (VRAM et RAM)."]]) {
+  $(id).addEventListener("click", async () => {
+    if (ask && !confirm(ask)) return;
+    $(id).disabled = true;
+    try { await post(path); } catch (error) { alert(error.message); }
+    refreshHub();
+  });
 }
 
 $("hub-stop").addEventListener("click", async () => {

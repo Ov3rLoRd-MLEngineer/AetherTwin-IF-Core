@@ -5,7 +5,11 @@ Rôle :
 - `num_ctx` toujours fixé (le contexte par défaut d'un modèle 30 B fait échouer le chargement) ;
 - application des règles VRAM avec Inoue : **un seul gros modèle de langage chargé à la fois**.
   Avant d'en charger un nouveau, les autres sont réellement déchargés (`keep_alive: 0`) ;
-- mesure : après chaque réponse, la VRAM réellement occupée par le modèle est relue dans `/api/ps`.
+- mesure : après chaque réponse, la VRAM réellement occupée par le modèle est relue dans `/api/ps` ;
+- moteur secondaire optionnel **Strata** (`core.strata`) : les modèles nommés `strata/<id>` lui sont envoyés.
+  Avant un appel à Strata, les gros modèles d'Ollama sont déchargés ; tant que Strata tourne, il tient la place du
+  gros modèle auprès d'Inoue et un gros modèle Ollama est refusé (Strata ne se décharge pas : on l'arrête). Strata
+  injoignable : repli sur le modèle Ollama par défaut (`strata.fallback_to_ollama`).
 
 Aucune requête ne part vers un service cloud.
 """
@@ -21,6 +25,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from core.guardians.inoue import Inoue, Verdict
+from core.strata import PREFIX as STRATA_PREFIX
+from core.strata import StrataBackend, StrataError, is_strata
 
 GIB = 1024 ** 3
 DEFAULT_HOST = "127.0.0.1:11434"
@@ -106,6 +112,7 @@ class LlmRouter:
     transport: Callable[[str, str, dict[str, Any] | None, float], dict[str, Any]] = http_json
     stream_transport: Callable[[str, dict[str, Any], float], Iterator[dict[str, Any]]] = http_stream
     measured_vram_gb: dict[str, float] = field(default_factory=dict)
+    strata: StrataBackend | None = None
     _lock: threading.RLock = field(default_factory=threading.RLock)
 
     # -- lecture de l'état d'Ollama
@@ -120,7 +127,18 @@ class LlmRouter:
             out.append({"name": str(item.get("name", "")), "size_gb": round(float(item.get("size", 0)) / GIB, 2),
                         "parameters": details.get("parameter_size", ""),
                         "quantization": details.get("quantization_level", "")})
-        return sorted(out, key=lambda m: m["name"])
+        return sorted(out, key=lambda m: m["name"]) + self.strata_models()
+
+    def strata_models(self) -> list[dict[str, Any]]:
+        """Modèles servis par Strata (`strata/<id>`) ; liste vide s'il est désactivé ou arrêté."""
+        if self.strata is None or not self.strata.config.enabled:
+            return []
+        try:
+            served = self.strata.models()
+        except StrataError:
+            return []
+        return [{"name": STRATA_PREFIX + m, "size_gb": 0.0, "parameters": "", "quantization": "strata"}
+                for m in served]
 
     def loaded(self) -> list[dict[str, Any]]:
         """Modèles actuellement en mémoire : `[{"name", "vram_gb", "size_gb", "context"}]` (lu dans `/api/ps`)."""
@@ -153,7 +171,7 @@ class LlmRouter:
         if self.inoue is None:
             return []
         in_memory = {m["name"] for m in self.loaded()}
-        gone = [m for m in self.inoue.state()["loaded_llms"] if m not in in_memory]
+        gone = [m for m in self.inoue.state()["loaded_llms"] if m not in in_memory and not is_strata(m)]
         for model in gone:
             self.inoue.confirm_llm_unloaded(model)
         for key in list(self.inoue.state()["allocations"]):
@@ -182,11 +200,85 @@ class LlmRouter:
                 self.inoue.release(f"llm-small:{model}")
                 raise LlmRefused(f"{model} ({need:.1f} Go) : {decision.verdict.value} — {decision.reason}")
             return
+        holder = self._strata_holder()
+        if holder:
+            raise LlmRefused(f"{model} ({need:.1f} Go) : {Verdict.REFUSED.value} — Strata occupe la VRAM ({holder}) ; "
+                             "arrêtez-le depuis l'Accueil du tableau de bord ou choisissez un modèle strata/…")
         decision, to_unload = self.inoue.plan_llm_load(model, need)
         if decision.verdict is not Verdict.GRANTED:
             raise LlmRefused(f"{model} ({need:.1f} Go) : {decision.verdict.value} — {decision.reason}")
         for other in to_unload:  # un seul gros modèle à la fois : les autres sortent AVANT le chargement
             self._call("POST", "/api/generate", {"model": other, "keep_alive": 0}, timeout_s=60)
+
+    # -- Strata
+    def _strata_holder(self) -> str:
+        """Nom du modèle Strata compté par Inoue s'il tourne encore ; sinon sa place est rendue."""
+        if self.inoue is None:
+            return ""
+        held = [m for m in self.inoue.state()["loaded_llms"] if is_strata(m)]
+        for name in held:
+            try:
+                if self.strata is not None and self.strata.models():
+                    return name
+            except StrataError:
+                pass
+            self.inoue.confirm_llm_unloaded(name)
+        return ""
+
+    def _reserve_strata(self, model: str) -> None:
+        """Un seul gros modèle : les gros modèles d'Ollama sortent AVANT l'appel à Strata, qui prend leur place."""
+        if self.inoue is None:
+            return
+        try:
+            self.sync()
+            held = self.inoue.state()["loaded_llms"]
+            for item in self.loaded():
+                if item["vram_gb"] >= self.config.big_model_gb or item["name"] in held:
+                    self.unload(item["name"])
+        except LlmError:
+            pass  # Ollama arrêté : rien à décharger
+        for other in [m for m in self.inoue.state()["loaded_llms"] if not is_strata(m)]:
+            self.inoue.confirm_llm_unloaded(other)
+        for old in [m for m in self.inoue.state()["loaded_llms"] if is_strata(m) and m != model]:
+            self.inoue.confirm_llm_unloaded(old)
+        if model not in self.inoue.state()["loaded_llms"]:
+            vram = self.strata.config.vram_gb if self.strata is not None else 0.0
+            self.inoue.adopt(f"llm:{model}", vram, llm=model)  # déjà en mémoire côté Strata : la mesure le compte
+
+    def _strata_ready(self, model: str) -> StrataBackend:
+        if self.strata is None or not self.strata.config.enabled:
+            raise LlmError(f"{model} : Strata n'est pas activé (section `strata` de config/local.yaml)")
+        return self.strata
+
+    def _fallback(self, model: str, exc: Exception) -> str:
+        """Modèle Ollama de repli quand Strata ne répond pas ; lève si le repli est impossible."""
+        if self.inoue is not None:
+            for name in [m for m in self.inoue.state()["loaded_llms"] if is_strata(m)]:
+                self.inoue.confirm_llm_unloaded(name)
+        fallback = self.config.default_model
+        allowed = self.strata is not None and self.strata.config.fallback_to_ollama
+        if not allowed or not fallback or is_strata(fallback):
+            raise LlmError(f"{model} : {exc}") from exc
+        return fallback
+
+    def _strata_name(self, strata: StrataBackend, model: str) -> str:
+        return STRATA_PREFIX + strata.resolve(model)
+
+    def _chat_strata(self, messages: list[dict[str, Any]], model: str, options: dict[str, Any] | None,
+                     num_ctx: int | None, think: bool | None) -> dict[str, Any]:
+        strata = self._strata_ready(model)
+        started = time.perf_counter()
+        try:
+            with self._lock:
+                strata.models()              # joignable ? sinon repli avant de décharger quoi que ce soit
+                self._reserve_strata(self._strata_name(strata, model))
+                answer = strata.chat(messages, model=model, options=options)
+        except StrataError as exc:
+            fallback = self._fallback(model, exc)
+            result = self.chat(messages, model=fallback, num_ctx=num_ctx, think=think, options=options)
+            return {**result, "fallback_from": model, "fallback_reason": str(exc)}
+        return {**answer, "num_ctx": None, "seconds": round(time.perf_counter() - started, 2), "vram_gb": None,
+                "backend": "strata"}
 
     # -- génération
     def chat(self, messages: list[dict[str, Any]], model: str | None = None, num_ctx: int | None = None,
@@ -195,6 +287,8 @@ class LlmRouter:
         model = model or self.config.default_model
         if not model:
             raise LlmError("aucun modèle demandé et aucun modèle par défaut configuré (section `ollama`)")
+        if is_strata(model):
+            return self._chat_strata(messages, model, options, num_ctx, think)
         ctx = int(num_ctx or self.config.num_ctx)
         with self._lock:  # une génération à la fois : la VRAM n'est pas partagée entre deux gros modèles
             self._reserve(model)
@@ -233,6 +327,9 @@ class LlmRouter:
         model = model or self.config.default_model
         if not model:
             raise LlmError("aucun modèle demandé et aucun modèle par défaut configuré (section `ollama`)")
+        if is_strata(model):
+            yield from self._stream_strata(messages, model, num_ctx, think, options)
+            return
         ctx = int(num_ctx or self.config.num_ctx)
         with self._lock:
             self._reserve(model)
@@ -260,6 +357,28 @@ class LlmRouter:
             if vram:
                 self.measured_vram_gb[model] = vram
 
+    def _stream_strata(self, messages: list[dict[str, Any]], model: str, num_ctx: int | None, think: bool | None,
+                       options: dict[str, Any] | None) -> Iterator[str]:
+        strata = self._strata_ready(model)
+        fallback = ""
+        with self._lock:
+            try:
+                strata.models()
+                self._reserve_strata(self._strata_name(strata, model))
+                pieces = strata.chat_stream(messages, model=model, options=options)
+                first = next(pieces, None)   # une panne avant le premier morceau peut encore basculer sur Ollama
+            except StrataError as exc:
+                fallback = self._fallback(model, exc)
+            if not fallback:
+                if first is not None:
+                    yield first
+                try:
+                    yield from pieces
+                except StrataError as exc:
+                    raise LlmError(f"{model} : {exc}") from exc
+                return
+        yield from self.chat_stream(messages, model=fallback, num_ctx=num_ctx, think=think, options=options)
+
     def state(self) -> dict[str, Any]:
         """État pour l'API du démon. Ne lève jamais : Ollama arrêté = mode dégradé."""
         try:
@@ -268,7 +387,8 @@ class LlmRouter:
             loaded, error = [], str(exc)
         return {"host": self.config.host, "default_model": self.config.default_model, "num_ctx": self.config.num_ctx,
                 "reachable": not error, "error": error, "loaded": loaded,
-                "measured_vram_gb": dict(self.measured_vram_gb)}
+                "measured_vram_gb": dict(self.measured_vram_gb),
+                "strata": self.strata.state() if self.strata is not None else None}
 
 
 def openai_to_ollama(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:

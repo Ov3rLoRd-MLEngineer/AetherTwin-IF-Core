@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import queue
 import re
+import subprocess
 import threading
 import time
 from pathlib import Path
@@ -37,6 +38,7 @@ from pydantic import BaseModel
 from core import config
 from core.daemon import REPO_ROOT, Daemon
 from core.llm_router import LlmError, LlmRefused, openai_to_ollama
+from core.strata import StrataError, is_strata
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 SCANTRAD_DIR = REPO_ROOT / "data" / "scantrad"
@@ -550,6 +552,39 @@ def create_app(daemon: Daemon) -> FastAPI:
             if kind != "text":
                 return
 
+    def strata_backend() -> Any:
+        strata = daemon.llm.strata
+        if strata is None or not strata.config.enabled:
+            raise HTTPException(status_code=404, detail="Strata n'est pas activé (section strata de config/local.yaml)")
+        return strata
+
+    @app.post("/strata/start")
+    def strata_start() -> dict[str, Any]:
+        """Démarre le préréglage Strata (clic sur l'Accueil). Les gros modèles d'Ollama sont déchargés avant."""
+        strata = strata_backend()
+        try:
+            for item in daemon.llm.loaded():
+                if item["vram_gb"] >= daemon.llm.config.big_model_gb:
+                    daemon.llm.unload(item["name"])
+        except LlmError:
+            pass
+        try:
+            return strata.start()
+        except StrataError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    @app.post("/strata/stop")
+    def strata_stop() -> dict[str, Any]:
+        """Arrête Strata : toute sa VRAM est rendue, Inoue libère sa place."""
+        strata = strata_backend()
+        try:
+            result = strata.stop()
+        except (StrataError, OSError, subprocess.SubprocessError) as exc:
+            raise HTTPException(status_code=503, detail=f"arrêt de Strata impossible : {exc}") from exc
+        for name in [m for m in daemon.inoue.state()["loaded_llms"] if is_strata(m)]:
+            daemon.inoue.confirm_llm_unloaded(name)
+        return result
+
     @app.post("/llm/unload")
     def llm_unload(data: dict[str, Any]) -> dict[str, Any]:
         """Décharge un modèle de la VRAM (ex. avant de lancer un jeu). Seuls les modèles chargés sont acceptés."""
@@ -563,7 +598,9 @@ def create_app(daemon: Daemon) -> FastAPI:
     @app.get("/v1/models")
     def v1_models() -> dict[str, Any]:
         models = llm_call(lambda: {"models": daemon.llm.list_models()})["models"]
-        return {"object": "list", "data": [{"id": m["name"], "object": "model", "owned_by": "ollama"} for m in models]}
+        return {"object": "list", "data": [{"id": m["name"], "object": "model",
+                                            "owned_by": "strata" if is_strata(m["name"]) else "ollama"}
+                                           for m in models]}
 
     @app.post("/v1/chat/completions")
     def v1_chat(request: ChatRequest) -> Any:

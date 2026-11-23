@@ -1173,3 +1173,30 @@ outine.json` ; le serveur MCP ne fait que le lire.
 - **Tests :** 5 nouveaux (`test_i18n.py` : tous les onglets en anglais sans texte coupé ; messages de l'addon) ;
   suite verte.
 
+## 23/11/2026 : Strata, moteur secondaire pour les gros modèles « mélange d'experts »
+- **Agent :** Cloud
+- **Fichiers :** `core/strata.py` (nouveau), `core/llm_router.py`, `core/daemon.py`, `core/api.py`
+  (`/strata/start`, `/strata/stop`, `owned_by` dans `/v1/models`), `core/web/dashboard.html` et `.js` (Accueil),
+  `config/local.example.yaml` (section `strata`), `config/hardware_profiles.yaml` (ce qui tient avec 32 Go de RAM),
+  WoW Assistant `llm.py` / `ui.py` / `i18n_en.json` (fournisseur Strata, bouton « Ajouter Strata »), README
+  (installation optionnelle), `tests/core/test_strata.py` (nouveau), `tests/gaming_hud/test_ui_fixes.py`.
+- **Raison :** demande de Jérémy (note préparée avec Gemini) : un moteur pour les gros modèles MoE à côté d'Ollama.
+- **Choix :**
+  - Strata ne remplace pas Ollama ; désactivé par défaut ; arrêté ou absent = repli sur Ollama, sans erreur.
+  - Modèles nommés `strata/<id>` : le Hub, ses clients (WoW Assistant via le Hub) et `/v1/models` les voient.
+  - Strata garde son modèle tant qu'il tourne (pas de `keep_alive`) : il tient la place du gros modèle auprès
+    d'Inoue ; un gros modèle Ollama est refusé avec un message clair au lieu d'arrêter Strata sans prévenir.
+    Démarrage et arrêt : seulement sur un clic (Accueil).
+  - Port 8090 : 8080 est pris par Open WebUI sur le poste.
+  - Clé éventuelle : lue dans la variable d'environnement nommée par `strata.key_env`, jamais écrite.
+- **Vérifié dans la doc de Strata (docs/MODELS.md), contre la note de départ :** Qwen3.8-Flash-Next garde ses
+  experts en RAM (34 Go pour Q2_0, 50 Go pour IQ3_S, plus ~10 Go pour le système) : il ne tient pas avec 32 Go
+  sans lire les experts sur le SSD. Choix de Jérémy : Qwen3.6-35B-A3B UD-Q4_K_XL (22,9 Go).
+- **Installation (hors dépôt) :** script officiel lu avant exécution, `STRATA_DATA_DIR=D:\Strata`,
+  `STRATA_NO_PATH=1` (PATH inchangé) ; somme SHA-256 et signature de la publication vérifiées par le script.
+- **Tests :** 10 nouveaux (faux serveur OpenAI sur 127.0.0.1 : modèles, réponse entière et diffusée, déchargement
+  d'Ollama avant Strata, refus d'un gros modèle Ollama pendant Strata, repli, lanceur, API) ; suite verte.
+- **Essai réel :** 36 à 48 jetons/s par le routeur ; le moteur qwen36 n'utilise qu'une carte : préréglage passé sur
+  la RTX 5060 Ti (la 5080 reste au jeu). Strata prend 21 à 24 Go de RAM : trois tests scantrad ont manqué de mémoire
+  pendant qu'il tournait (verts après l'arrêt). Démarrage et arrêt par le Hub vérifiés ; Strata laissé arrêté.
+

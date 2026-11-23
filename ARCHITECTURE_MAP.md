@@ -172,6 +172,7 @@ core/
   module_api.py
   module_runner.py
   scheduler.py
+  strata.py
   translate.py
   web/
     dashboard.css
@@ -335,6 +336,7 @@ tests/
     test_knowledge_store.py
     test_llm_router.py
     test_module_api.py
+    test_strata.py
     test_translate.py
   data/
     .gitkeep
@@ -598,6 +600,7 @@ Routeur LLM du Hub : toutes les demandes de génération passent par ici, vers O
 - `def http_stream(url: str, body: dict[str, Any], timeout_s: float) -> Iterator[dict[str, Any]]` — Réponse d'Ollama morceau par morceau (une ligne JSON par morceau).
 - **`class LlmRouter`** — Point d'entrée unique vers les modèles de langage locaux.
   - `def list_models(self) -> list[dict[str, Any]]` — Modèles installés : `[{"name", "size_gb", "parameters", "quantization"}]`.
+  - `def strata_models(self) -> list[dict[str, Any]]` — Modèles servis par Strata (`strata/<id>`) ; liste vide s'il est désactivé ou arrêté.
   - `def loaded(self) -> list[dict[str, Any]]` — Modèles actuellement en mémoire : `[{"name", "vram_gb", "size_gb", "context"}]` (lu dans `/api/ps`).
   - `def estimate_vram_gb(self, model: str) -> float` — VRAM à prévoir : la dernière valeur **mesurée** si elle existe, sinon taille des poids x marge.
   - `def unload(self, model: str) -> None` — Décharge réellement un modèle de la VRAM (`keep_alive: 0`).
@@ -648,6 +651,30 @@ File d'attente GPU unique pour les tâches de vision et de diffusion (scantrad, 
   - `def submit(self, name: str, vram_gb: float, fn: Callable[[], Any]) -> Future[Any]` — Met une tâche en file. Le résultat (ou l'erreur) arrive par le `Future` retourné.
   - `def state(self) -> dict[str, Any]`
   - `def shutdown(self) -> None`
+
+### `core/strata.py`
+
+Strata : moteur d'inférence secondaire, pour les modèles de langage « mélange d'experts » (MoE).
+
+- **`class StrataError(RuntimeError)`** — Strata injoignable, refus ou réponse illisible.
+- `def is_strata(model: str | None) -> bool`
+- **`class StrataConfig`**
+  - `def from_section(cls, raw: dict[str, Any]) -> StrataConfig` — Depuis la section `strata` de `config/local.yaml` (absente = désactivé).
+  - `def base_url(self) -> str`
+  - `def local(self) -> bool` — Seule une adresse de cette machine est acceptée (règle du projet : 127.0.0.1).
+- `def http_json(method: str, url: str, body: dict[str, Any] | None, timeout_s: float, headers: dict[str, str]) -> dict[str, Any]`
+- `def http_sse(url: str, body: dict[str, Any], timeout_s: float, headers: dict[str, str]) -> Iterator[dict[str, Any]]` — Réponse diffusée au format OpenAI : lignes `data: {...}`, puis `data: [DONE]`.
+- `def ollama_to_openai(messages: list[dict[str, Any]]) -> list[dict[str, Any]]` — Messages du routeur (format Ollama, images en base64 à part) vers le format OpenAI attendu par Strata.
+- **`class StrataBackend`** — Client du serveur Strata local, plus son démarrage et son arrêt (sur demande de l'utilisateur).
+  - `def models(self) -> list[str]` — Ids servis par Strata (sans le préfixe `strata/`).
+  - `def resolve(self, model: str | None) -> str` — `strata/<id>` ou `strata/` → id réel ; vide = celui de la configuration, sinon le premier servi.
+  - `def chat(self, messages: list[dict[str, Any]], model: str | None=None, options: dict[str, Any] | None=None, max_tokens: int | None=None) -> dict[str, Any]`
+  - `def chat_stream(self, messages: list[dict[str, Any]], model: str | None=None, options: dict[str, Any] | None=None) -> Iterator[str]`
+  - `def launcher(self) -> Path | None`
+  - `def start(self) -> dict[str, Any]` — Démarre le préréglage en arrière-plan (`--no-tui`) ; le chargement du modèle prend du temps.
+  - `def stop(self) -> dict[str, Any]` — Arrête le modèle servi : Strata rend toute sa VRAM et sa RAM (essai du 23/11 : 24 Go de RAM).
+  - `def starting(self) -> bool`
+  - `def state(self) -> dict[str, Any]` — Ne lève jamais. `status` : désactivé | non installé | arrêté | démarrage | actif.
 
 ### `core/translate.py`
 

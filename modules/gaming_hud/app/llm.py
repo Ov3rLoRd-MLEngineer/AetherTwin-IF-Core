@@ -36,9 +36,12 @@ class _FixedSettings:
         return self.values.get(key, default)
 
 
-PROVIDERS = ("Ollama", "Hub AetherTwin", "Open WebUI", "OmniRoute", "LM Studio", "vLLM", "Autre")
-_PORT_PROVIDERS = {"11434": "Ollama", "5750": "Hub AetherTwin", "20128": "OmniRoute", "1234": "LM Studio",
-                   "3000": "Open WebUI", "8080": "Open WebUI", "8000": "vLLM"}
+PROVIDERS = ("Ollama", "Hub AetherTwin", "Strata", "Open WebUI", "OmniRoute", "LM Studio", "vLLM", "Autre")
+_PORT_PROVIDERS = {"11434": "Ollama", "5750": "Hub AetherTwin", "8090": "Strata", "20128": "OmniRoute",
+                   "1234": "LM Studio", "3000": "Open WebUI", "8080": "Open WebUI", "8000": "vLLM"}
+# Strata (gros modèles « mélange d'experts », https://github.com/Niko1221/Strata) : serveur compatible OpenAI local.
+# 8090 plutôt que son 8080 par défaut, souvent pris par Open WebUI (préréglage « AetherTwin » du Hub).
+STRATA_ENDPOINT = "http://127.0.0.1:8090/v1"
 
 
 def guess_provider(url):

@@ -47,6 +47,28 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pytest
 ```
 
+### Optionnel : Strata, moteur des gros modèles « mélange d'experts »
+
+[Strata](https://github.com/Niko1221/Strata) (licence MIT) sert des modèles MoE au format OpenAI sur 127.0.0.1.
+Il **s'ajoute** à Ollama, qui garde la vision, les embeddings et les modèles denses. Sans Strata, rien ne change.
+
+```powershell
+# installation sans droits administrateur, dans le dossier choisi, sans toucher au PATH
+$env:STRATA_DATA_DIR = 'D:\Strata'; $env:STRATA_NO_PATH = '1'
+irm -TimeoutSec 120 https://github.com/Niko1221/Strata/releases/latest/download/install.ps1 | iex
+# modèle, préréglage « AetherTwin », port 8090 (8080 est souvent pris par Open WebUI)
+D:\Strata\terminal\current\bin\strata.cmd launch --family qwen36 --model UD-Q4_K_XL --data-dir D:\Strata\Models `
+  --context 64k --gpu 0,1 --access local --port 8090 --save-preset AetherTwin --yes --no-tui
+```
+
+Puis, dans `config/local.yaml`, la section `strata` (`enabled: true`, `launcher`, `data_dir`, `preset`) : voir
+`config/local.example.yaml`. Le tableau de bord (Accueil) montre son état et le démarre ou l'arrête ; ses modèles
+s'appellent `strata/<id>` dans le Hub. Tant que Strata tourne, il tient la place du gros modèle : Inoue refuse un
+gros modèle Ollama jusqu'à son arrêt. Strata arrêté : les questions `strata/…` passent sur le modèle Ollama par défaut.
+Avec 32 Go de RAM, Qwen3.6-35B-A3B convient ; Qwen3.8-Flash-Next (125B) veut 48 à 64 Go de RAM.
+Mesuré le 23/11 : 36 à 48 jetons/s sur une seule carte (le moteur de ce modèle n'en utilise qu'une : la RTX 5060 Ti,
+pour laisser la 5080 au jeu), mais 21 à 24 Go de RAM pris : arrêtez Strata avant un traitement lourd.
+
 ## Lancer le Hub
 
 Double-clic sur `Lancer AetherTwin.bat` à la racine (ou le raccourci créé par `setup.ps1 -Shortcut`) : le Hub

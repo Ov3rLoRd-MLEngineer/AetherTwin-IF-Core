@@ -386,9 +386,24 @@ def test_several_ai_servers_can_be_saved_toggled_and_queried(app, monkeypatch) -
     assert app.settings.get("llm.servers")[0]["provider"] == "Hub AetherTwin"
     assert "Ollama" in app.modal["providers"].values()
     app._cycle_provider(0)
-    assert app.settings.get("llm.servers")[0]["provider"] == "Open WebUI"
+    assert app.settings.get("llm.servers")[0]["provider"] == "Strata"
     app._use_server(1)
     assert app.inputs["set_endpoint"] == "http://127.0.0.1:11434/v1"
     app._remove_server(2)
     assert len(app.settings.get("llm.servers")) == 2
     assert llm.enabled_servers(app.settings, "http://127.0.0.1:5750/")[0]["url"] == "http://127.0.0.1:5750"
+
+
+def test_strata_server_is_one_click_and_local(app) -> None:
+    """Strata (moteur des gros modèles MoE, 23/11) : un bouton l'ajoute une seule fois, sur 127.0.0.1:8090."""
+    import llm
+
+    assert llm.guess_provider(llm.STRATA_ENDPOINT) == "Strata" and llm.STRATA_ENDPOINT.startswith("http://127.0.0.1:")
+    assert llm.guess_provider("http://127.0.0.1:8080/v1") == "Open WebUI"
+    app.open_settings("llm")
+    app._add_strata()
+    app._add_strata()
+    servers = app.settings.get("llm.servers")
+    assert servers == [{"url": llm.STRATA_ENDPOINT, "api_key": "", "enabled": True, "provider": "Strata"}]
+    app.draw(app.test_ctx)
+    shot(app, "settings_llm_strata")

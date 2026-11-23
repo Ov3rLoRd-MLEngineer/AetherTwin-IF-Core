@@ -11,6 +11,12 @@ profiles:
       - { name: "NVIDIA GeForce RTX 5060 Ti", vram_mib: 16311 }
       - { name: "NVIDIA GeForce RTX 5060 Ti", vram_mib: 16311 }
     vram_safety_margin: 0.10
+    strata:                    # moteur secondaire optionnel (core/strata.py) ; d'après docs/MODELS.md de Strata, non mesuré
+      ram_gb: 32               # la RAM, pas la VRAM, borne Qwen3.8-Flash-Next : experts du fragment 1 en RAM + ~10 Go
+      fits: ["Qwen3.6-35B-A3B UD-Q4_K_XL (22,9 Go)", "Qwen3.6-35B-A3B UD-Q6_K_XL (32,6 Go)"]
+      tight: ["Qwen3.8-Flash-Next Q2_0 (experts 34 Go : mode « peu de RAM », experts lus sur le SSD, lent)"]
+      no: ["Qwen3.8-Flash-Next IQ3_S (experts 50 Go)", "UD-IQ4_XS (~72 Go de RAM)"]
+      note: "48 Go de VRAM accélèrent sans baisser la RAM demandée ; Q2_0 / IQ2_XS veulent 48 Go de RAM, IQ3_S 64 Go."
 
   dual_gpu_32gb_nvidia:
     description: "Topologie observée sur le poste de développement."
@@ -19,6 +25,12 @@ profiles:
       - { name: "NVIDIA GeForce RTX 5080", vram_mib: 16303 }
       - { name: "NVIDIA GeForce RTX 5060 Ti", vram_mib: 16311 }
     vram_safety_margin: 0.10
+    strata:                    # installé le 23/11/2026 dans D:\Strata (hors dépôt), préréglage « AetherTwin »
+      ram_gb: 32
+      chosen: "Qwen3.6-35B-A3B UD-Q4_K_XL, contexte 64K, RTX 5060 Ti seule (carte 1), images sur le processeur, port 8090"
+      fits: ["Qwen3.6-35B-A3B UD-Q4_K_XL (22,9 Go)"]
+      tight: ["Qwen3.8-Flash-Next Q2_0 (experts 34 Go > RAM libre : experts lus sur le SSD, lent ; pas en jouant)"]
+      no: ["Qwen3.8-Flash-Next IQ3_S (experts 50 Go)"]
 
 # Relevés bruts (ne rien écrire ici qui n'ait été mesuré).
 measured:
@@ -66,3 +78,21 @@ measured:
       - "Les deux dépassent la VRAM d'une seule carte de 16 Go : Ollama les répartit sur les deux GPU."
       - "Après déchargement : 0 MiB sur la RTX 5060 Ti, retour au niveau de repos sur la RTX 5080."
     not_measured: "Répartition par GPU pendant le chargement ; débit en jetons par seconde ; contexte rempli."
+
+  - date: "2026-11-23"
+    what: "Strata 0.2.20 (moteur 0.1.66, CUDA 13), Qwen3.6-35B-A3B UD-Q4_K_XL, contexte 64K, via core/llm_router.py"
+    command: "scratchpad real_strata.py : deux questions « coach WoW » (réponse avec réflexion), puis diffusion"
+    engine: "strata-q36 : une seule carte par modèle (--layer-split ignoré) ; experts hybrides, 18,75 Gio en RAM"
+    runs:
+      - { gpu: "RTX 5080 (carte 0)", vram_mib: 15566, experts_in_vram: "39 / 256 par couche", load_s: 150,
+          cold: "45,4 s, 1864 jetons, 41,0 jetons/s", warm: "27,4 s, 1328 jetons, 48,5 jetons/s" }
+      - { gpu: "RTX 5060 Ti (carte 1)", vram_mib: 14703, experts_in_vram: "42 / 256 par couche", load_s: 118,
+          cold: "28,8 s, 1026 jetons, 35,6 jetons/s", warm: "22,1 s, 935 jetons, 42,2 jetons/s" }
+    ram: "processus strata : 21 à 24 Go de RAM (35,8 Go réservés) ; 1,3 Go de RAM libre sur 32 avec Strata actif"
+    observed:
+      - "Sur la 5060 Ti, la 5080 reste libre (≈ 1,2 Go) pour le jeu : choix retenu pour le préréglage AetherTwin."
+      - "Avec Strata actif, trois tests scantrad ont manqué de RAM (onnxruntime, OpenBLAS) ; verts une fois arrêté."
+      - "Démarrage par le Hub (StrataBackend.start) : actif en 183 s ; arrêt : VRAM rendue."
+      - "Inoue : un gros modèle Ollama (qwen3-27b) est refusé tant que Strata tourne."
+    not_measured: "Strata avec WoW lancé ; Qwen3.8-Flash-Next (non installé : RAM insuffisante)."
+

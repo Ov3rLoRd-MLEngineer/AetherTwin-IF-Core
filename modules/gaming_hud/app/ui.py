@@ -20,7 +20,7 @@ import pygame
 import tabs
 import voice as voice_mod
 from character import EQUIPMENT_LAYOUT, Character, format_duration
-from llm import PROVIDERS, enabled_servers, guess_provider, list_models_at
+from llm import PROVIDERS, STRATA_ENDPOINT, enabled_servers, guess_provider, list_models_at
 from media import fit_image
 from quests import QuestTracker
 from theme import QUALITY_COLORS, C, clean_wow_text, hex_to_rgb
@@ -2041,6 +2041,16 @@ class UI:
         self.settings.set("llm.servers", servers)
         self.settings.save()
 
+    def _add_strata(self):
+        """Ajoute le serveur Strata local (moteur des gros modèles MoE) à la liste, sans clé."""
+        servers = self._servers()
+        if any(s.get("url", "").rstrip("/") == STRATA_ENDPOINT for s in servers):
+            self.notify("Ce serveur est déjà dans la liste")
+            return
+        servers.append({"url": STRATA_ENDPOINT, "api_key": "", "enabled": True, "provider": "Strata"})
+        self._save_servers(servers)
+        self.notify("Strata ajouté à la liste : « Charger la liste des modèles » pour le voir")
+
     def _add_server(self):
         url = self.inputs.get("set_endpoint", "").strip().rstrip("/")
         if not url:
@@ -2061,7 +2071,7 @@ class UI:
         self._save_servers(servers)
 
     def _cycle_provider(self, index):
-        """Fournisseur suivant de la liste (Ollama, Hub AetherTwin, Open WebUI, OmniRoute, LM Studio, vLLM, Autre)."""
+        """Fournisseur suivant de la liste (Ollama, Hub AetherTwin, Strata, Open WebUI, OmniRoute, LM Studio...)."""
         servers = self._servers()
         current = servers[index].get("provider") or guess_provider(servers[index].get("url", ""))
         position = PROVIDERS.index(current) if current in PROVIDERS else -1
@@ -2083,6 +2093,10 @@ class UI:
         servers = self._servers()
         self.text("Serveurs enregistrés", "small", "gray", (x, y + 6))
         self.pill((x + label_w, y, 300, 28), "Ajouter l'endpoint ci-dessus à la liste", False, self._add_server)
+        srect = pygame.Rect(x + label_w + 310, y, 170, 28)
+        self.pill(srect, "Ajouter Strata", False, self._add_strata)
+        self.tip(srect, {"rows": [("Strata : gros modèles « mélange d'experts » en local", "text", ""),
+                                  (STRATA_ENDPOINT, "gray", "")]})
         y += 36
         for i, server in enumerate(servers[:5]):
             on = server.get("enabled", True)

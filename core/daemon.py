@@ -47,6 +47,7 @@ from core.module_api import (
     load_manifest,
 )
 from core.scheduler import GpuScheduler
+from core.strata import StrataBackend, StrataConfig
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_PORT = 5750
@@ -93,7 +94,8 @@ class Daemon:
         self.monitor = monitor or GpuMonitor()
         self.bus = EventBus()
         self.inoue = Inoue(self.monitor)
-        self.llm = llm or LlmRouter(self.inoue, LlmConfig.from_section(config.section("ollama")))
+        self.llm = llm or LlmRouter(self.inoue, LlmConfig.from_section(config.section("ollama")),
+                                    strata=StrataBackend(StrataConfig.from_section(config.section("strata"))))
         self.contexts: dict[str, str] = {}  # module -> dernier contexte publié pour l'assistant
         self.states: dict[str, dict[str, Any]] = {}  # module -> dernier état publié (déjà filtré par le module)
         self.apps: dict[str, subprocess.Popen[bytes]] = {}  # module -> application de bureau lancée
