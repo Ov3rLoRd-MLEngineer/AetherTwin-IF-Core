@@ -32,7 +32,7 @@ SLOT_SHORT = {1: "Tête", 2: "Cou", 3: "Épaul.", 15: "Dos", 5: "Torse", 4: "Che
 
 TAB_NAMES = ["Personnage", "Talents et grimoire", "Journal des quêtes", "Sacs", "Métiers",
              "Hauts Faits", "Collections du bataillon", "Historique d'activité",
-             "Réputations et monnaies", "Semaine", "Instances et Chambre", "Hôtel des ventes", "Bestiaire", "Hermes"]
+             "Réputations et monnaies", "Semaine", "Instances et Chambre", "Hôtel des ventes", "Bilans", "Bestiaire", "Hermes"]
 
 
 class UI:

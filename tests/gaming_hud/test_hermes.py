@@ -128,7 +128,7 @@ def test_mcp_server_speaks_json_rpc_and_lists_read_only_tools() -> None:
     assert init["result"]["protocolVersion"] == "2025-03-26" and "tools" in init["result"]["capabilities"]
     assert hermes_mcp.handle(game, {"jsonrpc": "2.0", "method": "notifications/initialized"}) is None
     tools = hermes_mcp.handle(game, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})["result"]["tools"]
-    assert len(tools) == 13
+    assert len(tools) == 14
     assert [t["name"] for t in tools if not t["annotations"]["readOnlyHint"]] == ["wow_knowledge_save"]
     assert {t["name"] for t in tools} >= {"wow_character", "wow_quests", "wow_inventory", "wow_bestiary"}
     unknown = hermes_mcp.handle(game, {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
@@ -268,7 +268,7 @@ def test_register_mcp_uses_hermes_own_command_with_backup(tmp_path, hb) -> None:
         return type("R", (), {"stdout": "", "stderr": ""})()
 
     ok, text = hb.register_mcp(info, python=r"C:\Python311\pythonw.exe", runner=runner)
-    assert ok and "13 outils" in text and seen["input"] == "y\n"
+    assert ok and "14 outils" in text and seen["input"] == "y\n"
     assert seen["args"][1:6] == ["mcp", "add", "wow_assistant", "--command", r"C:\Python311\python.exe"]
     assert seen["args"][-2:] == ["-I", hb.MCP_SCRIPT]
     assert list(home.glob("config.yaml.wow-assistant-*.bak"))

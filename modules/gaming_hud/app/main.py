@@ -19,6 +19,7 @@ from game_connection import GameConnection
 from ui import UI
 import overlay as ov
 from bestiary import Bestiary
+from combat_report import ReportBuilder
 from model3d import Viewer3D
 from focus import CombatMonitor, FocusManager
 from hotkeys import Hotkeys
@@ -89,6 +90,8 @@ def main():
     focus = FocusManager(settings)
     monitor = CombatMonitor(os.path.join(WoWConfig.WOW_PATH, "Logs"), settings.get("focus.quiet_seconds", 5))
     ui.bestiary = Bestiary(os.path.join(BASE_DIR, "bestiary.json"), os.path.join(WoWConfig.WOW_PATH, "Logs"))
+    ui.reports = ReportBuilder()              # bilans de combat (boss, clés M+), mêmes lignes que le bestiaire
+    ui.bestiary.listeners.append(ui.reports)
     ui.viewer3d = Viewer3D(os.path.join(BASE_DIR, "cache", "zam"))   # vue 3D facultative (Paramètres > Jeu)
     hotkeys = Hotkeys()
     overlay_state = {"visible": True, "geometry": None, "checked": 0.0}

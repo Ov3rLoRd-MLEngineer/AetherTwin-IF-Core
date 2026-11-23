@@ -362,6 +362,20 @@ def tool_routine(data, args):
     return out
 
 
+def tool_combat_reports(data, args):
+    """Derniers bilans de combat (boss, clés M+) tirés du journal de combat par WoW Assistant."""
+    import combat_report
+    builder = combat_report.ReportBuilder(getattr(data, "reports_path", combat_report.REPORTS_PATH))
+    reports = builder.latest(max(1, min(int(args.get("count") or 3), 10)))
+    query = str(args.get("query") or "").lower()
+    if query:
+        reports = [r for r in reports if query in r["name"].lower()]
+    if not reports:
+        return {"bilans": [], "conseil": "Aucun bilan : le joueur doit activer le journal de combat (/ha combatlog on) "
+                                         "puis terminer un boss ou une clé Mythique+."}
+    return {"bilans": [combat_report.describe(r) for r in reports]}
+
+
 def tool_knowledge_search(data, args):
     kb = data.knowledge()
     found = kb.search(args.get("query") or "", args.get("topic") or "", limit=12, count_use=True)
@@ -407,6 +421,11 @@ TOOLS = [
      "forte, monnaies plafonnées, quêtes hebdomadaires et journalières, verrouillages, Mythique+), tâches notées par "
      "le joueur, et la semaine de ses autres personnages. À appeler pour « que faire cette semaine / en N minutes ».",
      {"minutes": {"type": "integer", "description": "temps de jeu disponible (facultatif)"}}, tool_routine),
+    ("wow_combat_reports", "Bilans des derniers combats (boss et clés Mythique+, tirés du journal de combat) : durée, "
+     "réussite, DPS / HPS / dégâts subis / interruptions / morts par joueur du groupe, derniers coups reçus avant "
+     "chaque mort, ce qui a fait le plus mal au joueur.",
+     {"count": {"type": "integer", "description": "nombre de bilans (1 à 10, 3 par défaut)"},
+      "query": {"type": "string", "description": "nom du boss ou du donjon"}}, tool_combat_reports),
     ("wow_knowledge_search", "Base de connaissances du coach : corrections du joueur (elles font foi) et faits déjà "
      "vérifiés en ligne (avec leur source et leur date). À consulter AVANT de répondre.",
      {"query": {"type": "string", "description": "mots de la question (quête, objet, classe, donjon...)"},

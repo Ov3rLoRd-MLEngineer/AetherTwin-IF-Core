@@ -7,7 +7,7 @@ Lecture seule : aucune automatisation du jeu.
 Personnage · Talents et grimoire · Journal des quêtes · Sacs (+ banque de bataillon / de guilde) · Métiers ·
 Hauts Faits · Collections du bataillon (Montures, Codex des mascottes, Jouets, Héritage, Transmoglyphe) ·
 Historique d'activité (Évolution, Journal, Statistiques) · Réputations et monnaies · Semaine · Instances et Chambre ·
-Hôtel des ventes · Bestiaire · Hermes (coach)
+Hôtel des ventes · Bilans (combats) · Bestiaire · Hermes (coach)
 
 ## Commandes en jeu
 - `/ha` : état                      - `/ha save` : écrit le fichier tout de suite (fait un /reload)
@@ -90,7 +90,7 @@ HermesAssistant.toc/.lua (addon) · main.py · config.py · settings.py · llm.p
 lua_parser.py · game_connection.py · gamedata.py · character.py · quests.py · inventory.py · craft.py · history.py ·
 wowhead.py · theme.py · icons_draw.py · ui.py · tabs.py · tabs_data.py · tabs_collections.py · tabutil.py ·
 overlay.py · hotkeys.py · focus.py · widgets.py · widgets_builtin.py · vision.py · voice.py · webhost.py · webwidget.py ·
-chatview.py · tabs_hermes.py · hermes_bridge.py · hermes_mcp.py (outils de jeu pour Hermes) · coach_knowledge.py · gameversion.py · routine.py · tabs_routine.py · hermes_skill/ ·
+chatview.py · tabs_hermes.py · hermes_bridge.py · hermes_mcp.py (outils de jeu pour Hermes) · coach_knowledge.py · gameversion.py · routine.py · tabs_routine.py · combat_report.py · tabs_reports.py · hermes_skill/ ·
 layout.json · chat_history.json · wowhead_links.json · recipes.json
 
 
@@ -142,6 +142,14 @@ layout.json · chat_history.json · wowhead_links.json · recipes.json
 - Heures exactes de remise à zéro : **addon 1.10** (sinon calculées d'après la région). Fichier
   `%APPDATA%\WoWAssistant
 outine.json` (hors du dépôt et du dossier du jeu).
+
+## Bilans de combat (23/11/2026)
+- Onglet **Bilans** : après chaque boss et chaque clé Mythique+, un bilan tiré du journal de combat du jeu
+  (/ha combatlog on) : durée, réussite, DPS / HPS / dégâts subis / interruptions / dissipations / morts de chaque
+  membre du groupe, derniers coups reçus avant chaque mort, ce qui vous a fait le plus mal.
+- « Analyser avec Hermes » (3 conseils concrets), « Copier le bilan » ; Hermes a aussi l'outil `wow_combat_reports`.
+- Analyse après coup, hors du jeu (comme Warcraft Logs) ; rien n'est envoyé. Fichier
+  `%APPDATA%\WoWAssistant\combat_reports.json`.
 
 ## Bestiaire (23/11/2026)
 Onglet **Bestiaire** : créatures croisées et tuées, nombre de fois tuées, aptitudes, PV et ressource, niveau, rang,

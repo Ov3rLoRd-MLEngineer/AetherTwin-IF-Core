@@ -70,6 +70,8 @@ def app(tmp_path: Path):
     from routine import RoutineStore
     ui.knowledge = KnowledgeBase(str(tmp_path / "coach_knowledge.json"))   # jamais les fichiers du profil Windows
     ui.routine = RoutineStore(str(tmp_path / "routine.json"))
+    from combat_report import ReportBuilder
+    ui.reports = ReportBuilder(str(tmp_path / "combat_reports.json"))
     ui.vision, ui.voice, ui.webhost = VisionManager(settings), VoiceManager(settings), WebHost(settings)
     ui.actions = {
         "to_overlay": lambda: None, "to_app": lambda: None, "close_overlay": ui.close_overlay,

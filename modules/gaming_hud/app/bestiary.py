@@ -85,8 +85,8 @@ class CombatLogReader:
         self.engaged = {}      # guid de créature → True si « moi » l'a frappée ou en a été la cible
         self.dead = set()
 
-    def feed(self, line):
-        parsed = parse_line(line)
+    def feed(self, line, parsed=None):
+        parsed = parsed or parse_line(line)
         if not parsed:
             return
         event, f = parsed
@@ -161,6 +161,7 @@ class Bestiary:
         self.last_poll = 0.0
         self.error = ""
         self.reader = CombatLogReader(self)
+        self.listeners = []      # autres lecteurs des mêmes lignes (bilans de combat) : le fichier n'est lu qu'une fois
         self._load()
 
     # ------------------------------------------------------------------ fichier
@@ -263,7 +264,15 @@ class Bestiary:
                 chunk = chunk[:end + 1]
                 with self.lock:
                     for raw in chunk.decode("utf-8", "replace").splitlines():
-                        self.reader.feed(raw)
+                        parsed = parse_line(raw)
+                        if not parsed:
+                            continue
+                        self.reader.feed(raw, parsed)
+                        for listener in self.listeners:
+                            try:
+                                listener.feed(parsed[0], parsed[1], raw)
+                            except Exception as e:      # noqa: BLE001 - un bilan raté ne bloque pas le bestiaire
+                                self.error = f"bilan de combat : {e}"
                     self.data["files"][name] = known + len(chunk)
                 changed = True
                 budget -= len(chunk)

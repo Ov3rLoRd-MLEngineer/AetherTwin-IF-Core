@@ -1095,3 +1095,16 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   demandé à Hermes selon le temps de jeu. Progression d'avant la remise à zéro comptée comme zéro.
 - Données dans `%APPDATA%\WoWAssistantoutine.json` ; le serveur MCP ne fait que le lire.
 - **Tests :** 7 nouveaux (`test_routine.py`) ; les tests n'écrivent plus jamais dans le profil Windows (fixture).
+
+## 23/11/2026 : feuille de route, étape 3 : bilans de combat
+- **Agent :** Cloud
+- **Fichiers :** `combat_report.py`, `tabs_reports.py` (nouveaux), `bestiary.py` (lignes partagées avec d'autres
+  lecteurs : le fichier n'est lu et découpé qu'une fois), `main.py`, `ui.py`, `tabs.py`, `hermes_mcp.py` (outil
+  `wow_combat_reports` : 14 outils), skill 1.6.0, tests.
+- Onglet **Bilans** : un bilan par boss (ENCOUNTER_START / END, durée du jeu) et par clé Mythique+ (CHALLENGE_MODE_*,
+  temps total, boss de la clé) : DPS / HPS (sans surplus) / dégâts subis / interruptions / dissipations / morts par
+  joueur du groupe, derniers coups reçus avant chaque mort, ce qui a fait le plus mal au joueur. Marche avec et sans
+  journalisation avancée (décalage détecté ligne par ligne). « Analyser avec Hermes », « Copier le bilan ».
+- Analyse après coup, hors du jeu (le jeu écrit toujours le fichier depuis Midnight). Bilans dans
+  `%APPDATA%\WoWAssistant\combat_reports.json` (noms du groupe : jamais dans le dépôt).
+- **Tests :** 4 nouveaux (`test_combat_report.py`) ; suite verte.

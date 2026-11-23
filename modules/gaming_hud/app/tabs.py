@@ -481,7 +481,8 @@ from tabs_bestiary import draw_bestiary  # noqa: E402
 from tabs_market import draw_market  # noqa: E402
 from tabs_hermes import draw_hermes  # noqa: E402
 from tabs_routine import draw_week  # noqa: E402
+from tabs_reports import draw_reports  # noqa: E402
 
 DRAWERS = [None, draw_talents, draw_quest_journal, draw_bags, draw_professions, draw_achievements,
-           draw_collections, draw_activity, draw_reputations, draw_week, draw_instances, draw_market, draw_bestiary,
+           draw_collections, draw_activity, draw_reputations, draw_week, draw_instances, draw_market, draw_reports, draw_bestiary,
            draw_hermes]

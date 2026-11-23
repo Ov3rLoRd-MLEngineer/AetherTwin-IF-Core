@@ -203,6 +203,7 @@ modules/
       chatview.py
       clipboard.py
       coach_knowledge.py
+      combat_report.py
       config.py
       craft.py
       focus.py
@@ -239,6 +240,7 @@ modules/
       tabs_data.py
       tabs_hermes.py
       tabs_market.py
+      tabs_reports.py
       tabs_routine.py
       tabutil.py
       theme.py
@@ -339,6 +341,7 @@ tests/
     test_addon_lua.py
     test_bestiary.py
     test_collections_media.py
+    test_combat_report.py
     test_config_refs.py
     test_gameversion.py
     test_hermes.py
