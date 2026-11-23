@@ -167,6 +167,17 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
    autres modèles à charger, régler les paramètres, le tout adapté à l'état du ComfyUI en place (nœuds et
    modèles réellement installés) et au contenu du `.json`. L'inpainting génératif de Scantrad passerait par là.
 
+6. **WoW Assistant : feuille de route (23/11, d'après la recherche sur les outils actuels)**, `À FAIRE` dans cet
+   ordre, puis une **version pour WoW Forever** (fonctions absentes de Forever retirées) ; version anglaise
+   ensuite si le temps le permet (concours réservé aux francophones : pas prioritaire) :
+   1. base de connaissances liée à la version du jeu (« à revérifier » à chaque nouveau patch) ;
+   2. routine de la semaine (Grande chambre forte, écus, Gouffres, Proie, campagne, savoir des métiers, autres
+      personnages) et « j'ai 1 h, je fais quoi ? » ;
+   3. bilan après donjon ou boss depuis le journal de combat (journalisation avancée) ;
+   4. équipement : export SimulationCraft pour Raidbots, import du résultat Droptimizer dans la base ;
+   5. parcours de montée de niveau ;
+   6. décors du logis comme collection, rentabilité de l'artisanat avec les prix de l'Hôtel des ventes.
+
 ## Problèmes rencontrés et solutions
 
 | Problème | Solution |
@@ -239,6 +250,7 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 | 49–50 | — | — | **OK (Jérémy, 23/11)** |
 | 51–56 | — | — | **Essayés par Jérémy (23/11)** : état, skill et MCP OK ; questions en échec (erreur 500 d'Ollama) : Hermes demandait une réflexion « high », refusée par le modèle de conversation de Qwen 3.5. Corrigé (réflexion choisie dans l'onglet, « Équilibrée » par défaut) : vraie question via la CLI en 16 s avec les données du jeu. API : relancer Hermes ; à refaire |
 | 51–56 | — | — | **OK (Jérémy, 23/11, après recopie)** : Hermes répond dans l'onglet (CLI) avec les données du jeu, test de connexion OK, serveurs enregistrés gardés après recopie. Mode API : la passerelle (service en arrière-plan, lancée le 22/11) n'avait pas été relancée ; relancée (`hermes gateway restart`) : **API vérifiée en vrai** (question via l'API en 35 s, données du jeu). Bouton « Relancer la passerelle » ajouté ; Hermes ouvert depuis l'appli détaché de sa console |
+| 57 | — | — | **Essayé par Jérémy (23/11), à refaire** : skill 1.4.0 bien installé, réponse via l'API avec les vraies quêtes. Mais la base de connaissances n'a pas servi : le fichier `coach_knowledge.json` n'existe pas (aucune correction, aucun fait enregistré). Journaux de Hermes : son serveur d'outils tournait depuis 06:00, avant la recopie de 06:27 (anciens outils, sans les 2 de la base), et la question de 06:42 a été répondue sur l'historique de la conversation (1 appel, aucun outil). La réponse répète une erreur déjà relevée (campagne du Déclin de la Légion présentée comme « le meilleur XP » alors que ses quêtes donnent 0 XP) : cas idéal pour « Corriger la réponse ». À refaire : « Relancer la passerelle », « Nouvelle conversation », une question, puis « Corriger la réponse » |
 | 50 | Identifiants partout | lancer une fois la copie qui a les identifiants (dossier du dépôt), la fermer ; lancer la copie Hermes | Paramètres > Jeu : « Identifiants enregistrés » dans la copie Hermes aussi |
 | 56 | Hermes : fichiers et liens | « Joindre un fichier » (ou glisser un fichier .txt / .md / image sur la fenêtre), puis une question ; une autre question avec un lien Wowhead | le fichier apparaît au-dessus de la saisie puis dans « [fichiers : …] » ; Hermes s'appuie sur son contenu et sur la page du lien |
 | 57 | Hermes : base de connaissances | recopier le dossier ; « Mettre à jour le skill wow-coach » ; « Relancer la passerelle » ; poser une question, puis « Corriger la réponse » et écrire ce qui est juste ; reposer une question proche ; ouvrir « Connaissances » | la correction apparaît « Corrigé par vous » et Hermes la respecte ; après une recherche web, des faits « Vérifié en ligne » avec leur lien |
