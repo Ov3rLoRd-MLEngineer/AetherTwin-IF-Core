@@ -1015,3 +1015,14 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   processed » reconnu comme un échec.
 - Vérifié en vrai : question via la CLI en 16 s, réponse tirée des outils de jeu.
 - **Tests :** 1 nouveau (26 dans `test_hermes.py`) ; suite verte.
+
+## 23/11/2026 : réglages de l'assistant perdus en recopiant l'appli
+- **Agent :** Cloud
+- Retour de Jérémy : serveurs enregistrés à ressaisir. Cause : recopier le dossier de l'appli écrase son
+  `settings.json`. Le mode, les serveurs, le modèle, la clé et les réglages Hermes sont maintenant aussi dans le profil
+  Windows (`%APPDATA%\WoWAssistant\shared.json`, hors dépôt) ; le dernier enregistré l'emporte. Profil amorcé avec
+  les réglages de sa copie Hermes.
+- Sa copie `D:\Hermes-Agent\wow_assistant_v9` n'avait pas encore le correctif de la réflexion : d'où les 500
+  persistants. À recopier.
+- **Tests :** 2 nouveaux (`test_settings_bnet.py`) ; suite verte.
+

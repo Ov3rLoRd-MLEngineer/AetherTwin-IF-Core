@@ -12,6 +12,10 @@ SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
 # perd plus. Jamais dans le dépôt.
 SHARED_FILE = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "WoWAssistant", "shared.json")
 SHARED_KEYS = ("bnet.client_id", "bnet.client_secret", "bnet.region")
+# Assistant IA (serveurs enregistrés, modèle, Hermes) : recopier le dossier de l'appli écrase son settings.json ;
+# ces réglages vivent donc aussi dans le profil, et le dernier enregistré (n'importe quelle copie) l'emporte.
+SYNCED_KEYS = ("llm.mode", "llm.endpoint", "llm.servers", "llm.model", "llm.api_key", "llm.system_prompt",
+               "hermes.transport", "hermes.reasoning", "hermes.session_id")
 
 DEFAULTS = {
     "llm": {
@@ -80,21 +84,27 @@ class Settings:
             self.data = _merge(DEFAULTS, stored if isinstance(stored, dict) else {})
         except (OSError, ValueError):
             pass
-        if self.get("llm.mode") == "exe":     # « Programme local » retiré (23/11) : il servait à lancer Hermes
-            self.set("llm.mode", "hermes")
         shared = _read_json(self.shared_path)
         for key in SHARED_KEYS:          # valeur vide ici, présente dans le profil : on la reprend
             if not self.get(key) and shared.get(key):
                 self.set(key, shared[key])
-        if self.shared_path and any(self.get(k) and k not in shared for k in SHARED_KEYS):
-            # 1er lancement d'une copie qui a déjà ses identifiants : ils passent dans le profil
-            _write_json(self.shared_path, dict(shared, **{k: self.get(k, "") or "" for k in SHARED_KEYS}))
+        for key in SYNCED_KEYS:          # assistant IA : le dernier enregistrement, quelle que soit la copie, l'emporte
+            if key in shared:
+                self.set(key, shared[key])
+        if self.get("llm.mode") == "exe":     # « Programme local » retiré (23/11) : il servait à lancer Hermes
+            self.set("llm.mode", "hermes")
+        missing = {k: self.get(k, "") or "" for k in SHARED_KEYS if self.get(k) and k not in shared}
+        missing.update({k: self.get(k) for k in SYNCED_KEYS if k not in shared})
+        if self.shared_path and missing:
+            # 1er lancement d'une copie qui a déjà ses réglages : ils passent dans le profil
+            _write_json(self.shared_path, dict(shared, **missing))
 
     def save(self):
         ok = _write_json(self.path, self.data)
         if ok and self.shared_path:
             shared = _read_json(self.shared_path)
             wanted = {key: self.get(key, "") or "" for key in SHARED_KEYS}
+            wanted.update({key: self.get(key) for key in SYNCED_KEYS})
             if any(shared.get(k, "") != v for k, v in wanted.items()):
                 ok = _write_json(self.shared_path, dict(shared, **wanted))
         return ok

@@ -58,3 +58,30 @@ def test_credentials_are_shared_by_every_copy_of_the_app(tmp_path: Path) -> None
     assert not settings_mod.Settings(str(tmp_path / "autre.json"), shared_path=shared).get("bnet.client_secret")
     # chemin d'essai (tests) : jamais le profil de l'utilisateur
     assert settings_mod.Settings(str(tmp_path / "t.json")).shared_path == ""
+
+
+def test_assistant_settings_survive_copying_the_app_folder(tmp_path: Path) -> None:
+    """Recopier le dossier de l'appli écrase son settings.json : les serveurs et le mode viennent du profil."""
+    import settings as settings_mod
+    shared = str(tmp_path / "profil" / "shared.json")
+    copy = settings_mod.Settings(str(tmp_path / "copie.json"), shared_path=shared)
+    servers = [{"url": "http://localhost:11434", "api_key": "", "enabled": True}]
+    copy.set("llm.mode", "api")
+    copy.set("llm.servers", servers)
+    copy.set("hermes.reasoning", "low")
+    assert copy.save()
+    # le dossier du dépôt est recopié par-dessus : son settings.json (sans serveurs, mode hermes) remplace celui-ci
+    (tmp_path / "copie.json").write_text(json.dumps({"llm": {"mode": "hermes", "servers": []}}), encoding="utf-8")
+    again = settings_mod.Settings(str(tmp_path / "copie.json"), shared_path=shared)
+    assert again.get("llm.servers") == servers and again.get("llm.mode") == "api"
+    assert again.get("hermes.reasoning") == "low"
+
+
+def test_first_launch_moves_assistant_settings_to_the_profile(tmp_path: Path) -> None:
+    import settings as settings_mod
+    shared = tmp_path / "profil" / "shared.json"
+    (tmp_path / "ancien.json").write_text(json.dumps({"llm": {"mode": "exe", "endpoint": "http://x:1/v1"}}),
+                                          encoding="utf-8")
+    first = settings_mod.Settings(str(tmp_path / "ancien.json"), shared_path=str(shared))
+    stored = json.loads(shared.read_text(encoding="utf-8"))
+    assert first.get("llm.mode") == "hermes" and stored["llm.endpoint"] == "http://x:1/v1"
