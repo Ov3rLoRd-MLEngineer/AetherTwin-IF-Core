@@ -439,6 +439,9 @@ async function askModel() {
   $("calc-examples").addEventListener("change", (e) => {
     if (e.target.value) { evaluateInput(e.target.value); e.target.value = ""; }
   });
+  $("calc-window").addEventListener("click", async () => {
+    try { await post("/modules/calc_cas/app/start"); } catch (e) { alert(e.message); }
+  });
   $("calc-reset").addEventListener("click", async () => {
     if (!confirm("Effacer l'historique, les variables et les fonctions ?")) return;
     await calcCall("reset").catch(() => {});

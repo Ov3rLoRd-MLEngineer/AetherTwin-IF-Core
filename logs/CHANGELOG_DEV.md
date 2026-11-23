@@ -1269,3 +1269,17 @@ outine.json` ; le serveur MCP ne fait que le lire.
 6. Conventions statistiques et autres choix simples : voir `modules/calc_cas/README.md` (« Choix faits »).
 7. Fichiers de suivi mis à jour dans le dernier commit de la branche seulement, pour limiter les conflits avec
    la session parallèle.
+
+### Suite du 23/11 — fenêtre de bureau et programmes
+
+- **Demande de Jérémy :** fenêtre lancée par le Hub, inspirée d'une calculatrice graphique de poche (sans copie),
+  redimensionnable avec une interface qui s'équilibre ; mode programmation en bac à sable ; logo AetherTwin.
+- **Fichiers :** `modules/calc_cas/sandbox.py`, `app.py` (nouveaux), `manifest.json` (champ `app`), `engine.py`
+  (degrés, `→`), `worker.py` (opérations `program`, `settings`, `table`), `graph.py` (`table`), `module.py`,
+  `core/web/calc_app.html`, `calc_app.js`, `calc_app.css` (nouveaux), `core/web/dashboard.html` et `calc_cas.js`
+  (bouton « Ouvrir la calculatrice »), tests `tests/calc_cas/test_sandbox.py`, `test_app.py`.
+- **Tests :** 274 tests `tests/calc_cas` verts. **Essais réels** sur le Hub de test : fenêtre Edge ouverte et
+  fermée par `/modules/calc_cas/app/start|stop`, mises en page 460×640, 500×900, 1100×680, programme avec saisie.
+- **Décisions :** Edge `--app` plutôt que pywebview (non installé) ; objet de tâche Windows « tuer à la fermeture »
+  pour que l'arrêt depuis le Hub ferme aussi la fenêtre ; Python restreint vérifié par l'arbre syntaxique, dans un
+  processus borné en temps et en mémoire ; `input()` par rejeu avec graine fixe.

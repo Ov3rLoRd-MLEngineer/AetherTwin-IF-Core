@@ -5,7 +5,9 @@ Calculatrice haut de gamme du Hub : **résultats exacts et approchés**, graphes
 Tout tourne sur la machine : SymPy (BSD), NumPy (BSD), aucun service en ligne, aucune VRAM.
 
 Inspiration fonctionnelle des calculatrices graphiques à calcul formel du commerce, **sans en reprendre le nom,
-le logo, l'interface ni le logiciel** : l'identité visuelle (onglet « Calcul », couleur sarcelle) est celle du Hub.
+le logo, l'interface ni le logiciel** : l'identité visuelle (logo AetherTwin, graphite, sarcelle et ambre) est
+celle du Hub ; aucune touche ni étiquette n'est copiée, seule l'organisation générale « écran + pavé de navigation
++ clavier à deux fonctions » est familière.
 
 ## Installation
 
@@ -15,7 +17,8 @@ Rien à faire de plus que le Hub : `sympy` est dans `requirements.txt` (déjà i
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Puis tableau de bord → onglet **Calcul** (le module démarre à la première utilisation). Sans SymPy, le module
+Puis tableau de bord → onglet **Calcul** (le module démarre à la première utilisation), ou bouton
+**Ouvrir la calculatrice** (aussi « Lancer » sur la carte du module) pour la fenêtre de bureau. Sans SymPy, le module
 démarre quand même en mode dégradé et répond « moteur de calcul indisponible ».
 
 Configuration facultative, section `calc_cas` de `config/local.yaml` :
@@ -23,14 +26,53 @@ Configuration facultative, section `calc_cas` de `config/local.yaml` :
 ```yaml
 calc_cas:
   timeout_s: 10                       # délai maximal d'un calcul
+  program_timeout_s: 10               # délai maximal d'un programme (bac à sable)
+  program_memory_mb: 768              # mémoire maximale du processus des programmes
   hub_api: "http://127.0.0.1:5750"    # modèle local du Hub pour « Le modèle délègue » (vide = désactivé)
   model: ""                           # vide = modèle par défaut du Hub
 ```
 
+## Fenêtre de la calculatrice
+
+`python -m modules.calc_cas.app` (lancé par le Hub) ouvre `core/web/calc_app.html` dans **Edge en mode
+application** (Chrome sinon, navigateur par défaut en dernier recours) : fenêtre sans barre d'adresse,
+redimensionnable, qui retient sa taille (profil dédié `data/calc_cas/window-profile`). L'arrêt depuis le Hub ferme
+la fenêtre (objet de tâche Windows qui lie Edge au lanceur).
+
+- **Mise en page fluide** : en portrait, écran en haut et clavier en bas ; dès que la fenêtre est plus large que
+  haute, écran à gauche et clavier à droite. Touches, polices et pavé suivent la largeur *et* la hauteur ; F2 ou
+  « Clavier » masque le clavier pour un écran plein ; ◐ écran clair ou sombre.
+- **Quatre applications** (onglets, `tab`, Ctrl+1…4) : Calculs, Graphes, Tableur, Programmes.
+- **Clavier à deux fonctions** : `2nde` (ambre) donne la fonction secondaire de chaque touche (√, ln, sin⁻¹, ∫,
+  lim, ≈, sto→…), `abc` bascule le clavier en lettres (2nde + abc : majuscules). `esc`, `menu` (fonctions selon
+  l'application, recherche), `catalogue` (2nde + menu, Ctrl+K), `⌫` / effacer, `var`, `mode` (auto → exact →
+  approché), `deg/rad`, `ans`, `rappel`, `x,t,θ` (variable selon le type de courbe).
+- **Pavé de navigation** : dans Calculs, ▲▼ parcourent l'historique et OK recopie la saisie (2nde + OK : le
+  résultat) ; dans Graphes, ◀▶▲▼ déplacent la fenêtre, ou la trace le long des courbes ; dans le Tableur, les cellules.
+- **Calculs** : `2nde` + entrée (ou Maj+Entrée) = valeur approchée ; `expr → nom` stocke ; badge RAD/DEG.
+- **Graphes** : 6 fonctions (y =, paramétrique, polaire), trace, zéros, extrema, intersection, tableau de valeurs
+  (début, pas), fenêtre xmin…ymax, zooms standard, trigonométrique, repère orthonormé, glisser et molette.
+- **Tableur** : listes l1…l4 (60 lignes), statistiques 1 et 2 variables, 6 régressions, courbe envoyée dans
+  Graphes, colonnes envoyées dans Calculs (`l1 := […]`).
+- **Programmes** : éditeur Python (numéros de ligne, Tab = 4 espaces, indentation automatique), Ctrl+Entrée
+  exécute, Ctrl+S enregistre ; console avec `input()` interactif ; dessin (`plot`, `scatter`, `fplot`, `text`) ;
+  `cas("…")` et `cas_value("…")` appellent le moteur exact ; 4 exemples ; programmes gardés dans la session.
+
+### Bac à sable des programmes
+
+Les programmes tournent dans un **processus séparé** (délai `program_timeout_s`, mémoire `program_memory_mb`),
+après vérification de l'arbre syntaxique : modules autorisés `math`, `cmath`, `random`, `statistics` (copies
+filtrées) ; pas de fichiers, réseau, `os`/`sys`, `open`, `eval`, `exec`, classes, `with`, `global`, ni de nom ou
+d'attribut commençant par `_` (ni `gi_frame`, `f_globals`, `format`, `mro`…). Sorties bornées (100 000
+caractères, 50 000 points). `input()` fonctionne par **rejeu** : le programme s'arrête à la première question,
+puis est relancé avec les réponses déjà données et la même graine aléatoire (résultat identique).
+
 ## Fonctions disponibles
 
-Saisie naturelle : `2x`, `x y`, `2(x+1)`, `sin x`, `x^2`, `5!`, `√2`, `π`, `×`, `÷`. Constantes `pi`, `e`, `i`,
-`oo` (infini). `=` écrit une équation ; `:=` définit une variable ou une fonction ; `ans` = dernier résultat.
+Saisie naturelle : `2x`, `x y`, `2(x+1)`, `sin x`, `x^2`, `5!`, `√2`, `π`, `×`, `÷`, `x²`, `≤`. Constantes `pi`, `e`, `i`,
+`oo` (infini). `=` écrit une équation ; `:=` définit une variable ou une fonction ; `expr → nom` (ou `->`) stocke
+un résultat ; `ans` = dernier résultat. Unité d'angle : radians par défaut, degrés au choix (`sin(90)` = 1,
+`asin(1)` = 90).
 Alias français acceptés (entre parenthèses).
 
 | Domaine | Fonctions |
@@ -102,7 +144,14 @@ Essai réel (23/11/2026) : `qwen3-27b` via le Hub, 2 calculs délégués, répon
 - Les agents ont leur propre session (`agent`) : ils ne voient ni ne modifient les variables de l'utilisateur.
 - Délégation par le modèle : protocole texte `CAS:` plutôt que les « tools » natifs, que le routeur du Hub ne
   transmet pas encore ; ainsi aucun changement au cœur du Hub.
-- Variables, fonctions et historique (200 derniers calculs) gardés dans `data/calc_cas/session.json` (ignoré par Git).
+- Fenêtre : Edge en mode application plutôt qu'un cadre graphique Python (pywebview n'est pas installé) : rien à
+  ajouter aux dépendances, même page et même API que le tableau de bord.
+- Programmes en Python restreint plutôt qu'un langage maison : connu des élèves, vérifiable par l'arbre syntaxique.
+- `input()` par rejeu plutôt que par un dialogue en direct avec le processus : plus simple, et le délai maximal
+  s'applique à chaque exécution.
+- Réglages de l'écran (mode d'affichage, onglet, fonctions tracées, tableur, clavier masqué) gardés dans le
+  stockage local de la fenêtre ; unité d'angle et programmes dans la session du module.
+- Variables, fonctions, réglages, programmes et historique (200 derniers calculs) gardés dans `data/calc_cas/session.json` (ignoré par Git).
 
 ## Limites connues
 
@@ -111,9 +160,12 @@ Essai réel (23/11/2026) : `qwen3-27b` via le Hub, 2 calculs délégués, répon
   une valeur approchée.
 - La forme exacte des points remarquables d'un graphe est une **reconnaissance** (`nsimplify`) vérifiée à 50
   chiffres : sûre quand elle est donnée, mais absente pour des racines exactes plus compliquées.
-- Graphes : 8 courbes, échantillonnage à 600 points ; une asymptote très étroite peut être manquée.
-- Pas encore de géométrie dynamique ni de mode programmation (palier 6, en cours).
-- L'interface n'a été vérifiée que dans le navigateur intégré (Chromium) ; MathML demande un navigateur récent.
+- Graphes : 8 courbes (6 dans la fenêtre), échantillonnage à 600–700 points ; une asymptote très étroite peut être manquée.
+- Pas encore de géométrie dynamique (palier 6, en cours) ni de débogueur pas à pas pour les programmes.
+- Programmes : `input()` rejoue le programme depuis le début (un programme très long avant sa question est donc
+  refait) ; pas de classes ni de modules autres que math, cmath, random, statistics.
+- L'interface a été vérifiée dans Edge (fenêtre d'application) et le navigateur intégré (Chromium) ; MathML demande
+  un navigateur récent.
 
 ## Fichiers
 
@@ -125,8 +177,11 @@ Essai réel (23/11/2026) : `qwen3-27b` via le Hub, 2 calculs délégués, répon
 | `stats.py` | statistiques et régressions |
 | `agent.py` | outils pour agents, boucle de délégation |
 | `mcp_server.py` | serveur MCP stdio |
+| `sandbox.py` | bac à sable des programmes Python |
+| `app.py` | lanceur de la fenêtre (Edge ou Chrome en mode application) |
 | `module.py` | module du Hub (commandes du bus, persistance) |
 | `demos.py` | exemples de démonstration |
 | `core/web/calc_cas.js`, `calc_cas.css` | onglet « Calcul » du tableau de bord |
+| `core/web/calc_app.html`, `.js`, `.css` | fenêtre de la calculatrice |
 
 Tests : `.venv\Scripts\python.exe -m pytest tests/calc_cas`

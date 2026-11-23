@@ -24,24 +24,32 @@ STARTUP_S = 90.0  # premier import de SymPy (disque froid) : bien plus long qu'u
 _JOB: Any = None  # objet de tâche Windows gardé ouvert tant que le processus vit
 
 
+def job_limits() -> Any:
+    """Structure JOBOBJECT_EXTENDED_LIMIT_INFORMATION (Windows), vide."""
+    import ctypes
+    from ctypes import wintypes
+
+    class Basic(ctypes.Structure):
+        _fields_ = [("PerProcessUserTimeLimit", ctypes.c_int64), ("PerJobUserTimeLimit", ctypes.c_int64),
+                    ("LimitFlags", wintypes.DWORD), ("MinimumWorkingSetSize", ctypes.c_size_t),
+                    ("MaximumWorkingSetSize", ctypes.c_size_t), ("ActiveProcessLimit", wintypes.DWORD),
+                    ("Affinity", ctypes.c_size_t), ("PriorityClass", wintypes.DWORD),
+                    ("SchedulingClass", wintypes.DWORD)]
+
+    class Extended(ctypes.Structure):
+        _fields_ = [("BasicLimitInformation", Basic), ("IoInfo", ctypes.c_ulonglong * 6),
+                    ("ProcessMemoryLimit", ctypes.c_size_t), ("JobMemoryLimit", ctypes.c_size_t),
+                    ("PeakProcessMemoryUsed", ctypes.c_size_t), ("PeakJobMemoryUsed", ctypes.c_size_t)]
+
+    return Extended()
+
+
 def limit_memory(megabytes: int) -> bool:
     """Borne la mémoire du processus courant (objet de tâche Windows, `RLIMIT_AS` ailleurs). `False` si impossible."""
     limit = int(megabytes) * 1024 * 1024
     if sys.platform == "win32":
         import ctypes
         from ctypes import wintypes
-
-        class Basic(ctypes.Structure):
-            _fields_ = [("PerProcessUserTimeLimit", ctypes.c_int64), ("PerJobUserTimeLimit", ctypes.c_int64),
-                        ("LimitFlags", wintypes.DWORD), ("MinimumWorkingSetSize", ctypes.c_size_t),
-                        ("MaximumWorkingSetSize", ctypes.c_size_t), ("ActiveProcessLimit", wintypes.DWORD),
-                        ("Affinity", ctypes.c_size_t), ("PriorityClass", wintypes.DWORD),
-                        ("SchedulingClass", wintypes.DWORD)]
-
-        class Extended(ctypes.Structure):
-            _fields_ = [("BasicLimitInformation", Basic), ("IoInfo", ctypes.c_ulonglong * 6),
-                        ("ProcessMemoryLimit", ctypes.c_size_t), ("JobMemoryLimit", ctypes.c_size_t),
-                        ("PeakProcessMemoryUsed", ctypes.c_size_t), ("PeakJobMemoryUsed", ctypes.c_size_t)]
 
         kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
         kernel32.CreateJobObjectW.restype = wintypes.HANDLE
@@ -52,7 +60,7 @@ def limit_memory(megabytes: int) -> bool:
         job = kernel32.CreateJobObjectW(None, None)
         if not job:
             return False
-        info = Extended()
+        info = job_limits()
         info.BasicLimitInformation.LimitFlags = 0x100  # JOB_OBJECT_LIMIT_PROCESS_MEMORY
         info.ProcessMemoryLimit = limit
         ok = kernel32.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info)) and \
@@ -73,7 +81,7 @@ def _dispatch(sessions: dict[str, Any], op: str, args: dict[str, Any]) -> Any:
     from modules.calc_cas import engine
 
     session = sessions.setdefault(str(args.pop("session", "user")), engine.Session())
-    if op in ("plot", "analyze"):
+    if op in ("plot", "analyze", "table"):
         from modules.calc_cas import graph
     if op in ("stats", "regress"):
         from modules.calc_cas import stats
@@ -102,6 +110,8 @@ def _dispatch(sessions: dict[str, Any], op: str, args: dict[str, Any]) -> Any:
         return graph.plot(args["curves"], args.get("window") or {}, session, int(args.get("samples", 600)))
     if op == "analyze":
         return graph.analyze(args, session)
+    if op == "table":
+        return graph.table(args, session)
     if op == "stats":
         return stats.describe(args, session)
     if op == "regress":

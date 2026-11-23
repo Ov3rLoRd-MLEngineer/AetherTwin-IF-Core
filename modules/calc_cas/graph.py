@@ -55,10 +55,10 @@ def _eval(fn: Any, values: np.ndarray) -> np.ndarray:
             out = fn(values)
         except (ZeroDivisionError, OverflowError, ValueError, TypeError):
             out = np.array([_safe_scalar(fn, v) for v in values])
-    out = np.asarray(out, dtype=complex) * np.ones_like(values)
-    real = out.real.astype(float)
-    real[np.abs(out.imag) > 1e-9 * (1 + np.abs(real))] = np.nan
-    real[~np.isfinite(real)] = np.nan
+        out = np.asarray(out, dtype=complex) * np.ones_like(values)  # constante -> tableau
+        real = out.real.astype(float)
+        real[np.abs(out.imag) > 1e-9 * (1 + np.abs(real))] = np.nan
+        real[~np.isfinite(real)] = np.nan
     return real
 
 
@@ -276,3 +276,20 @@ def analyze(args: dict[str, Any], session: Session) -> dict[str, Any]:
     else:
         raise CasError("Analyse inconnue : zeros, extrema ou intersections")
     return {"ok": True, "what": what, "expr": sp.sstr(expr), "points": points}
+
+
+def table(args: dict[str, Any], session: Session) -> dict[str, Any]:
+    """Tableau de valeurs : `expr`, `start`, `step`, `count` (100 lignes au plus)."""
+    try:
+        start, step = float(args.get("start", 0)), float(args.get("step", 1))
+        count = int(args.get("count", 20))
+    except (TypeError, ValueError):
+        raise CasError("Tableau : début, pas et nombre de lignes doivent être des nombres") from None
+    if not (math.isfinite(start) and math.isfinite(step)) or step == 0 or not 1 <= count <= 100:
+        raise CasError("Tableau : pas non nul et 1 à 100 lignes")
+    expr, fn = _function(args.get("expr", ""), X, session)
+    xs = np.array([start + i * step for i in range(count)])
+    ys = _eval(fn, xs)
+    rows = [[float(f"{x:.10g}"), None if math.isnan(y) else float(f"{y:.10g}")]
+            for x, y in zip(xs.tolist(), ys.tolist(), strict=True)]
+    return {"ok": True, "expr": sp.sstr(expr), "rows": rows}

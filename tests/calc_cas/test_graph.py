@@ -116,3 +116,11 @@ def test_exact_guess_is_only_returned_when_verified() -> None:
     x = sp.Symbol("x")
     assert exact_guess(math.sqrt(2), x**2 - 2) == sp.sqrt(2)
     assert exact_guess(0.739085133215161, sp.cos(x) - x) is None
+
+
+def test_table_of_values() -> None:
+    from modules.calc_cas.graph import table
+    t = table({"expr": "1/x", "start": -1, "step": 0.5, "count": 5}, Session())
+    assert t["rows"] == [[-1.0, -1.0], [-0.5, -2.0], [0.0, None], [0.5, 2.0], [1.0, 1.0]]
+    with pytest.raises(CasError, match="pas non nul"):
+        table({"expr": "x", "step": 0}, Session())

@@ -134,3 +134,10 @@ def test_settings_and_programs_persist(tmp_path: Path) -> None:
         assert m2.run("program_delete", {"name": "carres"}) is True
     finally:
         m2.stop()
+
+
+def test_table_command(module: CalcCasModule) -> None:
+    table = module.run("table", {"expr": "x^2", "start": -1, "step": 1, "count": 3})
+    assert table["rows"] == [[-1.0, 1.0], [0.0, 0.0], [1.0, 1.0]]
+    with pytest.raises(ValueError):
+        module.run("table", {"expr": "x^2", "start": 0, "step": 0, "count": 3})

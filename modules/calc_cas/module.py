@@ -9,6 +9,7 @@ Commandes reçues sur le bus (réponse sur `module.calc_cas.result`, avec le mê
     history     {}                                        derniers calculs
     plot        {"curves": [...], "window": {...}}        points des courbes (y, param, polar)
     analyze     {"what": "zeros"|"extrema"|"intersections", "expr", "other"?, "xmin", "xmax"}
+    table       {"expr", "start", "step", "count"}       tableau de valeurs
     stats       {"x": [...], "y"?: [...], "freq"?: [...]} statistiques à une / deux variables
     regress     {"x", "y", "model"}                       régression (linear, quadratic, cubic, exponential…)
     tools       {}                                        définitions des outils pour agents (schémas JSON)
@@ -164,6 +165,9 @@ class CalcCasModule(ModuleBase):
         if command == "analyze":
             return self.runner.call("analyze", **{k: payload.get(k) for k in ("what", "expr", "other", "xmin", "xmax")
                                                  if payload.get(k) is not None})
+        if command == "table":
+            return self.runner.call("table", **{k: payload.get(k) for k in ("expr", "start", "step", "count")
+                                               if payload.get(k) is not None})
         if command in ("stats", "regress"):
             return self.runner.call(command, **{k: payload.get(k) for k in ("x", "y", "freq", "model")
                                                if payload.get(k) is not None})

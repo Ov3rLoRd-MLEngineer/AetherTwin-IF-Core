@@ -175,6 +175,9 @@ core/
   strata.py
   translate.py
   web/
+    calc_app.css
+    calc_app.html
+    calc_app.js
     calc_cas.css
     calc_cas.js
     dashboard.css
@@ -188,6 +191,7 @@ modules/
   calc_cas/
     __init__.py
     agent.py
+    app.py
     demos.py
     engine.py
     graph.py
@@ -195,6 +199,7 @@ modules/
     mcp_server.py
     module.py
     README.md
+    sandbox.py
     stats.py
     worker.py
   gaming_hud/
@@ -357,9 +362,11 @@ tests/
   calc_cas/
     __init__.py
     test_agent.py
+    test_app.py
     test_engine.py
     test_graph.py
     test_module.py
+    test_sandbox.py
     test_stats.py
     test_worker.py
   core/
@@ -741,6 +748,16 @@ Le CAS comme outil des agents locaux : un modèle délègue un calcul exact au l
 - `def call_tool(runner: Any, name: str, arguments: dict[str, Any] | None) -> dict[str, Any]` — Exécute un outil. Ne lève jamais : toute erreur devient `{"ok": False, "error": …}`.
 - `def ask(question: str, llm: Callable[[list[dict[str, str]]], str], runner: Any, max_rounds: int=MAX_ROUNDS) -> dict[str, Any]` — Pose une question au modèle local ; chaque ligne `CAS:` est calculée par le moteur et rendue au modèle.
 
+### `modules/calc_cas/app.py`
+
+Fenêtre de bureau de la calculatrice : `python -m modules.calc_cas.app` (lancée par le Hub).
+
+- `def hub_url() -> str` — Adresse de la page, d'après le port du démon dans la configuration (5750 par défaut).
+- `def find_browser(candidates: tuple[str, ...]=CANDIDATES) -> str | None` — Premier navigateur Chromium installé (Edge, puis Chrome), ou `None`.
+- `def browser_args(browser: str, url: str, profile: Path=PROFILE) -> list[str]` — Ligne de commande (liste, jamais de shell) d'une fenêtre d'application isolée.
+- `def tie_children_to_this_process() -> bool` — Windows : place ce processus dans un objet de tâche « tuer à la fermeture ». Le navigateur lancé ensuite
+- `def main() -> int`
+
 ### `modules/calc_cas/demos.py`
 
 Exemples de démonstration (interface, vidéo du concours, tests). Chacun est vérifié par `tests/calc_cas`.
@@ -795,6 +812,7 @@ Graphes : échantillonnage des courbes (y = f(x), paramétriques, polaires) et a
 - `def plot(curves: list[dict[str, Any]], window: dict[str, Any], session: Session, samples: int=600) -> dict[str, Any]` — Points de chaque courbe. Une courbe invalide reçoit `error` sans empêcher les autres.
 - `def exact_guess(value: float, expr: Any) -> Any` — Forme exacte d'une racine numérique (√2, π/4, 1/3…) si elle annule vraiment `expr` à 50 chiffres.
 - `def analyze(args: dict[str, Any], session: Session) -> dict[str, Any]` — `what` : « zeros », « extrema » ou « intersections » (avec `other`) sur [xmin, xmax].
+- `def table(args: dict[str, Any], session: Session) -> dict[str, Any]` — Tableau de valeurs : `expr`, `start`, `step`, `count` (100 lignes au plus).
 
 ### `modules/calc_cas/mcp_server.py`
 
@@ -817,6 +835,26 @@ Module du Hub : calculatrice à calcul formel (CAS), graphes, statistiques, outi
   - `def handle_event(self, event: Event) -> None`
   - `def run(self, command: str, payload: dict[str, Any]) -> Any` — Exécute une commande (aussi appelée directement par les tests).
 
+### `modules/calc_cas/sandbox.py`
+
+Mode programmation : programmes Python exécutés dans un bac à sable.
+
+- **`class SandboxError(ValueError)`** — Programme refusé avant exécution (construction interdite).
+- **`class NeedInput(Exception)`**
+- **`class OutputLimit(Exception)`**
+- `def check_program(code: str) -> ast.Module` — Refuse un programme qui sortirait du bac à sable. Lève `SandboxError` avec la ligne fautive.
+- **`class Program`** — Une exécution : sortie, dessins, réponses aux `input()`.
+  - `def write(self, text: str) -> None`
+  - `def print(self, *values: Any, sep: Any=' ', end: Any='\n') -> None`
+  - `def input(self, prompt: Any='') -> str`
+  - `def plot(self, xs: Any, ys: Any=None, color: Any=None) -> None` — plot(xs, ys) : ligne brisée ; plot(ys) : abscisses 0, 1, 2…
+  - `def scatter(self, xs: Any, ys: Any, color: Any=None) -> None`
+  - `def fplot(self, f: Any, xmin: float=-10, xmax: float=10, n: int=400, color: Any=None) -> None` — fplot(f, a, b) : trace une fonction Python de x.
+  - `def text(self, x: float, y: float, s: Any) -> None`
+  - `def cas(self, expression: Any) -> str`
+  - `def cas_value(self, expression: Any) -> Any` — Valeur numérique Python (int, float ou complex) d'une expression du CAS.
+- `def run_program(code: str, inputs: list[str] | None=None, seed: int | None=None, cas_session: Any=None) -> dict[str, Any]` — Exécute un programme. Ne lève jamais : retourne la sortie, les dessins et l'éventuelle erreur.
+
 ### `modules/calc_cas/stats.py`
 
 Statistiques à une et deux variables, régressions courantes.
@@ -830,7 +868,9 @@ Statistiques à une et deux variables, régressions courantes.
 
 Processus de calcul séparé, avec délai maximal.
 
-- `def worker_main(conn: Connection) -> None` — Boucle du processus enfant : (op, args) -> ("ok", résultat) | ("error", message).
+- `def job_limits() -> Any` — Structure JOBOBJECT_EXTENDED_LIMIT_INFORMATION (Windows), vide.
+- `def limit_memory(megabytes: int) -> bool` — Borne la mémoire du processus courant (objet de tâche Windows, `RLIMIT_AS` ailleurs). `False` si impossible.
+- `def worker_main(conn: Connection, memory_mb: int | None=None) -> None` — Boucle du processus enfant : (op, args) -> ("ok", résultat) | ("error", message).
 - **`class CasRunner`** — Côté parent : un processus enfant à la fois, relancé après un délai dépassé.
   - `def start(self) -> None`
   - `def stop(self) -> None`

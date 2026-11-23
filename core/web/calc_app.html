@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Æther CAS — AetherTwin</title>
+  <link rel="icon" href="/static/logo.svg">
+  <link rel="stylesheet" href="/static/calc_app.css">
+  <script src="/static/calc_app.js" defer></script>
+</head>
+<body>
+  <div class="device" id="device">
+    <div class="brand">
+      <img class="logo" src="/static/logo.svg" alt="" width="26" height="26">
+      <span class="wordmark">Aether<em>Twin</em></span>
+      <span class="model">CAS</span>
+      <span class="dot" id="dot" title="Moteur de calcul"></span>
+      <span class="grow"></span>
+      <button type="button" id="toggle-screen" title="Écran clair ou sombre">◐</button>
+      <button type="button" id="toggle-keys" title="Afficher ou masquer le clavier (F2)">Clavier</button>
+    </div>
+
+    <div class="screen">
+      <div class="bar">
+        <div class="apps" role="tablist" id="apps">
+          <button role="tab" data-app="calc">Calculs</button>
+          <button role="tab" data-app="graph">Graphes</button>
+          <button role="tab" data-app="sheet">Tableur</button>
+          <button role="tab" data-app="prog">Programmes</button>
+        </div>
+        <span class="grow"></span>
+        <span class="badge" id="badge-mod" hidden></span>
+        <button type="button" class="badge" id="badge-angle" title="Unité d'angle">RAD</button>
+        <button type="button" class="badge" id="badge-mode" title="Affichage des résultats">AUTO</button>
+      </div>
+
+      <!-- Calculs -->
+      <div class="view calc" data-view="calc">
+        <div class="history" id="history" aria-live="polite"></div>
+        <form class="line" id="line-form">
+          <input id="line" autocomplete="off" spellcheck="false" aria-label="Saisie"
+                 placeholder="integrate(x e^x, x)   ·   menu : fonctions">
+          <button type="submit" class="small primary">⏎</button>
+        </form>
+      </div>
+
+      <!-- Graphes -->
+      <div class="view graph" data-view="graph" hidden>
+        <div class="fns" id="fns"></div>
+        <div class="plot" id="plot-box">
+          <canvas id="plot" aria-label="Graphe : glisser pour déplacer, molette pour zoomer"></canvas>
+          <div class="coords" id="coords">x = 0   y = 0</div>
+          <div class="side-panel" id="graph-panel" hidden></div>
+        </div>
+        <div class="tools">
+          <button type="button" class="small" data-g="trace">Trace</button>
+          <button type="button" class="small" data-g="zeros">Zéros</button>
+          <button type="button" class="small" data-g="extrema">Extrema</button>
+          <button type="button" class="small" data-g="intersections">Intersection</button>
+          <button type="button" class="small" data-g="table">Tableau</button>
+          <button type="button" class="small" data-g="window">Fenêtre</button>
+          <button type="button" class="small" data-g="std">Zoom std</button>
+          <button type="button" class="small" data-g="trig">Zoom trig</button>
+          <button type="button" class="small" data-g="square">Repère normé</button>
+          <button type="button" class="small" data-g="list">≡ Fonctions</button>
+          <span class="info" id="graph-info"></span>
+        </div>
+      </div>
+
+      <!-- Tableur -->
+      <div class="view sheet" data-view="sheet" hidden>
+        <div class="head">
+          <label>X <select id="col-x"></select></label>
+          <label>Y <select id="col-y"></select></label>
+          <label>effectifs <select id="col-f"></select></label>
+          <button type="button" class="small" id="st-1">Stats 1 var</button>
+          <button type="button" class="small" id="st-2">Stats 2 var</button>
+          <select id="st-model" aria-label="Modèle de régression">
+            <option value="linear">a·x + b</option><option value="quadratic">a·x² + b·x + c</option>
+            <option value="cubic">a·x³ + …</option><option value="exponential">a·bˣ</option>
+            <option value="power">a·xᵇ</option><option value="logarithmic">a + b·ln x</option>
+          </select>
+          <button type="button" class="small primary" id="st-reg">Régression</button>
+          <button type="button" class="small" id="st-cas" title="Définit l1… l4 dans Calculs">→ Calculs</button>
+          <button type="button" class="small" id="st-demo">Exemple</button>
+          <button type="button" class="small danger" id="st-clear">Vider</button>
+        </div>
+        <div class="cells"><table><thead id="cells-head"></thead><tbody id="cells"></tbody></table></div>
+        <div class="results" id="st-out"><span class="empty">Saisis des valeurs, puis choisis un calcul.</span></div>
+      </div>
+
+      <!-- Programmes -->
+      <div class="view prog" data-view="prog" hidden>
+        <div class="prog-list" id="prog-list"></div>
+        <div class="prog-main">
+          <div class="row">
+            <input id="prog-name" spellcheck="false" aria-label="Nom du programme" placeholder="nom">
+            <button type="button" class="small primary" id="prog-run" title="Ctrl+Entrée">▶ Exécuter</button>
+            <button type="button" class="small" id="prog-save" title="Ctrl+S">Enregistrer</button>
+            <button type="button" class="small" id="prog-new">Nouveau</button>
+            <button type="button" class="small danger" id="prog-del">Supprimer</button>
+            <button type="button" class="small" id="prog-help">Aide</button>
+          </div>
+          <div class="editor">
+            <div class="gutter" id="gutter">1</div>
+            <textarea id="code" spellcheck="false" aria-label="Code du programme"></textarea>
+          </div>
+          <div class="row"><span class="badge">Console</span><span class="grow"></span>
+            <span class="badge" id="prog-status">prêt</span></div>
+          <div class="out-split" id="out-split">
+            <div class="console" id="console"></div>
+            <div class="draw" id="draw-box" hidden><canvas id="draw"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pad" id="pad">
+      <div class="keys sys" id="keys-sys"></div>
+      <div class="nav">
+        <div class="side" id="nav-left"></div>
+        <div class="dpad" id="dpad">
+          <button type="button" class="u" data-nav="up" aria-label="Haut">▲</button>
+          <button type="button" class="d" data-nav="down" aria-label="Bas">▼</button>
+          <button type="button" class="l" data-nav="left" aria-label="Gauche">◀</button>
+          <button type="button" class="r" data-nav="right" aria-label="Droite">▶</button>
+          <button type="button" class="ok" data-nav="ok" aria-label="Valider">OK</button>
+        </div>
+        <div class="side" id="nav-right"></div>
+      </div>
+      <div class="keys main" id="keys-main"></div>
+    </div>
+  </div>
+</body>
+</html>
