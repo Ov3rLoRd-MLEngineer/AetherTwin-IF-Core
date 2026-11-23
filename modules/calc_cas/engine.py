@@ -11,6 +11,7 @@ tue et relance quand un calcul dépasse son délai.
 from __future__ import annotations
 
 import ast
+import html.entities
 import re
 import unicodedata
 from collections.abc import Callable, Iterable
@@ -515,16 +516,34 @@ def _esc(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+_ENTITY = re.compile(r"&([A-Za-z]+);")
+_XML_ENTITIES = frozenset({"lt", "gt", "amp", "quot", "apos"})
+
+
+def _entities(text: str) -> str:
+    """Entités nommées (&pi;, &InvisibleTimes;) -> caractères : le MathML reste du XML valide."""
+    def sub(m: re.Match[str]) -> str:
+        name = m.group(1)
+        if name in _XML_ENTITIES:
+            return m.group(0)
+        return html.entities.html5.get(name + ";", m.group(0))
+    return _ENTITY.sub(sub, text)
+
+
 def mathml_of(obj: Any) -> str:
     """MathML de présentation (affiché nativement par les navigateurs, sans bibliothèque externe)."""
+    return _entities(_mathml(obj))
+
+
+def _mathml(obj: Any) -> str:
     if isinstance(obj, bool):
         return f"<mtext>{'vrai' if obj else 'faux'}</mtext>"
     if isinstance(obj, list | tuple):
         sep = "<mo>,</mo>"
-        return f"<mrow><mo>[</mo>{sep.join(mathml_of(o) for o in obj)}<mo>]</mo></mrow>"
+        return f"<mrow><mo>[</mo>{sep.join(_mathml(o) for o in obj)}<mo>]</mo></mrow>"
     if isinstance(obj, dict):
         sep = "<mo>,</mo>"
-        items = sep.join(f"{mathml_of(k)}<mo>:</mo>{mathml_of(v)}" for k, v in obj.items())
+        items = sep.join(f"{_mathml(k)}<mo>:</mo>{_mathml(v)}" for k, v in obj.items())
         return f"<mrow><mo>{{</mo>{items}<mo>}}</mo></mrow>"
     try:
         return sp.mathml(obj, printer="presentation")

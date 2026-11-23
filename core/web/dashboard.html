@@ -8,6 +8,8 @@
   <script src="/static/ether_scene.js" defer></script>
   <script src="/static/dashboard.js" defer></script>
   <script src="/static/professeur.js" defer></script>
+  <link rel="stylesheet" href="/static/calc_cas.css">
+  <script src="/static/calc_cas.js" defer></script>
 </head>
 <body>
   <header>
@@ -24,6 +26,7 @@
     <button role="tab" data-tab="jeu">Jeu</button>
     <button role="tab" data-tab="assistant">Assistant</button>
     <button role="tab" data-tab="professeur">Professeur</button>
+    <button role="tab" data-tab="calcul">Calcul</button>
     <button role="tab" data-tab="connaissances">Connaissances</button>
     <button role="tab" data-tab="scantrad">Scantrad</button>
     <button role="tab" data-tab="traduction">Traduction</button>
@@ -237,6 +240,88 @@
           <button id="lab-run" type="button">Analyser</button>
         </div>
         <div id="lab-result"></div>
+      </section>
+    </div>
+
+    <!-- Calcul (module calc_cas) -->
+    <div class="panel" data-panel="calcul" hidden>
+      <section>
+        <h2>Calculatrice à calcul formel</h2>
+        <p class="muted">Résultats exacts et valeurs approchées, calculés sur cette machine (SymPy). Écris
+          naturellement : <code>2x + 3x</code>, <code>x^2</code>, <code>solve(x^2 = 2, x)</code>. Définis avec
+          <code>:=</code> : <code>a := 5</code>, <code>f(x) := x^2 + a</code>. <code>ans</code> = dernier résultat.</p>
+        <div class="calc-layout">
+          <div>
+            <div id="calc-history" class="calc-history" aria-live="polite"></div>
+            <form id="calc-form" class="row">
+              <input id="calc-input" class="grow calc-input" autocomplete="off" spellcheck="false"
+                     placeholder="integrate(x e^x, x)   ·   ↑ ↓ : saisies précédentes" aria-label="Expression à calculer">
+              <button type="submit">Calculer</button>
+            </form>
+            <div id="calc-keys" class="calc-keys"></div>
+          </div>
+          <div class="calc-side">
+            <h3>Variables et fonctions</h3>
+            <ul id="calc-vars" class="calc-vars"></ul>
+            <div class="row">
+              <button id="calc-reset" type="button" class="ghost danger">Tout effacer</button>
+            </div>
+            <h3>Exemples</h3>
+            <select id="calc-examples" class="full" aria-label="Exemples de calculs"></select>
+            <p class="muted" id="calc-status"></p>
+          </div>
+        </div>
+      </section>
+      <section>
+        <h2>Graphes</h2>
+        <div id="calc-curves" class="calc-curves"></div>
+        <div class="row">
+          <button id="calc-add-curve" type="button" class="ghost">+ Courbe</button>
+          <button id="calc-plot" type="button">Tracer</button>
+          <span class="grow"></span>
+          <button id="calc-zoom-in" type="button" class="ghost" title="Zoom avant">+</button>
+          <button id="calc-zoom-out" type="button" class="ghost" title="Zoom arrière">−</button>
+          <button id="calc-zoom-std" type="button" class="ghost">Fenêtre standard</button>
+        </div>
+        <canvas id="calc-canvas" class="calc-canvas" aria-label="Graphe : glisser pour déplacer, molette pour zoomer"></canvas>
+        <div class="row">
+          <span id="calc-coords" class="muted">Glisser : déplacer · molette : zoomer</span>
+          <span class="grow"></span>
+          <button id="calc-zeros" type="button" class="ghost">Zéros</button>
+          <button id="calc-extrema" type="button" class="ghost">Extrema</button>
+          <button id="calc-inter" type="button" class="ghost">Intersections (courbes 1 et 2)</button>
+        </div>
+        <div id="calc-analysis"></div>
+      </section>
+      <section>
+        <h2>Tableur et statistiques</h2>
+        <p class="muted">Une valeur par case (nombres ou expressions : <code>1/3</code>, <code>sqrt(2)</code>). La colonne
+          « effectifs » est facultative.</p>
+        <div class="calc-sheet"><table><thead><tr><th>#</th><th>X</th><th>Y</th><th>effectifs</th></tr></thead>
+          <tbody id="calc-sheet"></tbody></table></div>
+        <div class="row">
+          <button id="calc-rows" type="button" class="ghost">+ 5 lignes</button>
+          <button id="calc-sheet-demo" type="button" class="ghost">Exemple</button>
+          <button id="calc-sheet-clear" type="button" class="ghost danger">Vider</button>
+          <span class="grow"></span>
+          <button id="calc-stats1" type="button">Stats 1 variable (X)</button>
+          <button id="calc-stats2" type="button">Stats 2 variables</button>
+          <select id="calc-model" aria-label="Modèle de régression">
+            <option value="linear">y = a·x + b</option><option value="quadratic">y = a·x² + b·x + c</option>
+            <option value="cubic">y = a·x³ + …</option><option value="exponential">y = a·b^x</option>
+            <option value="power">y = a·x^b</option><option value="logarithmic">y = a + b·ln(x)</option>
+          </select>
+          <button id="calc-regress" type="button">Régression</button>
+        </div>
+        <div id="calc-stats-out"></div>
+      </section>
+      <section>
+        <h2>Le modèle local délègue ses calculs</h2>
+        <p class="muted">Le modèle du Hub ne calcule pas de tête : il demande chaque calcul au moteur exact, puis
+          rédige sa réponse à partir des résultats.</p>
+        <textarea id="calc-question" rows="2" placeholder="Quelle est l'aire exacte entre y = x^2 et y = 2x ?"></textarea>
+        <div class="row"><button id="calc-ask" type="button">Demander</button></div>
+        <div id="calc-answer" hidden></div>
       </section>
     </div>
 

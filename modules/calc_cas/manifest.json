@@ -1,0 +1,17 @@
+{
+  "name": "calc_cas",
+  "version": "0.1.0",
+  "description": "Calculatrice à calcul formel : résultats exacts et approchés, graphes, statistiques, outil de calcul pour les agents",
+  "entry": "modules.calc_cas.module:CalcCasModule",
+  "vram_min_gb": 0,
+  "vram_comfort_gb": 0,
+  "python_deps": ["sympy", "numpy"],
+  "optional_deps": [],
+  "triggers": {
+    "processes": [],
+    "windows": [],
+    "ports": []
+  },
+  "network": [],
+  "experimental": false
+}
