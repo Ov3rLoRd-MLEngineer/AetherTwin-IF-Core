@@ -51,9 +51,9 @@ def test_main_falls_back_to_default_browser(monkeypatch: pytest.MonkeyPatch) -> 
 
 def test_window_page_is_self_contained() -> None:
     page = (WEB / "calc_app.html").read_text(encoding="utf-8")
-    script = (WEB / "calc_app.js").read_text(encoding="utf-8")
+    script = (WEB / "calc_app.js").read_text(encoding="utf-8") + (WEB / "calc_geo.js").read_text(encoding="utf-8")
     style = (WEB / "calc_app.css").read_text(encoding="utf-8")
-    assert "/static/calc_app.js" in page and "/static/calc_app.css" in page
+    assert all(f"/static/{name}" in page for name in ("calc_app.js", "calc_geo.js", "calc_app.css"))
     assert " style=" not in page  # la CSP du Hub refuse les styles en ligne
     for text in (page, script, style):  # ni CDN, ni police distante
         assert not re.search(r"https?://(?!127\.0\.0\.1)", text)
@@ -76,6 +76,7 @@ def test_window_files_are_served_by_the_hub(tmp_path: Path) -> None:
     daemon = Daemon(tmp_path / "modules", monitor=GpuMonitor(UnknownBackend()), process_names=lambda: set(),
                     llm=LlmRouter(transport=ollama_stopped))
     client = TestClient(create_app(daemon))
-    for name, kind in (("calc_app.html", "text/html"), ("calc_app.css", "text/css"), ("calc_app.js", "javascript")):
+    for name, kind in (("calc_app.html", "text/html"), ("calc_app.css", "text/css"), ("calc_app.js", "javascript"),
+                       ("calc_geo.js", "javascript")):
         response = client.get(f"/static/{name}")
         assert response.status_code == 200 and kind in response.headers["content-type"]

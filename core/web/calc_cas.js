@@ -473,7 +473,7 @@ async function askModel() {
   $("calc-ask").addEventListener("click", askModel);
   bindCanvas();
   renderCurves();
-  const tab = document.querySelector('#tabs button[data-tab="calcul"]');
+  const tab = document.querySelector('#tabs button[data-tab="outils"]');
   tab?.addEventListener("click", () => { startCalc(); requestAnimationFrame(drawGraph); });
-  if ((location.hash || "").slice(1) === "calcul") setTimeout(() => { startCalc(); drawGraph(); }, 300);
+  if ((location.hash || "").slice(1) === "outils") setTimeout(() => { startCalc(); drawGraph(); }, 300);
 })();

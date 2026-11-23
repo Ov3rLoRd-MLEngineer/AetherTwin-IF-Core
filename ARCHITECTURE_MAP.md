@@ -180,6 +180,7 @@ core/
     calc_app.js
     calc_cas.css
     calc_cas.js
+    calc_geo.js
     dashboard.css
     dashboard.html
     dashboard.js
@@ -194,6 +195,7 @@ modules/
     app.py
     demos.py
     engine.py
+    geometry.py
     graph.py
     manifest.json
     mcp_server.py
@@ -364,6 +366,7 @@ tests/
     test_agent.py
     test_app.py
     test_engine.py
+    test_geometry.py
     test_graph.py
     test_module.py
     test_sandbox.py
@@ -804,6 +807,12 @@ Moteur de calcul formel du module calc_cas (SymPy).
 - `def define(text: str, session: Session) -> dict[str, Any]`
 - `def evaluate(text: str, session: Session | None=None) -> dict[str, Any]` — Évalue une saisie. Ne lève jamais : retourne `{"ok": False, "error": …}` en cas de problème.
 - `def to_float(value: Any, session: Session | None=None) -> float` — Valeur d'une cellule (nombre ou texte « 1/3 », « sqrt(2) ») -> flottant.
+
+### `modules/calc_cas/geometry.py`
+
+Mesures exactes de géométrie plane pour l'application Géométrie de la fenêtre.
+
+- `def measure(args: dict[str, Any], session: Session | None=None) -> dict[str, Any]` — Mesure exacte : `what` parmi distance, midpoint, slope, line, angle, area, perimeter, circle (centre, point),
 
 ### `modules/calc_cas/graph.py`
 

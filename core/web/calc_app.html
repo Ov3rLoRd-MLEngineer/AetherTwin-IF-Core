@@ -7,6 +7,7 @@
   <link rel="icon" href="/static/logo.svg">
   <link rel="stylesheet" href="/static/calc_app.css">
   <script src="/static/calc_app.js" defer></script>
+  <script src="/static/calc_geo.js" defer></script>
 </head>
 <body>
   <div class="device" id="device">
@@ -25,6 +26,7 @@
         <div class="apps" role="tablist" id="apps">
           <button role="tab" data-app="calc">Calculs</button>
           <button role="tab" data-app="graph">Graphes</button>
+          <button role="tab" data-app="geo">Géométrie</button>
           <button role="tab" data-app="sheet">Tableur</button>
           <button role="tab" data-app="prog">Programmes</button>
         </div>
@@ -64,6 +66,22 @@
           <button type="button" class="small" data-g="square">Repère normé</button>
           <button type="button" class="small" data-g="list">≡ Fonctions</button>
           <span class="info" id="graph-info"></span>
+        </div>
+      </div>
+
+      <!-- Géométrie -->
+      <div class="view geo" data-view="geo" hidden>
+        <div class="geo-tools" id="geo-tools" role="toolbar" aria-label="Outils de géométrie"></div>
+        <div class="plot" id="geo-box">
+          <canvas id="geo" aria-label="Figure : cliquer pour construire, glisser les points libres"></canvas>
+          <div class="coords" id="geo-coords"></div>
+          <div class="side-panel" id="geo-panel" hidden></div>
+        </div>
+        <div class="tools">
+          <button type="button" class="small" id="geo-measures">Mesures exactes</button>
+          <button type="button" class="small" id="geo-snap" title="Points accrochés à la grille">Grille magnétique</button>
+          <button type="button" class="small" id="geo-undo" title="Ctrl+Z">Annuler</button>
+          <span class="info" id="geo-info"></span>
         </div>
       </div>
 

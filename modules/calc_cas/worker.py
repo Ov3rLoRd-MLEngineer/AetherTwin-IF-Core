@@ -112,6 +112,10 @@ def _dispatch(sessions: dict[str, Any], op: str, args: dict[str, Any]) -> Any:
         return graph.analyze(args, session)
     if op == "table":
         return graph.table(args, session)
+    if op == "geometry":
+        from modules.calc_cas.geometry import measure
+
+        return measure(args, session)
     if op == "stats":
         return stats.describe(args, session)
     if op == "regress":

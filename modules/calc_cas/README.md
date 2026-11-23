@@ -17,7 +17,7 @@ Rien à faire de plus que le Hub : `sympy` est dans `requirements.txt` (déjà i
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Puis tableau de bord → onglet **Calcul** (le module démarre à la première utilisation), ou bouton
+Puis tableau de bord → onglet **Outils** (le module démarre à la première utilisation), ou bouton
 **Ouvrir la calculatrice** (aussi « Lancer » sur la carte du module) pour la fenêtre de bureau. Sans SymPy, le module
 démarre quand même en mode dégradé et répond « moteur de calcul indisponible ».
 
@@ -42,7 +42,7 @@ la fenêtre (objet de tâche Windows qui lie Edge au lanceur).
 - **Mise en page fluide** : en portrait, écran en haut et clavier en bas ; dès que la fenêtre est plus large que
   haute, écran à gauche et clavier à droite. Touches, polices et pavé suivent la largeur *et* la hauteur ; F2 ou
   « Clavier » masque le clavier pour un écran plein ; ◐ écran clair ou sombre.
-- **Quatre applications** (onglets, `tab`, Ctrl+1…4) : Calculs, Graphes, Tableur, Programmes.
+- **Cinq applications** (onglets, `tab`, Ctrl+1…5) : Calculs, Graphes, Géométrie, Tableur, Programmes.
 - **Clavier à deux fonctions** : `2nde` (ambre) donne la fonction secondaire de chaque touche (√, ln, sin⁻¹, ∫,
   lim, ≈, sto→…), `abc` bascule le clavier en lettres (2nde + abc : majuscules). `esc`, `menu` (fonctions selon
   l'application, recherche), `catalogue` (2nde + menu, Ctrl+K), `⌫` / effacer, `var`, `mode` (auto → exact →
@@ -52,6 +52,12 @@ la fenêtre (objet de tâche Windows qui lie Edge au lanceur).
 - **Calculs** : `2nde` + entrée (ou Maj+Entrée) = valeur approchée ; `expr → nom` stocke ; badge RAD/DEG.
 - **Graphes** : 6 fonctions (y =, paramétrique, polaire), trace, zéros, extrema, intersection, tableau de valeurs
   (début, pas), fenêtre xmin…ymax, zooms standard, trigonométrique, repère orthonormé, glisser et molette.
+- **Géométrie** (construction dynamique) : points, segments, droites, cercles (centre et point, ou circonscrit),
+  polygones, milieu, perpendiculaire, parallèle, médiatrice, intersections (droites, segments, cercles) ; mesures
+  de longueur, d'angle (radians ou degrés selon le badge), d'aire et d'équation, recalculées en direct quand on
+  glisse un point libre. **Mesures exactes** à la demande (`√5`, `π/2`, `y = 3 − 3x/4`, cercle `(x − 1)² + (y − 1)² = 2`)
+  grâce à la grille magnétique (points sur des valeurs simples). Supprimer retire aussi ce qui dépend de l'objet ;
+  Ctrl+Z annule ; le pavé déplace le point sélectionné d'un pas de grille. Figure gardée dans la fenêtre.
 - **Tableur** : listes l1…l4 (60 lignes), statistiques 1 et 2 variables, 6 régressions, courbe envoyée dans
   Graphes, colonnes envoyées dans Calculs (`l1 := […]`).
 - **Programmes** : éditeur Python (numéros de ligne, Tab = 4 espaces, indentation automatique), Ctrl+Entrée
@@ -161,7 +167,10 @@ Essai réel (23/11/2026) : `qwen3-27b` via le Hub, 2 calculs délégués, répon
 - La forme exacte des points remarquables d'un graphe est une **reconnaissance** (`nsimplify`) vérifiée à 50
   chiffres : sûre quand elle est donnée, mais absente pour des racines exactes plus compliquées.
 - Graphes : 8 courbes (6 dans la fenêtre), échantillonnage à 600–700 points ; une asymptote très étroite peut être manquée.
-- Pas encore de géométrie dynamique (palier 6, en cours) ni de débogueur pas à pas pour les programmes.
+- Pas de débogueur pas à pas pour les programmes.
+- Géométrie : les mesures exactes partent des coordonnées affichées (converties en fractions) ; pour un point
+  construit à coordonnées irrationnelles (intersection d'un cercle…), la « valeur exacte » est celle d'une fraction
+  très proche. Pas de lieux géométriques, de transformations (symétrie, rotation) ni d'export de la figure.
 - Programmes : `input()` rejoue le programme depuis le début (un programme très long avant sa question est donc
   refait) ; pas de classes ni de modules autres que math, cmath, random, statistics.
 - L'interface a été vérifiée dans Edge (fenêtre d'application) et le navigateur intégré (Chromium) ; MathML demande
@@ -178,10 +187,12 @@ Essai réel (23/11/2026) : `qwen3-27b` via le Hub, 2 calculs délégués, répon
 | `agent.py` | outils pour agents, boucle de délégation |
 | `mcp_server.py` | serveur MCP stdio |
 | `sandbox.py` | bac à sable des programmes Python |
+| `geometry.py` | mesures exactes de géométrie (distance, angle, aire, droites, cercles) |
 | `app.py` | lanceur de la fenêtre (Edge ou Chrome en mode application) |
 | `module.py` | module du Hub (commandes du bus, persistance) |
 | `demos.py` | exemples de démonstration |
-| `core/web/calc_cas.js`, `calc_cas.css` | onglet « Calcul » du tableau de bord |
+| `core/web/calc_cas.js`, `calc_cas.css` | onglet « Outils » du tableau de bord |
 | `core/web/calc_app.html`, `.js`, `.css` | fenêtre de la calculatrice |
+| `core/web/calc_geo.js` | application Géométrie de la fenêtre |
 
 Tests : `.venv\Scripts\python.exe -m pytest tests/calc_cas`

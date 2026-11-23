@@ -96,9 +96,10 @@ function showApp(app) {
   S.field = null;
   if (app === "calc") $("line").focus();
   if (app === "graph") { requestAnimationFrame(() => { drawGraph(); if (!S.graph.plotted.length) plotAll(); }); }
+  if (app === "geo") window.geoShow?.();
   if (app === "prog") { requestAnimationFrame(() => { syncGutter(); drawProgram(); }); if (!S.prog.loaded) loadPrograms(); }
 }
-const APPS = ["calc", "graph", "sheet", "prog"];
+const APPS = ["calc", "graph", "geo", "sheet", "prog"];
 
 // ---------- saisie : champ actif ----------
 document.addEventListener("focusin", (e) => {
@@ -290,6 +291,8 @@ function contextMenu() {
       { label: "Repère orthonormé", act: () => graphTool("square") }, { label: "Zoom avant", act: () => zoom(0.5) },
       { label: "Zoom arrière", act: () => zoom(2) }, { label: "Afficher / masquer la liste des fonctions", act: () => graphTool("list") }] },
     { group: "Fonctions", items: [{ label: "Effacer toutes les fonctions", act: () => { S.graph.fns.forEach((f) => { f.expr = f.x = f.y = f.r = ""; }); renderFns(); plotAll(); } }] }]), runItem);
+  } else if (S.app === "geo") {
+    openMenu("Menu — Géométrie", grouped(geoMenuGroups()), runItem);
   } else if (S.app === "sheet") {
     openMenu("Menu — Tableur", grouped([{ group: "Statistiques", items: [
       { label: "Statistiques à une variable", act: () => sheetStats(false) }, { label: "Statistiques à deux variables", act: () => sheetStats(true) },
@@ -782,7 +785,7 @@ function press(act, sact) {
   const wasSecond = S.second;
   if (S.second) { S.second = false; renderKeys(); }
   if (a.ins !== undefined) {
-    if (S.menu) return;
+    if (S.menu || (S.app === "geo" && !S.field)) return;
     insert(a.ins);
     if (S.alpha && !wasSecond) { /* abc reste verrouillé : esc ou abc pour sortir */ }
     return;
@@ -795,11 +798,12 @@ const ACTIONS = {
     if (S.alpha) { S.alpha = false; renderKeys(); return; }
     if (S.app === "graph") { if (S.graph.panel) panel(null); else if (S.graph.trace) graphTool("trace"); else { S.graph.marks = []; drawGraph(); } return; }
     if (S.app === "calc") { S.sel = -1; markSel(); clearField(); }
+    if (S.app === "geo") geoEsc();
   },
   menu: contextMenu, catalog,
   tab() { showApp(APPS[(APPS.indexOf(S.app) + 1) % APPS.length]); },
   tabBack() { showApp(APPS[(APPS.indexOf(S.app) + APPS.length - 1) % APPS.length]); },
-  del: backspace, clear: clearField, vars: showVars, mode: cycleMode, angle: toggleAngle,
+  del() { if (S.app === "geo") geoDeleteSelected(); else backspace(); }, clear: clearField, vars: showVars, mode: cycleMode, angle: toggleAngle,
   recall() { const last = S.inputs[S.inputs.length - 1]; if (last) { $("line").value = last; $("line").focus(); } },
   xvar() {
     const f = S.graph.fns[S.graph.cur];
@@ -810,6 +814,7 @@ const ACTIONS = {
     if (S.app === "calc") { if (S.sel >= 0 && !$("line").value.trim()) { pasteEntry(S.sel); S.sel = -1; markSel(); } else evaluate($("line").value); }
     else if (S.app === "graph") plotAll();
     else if (S.app === "sheet") cellMove(1, 0);
+    else if (S.app === "geo") geoNav("ok");
     else if (S.app === "prog") { if (document.activeElement === $("code") || S.field === $("code")) insertNewline(); else runProgram(); }
   },
   approx() { if (S.app === "calc") evaluate($("line").value, true); else if (S.app === "prog") runProgram(); },
@@ -829,6 +834,7 @@ function nav(dir) {
       drawGraph();
     } else ({ left: () => pan(-0.1, 0), right: () => pan(0.1, 0), up: () => pan(0, 0.1), down: () => pan(0, -0.1), ok: plotAll })[dir]();
   } else if (S.app === "sheet") ({ up: () => cellMove(-1, 0), down: () => cellMove(1, 0), left: () => cellMove(0, -1), right: () => cellMove(0, 1), ok: () => cellMove(1, 0) })[dir]();
+  else if (S.app === "geo") geoNav(dir);
   else if (S.app === "prog") { if (dir === "left") moveCaret(-1); else if (dir === "right") moveCaret(1); else if (dir === "ok") runProgram(); }
 }
 function insertNewline() {
@@ -848,7 +854,7 @@ document.addEventListener("keydown", (e) => {
     else if (/^[1-9]$/.test(e.key) && e.altKey) { e.preventDefault(); S.menu.digit(Number(e.key)); }
     return;
   }
-  if (e.ctrlKey && /^[1-4]$/.test(e.key)) { e.preventDefault(); showApp(APPS[Number(e.key) - 1]); return; }
+  if (e.ctrlKey && /^[1-5]$/.test(e.key)) { e.preventDefault(); showApp(APPS[Number(e.key) - 1]); return; }
   if (e.key === "F2") { e.preventDefault(); toggleKeys(); return; }
   if (e.key === "F1" || (e.ctrlKey && e.key.toLowerCase() === "m")) { e.preventDefault(); contextMenu(); return; }
   if (e.ctrlKey && e.key.toLowerCase() === "k") { e.preventDefault(); catalog(); return; }
@@ -866,6 +872,11 @@ document.addEventListener("keydown", (e) => {
     if (t === $("code") && e.key === "Tab") { e.preventDefault(); S.field = t; insert("    "); return; }
     if (t === $("code") && e.key === "Enter") { e.preventDefault(); insertNewline(); return; }
   }
+  if (S.app === "geo" && !["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName)) {
+    if (e.ctrlKey && e.key.toLowerCase() === "z") { e.preventDefault(); geoUndo(); return; }
+    if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); geoDeleteSelected(); return; }
+    if (e.key.startsWith("Arrow")) { e.preventDefault(); geoNav(e.key.slice(5).toLowerCase()); return; }
+  }
   if (S.app === "graph" && S.graph.trace && !["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName) && e.key.startsWith("Arrow")) {
     e.preventDefault(); nav(e.key.slice(5).toLowerCase());
   }
@@ -877,7 +888,7 @@ $("line").addEventListener("keydown", (e) => { if (e.key === "Enter" && e.shiftK
 function toggleKeys() {
   const d = $("device"); d.classList.toggle("no-keys"); $("pad").hidden = d.classList.contains("no-keys");
   store.set("keys", !d.classList.contains("no-keys"));
-  requestAnimationFrame(() => { drawGraph(); drawProgram(); });
+  requestAnimationFrame(() => { drawGraph(); drawProgram(); if (S.app === "geo") geoDraw(); });
 }
 
 // ---------- démarrage ----------
@@ -898,7 +909,7 @@ function toggleKeys() {
   $("toggle-screen").addEventListener("click", () => {
     const dark = document.documentElement.dataset.screen !== "dark";
     if (dark) document.documentElement.dataset.screen = "dark"; else delete document.documentElement.dataset.screen;
-    store.set("dark", dark); drawGraph(); drawProgram();
+    store.set("dark", dark); drawGraph(); drawProgram(); if (S.app === "geo") geoDraw();
   });
   $("st-1").addEventListener("click", () => sheetStats(false)); $("st-2").addEventListener("click", () => sheetStats(true));
   $("st-reg").addEventListener("click", regress); $("st-cas").addEventListener("click", sheetToCas);
@@ -908,7 +919,7 @@ function toggleKeys() {
   $("prog-help").addEventListener("click", progHelp);
   $("code").addEventListener("input", () => { S.prog.dirty = true; syncGutter(); status("modifié"); });
   $("code").addEventListener("scroll", () => { $("gutter").scrollTop = $("code").scrollTop; });
-  new ResizeObserver(() => { if (S.app === "graph") drawGraph(); if (S.app === "prog") drawProgram(); }).observe($("device"));
+  new ResizeObserver(() => { if (S.app === "graph") drawGraph(); if (S.app === "geo") geoDraw(); if (S.app === "prog") drawProgram(); }).observe($("device"));
   window.addEventListener("beforeunload", (e) => { if (S.prog.dirty && $("code").value.trim() && S.prog.name in S.prog.programs) e.preventDefault(); });
   showApp(APPS.includes(S.app) ? S.app : "calc");
   badges();

@@ -141,3 +141,10 @@ def test_table_command(module: CalcCasModule) -> None:
     assert table["rows"] == [[-1.0, 1.0], [0.0, 0.0], [1.0, 1.0]]
     with pytest.raises(ValueError):
         module.run("table", {"expr": "x^2", "start": 0, "step": 0, "count": 3})
+
+
+def test_geometry_command(module: CalcCasModule) -> None:
+    result = module.run("geometry", {"what": "angle", "points": [[1, 0], [0, 0], [0, 1]], "degrees": True})
+    assert result["exact"] == "90"
+    with pytest.raises(ValueError, match="alignés"):
+        module.run("geometry", {"what": "circumcircle", "points": [[0, 0], [1, 1], [2, 2]]})

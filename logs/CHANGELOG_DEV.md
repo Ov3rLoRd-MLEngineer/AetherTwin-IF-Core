@@ -1283,3 +1283,7 @@ outine.json` ; le serveur MCP ne fait que le lire.
 - **Décisions :** Edge `--app` plutôt que pywebview (non installé) ; objet de tâche Windows « tuer à la fermeture »
   pour que l'arrêt depuis le Hub ferme aussi la fenêtre ; Python restreint vérifié par l'arbre syntaxique, dans un
   processus borné en temps et en mémoire ; `input()` par rejeu avec graine fixe.
+- **Puis :** onglet du tableau de bord renommé « Outils » (demande de Jérémy) ; application **Géométrie** dans la
+  fenêtre (`core/web/calc_geo.js`, construction recalculée dans la page) et mesures exactes côté moteur
+  (`modules/calc_cas/geometry.py`, commande `geometry`, `tests/calc_cas/test_geometry.py`). Choix : géométrie
+  calculée dans la page pour un déplacement fluide, le moteur n'intervient que pour les valeurs exactes.
