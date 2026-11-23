@@ -68,6 +68,8 @@ gros modèle Ollama jusqu'à son arrêt. Strata arrêté : les questions `strata
 Avec 32 Go de RAM, Qwen3.6-35B-A3B convient ; Qwen3.8-Flash-Next (125B) veut 48 à 64 Go de RAM.
 Mesuré le 23/11 : 36 à 48 jetons/s sur une seule carte (le moteur de ce modèle n'en utilise qu'une : la RTX 5060 Ti,
 pour laisser la 5080 au jeu), mais 21 à 24 Go de RAM pris : arrêtez Strata avant un traitement lourd.
+Conclusion : avec 32 Go, manques de mémoire jusque dans le navigateur ; pour l'utiliser pleinement, 64 Go de RAM
+(une 3e carte graphique accélère, mais ne baisse pas la RAM demandée).
 
 ## Lancer le Hub
 

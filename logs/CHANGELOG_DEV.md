@@ -1199,4 +1199,7 @@ outine.json` ; le serveur MCP ne fait que le lire.
 - **Essai réel :** 36 à 48 jetons/s par le routeur ; le moteur qwen36 n'utilise qu'une carte : préréglage passé sur
   la RTX 5060 Ti (la 5080 reste au jeu). Strata prend 21 à 24 Go de RAM : trois tests scantrad ont manqué de mémoire
   pendant qu'il tournait (verts après l'arrêt). Démarrage et arrêt par le Hub vérifiés ; Strata laissé arrêté.
+- **Conclusion (retour de Jérémy) :** manques de mémoire jusque dans le navigateur pendant l'essai. Strata demande
+  64 Go de DDR4 pour tourner pleinement ; une 3e carte ne réduit pas la RAM demandée. Noté dans
+  `config/hardware_profiles.yaml`, `PROJECT_STATUS.md` et le README.
 

@@ -94,5 +94,12 @@ measured:
       - "Avec Strata actif, trois tests scantrad ont manqué de RAM (onnxruntime, OpenBLAS) ; verts une fois arrêté."
       - "Démarrage par le Hub (StrataBackend.start) : actif en 183 s ; arrêt : VRAM rendue."
       - "Inoue : un gros modèle Ollama (qwen3-27b) est refusé tant que Strata tourne."
+    oom_seen_by_jeremy: "manques de mémoire jusque dans le navigateur ouvert pendant l'essai"
+    conclusion:
+      - "Pour faire tourner Strata pleinement à côté du reste (navigateur, jeu, Hub) : 64 Go de DDR4."
+      - "Une 3e carte graphique ne règle pas la RAM : le moteur de Qwen3.6 n'utilise qu'une carte et garde tous ses
+        experts en RAM ; pour Qwen3.8-Flash-Next, la doc de Strata dit qu'une carte plus grosse accélère sans baisser
+        la RAM demandée."
+      - "Avec 32 Go : démarrer Strata seulement pour une séance de questions, puis l'arrêter (bouton de l'Accueil)."
     not_measured: "Strata avec WoW lancé ; Qwen3.8-Flash-Next (non installé : RAM insuffisante)."
 

@@ -201,7 +201,10 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 7. **Strata, moteur secondaire pour les gros modèles « mélange d'experts » (23/11, demande de Jérémy)** :
    **FAIT-TESTÉ côté Hub (23/11, en réel)**, à essayer par Jérémy (test 67). Mesures dans
    `config/hardware_profiles.yaml` : 36 à 48 jetons/s ; sur la RTX 5060 Ti seule (la 5080 reste au jeu) ; mais
-   **21 à 24 Go de RAM** pris par Strata : à arrêter avant une grosse session de jeu ou un traitement scantrad. `core/strata.py` (client OpenAI local, démarrage et arrêt par le
+   **21 à 24 Go de RAM** pris par Strata : à arrêter avant une grosse session de jeu ou un traitement scantrad.
+   **Conclusion de l'essai (23/11)** : manques de mémoire constatés jusque dans le navigateur. Pour faire tourner
+   Strata pleinement, il faut **64 Go de DDR4** ; la 3e carte graphique n'y change rien (le moteur de Qwen3.6
+   n'utilise qu'une carte et garde ses experts en RAM ; une carte de plus accélère sans baisser la RAM demandée). `core/strata.py` (client OpenAI local, démarrage et arrêt par le
    lanceur installé), `core/llm_router.py` (modèles `strata/<id>`, repli sur Ollama si Strata est arrêté),
    arbitrage Inoue (gros modèles Ollama déchargés avant Strata ; gros modèle Ollama refusé tant que Strata tourne,
    car Strata ne se décharge pas sans être arrêté), Accueil du tableau de bord (état, Démarrer / Arrêter),
