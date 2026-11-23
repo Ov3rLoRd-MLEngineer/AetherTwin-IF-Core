@@ -574,7 +574,7 @@ def register_mcp(info, python=None, runner=subprocess.run):
                     timeout=300, creationflags=NO_WINDOW)
     st = info.refresh(force=True)
     if st.get("mcp"):
-        return True, "Outils de jeu ajoutés à Hermes (10 outils, lecture seule)."
+        return True, "Outils de jeu ajoutés à Hermes (12 outils : 10 en lecture seule sur le jeu, 2 pour la base de connaissances du coach)."
     tail = ((result.stdout or "") + (result.stderr or "")).strip().splitlines()[-3:]
     return False, "Échec de « hermes mcp add » : " + " / ".join(tail)
 

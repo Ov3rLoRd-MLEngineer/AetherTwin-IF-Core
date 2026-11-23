@@ -128,7 +128,8 @@ def test_mcp_server_speaks_json_rpc_and_lists_read_only_tools() -> None:
     assert init["result"]["protocolVersion"] == "2025-03-26" and "tools" in init["result"]["capabilities"]
     assert hermes_mcp.handle(game, {"jsonrpc": "2.0", "method": "notifications/initialized"}) is None
     tools = hermes_mcp.handle(game, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})["result"]["tools"]
-    assert len(tools) == 10 and all(t["annotations"]["readOnlyHint"] for t in tools)
+    assert len(tools) == 12
+    assert [t["name"] for t in tools if not t["annotations"]["readOnlyHint"]] == ["wow_knowledge_save"]
     assert {t["name"] for t in tools} >= {"wow_character", "wow_quests", "wow_inventory", "wow_bestiary"}
     unknown = hermes_mcp.handle(game, {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
                                        "params": {"name": "rm_rf", "arguments": {}}})
@@ -267,7 +268,7 @@ def test_register_mcp_uses_hermes_own_command_with_backup(tmp_path, hb) -> None:
         return type("R", (), {"stdout": "", "stderr": ""})()
 
     ok, text = hb.register_mcp(info, python=r"C:\Python311\pythonw.exe", runner=runner)
-    assert ok and "10 outils" in text and seen["input"] == "y\n"
+    assert ok and "12 outils" in text and seen["input"] == "y\n"
     assert seen["args"][1:6] == ["mcp", "add", "wow_assistant", "--command", r"C:\Python311\python.exe"]
     assert seen["args"][-2:] == ["-I", hb.MCP_SCRIPT]
     assert list(home.glob("config.yaml.wow-assistant-*.bak"))
@@ -363,6 +364,8 @@ def hermes_app(app, tmp_path, hb):
     app.llm._hermes = hb.HermesClient(app.settings, hb.HermesInfo(str(fake_home(tmp_path, mcp=True))),
                                       opener=FakeOpener([]))
     app.active_tab = app.TABS.index("Hermes")
+    from coach_knowledge import KnowledgeBase
+    app.knowledge = KnowledgeBase(str(tmp_path / "coach_knowledge.json"))   # jamais celle du profil Windows
     return app
 
 
@@ -576,3 +579,87 @@ def test_tool_labels_and_ready_made_figures_for_the_model(hb) -> None:
     assert hermes_mcp._xp_progress({"xp": 10027, "xpMax": 39165}) == \
         "25.6 % du niveau en cours, 29138 XP restants avant le niveau suivant"
     assert hermes_mcp.QUALITIES[2] == "inhabituel (vert)"
+
+
+# --------------------------------------------------------------------------- base de connaissances du coach
+def test_knowledge_base_player_corrections_win_and_web_facts_need_a_source(tmp_path) -> None:
+    import time
+
+    from coach_knowledge import REVERIFY_DAYS, KnowledgeBase
+    kb = KnowledgeBase(str(tmp_path / "kb.json"))
+    ok, msg, _e = kb.add("talents", "Talents de héros : niveau", "Disponibles au niveau 71.", source="")
+    assert not ok and "lien" in msg
+    assert kb.add("talents", "Talents de héros : niveau", "Disponibles au niveau 71.",
+                  source="https://www.wowhead.com/fr/guide/hero-talents")[0]
+    assert kb.add("règle", "Touche des talents", "La fenêtre des talents s'ouvre avec N.", source="joueur",
+                  status="joueur")[0]
+    ok, msg, _e = kb.add("règle", "Touche des talents", "R", source="https://exemple.fr")
+    assert not ok and "joueur" in msg                                          # le web ne remplace pas le joueur
+    found = kb.search("quel niveau pour les talents de héros")
+    assert found[0]["statut"].startswith("corrigé par le joueur")             # la règle du joueur passe d'abord
+    assert any("71" in f["fait"] for f in found)
+    entry = next(e for e in kb.entries if e["status"] == "sourcé")
+    entry["verified"] = time.time() - (REVERIFY_DAYS + 1) * 86400
+    assert kb.stats()["à revérifier"] == 1
+    assert kb.set_status(entry["id"], "rejeté") and not any("71" in f["fait"] for f in kb.search("talents héros"))
+    again = KnowledgeBase(str(tmp_path / "kb.json"))                           # relu depuis le fichier
+    assert len(again.entries) == 2
+
+
+def test_mcp_knowledge_tools_read_and_write_the_coach_base(tmp_path) -> None:
+    import hermes_mcp
+    from coach_knowledge import KnowledgeBase
+    game = FakeGame()
+    kb = KnowledgeBase(str(tmp_path / "kb.json"))
+    game.knowledge = lambda: kb
+    save = hermes_mcp.call_tool(game, "wow_knowledge_save", {
+        "topic": "quête", "subject": "La chute du Trompeur", "fact": "Dernière quête de la campagne ; ne donne "
+        "plus d'XP.", "source_url": "https://www.wowhead.com/fr/quest=46805"})
+    assert json.loads(save["content"][0]["text"])["enregistré"] is True
+    found = json.loads(hermes_mcp.call_tool(game, "wow_knowledge_search", {"query": "Trompeur"})["content"][0]["text"])
+    assert found["connaissances"][0]["source"] == "https://www.wowhead.com/fr/quest=46805"
+    refused = hermes_mcp.call_tool(game, "wow_knowledge_save", {"topic": "quête", "subject": "x", "fact": "y"})
+    assert json.loads(refused["content"][0]["text"])["enregistré"] is False
+
+
+def test_player_correction_is_saved_and_recalled_to_hermes(tmp_path) -> None:
+    from coach_knowledge import KnowledgeBase
+    from llm import LLMClient
+    from widgets_builtin import ChatState
+    fake = FakeHermes()
+    chat = ChatState(str(tmp_path / "chat.json"), LLMClient(Settings({"llm.mode": "hermes"}), hermes=fake))
+    chat.knowledge = KnowledgeBase(str(tmp_path / "kb.json"))
+    chat.messages = [{"role": "user", "text": "Analyse mon perso"},
+                     {"role": "assistant", "text": "Choisis ton talent de héros."}]
+    assert chat.correct("Les talents de héros ne s'ouvrent pas au niveau 48.", None)
+    entry = chat.knowledge.entries[0]
+    assert entry["status"] == "joueur" and entry["question"] == "Analyse mon perso"
+    assert "Correction du joueur" in fake.asked[-1][0]
+    fake.job.text, fake.job.done = "Compris.", True
+    chat.poll()
+    chat.submit("Que faire avec mes talents de héros ?", None)
+    assert "Corrections du joueur à respecter" in fake.asked[-1][0]
+    assert "ne s'ouvrent pas au niveau 48" in fake.asked[-1][0]
+
+
+def test_knowledge_view_renders_without_cut_text(hermes_app) -> None:
+    app = hermes_app
+    kb = app.knowledge
+    kb.add("règle", "Touche des talents", "La fenêtre des talents et de la spécialisation s'ouvre avec N "
+           "(touche par défaut).", source="joueur", status="joueur")
+    kb.add("build", "Farouche : statistiques (Midnight 12.0)", "Maîtrise > Coup critique > Hâte > Polyvalence "
+           "pour Druid of the Claw, d'après le guide BiS de Wowhead. " * 2,
+           source="https://www.wowhead.com/fr/guide/classes/druid/feral/stat-priority-pve-dps")
+    app.state["hermes_view"] = "kb"
+    app.draw(app.test_ctx)
+    app.screen.cut.clear()
+    app.draw(app.test_ctx)
+    assert app.screen.cut == []
+    shot(app, "hermes_knowledge")
+    app.state["hermes_view"] = "chat"
+    app.chat.messages = [{"role": "user", "text": "?"}, {"role": "assistant", "text": "Réponse."}]
+    app.state["hermes_correcting"] = True
+    app.screen.cut.clear()
+    app.draw(app.test_ctx)
+    assert app.screen.cut == []
+    shot(app, "hermes_correcting")

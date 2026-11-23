@@ -78,13 +78,18 @@ Boutons « Envoyer à Hermes » : quêtes, montures, mascottes, jouets, apparenc
   terminaison > Contexte) ; sinon l'onglet explique l'erreur.
 - **Overlay** : widgets « Assistant (Hermes) » (conversation) et « Coach Hermes » (questions en un clic,
   « Capture + avis », dernière réponse) ; même fil que l'onglet.
+- **Base de connaissances** (vue « Connaissances » de l'onglet) : « Corriger la réponse » enregistre ce qui est
+  juste ; vos corrections font foi et sont rappelées à Hermes à chaque question. Hermes cherche d'abord dans la base,
+  vérifie en ligne (Wowhead...) et enregistre le fait avec son lien ; à revérifier après 45 jours. « C'est juste »,
+  « Rejeter », « Supprimer », ou une règle ajoutée à la main. Fichier `%APPDATA%\WoWAssistant\coach_knowledge.json`
+  (commun à toutes les copies de l'appli).
 
 ## Fichiers
 HermesAssistant.toc/.lua (addon) · main.py · config.py · settings.py · llm.py · snapcache.py ·
 lua_parser.py · game_connection.py · gamedata.py · character.py · quests.py · inventory.py · craft.py · history.py ·
 wowhead.py · theme.py · icons_draw.py · ui.py · tabs.py · tabs_data.py · tabs_collections.py · tabutil.py ·
 overlay.py · hotkeys.py · focus.py · widgets.py · widgets_builtin.py · vision.py · voice.py · webhost.py · webwidget.py ·
-chatview.py · tabs_hermes.py · hermes_bridge.py · hermes_mcp.py (outils de jeu pour Hermes) · hermes_skill/ ·
+chatview.py · tabs_hermes.py · hermes_bridge.py · hermes_mcp.py (outils de jeu pour Hermes) · coach_knowledge.py · hermes_skill/ ·
 layout.json · chat_history.json · wowhead_links.json · recipes.json
 
 

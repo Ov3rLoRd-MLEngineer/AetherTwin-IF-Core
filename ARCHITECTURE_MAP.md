@@ -202,6 +202,7 @@ modules/
       character.py
       chatview.py
       clipboard.py
+      coach_knowledge.py
       config.py
       craft.py
       focus.py

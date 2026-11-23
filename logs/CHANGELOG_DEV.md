@@ -1048,3 +1048,18 @@ copie est dans `storage.sqlite.rar`. Les fichiers `-wal` (4 Mo) et `-shm` sont r
   pour une quête sans XP. Skill wow-coach 1.3.0 : chiffres repris tels quels, fonctionnalité vérifiée selon le niveau,
   pas de raccourci clavier deviné. Noms d'outils affichés sans « _ » (API).
 - **Tests :** 1 nouveau ; suite verte.
+
+## 23/11/2026 : base de connaissances du coach (corrections du joueur, faits vérifiés)
+- **Agent :** Cloud
+- **Fichiers :** `coach_knowledge.py` (nouveau), `hermes_mcp.py`, `widgets_builtin.py`, `tabs_hermes.py`,
+  `chatview.py`, `hermes_bridge.py`, `hermes_skill/wow-coach/SKILL.md` (1.4.0), tests.
+- **Raison :** demande de Jérémy : que Hermes se constitue une base juste, sur le modèle de Scantrad (le travail
+  manuel fait foi).
+- Statuts : **joueur** (correction, priorité absolue, jamais périmée), **sourcé** (lien http obligatoire, à
+  revérifier après 45 jours), **rejeté** (gardé pour ne pas être réenregistré). Un fait en ligne ne remplace jamais
+  une correction du joueur. Fichier dans le profil Windows, écrit de façon atomique, relu s'il change (Hermes et
+  l'appli écrivent le même).
+- Outils MCP `wow_knowledge_search` / `wow_knowledge_save` (12 outils ; seul ce dernier écrit, dans ce fichier
+  seulement). Corrections rappelées dans chaque question à Hermes. Onglet : « Corriger la réponse », vue
+  « Connaissances » (filtres, recherche, C'est juste / Rejeter / Supprimer, règle ajoutée à la main).
+- **Tests :** 4 nouveaux, 2 adaptés ; suite verte.

@@ -6,7 +6,9 @@ Assistant de l'overlay, avec des questions toutes prêtes.
 Les réglages de Hermes ne changent que par un clic du joueur sur ces boutons (copie de sauvegarde avant chaque
 modification) ; la clé de l'API n'est jamais affichée.
 """
+import re
 import threading
+import time
 
 import pygame
 
@@ -131,7 +133,7 @@ def _draw_left(ui, chat, rect):
         ("Outils de jeu ajoutés (réinstaller)" if st.get("mcp") else "Ajouter les outils de jeu (MCP)",
          lambda: _run_setup(ui, "Ajout des outils de jeu", lambda: hermes_bridge.register_mcp(info)),
          not st.get("mcp"),
-         "10 outils en lecture seule : personnage, quêtes, sacs, métiers, talents, progression, collections..."),
+         "Outils de jeu en lecture seule (personnage, quêtes, sacs, métiers, talents...) et base de connaissances."),
         ("API activée" if st.get("api_enabled") and st.get("api_key") else "Activer l'API de Hermes",
          lambda: _run_setup(ui, "Activation de l'API", lambda: hermes_bridge.enable_api(info)),
          not (st.get("api_enabled") and st.get("api_key")),
@@ -183,10 +185,127 @@ def _draw_help(ui, rect, st):
         py += 4
 
 
+def knowledge(ui):
+    """Base de connaissances du coach (créée à la première utilisation, partagée avec le serveur MCP)."""
+    kb = getattr(ui, "knowledge", None)
+    if kb is None:
+        from coach_knowledge import DEFAULT_PATH, KnowledgeBase
+        kb = ui.knowledge = KnowledgeBase(DEFAULT_PATH)
+    if ui.chat is not None and ui.chat.knowledge is None:
+        ui.chat.knowledge = kb
+    return kb
+
+
+KB_FILTERS = (("all", "Tout"), ("joueur", "Corrigés par moi"), ("sourcé", "Vérifiés en ligne"),
+              ("stale", "À revérifier"), ("rejeté", "Rejetés"))
+
+
+def _draw_knowledge(ui, rect):
+    x, y, w, h = rect
+    kb = knowledge(ui)
+    kb.reload_if_changed()
+    state = ui.state
+    state.setdefault("kb_filter", "all")
+    px = x
+    for value, label in KB_FILTERS:
+        pw = ui.fonts["tiny"].size(label)[0] + 20
+        ui.pill((px, y, pw, 26), label, state["kb_filter"] == value, lambda v=value: state.update(kb_filter=v),
+                font="tiny")
+        px += pw + 6
+    query = ui.input_box((x + w - 300, y, 300, 26), "kb_search", "Rechercher…").lower()
+    stats = kb.stats()
+    ui.text(f"{stats['joueur']} corrigé(s) par vous · {stats['sourcé']} vérifié(s) en ligne · "
+            f"{stats['à revérifier']} à revérifier · {stats['rejeté']} rejeté(s)", "tiny", "gray", (x, y + 34))
+    flt = state["kb_filter"]
+    shown = [e for e in reversed(kb.entries)
+             if (flt == "all" or (flt == "stale" and kb.stale(e)) or e["status"] == flt)
+             and (not query or query in (e["subject"] + " " + e["fact"]).lower())]
+    area = pygame.Rect(x, y + 56, w, h - 56 - 44)
+    rows = []
+    for e in shown:
+        lines = ui.wrap(e["fact"], "small", area.w - 200)[:6]
+        rows.append((e, lines, 26 + 20 * len(lines) + 30))
+    content = sum(r[2] for r in rows) + 8
+    top = ui.scroll_begin("kb_list", area, content)
+    py = top
+    colors = {"joueur": "gold", "sourcé": "green", "rejeté": "red"}
+    labels = {"joueur": "Corrigé par vous", "sourcé": "Vérifié en ligne", "rejeté": "Rejeté"}
+    for e, lines, rh in rows:
+        if py + rh > area.y and py < area.bottom:
+            box = pygame.Rect(area.x, py, area.w - 14, rh - 6)
+            pygame.draw.rect(ui.screen, (22, 22, 27), box, border_radius=6)
+            status = labels[e["status"]] + (" · à revérifier" if kb.stale(e) else "")
+            ui.text(ui.fit(f"{e['topic'].capitalize()} — {e['subject']}", "small", box.w - 230), "small", "text",
+                    (box.x + 10, box.y + 6))
+            ui.text(status, "tiny", colors[e["status"]], (box.right - 10, box.y + 8), anchor="topright")
+            ly = box.y + 28
+            for line in lines:
+                ui.text(line, "small", "light_gray", (box.x + 10, ly))
+                ly += 20
+            src = e.get("source") or ""
+            when = time.strftime("%d/%m/%Y", time.localtime(e.get("verified", 0)))
+            src_label = ui.fit((src if src.startswith("http") else "vous") + f"  ·  {when}", "tiny", box.w - 330)
+            src_rect = ui.text(src_label, "tiny", "blue" if src.startswith("http") else "gray", (box.x + 10, ly + 2))
+            if src.startswith("http"):
+                ui.link(src_rect, src)
+            bx = box.right - 10
+            for label, fn in (("Supprimer", lambda i=e["id"]: kb.delete(i)),
+                              ("Rejeter", lambda i=e["id"]: kb.set_status(i, "rejeté")),
+                              ("C'est juste", lambda i=e["id"]: kb.set_status(i, "joueur"))):
+                if (label == "Rejeter" and e["status"] == "rejeté") or (label == "C'est juste" and e["status"] == "joueur"):
+                    continue
+                bw = ui.fonts["tiny"].size(label)[0] + 18
+                bx -= bw
+                ui.pill((bx, ly - 2, bw, 22), label, False, fn, font="tiny")
+                bx -= 6
+        py += rh
+    ui.scroll_end()
+    if not rows:
+        ui.text("Rien pour l'instant : Hermes enregistre ce qu'il vérifie en ligne, et vos corrections arrivent ici.",
+                "small", "gray", (area.x + 4, area.y + 4))
+    iy = y + h - 36
+    ui.on_submit["kb_rule"] = lambda: _add_rule(ui, kb)
+    ui.input_box((x, iy, w - 170, 32), "kb_rule", "Ajouter une règle ou un fait sûr (il fera foi pour Hermes)…")
+    ui.pill((x + w - 162, iy, 162, 32), "Ajouter", True, lambda: _add_rule(ui, kb), font="tiny")
+
+
+def _add_rule(ui, kb):
+    text = ui.inputs.get("kb_rule", "").strip()
+    if not text:
+        return
+    subject = re.split(r"[.:;!?\n]", text, maxsplit=1)[0][:90] or text[:90]
+    ok, msg, _e = kb.add("règle", subject, text, source="joueur", status="joueur")
+    ui.inputs["kb_rule"] = "" if ok else text
+    ui.notify("Règle ajoutée : Hermes la respectera." if ok else msg)
+
+
+def _send_or_correct(ui, chat):
+    if ui.state.get("hermes_correcting"):
+        if chat.correct(ui.inputs.get("hermes_msg", ""), ui.ctx):
+            ui.inputs["hermes_msg"] = ""
+            ui.state["hermes_correcting"] = False
+            ui.notify("Correction enregistrée : elle fera foi pour Hermes.")
+        return
+    chatview.send_from(ui, chat, "hermes_msg")
+
+
 def _draw_right(ui, chat, rect):
     x, y, w, h = rect
     ui.frame(rect, "Coach de jeu")
     chat.poll()
+    kb = knowledge(ui)
+    state = ui.state
+    view = state.setdefault("hermes_view", "chat")
+    tabs = (("chat", "Conversation"), ("kb", f"Connaissances ({len(kb.entries)})"))
+    tx = x + w - 16
+    for value, label in reversed(tabs):
+        tw = ui.fonts["tiny"].size(label)[0] + 22
+        tx -= tw
+        ui.pill((tx, y + 9, tw, 24), label, view == value, lambda v=value: state.update(hermes_view=v), font="tiny")
+        tx -= 6
+    if view == "kb":
+        _draw_knowledge(ui, (x + 16, y + 44, w - 32, h - 58))
+        return
     px, py = x + 16, y + 44
     for label, prompt in chatview.QUICK_PROMPTS:
         pw = ui.fonts["tiny"].size(label)[0] + 20
@@ -220,7 +339,11 @@ def _draw_right(ui, chat, rect):
         ui.draw_attachments(x + 16, ay, w - 32)
         ay += strip_h
     chatview.draw_files(ui, chat, (x + 16, ay + 2, w - 32, files_h))
-    chatview.draw_composer(ui, chat, (x + 16, input_y, w - 32, input_h), "hermes_msg")
+    correcting = bool(state.get("hermes_correcting"))
+    chatview.draw_composer(ui, chat, (x + 16, input_y, w - 32, input_h), "hermes_msg",
+                           "Votre correction de la dernière réponse (elle fera foi)…" if correcting else
+                           "Message pour Hermes (Entrée)…", on_send=lambda: _send_or_correct(ui, chat),
+                           label="Corriger" if correcting else "Envoyer")
     ui.pill((x + 16, options_y, 200, 24), ("[x] " if chat.include_player else "[ ] ") + "Joindre mon personnage",
             False, lambda: setattr(chat, "include_player", not chat.include_player), font="tiny")
     ui.pill((x + 222, options_y, 140, 24), "Capture du jeu", False,
@@ -230,7 +353,15 @@ def _draw_right(ui, chat, rect):
     ui.tip(files_rect, {"rows": [("Texte (txt, md, lua, json, csv, log...) ou image ; ou glissez-le sur la fenêtre.",
                                   C["light_gray"], ""),
                                  ("Pour une page web : collez son lien dans la question, Hermes la lit.", C["gray"], "")]})
-    ui.text(ui.fit(ui.llm.describe(), "tiny", w - 540), "tiny", "gray", (x + w - 16, options_y + 5),
+    has_answer = any(m["role"] == "assistant" for m in chat.messages)
+    if has_answer and chat.job is None:
+        fix_rect = pygame.Rect(x + 524, options_y, 150, 24)
+        ui.pill(fix_rect, "Annuler la correction" if correcting else "Corriger la réponse", correcting,
+                lambda: state.update(hermes_correcting=not correcting), font="tiny")
+        ui.tip(fix_rect, {"rows": [("Une erreur dans la dernière réponse ? Écrivez ce qui est juste :", C["light_gray"], ""),
+                                   ("enregistré comme correction qui fait foi, rappelé à Hermes à chaque question.",
+                                    C["gray"], "")]})
+    ui.text(ui.fit(ui.llm.describe(), "tiny", w - 700), "tiny", "gray", (x + w - 16, options_y + 5),
             anchor="topright")
 
 

@@ -8,8 +8,10 @@ tomber ? »... Les réponses viennent des mêmes données que WoW Assistant :
   - le dernier état mémorisé par l'appli (`cache/last_snapshot.json`) quand le jeu n'a rien de plus récent ;
   - le bestiaire de l'appli (`bestiary.json`) et le journal d'activité (`activity.json`).
 
-LECTURE SEULE : aucun outil n'écrit quoi que ce soit, ni dans le dossier du jeu, ni dans celui de l'appli. Les
-textes du jeu (noms, objectifs, discussions) sont des données : ils sont renvoyés tels quels, jamais exécutés.
+LECTURE SEULE pour le jeu : aucun outil n'écrit dans le dossier du jeu ni dans les données de l'appli. Seule
+exception : `wow_knowledge_save` ajoute un fait vérifié (lien obligatoire) à la base de connaissances du coach
+(`coach_knowledge.json`, profil Windows), que le joueur relit dans l'onglet Hermes. Les textes du jeu (noms,
+objectifs, discussions) sont des données : ils sont renvoyés tels quels, jamais exécutés.
 
 Seule la bibliothèque standard est utilisée (pas de paquet `mcp` à installer). Messages JSON-RPC 2.0, un par ligne.
 """
@@ -85,6 +87,12 @@ class GameData:
         b = Bestiary(self._paths()["bestiary"])
         b.set_addon(self.snapshot().get("bestiary") or {})
         return b.entries()
+
+    def knowledge(self):
+        if getattr(self, "_knowledge", None) is None:
+            from coach_knowledge import DEFAULT_PATH, KnowledgeBase
+            self._knowledge = KnowledgeBase(DEFAULT_PATH)
+        return self._knowledge
 
     def activity(self):
         data = _read_json(self._paths()["activity"])
@@ -327,6 +335,22 @@ def tool_status(data, args):
             "conseil": "Les données se mettent à jour quand le jeu écrit son fichier : /reload ou /ha save en jeu."}
 
 
+def tool_knowledge_search(data, args):
+    kb = data.knowledge()
+    found = kb.search(args.get("query") or "", args.get("topic") or "", limit=12, count_use=True)
+    return {"connaissances": found,
+            "rappel": "« corrigé par le joueur » fait foi, même contre le web. « à revérifier » : contrôle la source "
+                      "et réenregistre avec wow_knowledge_save si c'est toujours vrai.",
+            **({} if found else {"vide": "rien de connu sur ce sujet : vérifie en ligne puis enregistre"})}
+
+
+def tool_knowledge_save(data, args):
+    from coach_knowledge import TOPICS
+    ok, text, _entry = data.knowledge().add(args.get("topic"), args.get("subject"), args.get("fact"),
+                                            args.get("source_url"), status="sourcé", question=args.get("question"))
+    return {"enregistré": ok, "message": text, "thèmes_possibles": None if ok else list(TOPICS)}
+
+
 TOOLS = [
     ("wow_status", "D'où viennent les données du jeu et de quand elles datent. À appeler en cas de doute sur leur "
      "fraîcheur.", {}, tool_status),
@@ -352,13 +376,29 @@ TOOLS = [
      {"query": {"type": "string", "description": "nom de la créature"}}, tool_bestiary),
     ("wow_recent_activity", "Derniers événements de jeu notés par l'addon et par WoW Assistant (niveaux, quêtes, "
      "butin...).", {}, tool_activity),
+    ("wow_knowledge_search", "Base de connaissances du coach : corrections du joueur (elles font foi) et faits déjà "
+     "vérifiés en ligne (avec leur source et leur date). À consulter AVANT de répondre.",
+     {"query": {"type": "string", "description": "mots de la question (quête, objet, classe, donjon...)"},
+      "topic": {"type": "string", "description": "thème facultatif : règle, quête, build, équipement, talents, "
+                                                 "métier, donjon, raid, objet, zone, mécanique, économie, autre"}},
+     tool_knowledge_search),
+    ("wow_knowledge_save", "Enregistre un fait de jeu que tu viens de VÉRIFIER sur une page (Wowhead, site officiel, "
+     "guide reconnu) : sujet court, fait précis, lien de la page. Pas de supposition, pas de donnée personnelle.",
+     {"topic": {"type": "string", "description": "règle, quête, build, équipement, talents, métier, donjon, raid, "
+                                                 "objet, zone, mécanique, économie ou autre"},
+      "subject": {"type": "string", "description": "sujet court, ex. « Talents de héros : niveau requis »"},
+      "fact": {"type": "string", "description": "le fait vérifié, avec la version du jeu si elle compte"},
+      "source_url": {"type": "string", "description": "lien de la page consultée (obligatoire)"},
+      "question": {"type": "string", "description": "question du joueur qui a mené à ce fait (facultatif)"}},
+     tool_knowledge_save),
 ]
+WRITE_TOOLS = {"wow_knowledge_save"}
 
 
 def tool_list():
     return [{"name": name, "description": desc,
              "inputSchema": {"type": "object", "properties": props, "additionalProperties": False},
-             "annotations": {"readOnlyHint": True, "openWorldHint": False}}
+             "annotations": {"readOnlyHint": name not in WRITE_TOOLS, "openWorldHint": False}}
             for name, desc, props, _fn in TOOLS]
 
 

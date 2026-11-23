@@ -193,6 +193,7 @@ class ChatState:
         self.scroll_bottom = True
         self.on_answer = None     # fonction appelée avec chaque réponse (lecture à voix haute)
         self.files = []           # fichiers joints à la prochaine question : {"name", "text"} ou {"name", "image"}
+        self.knowledge = None     # coach_knowledge.KnowledgeBase : corrections du joueur rappelées à Hermes
         try:
             with open(path, "r", encoding="utf-8") as f:
                 self.messages = json.load(f)[-self.MAX_MESSAGES:]
@@ -239,6 +240,39 @@ class ChatState:
         self.files.append({"name": name, "text": text[:MAX_FILE_CHARS] + ("\n[… fichier tronqué]" if cut else "")})
         return True, f"Fichier joint : {name}" + (" (tronqué à 60 000 caractères)" if cut else "")
 
+    def player_rules(self, text, limit=6):
+        if self.knowledge is None or not self.uses_hermes():
+            return []
+        try:
+            found = self.knowledge.search(text, limit=limit * 3)
+        except Exception:
+            return []
+        return [f for f in found if f["statut"].startswith("corrigé par le joueur")][:limit]
+
+    def last_exchange(self):
+        """(question, réponse) du dernier échange terminé."""
+        answer = next((m for m in reversed(self.messages) if m["role"] == "assistant"), None)
+        if answer is None:
+            return "", ""
+        index = self.messages.index(answer)
+        question = next((m["text"] for m in reversed(self.messages[:index]) if m["role"] == "user"), "")
+        return question, answer["text"]
+
+    def correct(self, text, ctx, topic="règle"):
+        """Correction du joueur sur la dernière réponse : enregistrée comme fait qui fait foi (base de connaissances)
+        puis transmise à Hermes pour qu'il la prenne en compte tout de suite."""
+        text = text.strip()
+        if not text or self.job is not None:
+            return False
+        question, answer = self.last_exchange()
+        if self.knowledge is not None:
+            subject = re.split(r"[.:;!?\n]", text, maxsplit=1)[0][:90] or text[:90]
+            self.knowledge.add(topic, subject, text, source="joueur", status="joueur", question=question)
+        reply = (f"Correction du joueur sur ta réponse précédente (elle fait foi ; elle est enregistrée dans la base "
+                 f"de connaissances) : {text}\nRéponds en une ou deux phrases : ce que tu retiens et, si besoin, "
+                 f"le conseil corrigé.")
+        return self.submit(reply, ctx)
+
     def remove_file(self, index):
         if 0 <= index < len(self.files):
             del self.files[index]
@@ -260,6 +294,10 @@ class ChatState:
                 f"\n\n----- {f['name']} -----\n{f['text']}\n----- fin de {f['name']} -----" for f in texts)
         if re.search(r"https?://", text):
             prompt += "\n\n(Lis les liens donnés avec ton outil web_extract avant de répondre.)"
+        rules = self.player_rules(text)
+        if rules:     # les corrections du joueur sont rappelées à chaque question : elles font foi
+            prompt += "\n\nCorrections du joueur à respecter (elles font foi) :" + "".join(
+                f"\n- {r['sujet']} : {r['fait']}" for r in rules)
         if self.include_player and ctx is not None:
             c = ctx.character
             prompt = (f"Contexte joueur : {c.name}, niveau {c.level} {c.class_name} {c.spec}, zone {c.location or 'inconnue'}, "

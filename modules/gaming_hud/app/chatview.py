@@ -196,13 +196,14 @@ def send_from(ui, chat, key, text=None):
     return False
 
 
-def draw_composer(ui, chat, rect, key, placeholder="Message pour Hermes (Entrée)…"):
+def draw_composer(ui, chat, rect, key, placeholder="Message pour Hermes (Entrée)…", on_send=None, label="Envoyer"):
     """Saisie + Envoyer (ou Stop pendant une réponse) + Effacer."""
     x, y, w, h = rect
-    ui.on_submit[key] = lambda: send_from(ui, chat, key)
+    send = on_send or (lambda: send_from(ui, chat, key))
+    ui.on_submit[key] = send
     ui.input_box((x, y, w - 150, h), key, placeholder)
     if chat.job is not None:
         ui.pill((x + w - 144, y, 70, h), "Stop", True, chat.stop, font="tiny")
     else:
-        ui.pill((x + w - 144, y, 70, h), "Envoyer", True, lambda: send_from(ui, chat, key), font="tiny")
+        ui.pill((x + w - 144, y, 70, h), label, True, send, font="tiny")
     ui.pill((x + w - 70, y, 70, h), "Effacer", False, chat.new_conversation, font="tiny")
