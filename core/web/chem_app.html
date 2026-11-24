@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Labo de chimie Æther — AetherTwin</title>
+  <link rel="icon" href="/static/logo.svg">
+  <link rel="stylesheet" href="/static/chem_app.css">
+  <script src="/static/chem_app.js" defer></script>
+</head>
+<body>
+  <div class="lab">
+    <header class="brand">
+      <img class="logo" src="/static/logo.svg" alt="" width="26" height="26">
+      <span class="wordmark">Aether<em>Twin</em></span>
+      <span class="model">CHIMIE</span>
+      <div class="modes" role="tablist" id="modes">
+        <button role="tab" data-mode="table" aria-selected="true">Tableau périodique</button>
+        <button role="tab" data-mode="equations" aria-selected="false">Équations et stœchiométrie</button>
+        <button role="tab" data-mode="solutions" aria-selected="false">Solutions et pH</button>
+        <button role="tab" data-mode="titration" aria-selected="false">Titrage simulé</button>
+      </div>
+      <span class="grow"></span>
+      <span class="status" id="status" aria-live="polite"></span>
+      <a class="button" href="/static/guide.html?g=chem_lab" target="_blank" rel="noopener" title="Guide du labo">📖 Guide</a>
+      <button type="button" id="btn-theme" title="Thème clair ou sombre">◐</button>
+    </header>
+
+    <!-- ==================== tableau périodique ==================== -->
+    <main class="view" data-view="table">
+      <div class="table-wrap">
+        <div class="row tight">
+          <label>Couleurs <select id="pt-color">
+            <option value="category">famille</option>
+            <option value="en">électronégativité</option>
+            <option value="state">état à 20 °C</option>
+            <option value="mass">masse atomique</option>
+          </select></label>
+          <input id="pt-search" class="field" placeholder="Chercher : Fe, 26, fer…" autocomplete="off">
+          <span class="grow"></span>
+          <span id="pt-legend" class="legend"></span>
+        </div>
+        <div id="ptable" class="ptable" aria-label="Tableau périodique"></div>
+      </div>
+      <aside class="side" id="pt-card">
+        <p class="muted">Clique sur un élément pour voir sa fiche.</p>
+      </aside>
+    </main>
+
+    <!-- ==================== équations ==================== -->
+    <main class="view scroll" data-view="equations" hidden>
+      <section class="card">
+        <h2>Masse molaire</h2>
+        <form id="mm-form" class="row tight">
+          <input id="mm-formula" class="field wide" placeholder="Formule : CuSO4·5H2O, Ca(OH)2, K4[Fe(CN)6]…" autocomplete="off">
+          <button class="primary" type="submit">Calculer</button>
+        </form>
+        <div id="mm-out"></div>
+      </section>
+      <section class="card">
+        <h2>Équilibrer une équation</h2>
+        <form id="eq-form" class="row tight">
+          <input id="eq-text" class="field wide" placeholder="C3H8 + O2 -> CO2 + H2O   ·   MnO4^- + Fe^2+ + H^+ -> Mn^2+ + Fe^3+ + H2O" autocomplete="off">
+          <button class="primary" type="submit">Équilibrer</button>
+        </form>
+        <div class="row tight examples" id="eq-examples"></div>
+        <div id="eq-out"></div>
+      </section>
+      <section class="card" id="st-card" hidden>
+        <h2>Stœchiométrie</h2>
+        <p class="muted small">Quantités initiales des réactifs connus (laisse vide un réactif en excès).</p>
+        <form id="st-form">
+          <div id="st-inputs" class="st-inputs"></div>
+          <div class="row tight">
+            <label>Rendement <input id="st-yield" class="field num" type="number" min="1" max="100" step="any" value="100"> %</label>
+            <button class="primary" type="submit">Calculer</button>
+          </div>
+        </form>
+        <div id="st-out"></div>
+      </section>
+    </main>
+
+    <!-- ==================== solutions ==================== -->
+    <main class="view scroll" data-view="solutions" hidden>
+      <section class="card">
+        <h2>pH d'une solution</h2>
+        <form id="ph-form" class="row tight">
+          <select id="ph-kind">
+            <option value="acide_fort">acide fort</option>
+            <option value="acide_faible">acide faible</option>
+            <option value="base_forte">base forte</option>
+            <option value="base_faible">base faible</option>
+          </select>
+          <label>C <input id="ph-c" class="field num" type="number" step="any" min="0" value="0.1"> mol/L</label>
+          <label>pKa <input id="ph-pka" class="field num" type="number" step="any" value="4.76"></label>
+          <select id="ph-preset" title="Couples courants"></select>
+          <button class="primary" type="submit">Calculer</button>
+        </form>
+        <div id="ph-scale" class="ph-scale"><i id="ph-mark"></i></div>
+        <div id="ph-out"></div>
+      </section>
+      <section class="card">
+        <h2>Solution tampon</h2>
+        <form id="buf-form" class="row tight">
+          <label>[HA] <input id="buf-a" class="field num" type="number" step="any" min="0" value="0.1"></label>
+          <label>[A⁻] <input id="buf-b" class="field num" type="number" step="any" min="0" value="0.05"></label>
+          <label>pKa <input id="buf-pka" class="field num" type="number" step="any" value="4.76"></label>
+          <button class="primary" type="submit">Calculer</button>
+        </form>
+        <div id="buf-out"></div>
+      </section>
+      <section class="card">
+        <h2>Dilution (C1·V1 = C2·V2)</h2>
+        <form id="dil-form" class="row tight">
+          <label>C1 <input id="dil-c1" class="field num" type="number" step="any" min="0" value="1"></label>
+          <label>V1 <input id="dil-v1" class="field num" type="number" step="any" min="0"></label>
+          <label>C2 <input id="dil-c2" class="field num" type="number" step="any" min="0" value="0.1"></label>
+          <label>V2 <input id="dil-v2" class="field num" type="number" step="any" min="0" value="250"></label>
+          <button class="primary" type="submit">Trouver la case vide</button>
+        </form>
+        <div id="dil-out"></div>
+      </section>
+      <section class="card">
+        <h2>Préparer une solution par pesée</h2>
+        <form id="prep-form" class="row tight">
+          <input id="prep-formula" class="field" value="NaCl" placeholder="Formule">
+          <label>C <input id="prep-c" class="field num" type="number" step="any" min="0" value="0.5"> mol/L</label>
+          <label>V <input id="prep-v" class="field num" type="number" step="any" min="0" value="250"> mL</label>
+          <label>pureté <input id="prep-p" class="field num" type="number" step="any" min="1" max="100" value="100"> %</label>
+          <button class="primary" type="submit">Masse à peser</button>
+        </form>
+        <div id="prep-out"></div>
+      </section>
+    </main>
+
+    <!-- ==================== titrage ==================== -->
+    <main class="view" data-view="titration" hidden>
+      <div class="titr-main">
+        <canvas id="ti-plot" class="plot" width="900" height="560"></canvas>
+        <div class="row tight">
+          <button id="ti-play" type="button" class="primary">▶ Verser</button>
+          <label class="grow">Volume versé <input id="ti-v" type="range" min="0" max="1000" value="0" class="wide-range"></label>
+          <span id="ti-read" class="reading">V = 0 mL · pH = —</span>
+        </div>
+      </div>
+      <aside class="side">
+        <h2>Montage</h2>
+        <form id="ti-form">
+          <div class="field-grid">
+            <label>Dans le bécher</label>
+            <select id="ti-kind">
+              <option value="acide_faible">acide faible</option>
+              <option value="acide_fort">acide fort</option>
+              <option value="base_faible">base faible</option>
+              <option value="base_forte">base forte</option>
+            </select>
+            <label>Couple</label><select id="ti-preset"></select>
+            <label>pKa</label><input id="ti-pka" class="field num" type="number" step="any" value="4.76">
+            <label>C analyte (mol/L)</label><input id="ti-ca" class="field num" type="number" step="any" min="0" value="0.1">
+            <label>V analyte (mL)</label><input id="ti-va" class="field num" type="number" step="any" min="0" value="20">
+            <label id="ti-titrant-label">C de la soude (mol/L)</label><input id="ti-ct" class="field num" type="number" step="any" min="0" value="0.1">
+            <label>Indicateur</label><select id="ti-ind"></select>
+          </div>
+          <div class="row tight"><button class="primary" type="submit">Simuler le titrage</button></div>
+        </form>
+        <svg id="ti-bench" class="bench" viewBox="0 0 220 260" aria-label="Burette et bécher"></svg>
+        <div id="ti-out"></div>
+      </aside>
+    </main>
+  </div>
+</body>
+</html>
