@@ -76,6 +76,7 @@ Modèles téléchargés (non versionnés, dans `models/` ou le cache Hugging Fac
 | Git | gestion de versions |
 | Claude Code local (Claude Code avec des modèles Ollama, OmniRoute facultatif) | onglet Développement : lancé depuis le Hub (Windows Terminal ou terminal intégré) ou par Hermes via le pont MCP `aethertwin_dev` |
 | Hermes Agent (Nous Research), installé par l'utilisateur | coach de WoW Assistant : appelé par sa CLI ou l'API locale de sa passerelle (127.0.0.1) ; WoW Assistant lui fournit un skill et un serveur MCP (bibliothèque standard) |
+| `nestest.nes` et son journal (test de référence du 6502, Kevin Horton) | vérification ponctuelle du processeur de l'atelier circuits (`tests/circuit_lab/nestest_run.js`) ; non fourni |
 
 Le produit final ne fait aucune requête de génération vers un service cloud. Le cloud ne sert qu'au
 développement du projet.

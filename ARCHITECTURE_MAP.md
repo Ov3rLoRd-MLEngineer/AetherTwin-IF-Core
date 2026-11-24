@@ -178,6 +178,7 @@ core/
   terminals.py
   translate.py
   web/
+    asm6502.js
     audio_app.css
     audio_app.html
     audio_app.js
@@ -189,6 +190,15 @@ core/
     calc_cas.css
     calc_cas.js
     calc_geo.js
+    circuit_app.css
+    circuit_app.html
+    circuit_app.js
+    circuit_audio.js
+    circuit_tool.js
+    crt.css
+    crt.html
+    crt.js
+    crt_tv.js
     dashboard.css
     dashboard.html
     dashboard.js
@@ -201,6 +211,9 @@ core/
     LICENSE.xterm-addon-fit.txt
     LICENSE.xterm.txt
     logo.svg
+    nes_cpu.js
+    nes_machine.js
+    nes_ppu.js
     pixel_app.css
     pixel_app.html
     pixel_app.js
@@ -238,6 +251,15 @@ modules/
     sandbox.py
     stats.py
     worker.py
+  circuit_lab/
+    __init__.py
+    app.py
+    examples/
+      etoiles.asm
+    lab.py
+    manifest.json
+    module.py
+    README.md
   dev_launcher/
     __init__.py
     bridge_mcp.py
@@ -452,6 +474,13 @@ tests/
     test_sandbox.py
     test_stats.py
     test_worker.py
+  circuit_lab/
+    __init__.py
+    asm_check.js
+    demo_check.js
+    machine_check.js
+    nestest_run.js
+    test_module.py
   core/
     __init__.py
     sleeper.py
@@ -1094,6 +1123,43 @@ Processus de calcul séparé, avec délai maximal.
   - `def stop(self) -> None`
   - `def alive(self) -> bool`
   - `def call(self, op: str, timeout_s: float | None=None, **args: Any) -> Any` — Exécute une opération dans le processus enfant. Délai dépassé : dictionnaire d'erreur, enfant relancé.
+
+### `modules/circuit_lab/__init__.py`
+
+Atelier circuits : console 8 bits à monter pièce par pièce, téléviseur cathodique, programmation 6502.
+
+*(aucun symbole public)*
+
+### `modules/circuit_lab/app.py`
+
+Fenêtre de bureau de l'atelier circuits : `python -m modules.circuit_lab.app` (lancée par le Hub).
+
+- `def page_url() -> str`
+- `def main() -> int`
+
+### `modules/circuit_lab/lab.py`
+
+Programmes de l'atelier circuits : exemples fournis (`examples/*.asm`) et programmes de l'utilisateur
+
+- `def clean_name(name: Any) -> str` — Nom de fichier sûr : lettres, chiffres, tiret, soulignement, point (sans « .. » ni séparateur).
+- **`class Lab`**
+  - `def examples() -> list[dict[str, str]]`
+  - `def example(name: Any) -> dict[str, str]`
+  - `def list(self) -> list[dict[str, Any]]`
+  - `def load(self, name: Any) -> dict[str, str]`
+  - `def save(self, name: Any, source: Any) -> dict[str, Any]`
+  - `def delete(self, name: Any) -> dict[str, str]`
+
+### `modules/circuit_lab/module.py`
+
+Module du Hub : atelier circuits (console 8 bits à monter, téléviseur, programmation de cartouches).
+
+- **`class CircuitLabModule(ModuleBase)`**
+  - `def start(self) -> None`
+  - `def stop(self) -> None`
+  - `def health(self) -> Health`
+  - `def handle_event(self, event: Event) -> None`
+  - `def run(self, command: str, payload: dict[str, Any]) -> Any` — Exécute une commande (aussi appelée directement par les tests).
 
 ### `modules/dev_launcher/__init__.py`
 

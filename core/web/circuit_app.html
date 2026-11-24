@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atelier circuits Æther — AetherTwin</title>
+  <link rel="icon" href="/static/logo.svg">
+  <link rel="stylesheet" href="/static/circuit_app.css">
+  <script src="/static/nes_cpu.js" defer></script>
+  <script src="/static/asm6502.js" defer></script>
+  <script src="/static/nes_ppu.js" defer></script>
+  <script src="/static/nes_machine.js" defer></script>
+  <script src="/static/crt.js" defer></script>
+  <script src="/static/circuit_app.js" defer></script>
+</head>
+<body>
+  <div class="lab">
+    <header class="brand">
+      <img class="logo" src="/static/logo.svg" alt="" width="26" height="26">
+      <span class="wordmark">Aether<em>Twin</em></span>
+      <span class="model">CIRCUITS</span>
+      <div class="modes" role="tablist" id="modes">
+        <button role="tab" data-mode="bench" aria-selected="true">Établi : console 8 bits</button>
+        <button role="tab" data-mode="code" aria-selected="false">Programmation</button>
+        <button role="tab" data-mode="soon" aria-selected="false">Banc logique et microcontrôleurs</button>
+      </div>
+      <span class="grow"></span>
+      <span class="status" id="status" aria-live="polite"></span>
+      <a class="button" href="/static/guide.html?g=circuit_lab" target="_blank" rel="noopener" title="Guide de l'atelier">📖 Guide</a>
+      <button type="button" id="btn-theme" title="Thème clair ou sombre">◐</button>
+    </header>
+
+    <div class="work">
+      <!-- ==================== établi ==================== -->
+      <main class="view" data-view="bench">
+        <aside class="tray">
+          <h2>Composants</h2>
+          <p class="muted small">Glisse une pièce sur son support (ou clique dessus). Double-clic sur la carte pour la retirer.</p>
+          <div id="tray" class="tray-list"></div>
+          <div class="row">
+            <button type="button" id="all-in">Tout monter</button>
+            <button type="button" id="all-out" class="ghost">Tout retirer</button>
+          </div>
+        </aside>
+        <section class="board-wrap">
+          <svg id="board" class="board" viewBox="0 0 660 430" role="img" aria-label="Carte mère de la console"></svg>
+          <div class="row board-bar">
+            <button type="button" id="power" class="power" aria-pressed="false">⏻ Allumer</button>
+            <button type="button" id="reset" title="Bouton RESET de la console">Reset</button>
+            <label>Cartouche
+              <select id="cart-pick">
+                <option value="example">Exemple : Fuma et les étoiles</option>
+                <option value="mine">Mon programme (onglet Programmation)</option>
+                <option value="file">Un fichier .nes à moi…</option>
+              </select>
+            </label>
+            <input type="file" id="nes-file" accept=".nes" hidden>
+            <span class="grow"></span>
+            <span id="cart-name" class="muted small"></span>
+          </div>
+          <div id="part-info" class="part-info"></div>
+        </section>
+      </main>
+
+      <!-- ==================== programmation ==================== -->
+      <main class="view" data-view="code" hidden>
+        <div class="toolbar">
+          <input id="prog-name" class="doc-name" value="mon_jeu" spellcheck="false" aria-label="Nom du programme">
+          <button type="button" id="prog-open" class="ghost">Ouvrir…</button>
+          <button type="button" id="prog-save">Enregistrer</button>
+          <button type="button" id="prog-example" class="ghost">Charger l'exemple</button>
+          <span class="sep"></span>
+          <button type="button" id="prog-build">Assembler</button>
+          <button type="button" id="prog-run" class="primary" title="Assembler, insérer la cartouche et allumer (Ctrl+Entrée)">▶ Lancer sur la console</button>
+          <button type="button" id="prog-export" class="ghost">Exporter .nes</button>
+          <span class="grow"></span>
+          <span id="prog-size" class="muted small"></span>
+        </div>
+        <div class="editor">
+          <pre id="gutter" class="gutter" aria-hidden="true"></pre>
+          <textarea id="source" spellcheck="false" wrap="off" aria-label="Programme en assembleur 6502"></textarea>
+        </div>
+        <div class="bottom">
+          <div id="errors" class="errors"></div>
+          <details class="cheat">
+            <summary>Aide-mémoire</summary>
+            <div class="cheat-body small">
+              <p><b>Directives</b> : <code>.org $C000</code> · <code>.segment prg|chr</code> · <code>.byte 1, "texte"</code> ·
+                <code>.word etiquette</code> · <code>.res 4</code> (réserve en RAM) · <code>.align 256</code> ·
+                <code>.vectors nmi, reset, irq</code> · <code>.ines mirror=vertical</code> ·
+                <code>.tile "..1122.."</code> (8 lignes, couleurs 0 à 3) · <code>NOM = $2000</code></p>
+              <p><b>Étiquettes</b> : <code>boucle:</code>, locales <code>@suite:</code> ; <code>&lt;adresse</code> octet bas, <code>&gt;adresse</code> octet haut.</p>
+              <p><b>Vidéo</b> : <code>$2000</code> contrôle (bit 7 : NMI à chaque image) · <code>$2001</code> masque (affichage) ·
+                <code>$2002</code> état (bit 7 : image finie) · <code>$2006</code>×2 adresse · <code>$2007</code> donnée ·
+                <code>$2005</code>×2 défilement · <code>$4014</code> copie des sprites depuis une page de RAM.</p>
+              <p><b>Manette</b> : écrire 1 puis 0 dans <code>$4016</code>, puis 8 lectures : A, B, Select, Start, haut, bas, gauche, droite.</p>
+              <p><b>Son</b> : <code>$4000-$4003</code> voie carrée 1 · <code>$4004-$4007</code> voie 2 · <code>$4008-$400B</code> triangle ·
+                <code>$400C-$400F</code> bruit · <code>$4015</code> marche/arrêt des voies.</p>
+            </div>
+          </details>
+        </div>
+      </main>
+
+      <!-- ==================== à venir ==================== -->
+      <main class="view soon" data-view="soon" hidden>
+        <h2>Banc logique et microcontrôleurs : en cours</h2>
+        <p>Deux établis de plus sont en préparation :</p>
+        <ul>
+          <li><b>Banc logique (façon FPGA)</b> : portes, bascules et compteurs à câbler, simulation pas à pas avec chronogrammes, puis
+            des montages complets (additionneur, compteur affiché sur 7 segments, petit processeur).</li>
+          <li><b>Microcontrôleurs</b> : une carte à microcontrôleur RP2040 (celui du Raspberry Pi Pico) et une carte AVR, simulées
+            instruction par instruction, avec LED, boutons et petit écran branchés sur leurs broches.</li>
+        </ul>
+        <p class="muted">Un vrai Raspberry Pi (processeur ARM avec Linux) est trop lourd pour être simulé en direct dans une page :
+          l'atelier s'en tient aux microcontrôleurs, qui se simulent bien et s'apprennent de la même façon.</p>
+      </main>
+
+      <!-- ==================== téléviseur et mesures ==================== -->
+      <aside class="side">
+        <div class="tv">
+          <div class="tv-glass"><canvas id="screen" width="512" height="480"></canvas></div>
+          <div class="tv-foot">
+            <span class="tv-brand">ÆTHER</span>
+            <span id="tv-led" class="tv-led"></span>
+            <span class="grow"></span>
+            <button type="button" id="tv-open" class="ghost small" title="Ouvrir le téléviseur dans sa propre fenêtre">📺 Grand écran</button>
+          </div>
+        </div>
+        <div class="row tight">
+          <label>Volume <input type="range" id="volume" min="0" max="1" step="0.05" value="0.2"></label>
+          <label title="Effet de tube cathodique"><input type="checkbox" id="crt-fx" checked> Effet cathodique</label>
+        </div>
+        <p class="keys small muted">Manette 1 : flèches · <kbd>X</kbd> = A · <kbd>W</kbd>/<kbd>Z</kbd> = B · <kbd>Entrée</kbd> = Start ·
+          <kbd>Maj</kbd> droite = Select · une manette USB marche aussi.</p>
+        <div class="debug">
+          <div class="row tight">
+            <button type="button" id="pause" class="ghost small">⏸ Pause</button>
+            <button type="button" id="step-frame" class="ghost small" disabled>Image suivante</button>
+            <button type="button" id="step-op" class="ghost small" disabled>Instruction suivante</button>
+          </div>
+          <pre id="regs" class="regs"></pre>
+          <pre id="disasm" class="disasm"></pre>
+        </div>
+        <div id="diag" class="diag small"></div>
+      </aside>
+    </div>
+  </div>
+  <dialog id="open-dialog" class="dialog">
+    <h3>Ouvrir un programme</h3>
+    <div id="open-list" class="open-list"></div>
+    <div class="row"><span class="grow"></span><button type="button" id="open-close">Fermer</button></div>
+  </dialog>
+</body>
+</html>

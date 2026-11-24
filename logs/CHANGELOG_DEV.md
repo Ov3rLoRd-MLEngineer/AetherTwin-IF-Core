@@ -1575,3 +1575,28 @@ Il a autorisé les téléchargements nécessaires.
     et `/v1/audio/speech` avec « Timbre ».
 - **En cours :** essai avec la vraie voix de Jérémy et NVIDIA Broadcast.
 
+## 2026-11-24 — atelier circuits : console 8 bits à monter, téléviseur, programmation
+
+- **Agent :** Cloud
+- **Demande de Jérémy :** monter virtuellement les composants d'une console 8 bits, la lancer sur un téléviseur
+  ouvrable façon tube cathodique, et écrire des jeux en ROM pour la machine montée.
+- **Fichiers :**
+  - `core/web/nes_cpu.js` : processeur 6502 (instructions officielles et non officielles courantes) et désassembleur ;
+  - `core/web/asm6502.js` : assembleur deux passes, messages en français, directives `.tile`, `.vectors`, `.ines` ;
+  - `core/web/nes_ppu.js` : processeur vidéo ligne par ligne, sprite 0, palette calculée depuis le signal NTSC ;
+  - `core/web/nes_machine.js` : carte mère à 12 composants, pannes réelles quand l'un manque, son, manettes, DMA ;
+  - `core/web/crt.js`, `crt.html`, `crt.css`, `crt_tv.js` : écran cathodique WebGL et fenêtre « Grand écran » ;
+  - `core/web/circuit_app.*`, `circuit_audio.js` : établi, programmation, débogueur, son (AudioWorklet, volume 20 %) ;
+  - `core/web/circuit_tool.js`, `dashboard.html` : sous-onglet « Atelier circuits » de l'onglet Outils ;
+  - `modules/circuit_lab/` : module (exemples, programmes enregistrés), fenêtre de bureau, README (guide),
+    jeu d'exemple `examples/etoiles.asm` ;
+  - `tests/circuit_lab/` : `test_module.py` et vérifications Node (`asm_check.js`, `machine_check.js`, `demo_check.js`),
+    `nestest_run.js` (ROM de test non fournie).
+- **Trouvé à l'essai et corrigé :**
+  - teintes de la palette décalées : phase du signal corrigée ;
+  - écran noir : `out` est un mot réservé du GLSL, le shader ne se liait pas ; repli 2D rendu sûr ;
+  - lignes de balayage en moiré sur le petit écran : estompées quand il y a moins de 3 pixels par ligne ;
+  - taille du programme comptait tout l'espace jusqu'aux vecteurs : on compte les octets écrits.
+- **Tests :** `nestest` identique (8 991 lignes) ; `pytest tests/circuit_lab` vert ; essai réel sur le Hub de test.
+- **En cours :** voie DMC, mappeurs au-delà de 0, banc logique, microcontrôleurs ; fenêtre « Grand écran » à essayer
+  dans la fenêtre Edge du Hub.

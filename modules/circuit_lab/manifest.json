@@ -1,0 +1,18 @@
+{
+  "name": "circuit_lab",
+  "version": "0.1.0",
+  "description": "Atelier circuits : console 8 bits à monter composant par composant, téléviseur cathodique, programmation de cartouches en assembleur 6502",
+  "entry": "modules.circuit_lab.module:CircuitLabModule",
+  "vram_min_gb": 0,
+  "vram_comfort_gb": 0,
+  "python_deps": [],
+  "optional_deps": [],
+  "triggers": {
+    "processes": [],
+    "windows": [],
+    "ports": []
+  },
+  "network": [],
+  "app": {"label": "Atelier circuits Æther", "module": "modules.circuit_lab.app"},
+  "experimental": false
+}
