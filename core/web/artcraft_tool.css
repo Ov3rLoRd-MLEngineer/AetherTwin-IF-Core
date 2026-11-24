@@ -1,0 +1,26 @@
+/* Onglet « Outils » → « ArtCraft » : cartes des logiciels libres ArtCraft (intégration externe). */
+.artcraft-note { margin: 4px 0 10px; padding: 10px 12px; border: 1px solid var(--line); border-left: 4px solid var(--warn);
+                 border-radius: 8px; background: var(--bg); font-size: 13px; }
+.artcraft-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 8px; }
+.artcraft-family { grid-column: 1 / -1; margin: 10px 0 0; }
+.artcraft-card { display: grid; grid-template-columns: 56px 1fr; gap: 6px 12px; align-items: start;
+                 border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--panel); }
+.artcraft-card.installed { border-color: var(--ok); }
+.artcraft-icon { width: 56px; height: 56px; border-radius: 12px; display: grid; place-items: center; overflow: hidden;
+                 font: 700 22px/1 "Segoe UI", system-ui, sans-serif; color: #fff; background: var(--accent); }
+.artcraft-icon.creation { background: #7048e8; }
+.artcraft-icon.office { background: #1c7ed6; }
+.artcraft-icon.has-img { background: transparent; }
+.artcraft-icon img { width: 100%; height: 100%; object-fit: cover; }
+.artcraft-card h4 { margin: 0; font-size: 15px; }
+.artcraft-card .alt { color: var(--muted); font-size: 12px; }
+.artcraft-card .role { grid-column: 1 / -1; margin: 0; font-size: 13px; }
+.artcraft-card .state { grid-column: 1 / -1; font-size: 12px; color: var(--muted); }
+.artcraft-card .state.ok { color: var(--ok); }
+.artcraft-card .state.bad { color: var(--bad); }
+.artcraft-card .bar { grid-column: 1 / -1; margin: 0; }
+.artcraft-card .actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.artcraft-card .actions button { padding: 4px 10px; font-size: 13px; }
+.artcraft-card .links { grid-column: 1 / -1; font-size: 12px; display: flex; gap: 10px; }
+.artcraft-mcp { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 6px; }
+.artcraft-mcp input { font-family: Consolas, monospace; font-size: 13px; }

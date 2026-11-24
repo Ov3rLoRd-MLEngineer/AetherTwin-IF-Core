@@ -69,7 +69,7 @@ def register(exe: str, runner: Callable[..., Any] = subprocess.run) -> dict[str,
 
 
 def register_server(exe: str, name: str, args: list[str],
-                    runner: Callable[..., Any] = subprocess.run) -> dict[str, Any]:
+                    runner: Callable[..., Any] = subprocess.run, command: str = "") -> dict[str, Any]:
     """Déclare un serveur MCP stdio (lancé par le Python du Hub) chez Hermes, config.yaml sauvegardé avant.
     Sert aussi à d'autres modules (ex. la calculatrice `calc_cas`)."""
     if not exe:
@@ -80,8 +80,8 @@ def register_server(exe: str, name: str, args: list[str],
     if registered(config.read_text(encoding="utf-8", errors="replace") if config.is_file() else "", name):
         return {"pont": True, "deja": True, "sauvegarde": ""}
     saved = backup(config)
-    python = sys.executable
-    if python.lower().endswith("pythonw.exe"):
+    python = command or sys.executable  # par défaut le Python du Hub ; sinon un programme externe (ex. ArtCraft)
+    if not command and python.lower().endswith("pythonw.exe"):
         python = python[:-5] + ".exe"
     result = runner([exe, "mcp", "add", name, "--command", python, "--args", *args],
                     input="y\n", capture_output=True, text=True, encoding="utf-8", errors="replace",

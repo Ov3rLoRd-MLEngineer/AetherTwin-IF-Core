@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="/static/calc_cas.css">
   <script src="/static/calc_cas.js" defer></script>
   <link rel="stylesheet" href="/static/pixel_tool.css">
+  <link rel="stylesheet" href="/static/artcraft_tool.css">
   <script src="/static/pixel_tool.js" defer></script>
   <script src="/static/dev.js" defer></script>
   <script src="/static/system.js" defer></script>
@@ -20,6 +21,7 @@
   <script src="/static/voice.js" defer></script>
   <script src="/static/audio_tool.js" defer></script>
   <script src="/static/circuit_tool.js" defer></script>
+  <script src="/static/artcraft_tool.js" defer></script>
 </head>
 <body>
   <header>
@@ -398,6 +400,34 @@
           <button id="circuit-window" type="button" title="Fenêtre séparée, redimensionnable">Ouvrir l'atelier</button>
         </div>
         <iframe id="circuit-frame" class="pixel-frame" title="Atelier circuits Æther" src="about:blank" allow="autoplay; gamepad"></iframe>
+      </section>
+      <section data-sub="ArtCraft" class="artcraft-tool">
+        <div class="calc-tool-head">
+          <h2>ArtCraft</h2>
+          <span class="muted">suite libre de création et de bureautique · intégration externe</span>
+          <span class="grow"></span>
+          <a class="guide-link" href="/static/guide.html?g=artcraft" target="_blank" rel="noopener" title="Ouvrir le guide dans une nouvelle fenêtre">📖 Guide</a>
+          <button id="artcraft-icons" type="button" class="ghost" title="Télécharger les icônes officielles du kit presse ArtCraft sur ce PC">Icônes officielles</button>
+          <button id="artcraft-refresh" type="button" class="ghost">Actualiser</button>
+        </div>
+        <p class="artcraft-note"><b>Intégration externe.</b> Ces logiciels libres (licence MIT ou Apache 2.0) sont écrits et publiés
+          par l'équipe ArtCraft (<a href="https://getartcraft.com" target="_blank" rel="noopener">getartcraft.com</a>,
+          <a href="https://github.com/storytold" target="_blank" rel="noopener">github.com/storytold</a>). Ils ne font pas partie
+          d'AetherTwin et n'ont aucun lien avec Adobe ni Microsoft ; le nom et les logos ArtCraft appartiennent à leurs auteurs.
+          Rien n'est fourni avec le Hub : chaque installation télécharge la publication officielle et vérifie son empreinte SHA-256.
+          Les logiciels sont jeunes (alpha) : garde une copie de tes fichiers.</p>
+        <p id="artcraft-line" class="muted">…</p>
+        <div id="artcraft-grid" class="artcraft-grid"></div>
+        <div id="artcraft-mcp" class="artcraft-mcp" hidden>
+          <h3 id="artcraft-mcp-title">Serveur MCP</h3>
+          <p class="muted">Chaque logiciel embarque un serveur MCP (<code>&lt;appli&gt;-cli mcp</code>) : un agent peut alors créer et
+            modifier des documents, images ou feuilles de calcul. Il ne lit et n'écrit que dans le dossier d'échange :
+            <code id="artcraft-mcp-folder"></code></p>
+          <p><b>Claude Code</b> — à coller dans un terminal :</p>
+          <div class="row"><input id="artcraft-mcp-line" class="grow" readonly><button id="artcraft-mcp-copy" type="button">Copier</button></div>
+          <p id="artcraft-hermes-state" class="muted"></p>
+          <button id="artcraft-hermes" type="button" hidden>Brancher sur Hermes</button>
+        </div>
       </section>
     </div>
 

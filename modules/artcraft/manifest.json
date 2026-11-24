@@ -1,0 +1,23 @@
+{
+  "name": "artcraft",
+  "version": "0.1.0",
+  "description": "Intégration externe : installe, ouvre et branche en MCP les logiciels libres ArtCraft (PhotoCraft, GridCraft…), téléchargés depuis leurs publications GitHub officielles",
+  "entry": "modules.artcraft.module:ArtCraftModule",
+  "vram_min_gb": 0,
+  "vram_comfort_gb": 0,
+  "python_deps": [],
+  "optional_deps": ["pillow"],
+  "triggers": {
+    "processes": [],
+    "windows": [],
+    "ports": []
+  },
+  "network": [
+    "api.github.com",
+    "github.com",
+    "objects.githubusercontent.com",
+    "release-assets.githubusercontent.com",
+    "raw.githubusercontent.com"
+  ],
+  "experimental": false
+}
