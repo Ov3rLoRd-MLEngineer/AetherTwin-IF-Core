@@ -5,13 +5,21 @@
   "entry": "modules.mangastudio.module:MangaStudioModule",
   "vram_min_gb": 0,
   "vram_comfort_gb": 3,
-  "python_deps": ["opencv-python-headless", "numpy"],
-  "optional_deps": ["torch", "segment-anything", "safetensors"],
+  "python_deps": [
+    "opencv-python-headless",
+    "numpy"
+  ],
+  "optional_deps": [
+    "torch",
+    "segment-anything",
+    "safetensors"
+  ],
   "triggers": {
     "processes": [],
     "windows": [],
     "ports": []
   },
   "network": [],
-  "experimental": true
+  "experimental": true,
+  "command_timeout_s": 900
 }

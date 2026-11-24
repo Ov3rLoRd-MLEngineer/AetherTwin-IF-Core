@@ -13,5 +13,6 @@
     "ports": []
   },
   "network": [],
-  "experimental": true
+  "experimental": true,
+  "command_timeout_s": 600
 }

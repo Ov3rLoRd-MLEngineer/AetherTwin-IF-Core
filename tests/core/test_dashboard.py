@@ -196,3 +196,22 @@ def test_port_in_use_detects_free_port() -> None:
         sock.bind(("127.0.0.1", 0))
         sock.listen()
         assert port_in_use(sock.getsockname()[1]) is True
+
+
+def test_panels_use_subtabs_and_system_assets(client) -> None:
+    import re
+
+    page = client.get("/").text
+    for panel in ("accueil", "jeu", "professeur", "outils", "scantrad", "developpement"):
+        block = page.split(f'data-panel="{panel}"', 1)[1].split('<div class="panel', 1)[0]
+        assert re.search(rf'<div data-subtabs class="panel[^"]*" data-panel="{panel}"', page)
+        # Outils : la calculatrice seule (décision de Jérémy, 24/11), prête à recevoir d'autres outils
+        assert len(set(re.findall(r'<section data-sub="([^"]+)"', block))) >= (1 if panel == "outils" else 3)
+        assert not re.search(r"\n      <section(?! data-sub=)", block)  # aucune section hors sous-onglet
+    for label in ("Performance", "Stockage et périphériques", "Système", "Carte mère", "Optimisation (Inoue)"):
+        assert f'<section data-sub="{label}"' in page
+    for name, kind in (("system.js", "javascript"), ("system.css", "text/css")):
+        response = client.get(f"/static/{name}")
+        assert response.status_code == 200 and kind in response.headers["content-type"]
+        assert "http" not in response.text.replace("http://www.w3.org/2000/svg", "")
+    assert "setupSubtabs" in client.get("/static/dashboard.js").text

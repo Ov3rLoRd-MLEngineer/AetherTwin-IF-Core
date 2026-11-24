@@ -2,7 +2,8 @@
 // Onglet Développement : lanceur de Claude Code local, terminaux du Hub, pont Hermes, tâches confiées, relais.
 // Dépend de dashboard.js (chargé avant) : $, el, api, post, modulesByName.
 
-const dev = { models: [], filter: "tous", selected: null, prefs: {}, terminals: [], term: "", roots: [], timer: 0 };
+const dev = { models: [], filter: "tous", selected: null, prefs: {}, terminals: [], term: "", roots: [], timer: 0,
+  origin: "" };
 
 async function devCall(command, payload, button, box) {
   if (button) button.disabled = true;
@@ -97,8 +98,36 @@ function selectModel(m) {
   $("dev-selected").replaceChildren(el("b", {}, m.nom), el("span", {}, modelMeta(m)),
     el("span", {}, m.route === "ollama" ? "Route : Ollama en direct (aucun routeur)" : "Route : OmniRoute"),
     m.route === "ollama" ? el("span", {}, "Claude Code est réglé sur ce contexte ; il doit rester au plus celui que sert Ollama "
-      + "(num_ctx du modèle, ou 32 k par défaut). Claude Code demande environ 20 k pour lui-même : 64 k ou plus conseillés.") : "");
+      + "(num_ctx du modèle, ou 32 k par défaut). Claude Code demande environ 20 k pour lui-même : 64 k ou plus conseillés.") : "",
+    m.route === "ollama" && !/-?64k$/.test(m.id) && (m.contexte_regle || 0) < 65536 ? variantButton(m) : "");
   renderModels();
+}
+
+function variantButton(m) {
+  const box = el("span", { class: "dev-variant" });
+  const [repo, tag] = m.id.includes(":") ? m.id.split(/:(.*)/s) : [m.id, ""];
+  const name = !tag || tag === "latest" ? `${repo}:64k` : `${repo}:${tag}-64k`;
+  if (dev.models.some((x) => x.route === "ollama" && x.id === name)) {
+    box.append(el("small", { class: "muted" }, `Variante 64 k déjà créée : ${name} (à choisir dans la liste).`));
+    return box;
+  }
+  const button = el("button", { type: "button", class: "ghost small" }, "Créer la variante 64 k");
+  button.addEventListener("click", async () => {
+    const started = await devCall("creer_64k", { modele: m.id }, button, $("dev-launch-result"));
+    if (!started) return;
+    button.disabled = true;
+    const result = await devWait(started.travail, $("dev-launch-result"));
+    button.disabled = false;
+    if (!result) return;
+    $("dev-launch-result").hidden = false;
+    $("dev-launch-result").replaceChildren(el("p", { class: "good" },
+      `Variante ${result.modele} créée depuis ${result.depuis} (contexte ${kilo(result.contexte)}) : même poids, aucun `
+      + "téléchargement. Elle est sélectionnée."));
+    dev.selected = { id: result.modele, route: "ollama" };
+    await loadDev();
+  });
+  box.append(button, el("small", { class: "muted" }, " Copie légère du modèle dans Ollama, servie avec 64 k de contexte."));
+  return box;
 }
 
 async function loadDev() {
@@ -123,6 +152,7 @@ async function loadDev() {
   if (dev.prefs.mode) for (const r of document.querySelectorAll('input[name="dev-mode"]')) r.checked = r.value === dev.prefs.mode;
   if (dev.prefs.mcp === false) $("dev-mcp").checked = false;
   if (dev.prefs.outils_essentiels === false) $("dev-tools").checked = false;
+  if (dev.prefs.confirmer === false) $("dev-confirm").checked = false;
   const wanted = dev.selected || dev.models.find((m) => m.id === dev.prefs.modele && m.route === dev.prefs.route);
   if (wanted) selectModel(dev.models.find((m) => m.id === wanted.id && m.route === wanted.route) || wanted);
   else renderModels();
@@ -142,7 +172,8 @@ async function launchClaude(event) {
   if (!dev.selected) { box.hidden = false; box.replaceChildren(el("p", { class: "warn" }, "Choisis d'abord un modèle.")); return; }
   const mode = document.querySelector('input[name="dev-mode"]:checked').value;
   const result = await devCall("lancer", { modele: dev.selected.id, route: dev.selected.route, contexte: Number($("dev-context").value),
-    dossier: $("dev-folder").value.trim(), mode, mcp: $("dev-mcp").checked, outils_essentiels: $("dev-tools").checked }, event.submitter, box);
+    dossier: $("dev-folder").value.trim(), mode, mcp: $("dev-mcp").checked, outils_essentiels: $("dev-tools").checked,
+    confirmer: $("dev-confirm").checked }, event.submitter, box);
   if (!result) return;
   box.hidden = false;
   const warning = result.avertissement ? [el("p", { class: "warn" }, `Attention : ${result.avertissement}`)] : [];
@@ -228,11 +259,29 @@ function taskNode(t) {
     el("summary", {}, el("b", {}, t.tache.split("\n")[0].slice(0, 140)), el("span", { class: cls }, t.etat),
       el("span", { class: "muted" }, `${t.origine} · ${t.modele} · ${Math.round(t.duree)} s`)),
     el("p", { class: "muted" }, `Dossier : ${t.dossier}${t.fichiers && t.fichiers.length ? ` · fichiers : ${t.fichiers.join(", ")}` : ""}`),
+    folderButton(t),
     el("pre", {}, t.sortie || "(pas encore de sortie)"));
 }
 
+function folderButton(t) {
+  const button = el("button", { type: "button", class: "ghost small" }, "Ouvrir le dossier");
+  button.addEventListener("click", () => devCall("ouvrir_dossier", { id: t.id }, button, $("dev-ask-result")));
+  return button;
+}
+
+async function loadHistory() {
+  const data = await devCall("taches", { limite: 200, origine: dev.origin }, null, $("dev-history"));
+  if (!data) return;
+  const done = data.taches.filter((t) => t.etat === "terminée").length;
+  $("dev-history-count").textContent = data.taches.length
+    ? `${data.taches.length} tâche(s)${data.taches.length >= 200 ? " (les 200 plus récentes)" : ""}, dont ${done} terminée(s).`
+    : "";
+  $("dev-history").replaceChildren(...(data.taches.length ? data.taches.map(taskNode)
+    : [el("p", { class: "muted" }, dev.origin ? `Aucune tâche venue de « ${dev.origin} ».` : "Aucune tâche pour l'instant.")]));
+}
+
 async function loadTasks() {
-  const data = await devCall("taches", {});
+  const data = await devCall("taches", { limite: 5 });
   if (!data) return;
   $("dev-tasks").replaceChildren(...(data.taches.length ? data.taches.map(taskNode) : [el("p", { class: "muted" }, "Aucune tâche pour l'instant.")]));
   clearTimeout(dev.timer);
@@ -279,13 +328,23 @@ async function testRelay(event) {
 
 // ---------- liaisons ----------
 $("dev-search").addEventListener("input", renderModels);
-for (const chip of document.querySelectorAll(".dev-chips .chip")) {
+for (const chip of document.querySelectorAll(".dev-chips .chip[data-filter]")) {
   chip.addEventListener("click", () => {
     dev.filter = chip.dataset.filter;
-    for (const c of document.querySelectorAll(".dev-chips .chip")) c.setAttribute("aria-pressed", String(c === chip));
+    for (const c of document.querySelectorAll(".dev-chips .chip[data-filter]")) c.setAttribute("aria-pressed", String(c === chip));
     renderModels();
   });
 }
+for (const chip of document.querySelectorAll(".dev-chips .chip[data-origin]")) {
+  chip.addEventListener("click", () => {
+    dev.origin = chip.dataset.origin;
+    for (const c of document.querySelectorAll(".dev-chips .chip[data-origin]")) c.setAttribute("aria-pressed", String(c === chip));
+    loadHistory();
+  });
+}
+document.addEventListener("subtab", (event) => {
+  if (event.detail.panel === "developpement" && event.detail.label === "Historique" && devStarted) loadHistory();
+});
 for (const chip of document.querySelectorAll("[data-ctx]")) chip.addEventListener("click", () => { $("dev-context").value = chip.dataset.ctx; });
 $("dev-launch").addEventListener("submit", launchClaude);
 $("dev-shell").addEventListener("click", (event) => openTerminal({ dossier: $("dev-folder").value.trim(), titre: "Invite de commandes" }, event.currentTarget));
@@ -299,6 +358,7 @@ let devStarted = false;
 function devMaybeStart() {
   if ((location.hash || "").slice(1) !== "developpement") return;
   if (!devStarted) { devStarted = true; loadDev(); } else { loadTerminals(); loadTasks(); }
+  if (currentSubtab("developpement") === "Historique") loadHistory();
 }
 window.addEventListener("hashchange", devMaybeStart);
 for (const tab of document.querySelectorAll("#tabs button")) tab.addEventListener("click", () => setTimeout(devMaybeStart, 0));

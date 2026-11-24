@@ -155,14 +155,15 @@ class TaskRunner:
         end = state.get("fin") or self.now()
         return {**state, "duree": round(end - state["debut"], 1), "sortie": output[-tail:], "fichiers": files}
 
-    def list(self, limit: int = 20) -> list[dict[str, Any]]:
+    def list(self, limit: int = 20, origin: str = "") -> list[dict[str, Any]]:
         if not self.dir.is_dir():
             return []
         items = []
         for path in sorted(self.dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
             if TASK_ID.match(path.stem):
                 view = self.view(path.stem, tail=400)
-                items.append(view)
+                if not origin or view.get("origine", "").lower().startswith(origin.lower()):
+                    items.append(view)
             if len(items) >= limit:
                 break
         return items

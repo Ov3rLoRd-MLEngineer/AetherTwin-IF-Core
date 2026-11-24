@@ -3,12 +3,15 @@
 Commandes (bus, réponse sur `module.dev_launcher.result` avec le même `request_id`) :
     etat             {}                                     services, Claude Code, Hermes, préférences, relais
     modeles          {}                                     modèles Ollama (direct) et OmniRoute (facultatif)
-    lancer           {"modele", "route", "contexte", "dossier", "mode": "windows" | "hub", "mcp", "outils_essentiels"}
+    lancer           {"modele", "route", "contexte", "dossier", "mode": "windows" | "hub", "mcp", "outils_essentiels",
+                      "confirmer"}   « confirmer » : Claude Code demande avant chaque action
+    creer_64k        {"modele"}                             variante Ollama servie avec 64 k de contexte (travail)
+    ouvrir_dossier   {"id"}                                 ouvre le dossier d'une tâche confiée dans l'Explorateur
                      écrit le lancement ; « windows » ouvre Windows Terminal, « hub » renvoie le fichier à ouvrir
                      dans un terminal du Hub (POST /terminals)
     dossiers         {}                                     dossiers où une tâche confiée peut travailler
     confier          {"tache", "dossier"?, "modele"?, "origine"?}   tâche à Claude Code local (sans surveillance)
-    suivre           {"id"}  ·  taches {}
+    suivre           {"id"}  ·  taches {"limite"?, "origine"?}
     brancher_hermes  {}                                     déclare le pont MCP chez Hermes (config sauvegardée)
     demander_hermes  {"question"}                           question à Hermes (travail)
     test_relais      {}                                     essai d'accusé de réception du relais (travail)
@@ -35,7 +38,7 @@ from typing import Any
 
 from core.module_api import Event, Health, Manifest, ModuleBase
 from modules.dev_launcher import catalog, hermes_link, launch, relay_check
-from modules.dev_launcher.tasks import TaskError, TaskRunner
+from modules.dev_launcher.tasks import TaskError, TaskRunner, inside
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = REPO_ROOT / "data" / "dev_launcher"
@@ -225,10 +228,12 @@ class DevLauncherModule(ModuleBase):
         mcp = launch.mcp_config(self.data / "mcp_claude.json") if payload.get("mcp", True) else None
         title = f"Claude Code · {model}"
         tools = launch.ESSENTIAL_TOOLS if payload.get("outils_essentiels", True) else ""
-        script = launch.batch_script(env, folder, launch.claude_command(self.claude_dir), title, mcp, tools)
+        confirm = bool(payload.get("confirmer", True))
+        script = launch.batch_script(env, folder, launch.claude_command(self.claude_dir), title, mcp, tools,
+                                     confirm)
         bat = launch.write_launch(self.data / "lancements", script)
         self.save_prefs({"modele": model, "route": route, "contexte": context, "dossier": str(folder), "mode": mode,
-                         "mcp": bool(mcp), "outils_essentiels": bool(tools)})
+                         "mcp": bool(mcp), "outils_essentiels": bool(tools), "confirmer": confirm})
         # Ollama coupe au contexte qu'il sert, quel que soit celui annoncé à Claude Code.
         served = env
         if route == "ollama":
@@ -260,7 +265,20 @@ class DevLauncherModule(ModuleBase):
         if command == "suivre":
             return tasks.view(str(payload.get("id", "")))
         if command == "taches":
-            return {"taches": tasks.list()}
+            limit = max(1, min(int(payload.get("limite") or 20), 500))
+            return {"taches": tasks.list(limit, str(payload.get("origine", "")))}
+        if command == "ouvrir_dossier":
+            folder = Path(tasks.view(str(payload.get("id", "")))["dossier"])
+            if not folder.is_dir() or not inside(folder, self.roots()):
+                raise TaskError("dossier introuvable ou hors des dossiers autorisés")
+            os.startfile(str(folder))  # noqa: S606 — dossier d'une tâche, vérifié ci-dessus
+            return {"ouvert": str(folder)}
+        if command == "creer_64k":
+            model = str(payload.get("modele", ""))
+            catalog.variant_name(model)  # refus immédiat d'un nom invalide
+            base = self._cfg("ollama_url", "http://127.0.0.1:11434")
+            return {"travail": self.jobs.start(f"64k:{model}", f"Variante 64 k de {model}",
+                                               lambda: catalog.create_variant(base, model))}
         if command == "brancher_hermes":
             result = hermes_link.register(self.hermes_exe())
             return {**result, "hermes": hermes_link.state(self.hermes_exe())}

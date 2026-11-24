@@ -91,6 +91,36 @@ def ollama_models(base: str, timeout: float = 4.0) -> dict[str, Any]:
     return {"en_ligne": True, "version": version, "modeles": models}
 
 
+def variant_name(model: str, context: int = 65536) -> str:
+    """Nom de la variante : « dépôt:étiquette-64k » (« dépôt:latest » devient « dépôt:64k »)."""
+    if not MODEL_ID.match(model or "") or "/" in model.split(":", 1)[-1]:
+        raise ValueError("identifiant de modèle invalide")
+    suffix = f"{context // 1024}k"
+    repo, _, tag = model.partition(":")
+    if tag.endswith(f"-{suffix}") or tag == suffix:
+        raise ValueError(f"{model} est déjà une variante {suffix}")
+    return f"{repo}:{suffix}" if tag in ("", "latest") else f"{repo}:{tag}-{suffix}"
+
+
+def create_variant(base: str, model: str, context: int = 65536, timeout: float = 600.0) -> dict[str, Any]:
+    """Crée dans Ollama une variante du modèle servie avec `context` jetons (aucun poids copié)."""
+    name = variant_name(model, context)
+    body = json.dumps({"model": name, "from": model, "parameters": {"num_ctx": int(context)},
+                       "stream": False}).encode("utf-8")
+    req = urllib.request.Request(f"{base.rstrip('/')}/api/create", data=body,  # noqa: S310 — Ollama local
+                                 headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as response:  # noqa: S310
+            reply = json.loads(response.read().decode("utf-8") or "{}")
+    except urllib.error.HTTPError as exc:
+        raise ValueError(f"Ollama a refusé : {exc.read().decode('utf-8', 'replace')[:200]}") from exc
+    except (urllib.error.URLError, OSError) as exc:
+        raise ValueError(f"Ollama injoignable : {exc}") from exc
+    if reply.get("status") not in (None, "success"):
+        raise ValueError(f"Ollama : {reply.get('status')}")
+    return {"modele": name, "depuis": model, "contexte": int(context), "contexte_servi": num_ctx(base, name)}
+
+
 def _omni_entry(raw: dict[str, Any]) -> dict[str, Any] | None:
     model_id = str(raw.get("id", ""))
     low = model_id.lower()

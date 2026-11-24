@@ -17,7 +17,17 @@ function el(tag, attrs = {}, ...children) {
 async function api(path, options = {}) {
   const headers = options.headers || (options.body && typeof options.body === "string"
     ? { "Content-Type": "application/json" } : {});
-  const response = await fetch(path, { ...options, headers });
+  // Garde-fou : une requête sans réponse est abandonnée (le Hub répond lui-même en 4 min au plus).
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs || 270000);
+  let response;
+  try {
+    response = await fetch(path, { ...options, headers, signal: controller.signal });
+  } catch (error) {
+    throw new Error(error.name === "AbortError" ? "le Hub n'a pas répondu à temps (requête abandonnée)" : error.message);
+  } finally {
+    clearTimeout(timer);
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.detail || `erreur ${response.status}`);
   return data;
@@ -40,6 +50,45 @@ for (const tab of document.querySelectorAll("#tabs button")) {
   tab.addEventListener("click", () => showTab(tab.dataset.tab));
 }
 const currentTab = () => (location.hash || "#accueil").slice(1);
+
+// ---------- sous-onglets : un panneau [data-subtabs] montre une seule famille de sections [data-sub] ----------
+const SUBTAB_KEY = "hub.sousonglets";
+function subtabMemory() {
+  try { return JSON.parse(localStorage.getItem(SUBTAB_KEY) || "{}") || {}; } catch { return {}; }
+}
+function currentSubtab(panelName) {
+  const panel = document.querySelector(`.panel[data-panel="${panelName}"]`);
+  const selected = panel && panel.querySelector(":scope > .subtabs [aria-selected='true']");
+  return selected ? selected.dataset.sub : "";
+}
+function showSubtab(panel, label) {
+  const sections = [...panel.querySelectorAll(":scope > section[data-sub]")];
+  if (!sections.some((s) => s.dataset.sub === label)) label = sections[0]?.dataset.sub || "";
+  for (const section of sections) section.classList.toggle("sub-off", section.dataset.sub !== label);
+  for (const button of panel.querySelectorAll(":scope > .subtabs button")) {
+    button.setAttribute("aria-selected", String(button.dataset.sub === label));
+  }
+  const memory = subtabMemory();
+  memory[panel.dataset.panel] = label;
+  try { localStorage.setItem(SUBTAB_KEY, JSON.stringify(memory)); } catch { /* mémoire facultative */ }
+  document.dispatchEvent(new CustomEvent("subtab", { detail: { panel: panel.dataset.panel, label } }));
+}
+function setupSubtabs() {
+  const memory = subtabMemory();
+  for (const panel of document.querySelectorAll(".panel[data-subtabs]")) {
+    const labels = [...new Set([...panel.querySelectorAll(":scope > section[data-sub]")].map((s) => s.dataset.sub))];
+    if (labels.length < 2) continue;
+    const bar = el("div", { class: "subtabs", role: "tablist", "aria-label": "Sous-onglets" });
+    for (const label of labels) {
+      const button = el("button", { type: "button", role: "tab", "data-sub": label, "aria-selected": "false" }, label);
+      button.addEventListener("click", () => showSubtab(panel, label));
+      bar.append(button);
+    }
+    panel.prepend(bar);
+    showSubtab(panel, memory[panel.dataset.panel] || labels[0]);
+  }
+}
+setupSubtabs();
 
 // ---------- en-tête ----------
 async function refreshHub() {

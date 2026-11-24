@@ -476,3 +476,15 @@ def test_dry_run_completes_a_full_cycle_without_services(tmp_path: Path) -> None
 def test_status_without_state(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert ro.main(["--status", "--repo", str(tmp_path)]) == 0
     assert "Aucun état" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("message", [
+    "You've hit your 5-hour limit · resets 12:30am (Europe/Paris)",  # vrai message du 23/11 à 21 h 25
+    "You've hit your 5-hour limit · resets 2:30am (Europe/Paris)",
+])
+def test_real_quota_messages_trigger_the_relay(message: str) -> None:
+    assert ro.classify_text(message) is ro.Status.QUOTA
+    payload = json.dumps({"is_error": True, "result": message})
+    assert ro.ClaudeCodeBackend.classify(1, payload, "").status is ro.Status.QUOTA
+    success = json.dumps({"is_error": False, "result": message})  # parfois rendu comme une réponse normale
+    assert ro.ClaudeCodeBackend.classify(0, success, "").status is ro.Status.QUOTA

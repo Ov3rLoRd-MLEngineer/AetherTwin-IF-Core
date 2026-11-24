@@ -93,8 +93,10 @@ def t_knowledge(args: dict) -> object:
 
 
 def t_delegate(args: dict) -> object:
+    canal = " ".join(str(args.get("canal", "")).split())[:30]
+    origin = f"Hermes · {canal}" if canal else "Hermes"
     return command("confier", {"tache": str(args.get("tache", "")), "dossier": str(args.get("dossier", "")),
-                               "modele": str(args.get("modele", "")), "origine": "Hermes"})
+                               "modele": str(args.get("modele", "")), "origine": origin})
 
 
 def t_follow(args: dict) -> object:
@@ -128,8 +130,9 @@ FOR_HERMES = [
     ("claude_local_confier",
      "Confie une tâche de développement à Claude Code local (modèle local, sans surveillance). Il travaille "
      "seulement dans un dossier autorisé (sans dossier : un nouveau sous-dossier), sans commandes système ni web "
-     "ni accès aux secrets. Renvoie un identifiant à suivre avec claude_local_suivre.",
-     {"tache": Q, "dossier": Q, "modele": Q}, t_delegate),
+     "ni accès aux secrets. Renvoie un identifiant à suivre avec claude_local_suivre. `canal` : d'où vient la "
+     "demande (ex. « WoW Assistant », « hermes.exe », « Telegram »), gardé dans l'historique du Hub.",
+     {"tache": Q, "dossier": Q, "modele": Q, "canal": Q}, t_delegate),
     ("claude_local_suivre", "État d'une tâche confiée : en cours, terminée (sortie de Claude Code, fichiers créés).",
      {"id": Q}, t_follow),
     ("claude_local_taches", "Dernières tâches confiées à Claude Code local.", {}, t_tasks),
