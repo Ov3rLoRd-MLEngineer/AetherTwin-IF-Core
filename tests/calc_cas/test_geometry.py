@@ -125,3 +125,17 @@ def test_figure_errors_are_readable() -> None:
         fig({"m": "pt", "refs": [9]}, [*FIGURE, {"id": 9, "t": "tr", "f": "rot", "s": 2, "c": 1, "deg": "abc"}])
     with pytest.raises(CasError, match="inconnue"):
         fig({"m": "volume"})
+
+
+def test_locus_through_square_roots() -> None:
+    ab = {"id": 7, "t": "line", "a": 1, "b": 2}
+    moving_circle = [A, B, C, D, LINE, ab, {"id": 20, "t": "pton", "c": 6, "u": 0.3},
+                     {"id": 21, "t": "circ", "c": 20, "p": 1}, {"id": 22, "t": "inter", "a": 7, "b": 21, "i": 1},
+                     {"id": 23, "t": "locus", "a": 22, "b": 20}]
+    assert fig({"m": "eq", "c": 23}, moving_circle)["exact"] == "y = 0"
+    chord_middle = [A, B, CIRCLE, C, {"id": 20, "t": "pton", "c": 3, "x": 2, "y": 0},
+                    {"id": 21, "t": "line", "a": 4, "b": 20}, {"id": 22, "t": "inter", "a": 21, "b": 3, "i": 0},
+                    {"id": 23, "t": "inter", "a": 21, "b": 3, "i": 1}, {"id": 24, "t": "mid", "a": 22, "b": 23},
+                    {"id": 25, "t": "locus", "a": 24, "b": 20}]
+    # milieu d'une corde passant par C : cercle de diamètre [AC]
+    assert fig({"m": "eq", "c": 25}, chord_middle)["exact"] == "x**2 - x + y**2 - 3*y = 0"

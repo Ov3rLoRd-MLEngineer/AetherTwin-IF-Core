@@ -12,7 +12,7 @@ Avec `figure`, la page envoie **toute la construction** (les mêmes objets qu'el
 calcul exact, objet par objet, avec les mêmes formules et le même ordre des points d'intersection que la page. Un
 point construit à coordonnées irrationnelles (intersection d'un cercle et d'une droite…) a donc sa vraie valeur
 (`1 + √7/2`), et pas celle d'une fraction proche. L'équation d'un **lieu géométrique** s'obtient par élimination du
-paramètre (bases de Gröbner) quand le point tracé dépend rationnellement du point mobile.
+paramètre (bases de Gröbner), les racines carrées (intersections avec un cercle) devenant des inconnues de plus.
 
 Les coordonnées décimales des points libres sont converties en fractions (`0.5` → 1/2) : avec la grille magnétique,
 les points tombent sur des valeurs simples et les mesures exactes ont un sens (√2, 3√5/2…). Un point posé sur un
@@ -363,6 +363,39 @@ def _named(objs: list[dict[str, Any]], oid: Any) -> str:
     return next((str(o.get("name")) for o in objs if o.get("id") == oid and o.get("name")), "?")
 
 
+def _without_radicals(exprs: list[Any], gens: list[Any]) -> tuple[list[Any], list[Any], list[Any]]:
+    """Remplace chaque racine carrée qui dépend des paramètres par une inconnue w (relation w² = radicande), de
+    l'intérieur vers l'extérieur. L'élimination donne alors l'équation de tout le lieu algébrique (les deux points
+    d'intersection d'une droite et d'un cercle, par exemple, pas seulement celui que la page a choisi)."""
+    roots: list[Any] = []
+    relations: list[Any] = []
+    exprs = [sp.sympify(e) for e in exprs]
+    for k in range(12):
+        watched = {*gens, *roots}
+
+        def radical(node: Any, watched: set = watched) -> bool:
+            return (isinstance(node, sp.Pow) and isinstance(node.exp, sp.Rational) and node.exp.q == 2
+                    and bool(node.base.free_symbols & watched))
+
+        found = None
+        for e in exprs:
+            for node in sp.preorder_traversal(e):
+                if radical(node) and not any(radical(sub) for sub in sp.preorder_traversal(node.base)):
+                    found = node.base
+                    break
+            if found is not None:
+                break
+        if found is None:
+            return exprs, roots, relations
+        w = sp.Symbol(f"_w{k}")
+        exprs = [e.replace(lambda n, b=found: isinstance(n, sp.Pow) and n.base == b and isinstance(n.exp, sp.Rational)
+                           and n.exp.q == 2, lambda n, w=w: w ** (2 * n.exp)) for e in exprs]
+        num, _den = sp.fraction(sp.together(w ** 2 - found))
+        roots.append(w)
+        relations.append(sp.expand(num))
+    raise CasError("Lieu : trop de racines imbriquées pour une équation exacte")
+
+
 def _locus_equation(objs: list[dict[str, Any]], R: dict[int, Any], locus: dict[str, Any],
                     session: Session) -> Any:
     """Équation du lieu du point `a` quand le point sur objet `b` parcourt sa courbe (élimination du paramètre)."""
@@ -375,25 +408,28 @@ def _locus_equation(objs: list[dict[str, Any]], R: dict[int, Any], locus: dict[s
     traced = solve_figure(objs, session, {"id": driver["id"], "T": T, "C": C, "S": S}).get(locus.get("a"))
     if not traced or traced["k"] != "pt":
         raise CasError("Lieu : le point tracé n'existe pas")
+    values, roots, relations = _without_radicals(list(traced["xy"]), gens)
+    variables = [*gens, *roots]
     polys, dens = [], []
-    for coord, value in zip((X, Y), traced["xy"], strict=True):
+    for coord, value in zip((X, Y), values, strict=True):
         num, den = sp.fraction(sp.together(sp.expand(value)))
         try:
-            sp.Poly(num, *gens)
-            sp.Poly(den, *gens)
+            sp.Poly(num, *variables)
+            sp.Poly(den, *variables)
         except sp.PolynomialError:
-            raise CasError("Lieu : le point tracé ne dépend pas rationnellement du point mobile "
-                           "(racine carrée…) ; équation exacte non disponible") from None
+            raise CasError("Lieu : le point tracé dépend du point mobile par une fonction non algébrique ; "
+                           "équation exacte non disponible") from None
         polys.append(sp.expand(coord * den - num))
         dens.append(den)
+    polys += relations
     if curve["k"] == "ci":
         polys.append(C ** 2 + S ** 2 - 1)
     polys.append(sp.expand(Z * dens[0] * dens[1] - 1))  # écarte les valeurs qui annulent un dénominateur
     try:
-        basis = sp.groebner(polys, Z, *gens, X, Y, order="lex")
+        basis = sp.groebner(polys, Z, *variables, X, Y, order="lex")
     except Exception as exc:  # noqa: BLE001 — coefficients hors de portée de l'élimination
         raise CasError(f"Lieu : élimination impossible ({type(exc).__name__})") from None
-    found = [g for g in basis.exprs if not (g.free_symbols & {Z, *gens})]
+    found = [g for g in basis.exprs if not (g.free_symbols & {Z, *variables})]
     if not found:
         raise CasError("Lieu : pas d'équation (le point tracé ne bouge pas, ou le lieu remplit le plan)")
     eq = sp.factor(min(found, key=sp.count_ops))

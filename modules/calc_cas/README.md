@@ -249,9 +249,9 @@ Essai réel (23/11/2026) : `qwen3-27b` via le Hub, 2 calculs délégués, répon
 - Pas de débogueur pas à pas pour les programmes.
 - Géométrie : les points libres sont pris à leurs coordonnées affichées (converties en fractions : grille
   magnétique conseillée) ; un point sur objet posé sur un cercle aussi (sa valeur « exacte » est une fraction
-  proche). L'équation exacte d'un lieu n'existe que si le point tracé dépend rationnellement du point mobile (pas
-  de racine carrée en chemin, par ex. intersection avec un cercle mobile) ; sinon message clair, le tracé reste.
-  Pas d'export de la figure.
+  proche). L'équation d'un lieu est celle de la courbe algébrique entière : quand une racine carrée intervient
+  (intersection avec un cercle), elle couvre les deux points d'intersection, pas seulement celui choisi ; une
+  construction très profonde peut dépasser le délai du calcul. Pas d'export de la figure.
 - Mode jeu : une partie à la fois ; pas de son ni d'images chargées depuis des fichiers (le bac à sable n'ouvre
   aucun fichier).
 - Émulateurs : vérifiés sans émulateur installé sur ce PC (détection, dossier, refus) ; le lancement réel d'un

@@ -52,11 +52,12 @@ supprimés.
 - **Géométrie** : la construction entière est refaite en exact côté moteur (`geometry.figure_measure`, même ordre
   d'intersection que la page) → vraies valeurs irrationnelles des points construits ; transformations (symétries
   centrale et axiale, rotation en degrés, translation) ; point sur objet ; lieu géométrique tracé, et son équation
-  exacte par élimination (Gröbner) quand le point dépend rationnellement du point mobile.
+  exacte par élimination (Gröbner), racines carrées comprises (chaque racine devient une inconnue w, w² = radicande ;
+  ajouté le 24/11 après le premier rapport : milieu d'une corde par C → cercle de diamètre [AC]).
 
 ## Tests et vérifications
 
-- `ruff check .` : propre. **Suite complète sur `main` (8f32409) : 944 réussis, 4 ignorés** (tests réels sur GPU),
+- `ruff check .` : propre. **Suite complète sur `main` : 945 réussis, 4 ignorés** (tests réels sur GPU),
   215 s.
 - Nouveaux fichiers de tests : `tests/calc_cas/test_render.py`, `test_games.py`, `test_emulators.py` ; ajouts dans
   `test_geometry.py`, `test_module.py`, `test_app.py`, `tests/dev_launcher/test_dev_launcher.py`.
@@ -71,8 +72,6 @@ supprimés.
 
 - Lancement réel d'un émulateur : aucun émulateur n'est installé sur ce PC ; détection, dossier et refus sont
   testés, le lancement effectif est en cours de vérification (dès qu'un émulateur est installé).
-- Équation d'un lieu quand le point tracé passe par une racine carrée (intersection avec un cercle mobile) :
-  message clair, le tracé reste ; l'élimination dans ce cas est en cours.
 
 ## Rappels
 

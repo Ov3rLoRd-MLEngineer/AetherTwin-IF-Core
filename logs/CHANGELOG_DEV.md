@@ -1408,3 +1408,14 @@ outine.json` ; le serveur MCP ne fait que le lire.
   et arrêté, dialogue des émulateurs, import/export ; Hermes → `cas_compute` → e − 2 (31 s). Rapport pour l'autre
   session : `logs/RAPPORT_calc_cas.md`.
 
+## 2026-11-24 — calc_cas : équation des lieux qui passent par une racine carrée
+
+- **Agent :** Cloud (session de la calculatrice)
+- **Fichiers :** `modules/calc_cas/geometry.py`, `tests/calc_cas/test_geometry.py`, `modules/calc_cas/README.md`,
+  `PROJECT_STATUS.md`, `logs/RAPPORT_calc_cas.md`.
+- **Raison :** point « en cours » du rapport : un lieu dont le point tracé vient d'une intersection avec un cercle
+  n'avait pas d'équation.
+- **Choix :** chaque racine carrée qui dépend du paramètre devient une inconnue `w` avec `w² = radicande` (de
+  l'intérieur vers l'extérieur), puis élimination de Gröbner ; l'équation couvre le lieu algébrique entier (les
+  deux points d'intersection).
+- **Tests :** 1 nouveau (cercle mobile ∩ droite → `y = 0` ; milieu d'une corde par C → `x² − x + y² − 3y = 0`).
