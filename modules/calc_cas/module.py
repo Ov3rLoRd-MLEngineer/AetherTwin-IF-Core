@@ -297,7 +297,8 @@ class CalcCasModule(ModuleBase):
         if command == "tools":
             return agent.TOOL_SPECS
         if command == "tool":
-            return agent.call_tool(self.runner, str(payload.get("name", "")), payload.get("arguments"))
+            return agent.call_tool(self.runner, str(payload.get("name", "")), payload.get("arguments"),
+                                   sandbox=self.sandbox, out_dir=self.data_dir / "agent_graphiques")
         if command == "ask":
             if self.llm is None:
                 raise RuntimeError("aucun modèle local configuré (calc_cas.hub_api)")

@@ -127,7 +127,11 @@ forme exacte quand elle se vérifie (`x = √2`), sinon la valeur décimale.
 régressions linéaire, quadratique, cubique, exponentielle (a·bˣ), puissance (a·xᵇ), logarithmique, avec r²,
 nuage de points et courbe tracés dans « Graphes ».
 
-**Agents** (`agent.py`) : outils `cas_compute`, `cas_analyze_function`, `cas_statistics` (schémas JSON au format
+**Agents** (`agent.py`) : outils `cas_compute`, `cas_analyze_function`, `cas_statistics` et **`python_run`**
+(bac à sable Python : l'agent écrit un script, le bac à sable l'exécute et rend la sortie réelle, l'erreur avec
+sa ligne et le graphique en PNG dans `data/calc_cas/agent_graphiques` ; données CSV passées en texte, lues par
+`lire_csv()` ou `DONNEES` ; mêmes protections que le mode programmation, processus à mémoire bornée)
+(schémas JSON au format
 « function calling »), sorties structurées `{ok, exact, approx, latex, error}`, session séparée de celle de
 l'utilisateur. Trois portes :
 

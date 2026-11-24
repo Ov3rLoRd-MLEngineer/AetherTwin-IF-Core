@@ -35,8 +35,11 @@
   window.addEventListener("keyup", (e) => onKey(e, false));
   $("full").addEventListener("click", toggleFull);
   $("power").addEventListener("click", () => { const p = parent(); if (p) p.power(); });
-  // si l'atelier ne nous envoie plus rien (fermé ou caché), on éteint l'écran nous-mêmes
+  // si l'atelier ne nous envoie plus rien (fermé), on éteint l'écran nous-mêmes. Caché derrière le plein écran,
+  // il est mis en veille par le navigateur : on fait alors avancer sa console à notre rythme (`pump`).
   (function idle() {
+    const p = parent();
+    if (p && p.pump) { try { p.pump(); } catch (e) { /* atelier en cours de fermeture */ } }
     if (performance.now() - lastShow > 500) {
       $("orphan").hidden = Boolean(parent());
       crt.setMode(0); crt.draw(null); $("led").classList.remove("on");

@@ -383,11 +383,22 @@
     S.tv = window.open("/static/crt.html", "aether-tv", "popup,width=900,height=760");
     if (!S.tv) status("La fenêtre du téléviseur a été bloquée par le navigateur.", true);
   }
-  // utilisé par la fenêtre du téléviseur (même origine)
-  window.AetherCircuit = { key: (code, down) => (S.on ? key(code, down) : false), power: () => ($("power").click()) };
+  // utilisé par la fenêtre du téléviseur (même origine). `pump` : quand le téléviseur passe en plein écran, il
+  // recouvre l'atelier, que le navigateur met alors en veille (plus d'animation) ; le téléviseur fait donc avancer
+  // la console lui-même, sinon il ne reçoit plus d'images et s'éteint.
+  window.AetherCircuit = {
+    key: (code, down) => (S.on ? key(code, down) : false),
+    power: () => ($("power").click()),
+    pump: () => { const now = performance.now(); if (now - last > 40) step(now); },
+  };
 
   let acc = 0, last = performance.now();
   function loop(now) {
+    step(now);
+    requestAnimationFrame(loop);
+  }
+  function step(now) {
+    if (now <= last) return;
     const dt = Math.min(100, now - last); last = now;
     if (S.on && S.machine && !S.paused) {
       acc += dt;
@@ -396,7 +407,6 @@
       if (n === 3) acc = 0;
     } else acc = 0;
     render();
-    requestAnimationFrame(loop);
   }
 
   // ---------- programmation ----------

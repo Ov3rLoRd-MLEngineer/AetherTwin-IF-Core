@@ -25,7 +25,7 @@ def runner():
 
 def test_tool_specs_are_valid_function_schemas() -> None:
     names = [s["function"]["name"] for s in agent.TOOL_SPECS]
-    assert names == ["cas_compute", "cas_analyze_function", "cas_statistics"]
+    assert names == ["cas_compute", "cas_analyze_function", "cas_statistics", "python_run"]
     for spec in agent.TOOL_SPECS:
         params = spec["function"]["parameters"]
         assert spec["type"] == "function" and params["type"] == "object"
@@ -129,3 +129,23 @@ def test_mcp_server_subprocess_end_to_end() -> None:
     lines = [json.loads(line) for line in proc.stdout.decode("utf-8").splitlines() if line.strip()]
     assert [m["id"] for m in lines] == [1, 2], proc.stderr.decode("utf-8", "replace")
     assert lines[1]["result"]["structuredContent"]["exact"] == "1"
+
+
+def test_python_run_reads_csv_and_draws(runner, tmp_path) -> None:
+    code = ("rows = lire_csv()\nventes = [r[1] for r in rows[1:]]\nprint(sum(ventes))\n"
+            "plot(list(range(len(ventes))), ventes)\n")
+    out = agent.call_tool(runner, "python_run", {"code": code, "data": "mois;ventes\njan;10\nfev;12,5\nmar;7"},
+                          out_dir=tmp_path)
+    assert out["ok"] and out["output"].strip() == "29.5"
+    assert out["drawings"] == [{"type": "line", "points": 3}]
+    assert out["image"].endswith(".png") and (tmp_path / out["image"].split("\\")[-1].split("/")[-1]).is_file()
+
+
+def test_python_run_reports_real_errors_and_refuses_escapes(runner) -> None:
+    err = agent.call_tool(runner, "python_run", {"code": "x = 1\ny = x / 0\n"})
+    assert not err["ok"] and "Ligne 2" in err["error"] and "ZeroDivisionError" in err["error"]
+    bad = agent.call_tool(runner, "python_run", {"code": "import os\nprint(os.listdir('.'))"})
+    assert not bad["ok"] and "non disponible" in bad["error"]
+    ask = agent.call_tool(runner, "python_run", {"code": "n = input('n ?')"})
+    assert not ask["ok"] and "input()" in ask["error"]
+    assert "image" not in agent.call_tool(runner, "python_run", {"code": "plot([1, 2], [3, 4])"})

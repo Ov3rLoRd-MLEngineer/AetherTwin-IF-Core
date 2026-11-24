@@ -22,7 +22,7 @@ canvas{display:block;width:100%;touch-action:none}
 <label><input id="maker" type="checkbox" checked> Batteur à houle</label>
 <label>Fréquence <input id="freq" type="range" min="2" max="20" value="7"></label>
 <label>Hauteur <input id="amp" type="range" min="1" max="20" value="12"></label>
-<label><input id="beach" type="checkbox" checked> Plage (amortit à droite)</label>
+<label><input id="beach" type="checkbox" checked> Plage en pente</label>
 <button class="act" id="pulse">Une vague</button>
 <button class="act" id="calm">Eau calme</button>
 </div>
@@ -45,55 +45,89 @@ function setTab(t){tab=t;$("t-waves").classList.toggle("on",t==="waves");$("t-ba
  $("bar-waves").hidden=$("waves").hidden=t!=="waves";$("bar-bath").hidden=$("bath").hidden=t!=="bath";notes()}
 $("t-waves").onclick=()=>setTab("waves");$("t-bath").onclick=()=>setTab("bath");
 function notes(){$("note").innerHTML=tab==="waves"
- ?"Simplifications : modèle d'<b>eau peu profonde</b> (ondes longues, vitesse horizontale la même à toute profondeur), petites vagues sans déferlement. En vue particules, chaque particule suit l'écoulement ; elles ne se heurtent pas entre elles (dans l'eau réelle, les molécules s'entrechoquent sans cesse, mais leur mouvement moyen est celui montré ici)."
+ ?"Simplifications : modèle d'<b>eau peu profonde</b> (ondes longues, vitesse horizontale la même à toute profondeur), le déferlement est approché (une vague plus haute que 0,6 × la profondeur se brise et perd son énergie), sans rouleau ni jet. En vue particules, chaque particule suit l'écoulement ; elles ne se heurtent pas entre elles (dans l'eau réelle, les molécules s'entrechoquent sans cesse, mais leur mouvement moyen est celui montré ici)."
  :"Simplifications : coupe en deux dimensions (la baignoire fait 40 cm d'épaisseur), 1 pixel = 1 cm. Le canard et le sous-marin sont traités comme des blocs pour la poussée d'Archimède ; vidange selon Torricelli avec une perte de charge fixe ; le temps peut être accéléré."}
 
-/* =================== Vagues : eau peu profonde =================== */
-const W=$("waves"),wg=W.getContext("2d"),N=180,DX=W.width/N,G=0.00125,SUB=4;
-let h=new Float32Array(N),u=new Float32Array(N+1),wt=0,parts=[];
+/* =================== Vagues : eau peu profonde, fond variable =================== */
+const W=$("waves"),wg=W.getContext("2d"),N=240,DX=W.width/N,G=0.00125,SUB=4,HMAX=200,S0=Math.round(N*0.42);
+let h=new Float32Array(N),u=new Float32Array(N+1),xi=new Float32Array(N+1),env=new Float32Array(N),wt=0;
+let bed=new Float32Array(N),D=new Float32Array(N),Df=new Float32Array(N+1),shore=N,parts=[],geoKey="";
 function H(){return +$("depth").value}
-for(let i=0;i<1400;i++)parts.push({x:Math.random()*N,f:Math.random()});
-function bump(x0,a,wd){for(let i=0;i<N;i++)h[i]+=a*Math.exp(-(((i-x0)/wd)**2))}
-$("pulse").onclick=()=>bump(8,+$("amp").value*1.5,5);
-$("calm").onclick=()=>{h.fill(0);u.fill(0)};
+/* Fond : plat, puis (plage) une pente régulière qui sort de l'eau. La pente ne dépend pas de la profondeur :
+   plus l'eau est profonde, plus le rivage est loin à droite. */
+function geometry(){const Hd=H(),beach=$("beach").checked,key=Hd+"|"+beach;if(key===geoKey)return;geoKey=key;
+ shore=N;for(let i=0;i<N;i++){bed[i]=beach&&i>S0?(i-S0)/(N-S0)*(HMAX*0.8+10):0;D[i]=Math.max(0,Hd-bed[i]);if(D[i]<=0&&shore===N)shore=i}
+ Df[0]=D[0];Df[N]=0;for(let i=1;i<N;i++)Df[i]=Math.min(D[i-1],D[i]);
+ for(let i=0;i<N;i++)if(D[i]<=0){h[i]=0;env[i]=0}
+ for(let i=0;i<=N;i++)if(!Df[i]){u[i]=0;xi[i]=0}
+ // particules réparties sur la surface d'eau réelle (tirage proportionnel à la profondeur locale)
+ parts=[];let guard=0;while(parts.length<1600&&guard++<200000){const x=Math.random()*shore;const i=Math.min(N-1,x|0);
+  if(Math.random()*Hd<D[i])parts.push({x0:x,f:Math.random()})}}
+function bump(x0,a,wd){for(let i=0;i<N;i++)if(D[i]>0)h[i]+=a*Math.exp(-(((i-x0)/wd)**2))}
+$("pulse").onclick=()=>bump(8,+$("amp").value*1.5,6);
+$("calm").onclick=()=>{h.fill(0);u.fill(0);xi.fill(0);env.fill(0)};
 let drag=null;
 W.addEventListener("pointerdown",e=>{drag=e;poke(e)});W.addEventListener("pointermove",e=>{if(drag)poke(e)});addEventListener("pointerup",()=>drag=null);
 function poke(e){const r=W.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*N;bump(x,-1.2,3)}
+let breaking=new Uint8Array(N),lap=new Float32Array(N);
 function waveStep(){
+ geometry();
  const Hd=H(),beach=$("beach").checked;
+ breaking.fill(0);
  for(let s=0;s<SUB;s++){
   wt+=1;
   if($("maker").checked)u[0]=+$("amp").value*0.01*Math.sin(wt*(+$("freq").value)*0.006)*Math.sqrt(G*Hd);else u[0]=0;
-  u[N]=0;
-  for(let i=1;i<N;i++){u[i]-=G*(h[i]-h[i-1]);u[i]*=0.9995}
-  if(beach)for(let i=N-30;i<N;i++){const k=(i-(N-30))/30;u[i]*=1-0.03*k*k;h[i]*=1-0.01*k*k}
-  for(let i=0;i<N;i++)h[i]-=Hd*(u[i+1]-u[i]);
-  for(const p of parts){const i=Math.max(0,Math.min(N,p.x)),i0=Math.floor(i),fr=i-i0;
-   const v=u[i0]*(1-fr)+(u[Math.min(N,i0+1)]||0)*fr;p.x+=v;if(p.x<0.2)p.x=0.2;if(p.x>N-0.2)p.x=N-0.2}
+  for(let i=1;i<N;i++){if(!Df[i]){u[i]=0;continue}u[i]-=G*(h[i]-h[i-1]);u[i]*=0.9997}
+  for(let i=0;i<N;i++){if(D[i]<=0)continue;h[i]-=Df[i+1]*u[i+1]-Df[i]*u[i]}
+  // léger lissage : retire le bruit de maille (dents de scie) sans toucher aux vagues
+  for(let i=1;i<N-1;i++)if(D[i+1]>0)lap[i]=h[i-1]-2*h[i]+h[i+1];else lap[i]=0;
+  for(let i=1;i<N-1;i++)h[i]+=0.015*lap[i];
+  if(beach)for(let i=S0;i<shore;i++){
+   // déferlement : une vague ne peut pas dépasser environ 0,6 fois la profondeur locale ; au-delà elle se brise
+   // et perd son énergie (écume). Tout près du bord, le jet de rive s'étale et s'amortit aussi.
+   const lim=0.6*D[i]+0.5,swash=Math.max(0,1-D[i]/22)**2;
+   if(Math.abs(h[i])>lim){h[i]*=0.985;u[i]*=0.97;u[i+1]*=0.97;breaking[i]=1}
+   if(swash>0){h[i]*=1-0.03*swash;u[i]*=1-0.05*swash}
+  }
+  for(let i=0;i<=N;i++)xi[i]=(xi[i]+u[i])*0.9992; // déplacement horizontal de l'eau (oscille sur place)
  }
+ for(let i=0;i<N;i++)env[i]=Math.max(env[i]*0.996,Math.abs(h[i]));
 }
-function hAt(x){const i=Math.max(0,Math.min(N-1,x)),i0=Math.floor(i),i1=Math.min(N-1,i0+1),fr=i-i0;return h[i0]*(1-fr)+h[i1]*fr}
+function at(arr,x,n){const i=Math.max(0,Math.min(n-1,x)),i0=Math.floor(i),i1=Math.min(n-1,i0+1),fr=i-i0;return arr[i0]*(1-fr)+arr[i1]*fr}
 function waveDraw(){
- const Hd=H(),bottom=W.height-24,view=$("view").value;
+ const Hd=H(),bottom=W.height-18,view=$("view").value,K=(bottom-70)/HMAX,beach=$("beach").checked;
  const sky=wg.createLinearGradient(0,0,0,bottom);sky.addColorStop(0,"#0b1626");sky.addColorStop(1,"#13253b");
  wg.fillStyle=sky;wg.fillRect(0,0,W.width,W.height);
- wg.fillStyle="#5c4a32";wg.fillRect(0,bottom,W.width,24);
- const surf=x=>bottom-Hd-hAt(x/DX-0.5);
+ const bedY=x=>bottom-at(bed,x/DX-0.5,N)*K,surf=x=>{const c=x/DX-0.5;return bottom-(at(D,c,N)>0?Hd+at(h,c,N):at(bed,c,N))*K};
+ const xs=Math.min(W.width,shore*DX);
  if(view==="liquid"){
-  const grd=wg.createLinearGradient(0,bottom-Hd-30,0,bottom);grd.addColorStop(0,"#3a8fd0");grd.addColorStop(1,"#0f3a63");
-  wg.fillStyle=grd;wg.beginPath();wg.moveTo(0,bottom);for(let x=0;x<=W.width;x+=3)wg.lineTo(x,surf(x));wg.lineTo(W.width,bottom);wg.fill();
-  wg.strokeStyle="#bfe6ff";wg.lineWidth=2;wg.beginPath();for(let x=0;x<=W.width;x+=3)x?wg.lineTo(x,surf(x)):wg.moveTo(x,surf(x));wg.stroke();
-  for(let x=0;x<W.width;x+=6){const s=surf(x+3)-surf(x);if(s< -1.2){wg.fillStyle="rgba(255,255,255,.55)";wg.fillRect(x,surf(x)-1,5,2)}}
+  const grd=wg.createLinearGradient(0,bottom-Hd*K-30,0,bottom);grd.addColorStop(0,"#3a8fd0");grd.addColorStop(1,"#0f3a63");
+  wg.fillStyle=grd;wg.beginPath();wg.moveTo(0,bottom);for(let x=0;x<=xs;x+=3)wg.lineTo(x,Math.min(surf(x),bedY(x)));
+  for(let x=xs;x>=0;x-=3)wg.lineTo(x,bedY(x));wg.closePath();wg.fill();
+  wg.strokeStyle="#bfe6ff";wg.lineWidth=2;wg.beginPath();for(let x=0;x<=xs;x+=3)x?wg.lineTo(x,surf(x)):wg.moveTo(x,surf(x));wg.stroke();
  }else{
-  for(const p of parts){const x=p.x*DX,y=bottom-p.f*(Hd+hAt(p.x-0.5));
-   const i=Math.max(0,Math.min(N,Math.round(p.x))),sp=Math.min(1,Math.abs(u[i])*12);
+  for(const p of parts){const xw=p.x0+at(xi,p.x0,N+1),c=xw-0.5,dep=at(D,c,N);if(dep<=0)continue;
+   const x=xw*DX,y=bedY(x)-p.f*(dep+at(h,c,N))*K;
+   const sp=Math.min(1,Math.abs(at(u,xw,N+1))*10);
    wg.fillStyle=`rgb(${80+175*sp|0},${170+85*sp|0},255)`;wg.fillRect(x-1.5,y-1.5,3,3)}
-  wg.strokeStyle="rgba(191,230,255,.35)";wg.lineWidth=1;wg.beginPath();for(let x=0;x<=W.width;x+=3)x?wg.lineTo(x,surf(x)):wg.moveTo(x,surf(x));wg.stroke();
+  wg.strokeStyle="rgba(191,230,255,.45)";wg.lineWidth=1;wg.beginPath();for(let x=0;x<=xs;x+=3)x?wg.lineTo(x,surf(x)):wg.moveTo(x,surf(x));wg.stroke();
  }
- if($("maker").checked){const px=u[0]/Math.sqrt(G*Hd)*60;wg.fillStyle="#8d99ae";wg.fillRect(4+px,bottom-Hd-30,8,Hd+30)}
- if($("beach").checked){wg.fillStyle="rgba(255,209,102,.12)";wg.fillRect(W.width-30*DX,bottom-Hd-40,30*DX,Hd+40)}
+ for(let i=0;i<shore;i++)if(breaking[i]){const x=(i+0.5)*DX,y=surf(x);wg.fillStyle="rgba(255,255,255,.8)";
+  for(let k=0;k<3;k++)wg.fillRect(x-3+Math.random()*6,y-3+Math.random()*4,2.5,2.5)}
+ // fond : plat (vase) puis plage de sable
+ wg.fillStyle="#5c4a32";wg.beginPath();wg.moveTo(0,W.height);for(let x=0;x<=W.width;x+=3)wg.lineTo(x,bedY(x));wg.lineTo(W.width,W.height);wg.fill();
+ if(beach){wg.fillStyle="#c8a96a";wg.beginPath();wg.moveTo(S0*DX,bottom);for(let x=S0*DX;x<=W.width;x+=3)wg.lineTo(x,bedY(x));
+  wg.lineTo(W.width,bottom);wg.fill()}
+ if($("maker").checked){const px=u[0]/Math.sqrt(G*Hd)*60;wg.fillStyle="#8d99ae";wg.fillRect(4+px,bottom-Hd*K-30,8,Hd*K+30)}
  const c=Math.sqrt(9.81*Hd/100);
- $("info").innerHTML=`Profondeur <b>${(Hd/100).toFixed(2)} m</b> → les vagues avancent à <b>c = √(g·H) ≈ ${c.toFixed(1)} m/s</b> : moins vite quand l'eau est peu profonde. L'eau, elle, ne voyage pas avec la vague : regarde en vue <b>particules</b>, chacune va et vient sur place pendant que la vague passe. Clique ou glisse sur l'eau pour la déranger.`;
+ let txt=`Profondeur <b>${(Hd/100).toFixed(2)} m</b> → les vagues avancent à <b>c = √(g·H) ≈ ${c.toFixed(1)} m/s</b> : moins vite quand l'eau est peu profonde. L'eau, elle, ne voyage pas avec la vague : regarde en vue <b>particules</b>, chacune va et vient sur place pendant que la vague passe.`;
+ if(beach){let off=0,near=0,nearAt=S0;for(let i=10;i<S0-10;i++)off=Math.max(off,env[i]);
+  for(let i=S0;i<shore;i++)if(env[i]>near){near=env[i];nearAt=i}
+  const dn=D[Math.min(N-1,nearAt)];
+  txt+=` Sur la <b>plage</b>, le fond remonte : la vague ralentit, se raccourcit et <b>grandit</b> (loi de Green : hauteur ∝ profondeur<sup>−1/4</sup>), jusqu'à <b>déferler</b> quand elle atteint environ 0,6 × la profondeur.`;
+  if(off>0.3&&near>0.3)txt+=` Mesuré : <b>${(off/100*2).toFixed(2)} m</b> crête à creux au large, <b>${(near/100*2).toFixed(2)} m</b> près du bord (fond à ${(dn/100).toFixed(2)} m), soit ×${(near/off).toFixed(1)}.`}
+ else txt+=" Sans plage, le mur de droite renvoie les vagues : elles se croisent en ondes stationnaires.";
+ $("info").innerHTML=txt+" Clique ou glisse sur l'eau pour la déranger.";
 }
 
 /* =================== Baignoire (pixel art) =================== */

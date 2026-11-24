@@ -141,6 +141,39 @@ def png_of(latex: str) -> bytes | None:
     return data if 0 < width <= MAX_PIXELS else None
 
 
+def drawings_png(drawings: list[dict[str, Any]], title: str = "") -> bytes | None:
+    """Dessins d'un programme du bac à sable (`plot`, `scatter`, `fplot`, `text`) en graphique PNG (fond blanc).
+    Les dessins ne sont que des nombres : le rendu se fait hors du bac à sable, sans exécuter de code."""
+    if not drawings:
+        return None
+    try:
+        fig = _mpl()["Figure"](figsize=(7.2, 4.4))
+    except ImportError:
+        return None
+    ax = fig.add_subplot(1, 1, 1)
+    for item in drawings[:500]:
+        color = item.get("color") or None
+        try:
+            if item.get("type") == "text":
+                ax.annotate(str(item.get("text", ""))[:200], (float(item["x"]), float(item["y"])))
+                continue
+            xs = [p[0] if p else float("nan") for p in item.get("points", [])]
+            ys = [p[1] if p else float("nan") for p in item.get("points", [])]
+            if item.get("type") == "points":
+                ax.scatter(xs, ys, s=14, color=color)
+            else:
+                ax.plot(xs, ys, color=color, linewidth=1.6)
+        except (KeyError, TypeError, ValueError):
+            continue
+    ax.grid(True, alpha=0.3)
+    if title:
+        ax.set_title(str(title)[:120])
+    fig.tight_layout()
+    buffer = io.BytesIO()
+    fig.savefig(buffer, dpi=110, format="png", facecolor="white")
+    return buffer.getvalue()
+
+
 def png_base64(latex: str) -> str | None:
     data = png_of(latex)
     return base64.b64encode(data).decode("ascii") if data else None

@@ -34,6 +34,7 @@ MAX_CODE = 20_000
 MAX_OUTPUT = 100_000
 MAX_POINTS = 50_000
 MAX_DRAWINGS = 500
+MAX_DATA = 2_000_000  # données fournies au programme (texte CSV…) : `DONNEES`, `lire_csv()`
 
 FORBIDDEN_ATTRS = frozenset({
     "gi_frame", "gi_code", "gi_yieldfrom", "gi_running", "cr_frame", "cr_code", "cr_await", "ag_frame", "ag_code",
@@ -128,8 +129,9 @@ MODULES: dict[str, SimpleNamespace] = {
 class Program:
     """Une exécution : sortie, dessins, réponses aux `input()`."""
 
-    def __init__(self, inputs: list[str], cas_session: Any = None) -> None:
+    def __init__(self, inputs: list[str], cas_session: Any = None, data: str = "") -> None:
         self.inputs = list(inputs)
+        self.data = data
         self.used = 0
         self.output: list[str] = []
         self.size = 0
@@ -207,6 +209,29 @@ class Program:
     def text(self, x: float, y: float, s: Any) -> None:
         self._add({"type": "text", "x": float(x), "y": float(y), "text": str(s)[:200]}, 1)
 
+    # -- données fournies par l'appelant (un agent qui analyse un fichier CSV, par exemple)
+    def lire_csv(self, texte: Any = None, sep: Any = None) -> list[list[Any]]:
+        """Découpe un texte CSV (par défaut `DONNEES`) en lignes ; les nombres (virgule française comprise)
+        sont convertis. Séparateur deviné (`;`, `,`, tabulation) si `sep` est absent."""
+        text = self.data if texte is None else str(texte)
+        lines = [line for line in text.replace("\r\n", "\n").split("\n") if line.strip()]
+        if sep is None:
+            head = lines[0] if lines else ""
+            sep = max((";", ",", "\t"), key=head.count) if any(c in head for c in ";,\t") else ","
+        rows = []
+        for line in lines:
+            row: list[Any] = []
+            for cell in line.split(str(sep)):
+                cell = cell.strip().strip('"')
+                try:
+                    number = float(cell.replace(",", ".")) if sep != "," else float(cell)
+                    row.append(int(number) if number.is_integer() and "." not in cell and "," not in cell
+                               else number)
+                except ValueError:
+                    row.append(cell)
+            rows.append(row)
+        return rows
+
     # -- pont vers le moteur de calcul formel
     def cas(self, expression: Any) -> str:
         from modules.calc_cas.engine import evaluate
@@ -242,14 +267,19 @@ def _globals(program: Program, modules: dict[str, Any] | None = None) -> dict[st
     safe.update(print=program.print, input=program.input, __import__=guarded_import)
     return {"__builtins__": safe, "__name__": "programme", "plot": program.plot, "scatter": program.scatter,
             "fplot": program.fplot, "text": program.text, "cas": program.cas, "cas_value": program.cas_value,
-            "pi": math.pi, "e": math.e, "sqrt": math.sqrt}
+            "pi": math.pi, "e": math.e, "sqrt": math.sqrt, "DONNEES": program.data,
+            "lire_csv": program.lire_csv}
 
 
 def run_program(code: str, inputs: list[str] | None = None, seed: int | None = None,
-                cas_session: Any = None) -> dict[str, Any]:
-    """Exécute un programme. Ne lève jamais : retourne la sortie, les dessins et l'éventuelle erreur."""
+                cas_session: Any = None, data: str | None = None) -> dict[str, Any]:
+    """Exécute un programme. Ne lève jamais : retourne la sortie, les dessins et l'éventuelle erreur.
+    `data` : texte mis à disposition du programme (`DONNEES`, `lire_csv()`), jamais un chemin de fichier."""
     started = time.monotonic()
-    program = Program([str(v) for v in (inputs or [])][:200], cas_session)
+    if data is not None and len(str(data)) > MAX_DATA:
+        return {"ok": False, "error": f"Données trop longues ({len(str(data))} caractères, {MAX_DATA} au plus)",
+                "output": "", "drawings": [], "inputs_used": 0, "elapsed_ms": 0}
+    program = Program([str(v) for v in (inputs or [])][:200], cas_session, str(data or ""))
     result: dict[str, Any] = {"ok": True}
     try:
         tree = check_program(code)

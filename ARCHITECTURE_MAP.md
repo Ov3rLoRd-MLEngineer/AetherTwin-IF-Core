@@ -1016,7 +1016,7 @@ calc_cas : calculatrice à calcul formel (SymPy), graphes, statistiques, outil d
 
 Le CAS comme outil des agents locaux : un modèle délègue un calcul exact au lieu de l'inventer.
 
-- `def call_tool(runner: Any, name: str, arguments: dict[str, Any] | None) -> dict[str, Any]` — Exécute un outil. Ne lève jamais : toute erreur devient `{"ok": False, "error": …}`.
+- `def call_tool(runner: Any, name: str, arguments: dict[str, Any] | None, sandbox: Any=None, out_dir: Path | None=None) -> dict[str, Any]` — Exécute un outil. Ne lève jamais : toute erreur devient `{"ok": False, "error": …}`.
 - `def ask(question: str, llm: Callable[[list[dict[str, str]]], str], runner: Any, max_rounds: int=MAX_ROUNDS) -> dict[str, Any]` — Pose une question au modèle local ; chaque ligne `CAS:` est calculée par le moteur et rendue au modèle.
 
 ### `modules/calc_cas/app.py`
@@ -1148,8 +1148,8 @@ Graphes : échantillonnage des courbes (y = f(x), paramétriques, polaires) et a
 Serveur MCP (stdio, JSON-RPC ligne par ligne) : les outils du CAS pour Hermes Agent ou tout client MCP local.
 
 - `def tool_list() -> list[dict[str, Any]]`
-- `def handle(runner: Any, message: Any) -> dict[str, Any] | None`
-- `def serve(stdin: TextIO, stdout: TextIO, runner: Any) -> None`
+- `def handle(runner: Any, message: Any, sandbox: Any=None) -> dict[str, Any] | None`
+- `def serve(stdin: TextIO, stdout: TextIO, runner: Any, sandbox: Any=None) -> None`
 - `def main() -> None`
 
 ### `modules/calc_cas/module.py`
@@ -1176,6 +1176,7 @@ Rendu des résultats en image : LaTeX de SymPy dessiné par matplotlib (mathtext
 
 - `def mathtext_of(latex: str) -> str` — Adapte le LaTeX de SymPy au sous-ensemble mathtext de matplotlib.
 - `def png_of(latex: str) -> bytes | None` — PNG transparent de la formule, ou `None` si mathtext ne sait pas la dessiner.
+- `def drawings_png(drawings: list[dict[str, Any]], title: str='') -> bytes | None` — Dessins d'un programme du bac à sable (`plot`, `scatter`, `fplot`, `text`) en graphique PNG (fond blanc).
 - `def png_base64(latex: str) -> str | None`
 
 ### `modules/calc_cas/sandbox.py`
@@ -1194,9 +1195,10 @@ Mode programmation : programmes Python exécutés dans un bac à sable.
   - `def scatter(self, xs: Any, ys: Any, color: Any=None) -> None`
   - `def fplot(self, f: Any, xmin: float=-10, xmax: float=10, n: int=400, color: Any=None) -> None` — fplot(f, a, b) : trace une fonction Python de x.
   - `def text(self, x: float, y: float, s: Any) -> None`
+  - `def lire_csv(self, texte: Any=None, sep: Any=None) -> list[list[Any]]` — Découpe un texte CSV (par défaut `DONNEES`) en lignes ; les nombres (virgule française comprise)
   - `def cas(self, expression: Any) -> str`
   - `def cas_value(self, expression: Any) -> Any` — Valeur numérique Python (int, float ou complex) d'une expression du CAS.
-- `def run_program(code: str, inputs: list[str] | None=None, seed: int | None=None, cas_session: Any=None) -> dict[str, Any]` — Exécute un programme. Ne lève jamais : retourne la sortie, les dessins et l'éventuelle erreur.
+- `def run_program(code: str, inputs: list[str] | None=None, seed: int | None=None, cas_session: Any=None, data: str | None=None) -> dict[str, Any]` — Exécute un programme. Ne lève jamais : retourne la sortie, les dessins et l'éventuelle erreur.
 
 ### `modules/calc_cas/stats.py`
 

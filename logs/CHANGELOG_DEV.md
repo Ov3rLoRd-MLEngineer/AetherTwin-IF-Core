@@ -1655,3 +1655,16 @@ Il a autorisé les téléchargements nécessaires.
 - **Tests :** voir la suite complète ci-dessous ; essais réels sur le Hub de test 5760.
 - **En cours :** branchement Hermes d'ArtCraft essayé sur une vraie configuration ; acides polyprotiques ;
   feuilles multiples et questions à un modèle local dans l'explorateur.
+
+## 2026-11-24 — bac à sable Python pour les agents, vagues sur une plage, plein écran du téléviseur
+
+- **Agent :** Cloud
+- **Demande de Jérémy :** les agents locaux doivent avoir accès au bac à sable de code ; particules des vagues figées
+  et mal réparties, une vraie plage en pente qui amplifie la vague ; F11 éteint le téléviseur de l'atelier.
+- **Fichiers :** `modules/calc_cas/agent.py`, `mcp_server.py`, `module.py`, `sandbox.py`, `worker.py`, `render.py`
+  (`python_run`, `lire_csv()`, `DONNEES`, `drawings_png`) ; `modules/genesis_lab/sims/fluides.html` ;
+  `core/web/circuit_app.js`, `core/web/crt_tv.js` (`AetherCircuit.pump`) ; `tests/calc_cas/test_agent.py`.
+- **Cause trouvée :** les particules suivaient l'écoulement et dérivaient (dérive de Stokes) jusqu'au bord droit où
+  elles restaient bloquées : elles oscillent maintenant autour de leur position de repos. Le téléviseur en plein
+  écran recouvre l'atelier, que le navigateur met en veille : plus d'images, l'écran s'éteignait.
+- **En cours :** plein écran F11 à confirmer sur le PC de Jérémy.

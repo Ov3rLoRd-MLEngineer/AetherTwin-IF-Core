@@ -88,7 +88,8 @@ def _dispatch(sessions: dict[str, Any], op: str, args: dict[str, Any]) -> Any:
     if op == "program":
         from modules.calc_cas.sandbox import run_program
 
-        return run_program(str(args.get("code", "")), list(args.get("inputs") or []), args.get("seed"), session)
+        return run_program(str(args.get("code", "")), list(args.get("inputs") or []), args.get("seed"), session,
+                           args.get("data"))
     if op == "settings":
         for key, value in args.items():
             if key not in engine.SETTINGS or value not in engine.SETTINGS[key]:
