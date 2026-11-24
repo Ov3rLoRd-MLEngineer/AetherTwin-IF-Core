@@ -1447,3 +1447,6 @@ RPG 16 bits avec Fuma et Inoue).
   (carte et sprite animé visibles), fenêtre de bureau. Trouvé à l'essai et corrigé : vue ajustée avant la mise en
   page (zoom 25 %), cases sautées par un glissé rapide sur la carte, ombrage qui changeait de teinte, dossier des
   sprites ignoré par les jeux quand `data_dir` est configuré, nom « Cœur » vidé (ligature œ).
+- Fusion dans `main` en avance rapide (`ad61b2e`), suite complète : 959 réussis, 5 ignorés ; ruff propre.
+- **Hermes réel** : serveur `aethertwin_pixel` déclaré (sauvegarde `.bak` horodatée du `config.yaml`),
+  `hermes mcp test` → 6 outils ; « crée un sprite essai_hermes en croix » → sprite 5×5 exact (66 s), puis supprimé.

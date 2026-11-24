@@ -1,4 +1,4 @@
-# Rapport — calculatrice `calc_cas` (session « calculatrice », 23–24/11/2026)
+# Rapport — calculatrice `calc_cas` et studio pixel `pixel_studio` (session « calculatrice », 23–24/11/2026)
 
 Pour la session Claude Code qui travaille sur `main` dans `D:\AetherTwin\AetherTwin-IF-Core`. Tout est
 **fusionné dans `main`** (avance rapide, rien poussé) : commits `6c8196b` (travail) et `781a9b5` (fusion de ton
@@ -74,6 +74,26 @@ supprimés.
   dépôt avec l'accord de Jérémy ; `emulator_launch {emulator: mgba, rom: homebrew/ucity.gbc}` → fenêtre
   « mGBA - MICROCITY (60 fps) », puis fermée. Rien de téléchargé n'est dans le dépôt. Plus rien n'est en cours
   sur `calc_cas`.
+
+## Studio pixel art `pixel_studio` (24/11, commit `ad61b2e`, fusionné dans `main`)
+
+Proposé à Jérémy avec d'autres outils ; il a retenu le studio pixel (jeu façon RPG 16 bits). Branche
+`feature/pixel-studio` et worktree `D:\AetherTwin\AetherTwin-pixel` supprimés après la fusion.
+
+1. **Nouveau module** `modules/pixel_studio/` (README détaillé) : projets `.aether-pixel` dans
+   `data/pixel_studio/projects`, exports dans `data/pixel_studio/exports`, sprites pour les jeux dans
+   `data/pixel_studio/sprites` ; configuration facultative `pixel_studio.data_dir`. Fenêtre de bureau « Studio
+   pixel Æther » (bouton « Lancer » / « Ouvrir le studio »).
+2. **Tableau de bord, onglet Outils** : deux sous-onglets désormais, « Calculatrice » et « Studio pixel »
+   (`core/web/pixel_tool.js` et `.css`, chargés dans `dashboard.html`). **Test modifié** :
+   `tests/core/test_dashboard.py` exige au moins **2** sous-onglets pour `outils`.
+3. **Fichiers partagés touchés** : `modules/calc_cas/app.py` (`browser_args` prend une taille de fenêtre, défaut
+   inchangé), `modules/calc_cas/games.py` (`jeu.sprite`, `jeu.carte`, `jeu.bloque` ; argument facultatif « dossier
+   des sprites »), `modules/calc_cas/module.py` (`pixel_sprites_dir()` passé au processus du jeu),
+   `requirements.txt` et `THIRD_PARTY.md` (commentaire de Pillow seulement, aucune dépendance nouvelle).
+4. **Hermes** : serveur MCP **`aethertwin_pixel`** déclaré (sauvegarde `.bak` horodatée), 6 outils ; essai réel :
+   Hermes a créé un sprite 5×5 correct en 66 s.
+5. Tests : `tests/pixel_studio/` (15) ; suite complète **959 réussis, 5 ignorés** ; ruff propre.
 
 ## Rappels
 
