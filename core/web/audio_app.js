@@ -1406,9 +1406,7 @@
     }
     store("aether-vc-voice", vid);
     const [voice, prompt] = await Promise.all([voiceCommand("vc_voice", { voice: vid }), voiceCommand("vc_prompt", { voice: vid })]);
-    vc.prompt = prompt;
-    $("vc-prompt").textContent = prompt.consent ? `Phrase de consentement, à dire toi-même : « ${prompt.text} »` : prompt.text;
-    $("vc-prompt").classList.toggle("consent", prompt.consent);
+    showPrompt(prompt);
     const read = voice.takes.filter((t) => t.prompt >= 0).reduce((sum, t) => sum + t.seconds, 0);
     $("vc-rec-state").textContent = !voice.consented ? "" : read < vc.readySeconds
       ? `${Math.round(read)} s lues sur ${vc.readySeconds} s minimum (3 à 5 min conseillées).`
@@ -1417,6 +1415,20 @@
       el("span", {}, `${i === 0 ? "Consentement" : `Prise ${i}`} — ${t.seconds} s, texte reconnu à ${Math.round(t.match * 100)} %`),
       i === 0 ? "" : el("button", { type: "button", class: "ghost", "data-take": t.file.slice(0, 3) }, "Supprimer"))));
   }
+  function showPrompt(prompt) {
+    vc.prompt = prompt;
+    $("vc-prompt").textContent = prompt.consent ? `Phrase de consentement, à dire toi-même : « ${prompt.text} »` : prompt.text;
+    $("vc-prompt").classList.toggle("consent", prompt.consent);
+    $("vc-skip").hidden = prompt.consent;
+    $("vc-prompt-label").textContent = prompt.consent ? "" : [prompt.label, prompt.total ? `${prompt.left} texte(s) pas encore lu(s) sur ${prompt.total}` : ""]
+      .filter(Boolean).join(" · ");
+  }
+  $("vc-skip").addEventListener("click", async () => {
+    const vid = $("vc-voice").value;
+    if (!vid || !vc.prompt || vc.prompt.consent) return;
+    try { showPrompt(await voiceCommand("vc_prompt", { voice: vid, after: vc.prompt.index })); }
+    catch (error) { status(error.message, true); }
+  });
   $("vc-voice").addEventListener("change", () => showVoice().catch((error) => status(error.message, true)));
   $("vc-install").addEventListener("click", async () => {
     const button = $("vc-install");

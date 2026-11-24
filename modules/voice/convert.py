@@ -45,7 +45,7 @@ WEIGHTS = {  # nom → (taille en octets, SHA-256)
 }
 VOICE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,39}$")
 MAX_VOICES = 16
-MAX_TAKES = 40
+MAX_TAKES = 100    # consentement + 99 lectures (≈ 5 à 8 min)
 TAKE_SECONDS = (2.0, 60.0)
 MATCH_MIN = 0.6     # ressemblance minimale entre le texte affiché et ce que Whisper a entendu
 
@@ -55,7 +55,7 @@ PROMPTS = [
     "Ce matin, j'ai pris un café bien chaud avant de partir travailler à vélo.",
     "Les montagnes enneigées brillent sous le soleil d'hiver, et le vent souffle fort.",
     "Pourriez-vous m'indiquer le chemin le plus court pour rejoindre la gare centrale ?",
-    "Des jongleurs joyeux jouaient du xylophone au milieu du jardin fleuri.",
+    "Nous avons marché longtemps au bord de la plage en ramassant des coquillages.",
     "Il faut parfois s'arrêter, respirer profondément, puis reprendre la route avec le sourire.",
     "Le vaisseau quitta l'orbite lunaire et fila vers les étoiles lointaines de la galaxie.",
     "Mon grand-père racontait des histoires de pirates, de trésors et d'îles mystérieuses.",
@@ -71,7 +71,94 @@ PROMPTS = [
     "Le chevalier rangea son épée, salua la reine puis disparut dans la brume du matin.",
     "Chaque soir, elle notait dans un carnet les petites joies et les grandes idées de la journée.",
     "Un éclair zébra le ciel, suivi d'un grondement sourd qui fit trembler les vitres.",
+    # phrases courtes et variées : questions, exclamations, sons du français (on, an, in, u, ou, ch, j, gn, ill)
+    "Tu viens avec nous au marché demain matin ?",
+    "Oh non, j'ai encore oublié mes clés dans la voiture !",
+    "Il fait beau aujourd'hui, allons pique-niquer dans le parc.",
+    "Peux-tu baisser un peu la musique, s'il te plaît ?",
+    "Le train part dans cinq minutes, dépêche-toi !",
+    "J'aime beaucoup l'odeur de la terre mouillée après l'orage.",
+    "La bibliothèque ferme tôt le dimanche, pense à rendre tes livres.",
+    "Une araignée tisse patiemment sa toile entre deux branches de vigne.",
+    "Je ne comprends pas pourquoi l'imprimante refuse encore de fonctionner.",
+    "Les enfants chantaient une chanson douce en rentrant de l'école.",
+    "As-tu déjà vu une aurore boréale danser au-dessus de la neige ?",
+    "Mon voisin jardine tous les samedis, même quand il pleut.",
+    "C'est incroyable, nous avons enfin gagné la partie !",
+    "Le chat ronronne sur le canapé, roulé en boule près du radiateur.",
+    "Pense à arroser les plantes pendant que je suis en vacances.",
+    "La soupe à l'oignon de ma grand-mère était la meilleure du village.",
+    "Un brouillard épais couvrait la vallée jusqu'à midi.",
+    "Est-ce que quelqu'un a vu mon écharpe bleue ?",
+    "Le magicien sortit un lapin blanc de son chapeau noir.",
+    "Nous partirons à l'aube pour éviter la chaleur de l'après-midi.",
+    "Ferme la porte doucement, le bébé vient de s'endormir.",
+    "Les vagues se brisent sur les rochers dans un fracas d'écume.",
+    "Je préfère le thé au café, surtout avec un nuage de lait.",
+    "Le musée présente une exposition sur les volcans et les tremblements de terre.",
+    "Quelle drôle d'idée de repeindre la cuisine en jaune citron !",
+    "Il a couru sous la pluie pour attraper le dernier bus.",
+    "Les feuilles d'automne craquent sous nos pas dans l'allée du jardin.",
+    "Voulez-vous du sucre ou du miel dans votre tisane ?",
+    "La fusée décolle dans un nuage de fumée et de flammes orange.",
+    "Prends ton temps, nous ne sommes pas pressés.",
+    "Le hibou hulule doucement dans le grand chêne au fond du pré.",
+    "On entend au loin les cloches de l'église sonner midi.",
+    "Ce livre raconte l'histoire d'un enfant qui parlait aux arbres.",
+    "Il faudra réparer la gouttière avant les grandes pluies.",
+    "Bravo, ton dessin est magnifique, tu devrais l'accrocher au mur.",
+    "Le pêcheur attend sur la jetée, immobile, que le poisson morde.",
+    "Je me souviens très bien du jour où nous avons déménagé.",
+    "Les abeilles butinent les fleurs de lavande tout l'été.",
+    "Tu as raison, mieux vaut prévenir que guérir.",
+    "La nuit tombe, et les lampadaires s'allument un à un dans la rue.",
+    # textes longs, lus en plusieurs parties (une prise par partie) : voir LONG_TEXTS
+    "Au bout de la presqu'île se dresse un vieux phare blanc et rouge. Depuis plus d'un siècle, il guide les "
+    "bateaux qui rentrent au port par les nuits de tempête.",
+    "Le gardien vivait seul là-haut avec son chien. Chaque soir, il montait les marches de l'escalier en "
+    "colimaçon pour allumer la grande lampe.",
+    "Un hiver, la tempête dura trois jours entiers. Les vagues frappaient la tour si fort que les vitres "
+    "tremblaient, mais la lumière ne s'éteignit jamais.",
+    "Aujourd'hui, le phare fonctionne tout seul. Pourtant, les marins du village continuent de saluer la petite "
+    "fenêtre où brillait autrefois la lampe du gardien.",
+    "Pour faire une bonne pâte à crêpes, il faut de la farine, des œufs, du lait et une pincée de sel. On mélange "
+    "d'abord la farine et les œufs, puis on ajoute le lait petit à petit.",
+    "Il faut fouetter doucement pour éviter les grumeaux. Ensuite, on laisse reposer la pâte au frais pendant une "
+    "heure, le temps qu'elle devienne bien lisse.",
+    "Dans une poêle chaude et légèrement beurrée, on verse une petite louche de pâte. On incline la poêle pour "
+    "l'étaler, puis on retourne la crêpe quand le bord devient doré.",
+    "On peut la garnir de sucre, de confiture ou de chocolat fondu. Et si l'on est très adroit, on peut même la "
+    "faire sauter en l'air pour la retourner.",
+    "La Terre tourne autour du Soleil en un peu plus d'une année. En même temps, elle tourne sur elle-même, ce "
+    "qui donne le jour et la nuit.",
+    "Son axe est penché par rapport à son orbite. C'est pour cette raison que nous avons des saisons : l'été, "
+    "notre hémisphère reçoit les rayons du Soleil plus directement.",
+    "La Lune, elle, tourne autour de la Terre en un mois environ. Elle ne brille pas par elle-même : elle renvoie "
+    "simplement la lumière du Soleil, d'où ses phases.",
+    "Bonjour, et merci de m'écouter. Aujourd'hui, je voudrais vous présenter un projet qui me tient à cœur depuis "
+    "longtemps.",
+    "L'idée est simple : réunir sur un seul ordinateur des outils pour apprendre, créer et jouer, sans dépendre "
+    "d'internet ni d'un abonnement.",
+    "Tout fonctionne en local, sur la machine. Les modèles d'intelligence artificielle tournent sur les cartes "
+    "graphiques, et vos données restent chez vous.",
+    "Je vais maintenant vous montrer quelques exemples. N'hésitez pas à poser des questions à la fin, je serai "
+    "ravi d'y répondre.",
 ]
+LONG_TEXTS = [("Le vieux phare", 4), ("La pâte à crêpes", 4), ("La Terre et la Lune", 3), ("La présentation", 4)]
+
+
+def prompt_label(index: int) -> str:
+    """« Texte long « … », partie 2 sur 4 » pour les morceaux des textes longs, sinon vide."""
+    start = len(PROMPTS) - sum(n for _title, n in LONG_TEXTS)
+    if index < start:
+        return ""
+    for title, n in LONG_TEXTS:
+        if index < start + n:
+            return f"Texte long « {title} », partie {index - start + 1} sur {n}"
+        start += n
+    return ""
+
+
 READY_SECONDS = 30.0  # lecture minimale (hors consentement) pour un timbre reconnaissable ; 3 à 5 min conseillées
 
 
@@ -217,13 +304,18 @@ class VoiceBank:
             self._write(voice)
         return voice
 
-    def next_prompt(self, vid: str) -> dict[str, Any]:
+    def next_prompt(self, vid: str, after: int | None = None) -> dict[str, Any]:
+        """Prochain texte pas encore lu ; `after` (« Autre texte ») cherche à partir du texte suivant celui-là."""
         voice = self._read(vid)
         if not voice["consented"]:
-            return {"index": -1, "text": voice["consent_text"], "consent": True}
+            return {"index": -1, "text": voice["consent_text"], "consent": True, "label": ""}
         done = {t["prompt"] for t in voice["takes"]}
-        index = next((i for i in range(len(PROMPTS)) if i not in done), len(voice["takes"]) % len(PROMPTS))
-        return {"index": index, "text": PROMPTS[index], "consent": False}
+        first = 0 if after is None else (int(after) + 1) % len(PROMPTS)
+        order = [(first + i) % len(PROMPTS) for i in range(len(PROMPTS))]
+        fallback = first if after is not None else len(voice["takes"]) % len(PROMPTS)
+        index = next((i for i in order if i not in done), fallback)
+        return {"index": index, "text": PROMPTS[index], "consent": False, "label": prompt_label(index),
+                "left": sum(1 for i in range(len(PROMPTS)) if i not in done), "total": len(PROMPTS)}
 
     def add_take(self, vid: str, audio: bytes, prompt: int, transcribe: Callable[[bytes], str]) -> dict[str, Any]:
         """Ajoute une prise lue en direct ; refusée si Whisper n'entend pas le texte affiché."""

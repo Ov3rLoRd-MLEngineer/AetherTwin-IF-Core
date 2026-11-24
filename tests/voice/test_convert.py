@@ -78,6 +78,10 @@ def test_bank_requires_spoken_consent_then_read_prompts(tmp_path: Path, monkeypa
         bank.add_take("ma_voix", speech(0.5), prompt, hears(convert.PROMPTS[prompt]))
     second = bank.add_take("ma_voix", speech(), prompt, hears(convert.PROMPTS[prompt]))
     assert second["next"]["index"] != prompt
+    skipped = bank.next_prompt("ma_voix", after=second["next"]["index"])  # « Autre texte »
+    assert skipped["index"] not in (prompt, second["next"]["index"]) and skipped["left"] == len(convert.PROMPTS) - 1
+    assert convert.MAX_TAKES >= 100 and len(convert.PROMPTS) >= 70
+    assert convert.prompt_label(len(convert.PROMPTS) - 1).endswith("partie 4 sur 4") and convert.prompt_label(0) == ""
     listed = bank.all()
     assert listed[0]["ready"] and listed[0]["takes"] == 2
     assert len(bank.takes("ma_voix")) == 2

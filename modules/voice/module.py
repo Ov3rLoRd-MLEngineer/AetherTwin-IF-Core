@@ -20,7 +20,7 @@ Conversion de voix (kNN-VC, `convert.py`) — seulement des voix enregistrées d
     vc_status   {}                                         poids, voix de la banque, mémoire
     vc_install  {}                                         poids depuis les publications de kNN-VC (1,3 Go)
     vc_create   {"id", "label", "name", "attest": true}    nouvelle voix (attend sa phrase de consentement)
-    vc_prompt   {"voice"}                                  prochain texte à lire (d'abord le consentement)
+    vc_prompt   {"voice", "after"?}                        prochain texte à lire (d'abord le consentement)
     vc_voice    {"voice"}                                  détail d'une voix (prises)
     vc_take     {"voice", "prompt", "file"|"audio"}        prise lue en direct, vérifiée par Whisper
     vc_take_delete {"voice", "take"}  ·  vc_delete {"voice"}  ·  vc_unload {}
@@ -137,7 +137,8 @@ class VoiceModule(ModuleBase):
             return bank.create(str(payload.get("id", "")), str(payload.get("label", "")), str(payload.get("name", "")),
                                payload.get("attest") is True)
         if command == "vc_prompt":
-            return bank.next_prompt(vid)
+            after = payload.get("after")
+            return bank.next_prompt(vid, None if after is None else int(after))
         if command == "vc_voice":
             return bank.get(vid)
         if command == "vc_take":

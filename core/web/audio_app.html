@@ -202,9 +202,11 @@
           <p class="muted small">D'abord la phrase de consentement, puis des textes à lire à voix normale. Whisper
             vérifie que le texte lu est bien celui affiché. Une minute suffit pour commencer ; trois à cinq minutes
             donnent un timbre plus fidèle. Micro : celui du modulateur (NVIDIA Broadcast s'il est là).</p>
+          <p class="muted small" id="vc-prompt-label"></p>
           <blockquote id="vc-prompt" class="prompt">Crée une voix pour commencer.</blockquote>
           <div class="row">
             <button type="button" id="vc-rec" class="primary">⏺ Lire et enregistrer</button>
+            <button type="button" id="vc-skip" class="ghost" title="Ce texte passe mal : en proposer un autre">Autre texte ↻</button>
             <span class="muted" id="vc-rec-state"></span>
           </div>
           <ul id="vc-takes" class="takes"></ul>
