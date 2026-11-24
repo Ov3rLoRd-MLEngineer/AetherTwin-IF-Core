@@ -368,6 +368,7 @@ modules/
     manifest.json
     module.py
     programmes.yaml
+    sim_tools.js
     sims/
       circuit.html
       coeur.html
@@ -1491,6 +1492,7 @@ Module du Hub : le Professeur (programmes de l'Éducation nationale, CP à termi
 
 Simulations du Professeur : pages HTML autonomes (canvas ou SVG, JavaScript en ligne, sans réseau).
 
+- `def with_hub_tools(page: bytes) -> bytes` — La page servie avec le bouton Pause et l'envoi de sa hauteur, placés avant tout autre script.
 - **`class SimError(ValueError)`** — Simulation inconnue, refusée ou indisponible.
 - `def slug(text: str, limit: int=40) -> str`
 - `def validate_html(html: str) -> str` — Renvoie la page si elle est acceptable, lève `SimError` sinon (avec la raison).

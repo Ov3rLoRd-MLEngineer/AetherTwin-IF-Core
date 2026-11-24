@@ -5,6 +5,7 @@ body{margin:0;background:#101418;color:#e6edf3;font:14px system-ui,sans-serif}
 #bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:8px 12px;background:#1a2129}
 label{display:flex;gap:6px;align-items:center}canvas{display:block;width:100%}
 #info{padding:6px 12px;color:#a9b4bf}b{color:#ffd166}
+#note{padding:0 12px 10px;color:#7f8b97;font-size:12.5px;line-height:1.45}
 </style></head><body>
 <div id="bar">
 <label>Température <input id="T" type="range" min="50" max="900" value="300"> <span id="Tv"></span></label>
@@ -13,6 +14,7 @@ label{display:flex;gap:6px;align-items:center}canvas{display:block;width:100%}
 </div>
 <canvas id="c" width="900" height="460"></canvas>
 <div id="info"></div>
+<div id="note">Simplification : ici, les particules ne se heurtent pas entre elles, seulement contre les parois. Dans un vrai gaz, elles s'entrechoquent sans cesse ; cela change leurs trajectoires et répartit les vitesses entre elles, mais pas la pression moyenne, qui ne dépend que de N, T et V. C'est justement l'hypothèse du « gaz parfait » : des particules sans taille ni forces entre elles.</div>
 <script>
 const c=document.getElementById("c"),g=c.getContext("2d");let parts=[],hits=0,pHist=[];
 const $=id=>document.getElementById(id);

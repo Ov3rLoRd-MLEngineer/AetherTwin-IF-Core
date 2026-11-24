@@ -5,12 +5,21 @@ body{margin:0;background:#1a1012;color:#f3e9ea;font:14px system-ui,sans-serif}
 #bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:8px 12px;background:#2a171b}
 label{display:flex;gap:6px;align-items:center}canvas{display:block;width:100%}
 #info{padding:6px 12px;color:#d9bfc3;min-height:44px}b{color:#ffd166}
+#cycle{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px 12px}
+#cycle div{border:1px solid #4a2a31;border-radius:8px;padding:6px 10px;color:#c9a7ae;line-height:1.4;transition:background .2s,border-color .2s}
+#cycle div.on{background:#3a1d24;border-color:#ffd166;color:#f3e9ea}
+#cycle h4{margin:0 0 3px;font-size:13px;color:#ffd166}
 </style></head><body>
 <div id="bar">
 <label>Fréquence cardiaque <input id="bpm" type="range" min="40" max="180" value="70"> <span id="bv"></span></label>
 <label><input id="slow" type="checkbox"> ralenti</label>
 </div>
-<canvas id="c" width="900" height="520"></canvas>
+<canvas id="c" width="900" height="480"></canvas>
+<div id="cycle">
+<div id="p-atria"><h4>1. Contraction des oreillettes</h4>Le sang descend des oreillettes vers les ventricules ; valves tricuspide et mitrale ouvertes.</div>
+<div id="p-sys"><h4>2. Systole ventriculaire</h4>Les ventricules se contractent : le droit envoie le sang pauvre en O₂ aux poumons, le gauche le sang riche en O₂ à tout le corps. Valves pulmonaire et aortique ouvertes.</div>
+<div id="p-dia"><h4>3. Diastole</h4>Le cœur se relâche et se remplit. Les valves de sortie sont fermées et empêchent le sang de revenir.</div>
+</div>
 <div id="info"></div>
 <script>
 const c=document.getElementById("c"),g=c.getContext("2d"),$=id=>document.getElementById(id);let ph=0,last=performance.now(),flow=[];
@@ -30,13 +39,13 @@ function loop(now){const dt=(now-last)/1000;last=now;const bpm=+$("bpm").value;$
  path([[400,120],[400,60],[200,40],[120,60]],BLUE,k);                        // artère pulmonaire -> poumons
  path([[780,60],[700,40],[520,60],[520,120]],RED,k);                         // veines pulmonaires -> oreillette gauche
  path([[560,330],[740,330],[790,250],[740,150],[600,150]],RED,k);            // aorte -> corps
- g.fillStyle="#c9a7ae";g.font="13px system-ui";g.textAlign="center";g.fillText("POUMONS",120,85);g.fillText("POUMONS",780,85);g.fillText("ORGANES DU CORPS",450,470);
+ g.fillStyle="#c9a7ae";g.font="13px system-ui";g.textAlign="center";g.fillText("POUMONS",120,85);g.fillText("POUMONS",780,85);g.fillText("ORGANES DU CORPS",450,455);
  chamber(400,190,70,55,BLUE,sa,"oreillette droite");chamber(520,190,70,55,RED,sa,"oreillette gauche");
  chamber(400,300,80,75,BLUE,sv,"ventricule droit");chamber(520,300,80,75,RED,sv,"ventricule gauche");
  g.fillStyle="#6b2c39";g.fillRect(455,140,10,230);
  valve(400,240,!vent,"tricuspide");valve(520,240,!vent,"mitrale");valve(400,140,vent,"pulmonaire");valve(560,140,vent,"aortique");
- const phase=atria?"Les oreillettes se contractent : le sang descend dans les ventricules (valves auriculo-ventriculaires ouvertes).":vent?"<b>Systole</b> : les ventricules se contractent. Le ventricule droit envoie le sang pauvre en oxygène vers les poumons, le gauche envoie le sang riche en oxygène vers tout le corps. Valves pulmonaire et aortique ouvertes.":"<b>Diastole</b> : le cœur se relâche et se remplit de sang. Les valves de sortie sont fermées pour empêcher le retour du sang.";
- $("info").innerHTML=`${phase} — Débit cardiaque ≈ ${(bpm*70/1000).toFixed(1)} L/min (70 mL par battement). Bleu : sang pauvre en O₂ ; rouge : sang riche en O₂.`;
+ $("p-atria").classList.toggle("on",atria);$("p-sys").classList.toggle("on",vent);$("p-dia").classList.toggle("on",!atria&&!vent);
+ $("info").innerHTML=`Phase en cours : <b>${atria?"contraction des oreillettes":vent?"systole":"diastole"}</b> — Débit cardiaque ≈ ${(bpm*70/1000).toFixed(1)} L/min (70 mL par battement). Bleu : sang pauvre en O₂ ; rouge : sang riche en O₂.`;
  requestAnimationFrame(loop)}
 requestAnimationFrame(loop);
 </script></body></html>

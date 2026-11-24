@@ -33,7 +33,7 @@ SIM_ID = re.compile(r"^[a-z0-9_]{3,48}$")
 BUILTIN: dict[str, dict[str, str]] = {
     "systeme_solaire": {"titre": "Le système solaire", "description": "Les 8 planètes en orbite, lois de Kepler."},
     "gaz_parfait": {"titre": "Le gaz parfait", "description": "Pression, volume, température : P·V = n·R·T."},
-    "fluides": {"titre": "Les fluides", "description": "Effet Venturi (Bernoulli) et poussée d'Archimède."},
+    "fluides": {"titre": "Les fluides", "description": "Vagues (liquide, particules) et baignoire."},
     "coeur": {"titre": "Le cœur", "description": "Cavités, valves, petite et grande circulation."},
     "neurone": {"titre": "Neurone et réflexe", "description": "Message nerveux, potentiels d'action, arc réflexe."},
     "circuit": {"titre": "Circuit électrique", "description": "Série, dérivation, loi d'Ohm."},
@@ -57,6 +57,21 @@ FORBIDDEN: tuple[tuple[str, str], ...] = (
     (r"window\.open|location\s*(?:\.href)?\s*=|\.location\.(?:assign|replace)", "navigation"),
     (r"\beval\s*\(|new\s+Function\s*\(", "code dynamique"),
 )
+# Ajouté par le Hub à chaque page servie (intégrée ou créée) : bouton Pause commun (touche P) et hauteur du contenu
+# envoyée au cadre du Professeur, qui s'ajuste. La pause retient les images d'animation et les minuteries, et
+# décale l'horloge (performance.now, temps des images) pour que la simulation reparte sans saut.
+HUB_TOOLS = "<script>" + (Path(__file__).with_name("sim_tools.js")).read_text(encoding="utf-8") + "</script>"
+
+
+def with_hub_tools(page: bytes) -> bytes:
+    """La page servie avec le bouton Pause et l'envoi de sa hauteur, placés avant tout autre script."""
+    tools = HUB_TOOLS.encode("utf-8")
+    match = re.search(rb"<head[^>]*>", page, re.IGNORECASE)
+    if match:
+        return page[:match.end()] + tools + page[match.end():]
+    return tools + page
+
+
 SVG_NS = re.compile(r"http://www\.w3\.org/(?:2000/svg|1999/xhtml|1999/xlink)")
 
 

@@ -675,14 +675,14 @@ def create_app(daemon: Daemon) -> FastAPI:
 
     @app.get("/prof/sims/{sim_id}", include_in_schema=False)
     def professor_sim(sim_id: str) -> Response:
-        from modules.genesis_lab.sims import SimError, SimLibrary
+        from modules.genesis_lab.sims import SimError, SimLibrary, with_hub_tools
 
         profile = Path(str(config.section("genesis_lab").get("profile") or "data/genesis_lab/eleve.json"))
         try:
             path = SimLibrary(profile.parent).path(sim_id)
         except SimError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        return Response(path.read_bytes(), media_type="text/html; charset=utf-8",
+        return Response(with_hub_tools(path.read_bytes()), media_type="text/html; charset=utf-8",
                         headers={"Content-Security-Policy": SIM_CSP, "X-Content-Type-Options": "nosniff",
                                  "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
 

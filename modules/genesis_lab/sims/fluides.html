@@ -1,39 +1,214 @@
 <!doctype html>
-<html lang="fr"><head><meta charset="utf-8"><title>Écoulement d'un fluide</title>
+<html lang="fr"><head><meta charset="utf-8"><title>Les fluides : vagues et baignoire</title>
 <style>
 body{margin:0;background:#0d1b2a;color:#e0e8f0;font:14px system-ui,sans-serif}
-#bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:8px 12px;background:#1b263b}
-label{display:flex;gap:6px;align-items:center}canvas{display:block;width:100%}
-#info{padding:6px 12px;color:#a9bcd0}b{color:#ffd166}
+#tabs{display:flex;gap:4px;padding:8px 12px 0;background:#1b263b}
+#tabs button{font:inherit;color:#a9bcd0;background:#14202f;border:1px solid #2c3e55;border-bottom:0;border-radius:8px 8px 0 0;padding:6px 14px;cursor:pointer}
+#tabs button.on{background:#0d1b2a;color:#ffd166;font-weight:600}
+.bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:8px 12px;background:#0d1b2a;border-bottom:1px solid #22344a}
+[hidden]{display:none!important}
+label{display:flex;gap:6px;align-items:center}
+button.act{font:inherit;color:#e0e8f0;background:#1f4e79;border:1px solid #3a6ea5;border-radius:6px;padding:4px 10px;cursor:pointer}
+button.act:hover{background:#2a6299}button.act.on{background:#ffd166;color:#1b1300;border-color:#ffd166}
+canvas{display:block;width:100%;touch-action:none}
+#bath{image-rendering:pixelated;cursor:pointer}
+#info{padding:8px 12px 2px;color:#cfe3f5;line-height:1.5}b{color:#ffd166}
+#note{padding:2px 12px 10px;color:#8fa6bd;font-size:12.5px;line-height:1.45}
 </style></head><body>
-<div id="bar">
-<label>Débit <input id="Q" type="range" min="1" max="10" value="4"></label>
-<label>Rétrécissement <input id="S" type="range" min="20" max="100" value="45"> %</label>
-<label>Mode <select id="mode"><option value="tube">tube de Venturi (Bernoulli)</option><option value="archi">poussée d'Archimède</option></select></label>
+<div id="tabs"><button id="t-waves" class="on">Vagues</button><button id="t-bath">La baignoire</button></div>
+<div class="bar" id="bar-waves">
+<label>Vue <select id="view"><option value="liquid">liquide</option><option value="particles">particules</option></select></label>
+<label>Profondeur <input id="depth" type="range" min="30" max="200" value="120"></label>
+<label><input id="maker" type="checkbox" checked> Batteur à houle</label>
+<label>Fréquence <input id="freq" type="range" min="2" max="20" value="7"></label>
+<label>Hauteur <input id="amp" type="range" min="1" max="20" value="12"></label>
+<label><input id="beach" type="checkbox" checked> Plage (amortit à droite)</label>
+<button class="act" id="pulse">Une vague</button>
+<button class="act" id="calm">Eau calme</button>
 </div>
-<canvas id="c" width="900" height="420"></canvas>
+<div class="bar" id="bar-bath" hidden>
+<button class="act" id="tap">Ouvrir le robinet</button>
+<label>Débit <input id="flow" type="range" min="2" max="20" value="12"> L/min</label>
+<button class="act" id="plug">Retirer la bonde</button>
+<button class="act" id="ballast">Remplir les ballasts du sous-marin</button>
+<label>Vitesse <select id="speed"><option value="1">×1 (temps réel)</option><option value="10">×10</option><option value="30" selected>×30</option><option value="60">×60</option></select></label>
+</div>
+<canvas id="waves" width="900" height="380"></canvas>
+<canvas id="bath" width="240" height="150" hidden></canvas>
 <div id="info"></div>
+<div id="note"></div>
 <script>
-const c=document.getElementById("c"),g=c.getContext("2d"),$=id=>document.getElementById(id);let dots=[],t=0;
-function half(x){const s=$("S").value/100,mid=c.width/2;const k=Math.exp(-((x-mid)/120)**2);return 130*(1-(1-s)*k)}
-function tube(){const Q=+$("Q").value,cy=210;
- g.fillStyle="#0d1b2a";g.fillRect(0,0,c.width,c.height);
- g.fillStyle="#1f4e79";g.beginPath();g.moveTo(0,cy-half(0));for(let x=0;x<=c.width;x+=6)g.lineTo(x,cy-half(x));
- for(let x=c.width;x>=0;x-=6)g.lineTo(x,cy+half(x));g.fill();
- while(dots.length<260)dots.push({x:Math.random()*c.width,f:Math.random()*2-1});
- g.fillStyle="#9ad1ff";dots.forEach(d=>{const h=half(d.x),v=Q*130/h;d.x+=v*0.6;if(d.x>c.width){d.x=0;d.f=Math.random()*2-1}
-  g.beginPath();g.arc(d.x,cy+d.f*h*0.92,2.2,0,7);g.fill()});
- [[120,"A"],[c.width/2,"B"],[c.width-120,"C"]].forEach(([x,n])=>{const h=half(x),v=Q*130/h,p=60-0.5*v*v*0.6;
-  g.fillStyle="#cfe3f5";g.fillText(`${n} : v = ${v.toFixed(1)}`,x-30,cy+h+24);
-  g.fillStyle="#ffd166";g.fillRect(x-4,cy-h-Math.max(5,p*2.2),8,Math.max(5,p*2.2));g.fillText(`P ${p.toFixed(0)}`,x+8,cy-h-10)});
- const vA=Q*130/half(120),vB=Q*130/half(c.width/2);
- $("info").innerHTML=`Le même débit passe partout : là où le tube est étroit, le fluide va <b>plus vite</b> (B : ${vB.toFixed(1)} contre ${vA.toFixed(1)} en A). D'après Bernoulli, sa <b>pression baisse</b> (colonnes jaunes) : P + ½ρv² = constante.`}
-function archi(){const cy=120;g.fillStyle="#0d1b2a";g.fillRect(0,0,c.width,c.height);
- g.fillStyle="#1f4e79";g.fillRect(0,cy,c.width,c.height-cy);
- const S=$("S").value/100,rho=0.3+S*1.4,size=90,depth=Math.min(size,size*rho);t+=0.03;
- const y=cy-size+depth+Math.sin(t)*2;g.fillStyle=rho<1?"#c9a26b":"#8d99ae";g.fillRect(c.width/2-size/2,Math.min(y,c.height-size-5),size,size);
- g.fillStyle="#e0e8f0";g.fillText(`masse volumique du cube : ${(rho*1000).toFixed(0)} kg/m³ (eau : 1000)`,20,30);
- $("info").innerHTML=rho<1?`Le cube est <b>moins dense</b> que l'eau : il flotte. Il s'enfonce jusqu'à ce que le poids de l'eau déplacée égale son poids (poussée d'Archimède : Π = ρ<sub>eau</sub> · V<sub>immergé</sub> · g). Partie immergée : ${(rho*100).toFixed(0)} %.`:`Le cube est <b>plus dense</b> que l'eau : la poussée d'Archimède (poids du volume d'eau déplacé) est plus faible que son poids, il coule.`}
-function loop(){($("mode").value==="tube"?tube:archi)();requestAnimationFrame(loop)}
-loop();
+"use strict";
+const $=id=>document.getElementById(id);
+let tab="waves";
+function setTab(t){tab=t;$("t-waves").classList.toggle("on",t==="waves");$("t-bath").classList.toggle("on",t==="bath");
+ $("bar-waves").hidden=$("waves").hidden=t!=="waves";$("bar-bath").hidden=$("bath").hidden=t!=="bath";notes()}
+$("t-waves").onclick=()=>setTab("waves");$("t-bath").onclick=()=>setTab("bath");
+function notes(){$("note").innerHTML=tab==="waves"
+ ?"Simplifications : modèle d'<b>eau peu profonde</b> (ondes longues, vitesse horizontale la même à toute profondeur), petites vagues sans déferlement. En vue particules, chaque particule suit l'écoulement ; elles ne se heurtent pas entre elles (dans l'eau réelle, les molécules s'entrechoquent sans cesse, mais leur mouvement moyen est celui montré ici)."
+ :"Simplifications : coupe en deux dimensions (la baignoire fait 40 cm d'épaisseur), 1 pixel = 1 cm. Le canard et le sous-marin sont traités comme des blocs pour la poussée d'Archimède ; vidange selon Torricelli avec une perte de charge fixe ; le temps peut être accéléré."}
+
+/* =================== Vagues : eau peu profonde =================== */
+const W=$("waves"),wg=W.getContext("2d"),N=180,DX=W.width/N,G=0.00125,SUB=4;
+let h=new Float32Array(N),u=new Float32Array(N+1),wt=0,parts=[];
+function H(){return +$("depth").value}
+for(let i=0;i<1400;i++)parts.push({x:Math.random()*N,f:Math.random()});
+function bump(x0,a,wd){for(let i=0;i<N;i++)h[i]+=a*Math.exp(-(((i-x0)/wd)**2))}
+$("pulse").onclick=()=>bump(8,+$("amp").value*1.5,5);
+$("calm").onclick=()=>{h.fill(0);u.fill(0)};
+let drag=null;
+W.addEventListener("pointerdown",e=>{drag=e;poke(e)});W.addEventListener("pointermove",e=>{if(drag)poke(e)});addEventListener("pointerup",()=>drag=null);
+function poke(e){const r=W.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*N;bump(x,-1.2,3)}
+function waveStep(){
+ const Hd=H(),beach=$("beach").checked;
+ for(let s=0;s<SUB;s++){
+  wt+=1;
+  if($("maker").checked)u[0]=+$("amp").value*0.01*Math.sin(wt*(+$("freq").value)*0.006)*Math.sqrt(G*Hd);else u[0]=0;
+  u[N]=0;
+  for(let i=1;i<N;i++){u[i]-=G*(h[i]-h[i-1]);u[i]*=0.9995}
+  if(beach)for(let i=N-30;i<N;i++){const k=(i-(N-30))/30;u[i]*=1-0.03*k*k;h[i]*=1-0.01*k*k}
+  for(let i=0;i<N;i++)h[i]-=Hd*(u[i+1]-u[i]);
+  for(const p of parts){const i=Math.max(0,Math.min(N,p.x)),i0=Math.floor(i),fr=i-i0;
+   const v=u[i0]*(1-fr)+(u[Math.min(N,i0+1)]||0)*fr;p.x+=v;if(p.x<0.2)p.x=0.2;if(p.x>N-0.2)p.x=N-0.2}
+ }
+}
+function hAt(x){const i=Math.max(0,Math.min(N-1,x)),i0=Math.floor(i),i1=Math.min(N-1,i0+1),fr=i-i0;return h[i0]*(1-fr)+h[i1]*fr}
+function waveDraw(){
+ const Hd=H(),bottom=W.height-24,view=$("view").value;
+ const sky=wg.createLinearGradient(0,0,0,bottom);sky.addColorStop(0,"#0b1626");sky.addColorStop(1,"#13253b");
+ wg.fillStyle=sky;wg.fillRect(0,0,W.width,W.height);
+ wg.fillStyle="#5c4a32";wg.fillRect(0,bottom,W.width,24);
+ const surf=x=>bottom-Hd-hAt(x/DX-0.5);
+ if(view==="liquid"){
+  const grd=wg.createLinearGradient(0,bottom-Hd-30,0,bottom);grd.addColorStop(0,"#3a8fd0");grd.addColorStop(1,"#0f3a63");
+  wg.fillStyle=grd;wg.beginPath();wg.moveTo(0,bottom);for(let x=0;x<=W.width;x+=3)wg.lineTo(x,surf(x));wg.lineTo(W.width,bottom);wg.fill();
+  wg.strokeStyle="#bfe6ff";wg.lineWidth=2;wg.beginPath();for(let x=0;x<=W.width;x+=3)x?wg.lineTo(x,surf(x)):wg.moveTo(x,surf(x));wg.stroke();
+  for(let x=0;x<W.width;x+=6){const s=surf(x+3)-surf(x);if(s< -1.2){wg.fillStyle="rgba(255,255,255,.55)";wg.fillRect(x,surf(x)-1,5,2)}}
+ }else{
+  for(const p of parts){const x=p.x*DX,y=bottom-p.f*(Hd+hAt(p.x-0.5));
+   const i=Math.max(0,Math.min(N,Math.round(p.x))),sp=Math.min(1,Math.abs(u[i])*12);
+   wg.fillStyle=`rgb(${80+175*sp|0},${170+85*sp|0},255)`;wg.fillRect(x-1.5,y-1.5,3,3)}
+  wg.strokeStyle="rgba(191,230,255,.35)";wg.lineWidth=1;wg.beginPath();for(let x=0;x<=W.width;x+=3)x?wg.lineTo(x,surf(x)):wg.moveTo(x,surf(x));wg.stroke();
+ }
+ if($("maker").checked){const px=u[0]/Math.sqrt(G*Hd)*60;wg.fillStyle="#8d99ae";wg.fillRect(4+px,bottom-Hd-30,8,Hd+30)}
+ if($("beach").checked){wg.fillStyle="rgba(255,209,102,.12)";wg.fillRect(W.width-30*DX,bottom-Hd-40,30*DX,Hd+40)}
+ const c=Math.sqrt(9.81*Hd/100);
+ $("info").innerHTML=`Profondeur <b>${(Hd/100).toFixed(2)} m</b> → les vagues avancent à <b>c = √(g·H) ≈ ${c.toFixed(1)} m/s</b> : moins vite quand l'eau est peu profonde. L'eau, elle, ne voyage pas avec la vague : regarde en vue <b>particules</b>, chacune va et vient sur place pendant que la vague passe. Clique ou glisse sur l'eau pour la déranger.`;
+}
+
+/* =================== Baignoire (pixel art) =================== */
+const B=$("bath"),bg=B.getContext("2d"),BW=B.width,BH=B.height;
+const TOP=74,BOT=124,DEPTH=40,GPX=0.6;
+const SPOUT={x:46,y:64},DRAIN={x:52,w:6},OVER={x:203,y:TOP+7};
+function inside(x,y){if(y<TOP||y>BOT)return false;const t=(y-TOP)/(BOT-TOP);
+ let L=36+t*12,R=206-t*5;const r=10;
+ if(y>BOT-r){const dy=y-(BOT-r);const k=r-Math.sqrt(Math.max(0,r*r-dy*dy));L+=k;R-=k}
+ return x>=L&&x<=R}
+const rowL=[],rowR=[],rowW=[];
+for(let y=0;y<=BH;y++){let L=-1,R=-1;for(let x=0;x<BW;x++)if(inside(x+.5,y+.5)){if(L<0)L=x;R=x}rowL[y]=L;rowR[y]=R;rowW[y]=L<0?0:R-L+1}
+const CAP=(()=>{let v=0;for(let y=TOP;y<=BOT;y++)v+=rowW[y]*DEPTH/1000;return v})();
+function levelFor(vol){let v=0;for(let y=BOT;y>=TOP;y--){const row=rowW[y]*DEPTH/1000;if(v+row>=vol)return y+1-(vol-v)/row;v+=row}return TOP}
+function bottomAt(x){for(let y=BOT;y>=TOP;y--)if(rowL[y]>=0&&x>=rowL[y]&&x<=rowR[y])return y+1;return BOT}
+const PAL={y:"#ffd23f",d:"#d9a400",o:"#ff8c1a",k:"#1b1b1b",w:"#fff7d6",r:"#e63946",R:"#a4161a",c:"#8ecae6",g:"#ffd166"};
+const DUCK=["......yyyy......",".....yyyyyy.....","....yykyyyy.....","..ooyyyyyyy.....",".oooyyyyyyy.....","..ooyyyyyy......",".....yyyyy......","....yyyyyyyy..yy","...yyyyyyyyyyyyy","..yyyywwyyyyyyy.","..yyyyyyyyyyyyy.","..dyyyyyyyyyyyd.","...dddyyyyyddd..",".....dddddd....."];
+const SUBM=["..........kkk...........","..........krk...........","........kkrrrkk.........","..kkkkkkrrrrrrrkkkkkk...",".krrrrrrrrrrrrrrrrrrrk..","krrcckrrcckrrcckrrrrrkgg","krrcckrrcckrrcckrrrrrk.g","krrrrrrrrrrrrrrrrrrrrkgg",".kRRRRRRRRRRRRRRRRRRk...","..kkkkkkkkkkkkkkkkkk...."];
+function sprite(rows){const c=document.createElement("canvas");c.width=rows[0].length;c.height=rows.length;const x=c.getContext("2d");
+ rows.forEach((r,j)=>[...r].forEach((ch,i)=>{if(PAL[ch]){x.fillStyle=PAL[ch];x.fillRect(i,j,1,1)}}));return c}
+const toys=[
+ {name:"canard",img:sprite(DUCK),w:16,h:14,rho:0.35,x:120,y:20,vx:0,vy:0},
+ {name:"sous-marin",img:sprite(SUBM),w:24,h:10,rho:0.75,x:150,y:30,vx:0,vy:0,top:3}];
+let vol=0,tapOn=false,plug=true,ballast=false,waveH=new Float32Array(BW),waveV=new Float32Array(BW),drops=[],bubbles=[],bt=0,inL=0,outL=0;
+$("tap").onclick=()=>{tapOn=!tapOn;$("tap").textContent=tapOn?"Fermer le robinet":"Ouvrir le robinet";$("tap").classList.toggle("on",tapOn)};
+$("plug").onclick=()=>{plug=!plug;$("plug").textContent=plug?"Retirer la bonde":"Remettre la bonde";$("plug").classList.toggle("on",!plug)};
+$("ballast").onclick=()=>{ballast=!ballast;const s=toys[1];s.rho=ballast?1.25:0.75;$("ballast").textContent=ballast?"Vider les ballasts (air)":"Remplir les ballasts du sous-marin";
+ $("ballast").classList.toggle("on",ballast);for(let i=0;i<8;i++)bubbles.push({x:s.x+4+Math.random()*16,y:s.y+2,v:0.3+Math.random()*0.4})};
+let grab=null;
+function toLocal(e){const r=B.getBoundingClientRect();return[(e.clientX-r.left)/r.width*BW,(e.clientY-r.top)/r.height*BH]}
+B.addEventListener("pointerdown",e=>{const[x,y]=toLocal(e);
+ for(const t of toys)if(x>=t.x&&x<=t.x+t.w&&y>=t.y&&y<=t.y+t.h){grab={t,dx:x-t.x,dy:y-t.y,px:x,py:y};B.setPointerCapture(e.pointerId);return}
+ if(Math.hypot(x-34,y-52)<10)$("tap").click();else if(Math.abs(x-(DRAIN.x+3))<8&&Math.abs(y-BOT)<8)$("plug").click()});
+B.addEventListener("pointermove",e=>{if(!grab)return;const[x,y]=toLocal(e);grab.t.vx=(x-grab.px)*0.5;grab.t.vy=(y-grab.py)*0.5;grab.px=x;grab.py=y;grab.t.x=x-grab.dx;grab.t.y=y-grab.dy});
+B.addEventListener("pointerup",()=>{grab=null});
+function surfY(x){const L=levelFor(vol);return vol<0.05?BOT+2:L+waveH[Math.max(0,Math.min(BW-1,x|0))]}
+function bathStep(dt){
+ const speed=+$("speed").value,sdt=dt*speed,level=levelFor(vol),head=Math.max(0,(BOT-level)/100);
+ inL=tapOn?+$("flow").value:0;
+ outL=0;
+ if(!plug&&vol>0)outL+=0.28*12.6e-4*Math.sqrt(2*9.81*head)*60000;   // Torricelli, L/min
+ if(level<OVER.y&&vol>0)outL+=Math.min(60,(OVER.y-level)*25);       // trop-plein
+ vol=Math.max(0,Math.min(CAP,vol+(inL-outL)*sdt/60));
+ const lr=Math.round(levelFor(vol)),L=rowL[lr]>=0?rowL[lr]:40,R=rowR[lr]>=0?rowR[lr]:200;
+ for(let x=0;x<BW;x++)if(x<L||x>R){waveH[x]=0;waveV[x]=0}
+ for(let k=0;k<2;k++){for(let x=L+1;x<R;x++)waveV[x]+=(waveH[x-1]+waveH[x+1]-2*waveH[x])*0.2;
+  waveV[L]+=(waveH[L+1]-waveH[L])*0.2;waveV[R]+=(waveH[R-1]-waveH[R])*0.2;
+  for(let x=L;x<=R;x++){waveV[x]*=0.97;waveH[x]=Math.max(-3,Math.min(3,(waveH[x]+waveV[x])*0.995))}}
+ if(tapOn&&vol>0.05){waveV[SPOUT.x]+=0.4*(Math.random()-0.5);for(let i=0;i<2;i++)bubbles.push({x:SPOUT.x-2+Math.random()*4,y:levelFor(vol)+2+Math.random()*6,v:0.2+Math.random()*0.3})}
+ if(tapOn)drops.push({x:SPOUT.x+(Math.random()-0.5)*1.5,y:SPOUT.y+2,v:0.5});
+ for(const d of drops){d.v+=0.15;d.y+=d.v}
+ drops=drops.filter(d=>d.y<Math.min(surfY(d.x|0),bottomAt(d.x)));
+ for(const b of bubbles){b.y-=b.v;b.x+=Math.sin((b.y+b.x)*0.7)*0.15}
+ bubbles=bubbles.filter(b=>b.y>levelFor(vol)&&vol>0.05);
+ for(const t of toys){if(grab&&grab.t===t)continue;
+  const cx=t.x+t.w/2,S=surfY(cx|0),bodyH=t.h-(t.top||0);
+  const sub=Math.max(0,Math.min(bodyH,t.y+t.h-S))/bodyH;
+  t.vy+=GPX*(1-sub/t.rho)*0.2;            // y vers le bas : poids moins poussée
+  t.vy*=1-0.12*sub;if(sub>0)t.vx*=0.96;
+  if(sub>0&&sub<1)t.vx+=(waveH[Math.max(0,(cx|0)-4)]-waveH[Math.min(BW-1,(cx|0)+4)])*0.02;
+  if(!plug&&outL>0&&sub>0){const d=DRAIN.x+3-cx;t.vx+=Math.sign(d)*Math.min(0.02,outL/4000)*(Math.abs(d)<60?1:0.3)}
+  if(tapOn&&sub>0&&Math.abs(cx-SPOUT.x)<20)t.vx+=0.01*Math.sign(cx-SPOUT.x+0.1);
+  const entering=t.y+t.h<S&&t.y+t.h+t.vy>=S&&t.vy>1;
+  t.x+=t.vx;t.y+=t.vy;
+  if(entering)for(let x=-4;x<=4;x++)waveV[Math.max(0,Math.min(BW-1,(cx|0)+x))]-=t.vy*0.25;
+  const fb=Math.min(bottomAt(t.x+2),bottomAt(t.x+t.w-2),bottomAt(cx));
+  if(t.y+t.h>fb&&t.x+t.w>36&&t.x<206){t.y=fb-t.h;t.vy=Math.min(0,t.vy)*-0.2;t.vx*=0.9}
+  const row=Math.min(BOT,Math.max(TOP,Math.round(t.y+t.h-1)));
+  if(t.y+t.h>TOP){const lo=rowL[row],hi=rowR[row];if(lo>=0){if(t.x<lo){t.x=lo;t.vx=Math.abs(t.vx)*0.3}if(t.x+t.w>hi){t.x=hi-t.w;t.vx=-Math.abs(t.vx)*0.3}}}
+  if(t.y+t.h>BH-14){t.y=BH-14-t.h;t.vy=0;t.vx*=0.8}
+  if(t.x<0)t.x=0;if(t.x+t.w>BW)t.x=BW-t.w}
+ const[a,b]=toys;if(a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y){const push=(a.x+a.w/2<b.x+b.w/2?-1:1)*0.4;a.vx+=push;b.vx-=push}
+}
+function px(x,y,c){bg.fillStyle=c;bg.fillRect(x,y,1,1)}
+function rect(x,y,w,hh,c){bg.fillStyle=c;bg.fillRect(x,y,w,hh)}
+const back=document.createElement("canvas");back.width=BW;back.height=BH;
+(function paintBack(){const s=bg;const c=back.getContext("2d");
+ for(let y=0;y<BH-14;y++)for(let x=0;x<BW;x++){const grout=x%12===0||y%12===0;c.fillStyle=grout?"#b8c9d6":((x/12|0)+(y/12|0))%2?"#dce9f2":"#d2e2ee";c.fillRect(x,y,1,1)}
+ c.fillStyle="#8a6a4a";c.fillRect(0,BH-14,BW,14);c.fillStyle="#6f5338";for(let x=0;x<BW;x+=16)c.fillRect(x,BH-14,1,14);c.fillStyle="#a8835c";c.fillRect(0,BH-14,BW,1);
+ for(let y=TOP-4;y<=BOT+5;y++)for(let x=26;x<216;x++){
+  if(inside(x+.5,y+.5))continue;
+  let near=false;for(let d=1;d<=5&&!near;d++)if(inside(x+.5,y-d+.5)||inside(x-d+.5,y+.5)||inside(x+d+.5,y+.5)||inside(x+.5,y+d+.5))near=true;
+  if(near||(y>=TOP-4&&y<TOP&&x>=30&&x<212)){c.fillStyle=y<TOP-2?"#ffffff":"#eef3f7";c.fillRect(x,y,1,1)}}
+ c.fillStyle="#c9d4dd";for(let y=TOP;y<=BOT;y++)if(rowL[y]>=0){c.fillRect(rowL[y]-1,y,1,1);c.fillRect(rowR[y]+1,y,1,1)}
+ for(const fx of[50,190]){c.fillStyle="#c0a060";c.fillRect(fx,BOT+6,7,BH-14-BOT-6);c.fillStyle="#9e8048";c.fillRect(fx-1,BH-16,9,2)}
+ c.fillStyle="#f6f9fb";for(let y=TOP;y<=BOT;y++)if(rowL[y]>=0)c.fillRect(rowL[y],y,rowW[y],1);
+ c.fillStyle="#9aa5ae";c.fillRect(OVER.x,OVER.y-2,3,5);c.fillStyle="#4b545c";c.fillRect(OVER.x+1,OVER.y-1,1,3);
+ c.fillStyle="#5b646c";c.fillRect(DRAIN.x,BOT+1,DRAIN.w,2);
+ c.fillStyle="#9aa5ae";c.fillRect(14,40,4,26);c.fillStyle="#c4ccd3";c.fillRect(14,54,34,5);c.fillRect(SPOUT.x-3,59,6,5);
+ c.fillStyle="#eef2f5";c.fillRect(14,54,34,1);c.fillStyle="#7d8790";c.fillRect(SPOUT.x-3,63,6,1);c.fillStyle="#9aa5ae";c.fillRect(33,46,2,4)})();
+function bathDraw(){
+ bt++;
+ bg.drawImage(back,0,0);
+ if(vol>0.05){const lv=levelFor(vol);
+  for(let y=Math.floor(lv-3);y<=BOT;y++){if(rowL[y]<0)continue;for(let x=rowL[y];x<=rowR[y];x++){const s=lv+waveH[x];if(y<s)continue;
+   const d=y-s,dith=(x+y)%2===0;px(x,y,d<1?"#bfe9ff":d<4?(dith?"#7cc8ef":"#6fbde6"):d<14?(dith?"#4fa6d8":"#4aa0d2"):dith?"#3a8bc0":"#3584b8")}}}
+ if(plug){rect(DRAIN.x-1,BOT-1,DRAIN.w+2,2,"#2b2b2b");for(let i=0;i<10;i++)px(DRAIN.x+3+Math.round(Math.sin(i*0.6)*1.5),BOT-2-i,"#a6adb4")}
+ else{rect(DRAIN.x+9,BOT-1,4,2,"#2b2b2b");if(vol>0.05&&outL>0)for(let i=0;i<6;i++){const a=bt*0.4+i;px(DRAIN.x+3+Math.round(Math.cos(a)*(i*0.6+1)),BOT-1-i,"#e6f6ff")}}
+ rect(28,50,12,4,tapOn?"#3a86c8":"#c94a4a");
+ if(tapOn){const end=Math.min(surfY(SPOUT.x),bottomAt(SPOUT.x));for(let y=SPOUT.y;y<end;y++)px(SPOUT.x+((y+bt)%5===0?1:0),y,(y+bt)%3?"#bfe9ff":"#ffffff")}
+ for(const d of drops)px(d.x|0,d.y|0,"#e6f6ff");
+ for(const b of bubbles)px(b.x|0,b.y|0,"#e9f8ff");
+ for(const t of toys)bg.drawImage(t.img,Math.round(t.x),Math.round(t.y));
+ if(vol>0.05)for(const t of toys){const x0=Math.round(t.x),y0=Math.round(t.y);bg.fillStyle="rgba(70,160,215,.35)";
+  for(let x=x0;x<x0+t.w;x++){const s=Math.ceil(surfY(x));if(s<y0+t.h&&x>=rowL[Math.min(BOT,y0+t.h-1)]&&x<=rowR[Math.min(BOT,y0+t.h-1)])bg.fillRect(x,Math.max(s,y0),1,y0+t.h-Math.max(s,y0))}}
+ const lv=levelFor(vol),cm=vol<0.05?0:Math.max(0,BOT+1-lv);
+ const info=toys.map(t=>{const S=surfY((t.x+t.w/2)|0),bodyH=t.h-(t.top||0),sub=Math.max(0,Math.min(bodyH,t.y+t.h-S))/bodyH;
+  const onFloor=t.y+t.h>=bottomAt(t.x+t.w/2)-0.5;
+  return `${t.name} (densité ${t.rho.toFixed(2)}) : ${sub>=0.99?(onFloor?"au fond, sous l'eau":"sous l'eau"):sub>0?(onFloor&&sub<t.rho-0.05?"touche le fond":`flotte, ${Math.round(sub*100)} % immergé`):"hors de l'eau"}`}).join(" · ");
+ $("info").innerHTML=`Eau : <b>${vol.toFixed(0)} L</b> sur ${CAP.toFixed(0)} · hauteur <b>${cm.toFixed(0)} cm</b> · entrée ${inL.toFixed(0)} L/min · sortie <b>${outL.toFixed(0)} L/min</b>${!plug?" (plus la baignoire est pleine, plus l'eau sort vite : v = √(2gh))":""}<br>${info}<br>Un objet flotte quand il est <b>moins dense</b> que l'eau : il s'enfonce juste assez pour déplacer son propre poids d'eau (Archimède). Le sous-marin change de densité en remplissant ses ballasts. Attrape les jouets à la souris, clique sur le robinet ou la bonde.`;
+}
+
+let last=performance.now();
+function loop(now){const dt=Math.min(0.05,(now-last)/1000);last=now;
+ if(tab==="waves"){waveStep();waveDraw()}else{bathStep(dt);bathDraw()}
+ requestAnimationFrame(loop)}
+setTab("waves");requestAnimationFrame(loop);
 </script></body></html>

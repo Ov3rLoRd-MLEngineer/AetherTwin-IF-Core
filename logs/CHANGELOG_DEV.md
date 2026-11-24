@@ -1600,3 +1600,26 @@ Il a autorisé les téléchargements nécessaires.
 - **Tests :** `nestest` identique (8 991 lignes) ; `pytest tests/circuit_lab` vert ; essai réel sur le Hub de test.
 - **En cours :** voie DMC, mappeurs au-delà de 0, banc logique, microcontrôleurs ; fenêtre « Grand écran » à essayer
   dans la fenêtre Edge du Hub.
+
+## 2026-11-24 — simulations du Professeur : retours de Jérémy, pause commune
+
+- **Agent :** Cloud
+- **Demande de Jérémy :** essai du Hub « comme quelqu'un qui ne le connaît pas » ; puis « ajouter la pause dans tous
+  les simulateurs ».
+- **Fichiers :**
+  - `modules/genesis_lab/sims/fluides.html` : refaite en deux parties, vagues (eau peu profonde, vue liquide ou
+    particules, batteur, plage) et baignoire en coupe en pixel art (canard, sous-marin à ballasts, robinet, bonde,
+    trop-plein, vidange de Torricelli, jouets à attraper) ; simplifications écrites sous la simulation ;
+  - `gaz_parfait.html` : note sur l'absence de chocs entre particules ;
+  - `coeur.html` : les trois temps du cycle affichés en permanence, celui en cours mis en avant ;
+  - `neurone.html` : étiquette « moelle épinière » au-dessus du bloc, étiquettes hors du trajet nerveux ;
+  - `systeme_solaire.html` : zoom à la molette vers le pointeur, déplacement, suivi d'une planète, échelle ;
+  - `modules/genesis_lab/sims.py`, `sim_tools.js`, `core/api.py` : bouton Pause et hauteur ajoutés à chaque page ;
+  - `core/web/professeur.js` : cadre ajusté à la hauteur reçue ; chapitre précédent/suivant sans rédaction ;
+  - `tests/genesis_lab/test_professeur.py` : script ajouté vérifié, scripts des simulations compilés.
+- **Lune (version 7, Claude Code local) :** version 8 enregistrée par l'historique des simulations (la 7 reste
+  rétablissable avec « Revenir ») : Soleil décalé pour ne plus être coupé, textes sous la Lune descendus.
+- **Trouvé :** la page des fluides ne démarrait pas (erreur de syntaxe `-(x)**2`), d'où « il ne se passe rien ».
+- **Tests :** `pytest tests/genesis_lab` vert ; chaque page essayée sur le Hub de test.
+- **En cours :** ajustement du cadre vu dans le Hub (le navigateur intégré de l'essai bloque les cadres) ;
+  chapitre suivant essayé avec un vrai cours.

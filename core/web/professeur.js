@@ -105,6 +105,7 @@ function renderProgramme(data) {
   $("prof-status").textContent = prepText;
   clearTimeout(prof.prepTimer);
   if (prep && prep.en_cours) prof.prepTimer = setTimeout(loadProgramme, 15000);
+  prof.prepared = new Set(data.trimestres.flatMap((term) => term.chapitres.filter((c) => c.prepare).map((c) => c.id)));
   const blocks = [el("p", { class: "muted" }, `${data.niveau_nom} — ${data.matiere_nom}. ${data.source || ""}`)];
   for (const term of data.trimestres) {
     blocks.push(el("h3", {}, `${term.nom} (${term.mois}, semaines ${term.semaines})`));
@@ -460,6 +461,14 @@ function plotFunction(s) {
 }
 
 // ---------- simulations ----------
+// Chaque simulation servie par le Hub envoie la hauteur de son contenu : le cadre s'y ajuste (bornée).
+window.addEventListener("message", (event) => {
+  const frame = $("sim-frame");
+  if (!frame || event.source !== frame.contentWindow || !event.data || event.data.aetherSim !== "taille") return;
+  const h = Math.max(320, Math.min(1400, Number(event.data.h) || 0));
+  frame.style.height = `${h + 2}px`;
+});
+
 function showSim(id, title, scroll = true) {
   const info = prof.sims[id] || {};
   prof.sim = id;
@@ -467,6 +476,7 @@ function showSim(id, title, scroll = true) {
   $("sim-title").textContent = (title || info.titre || id) + (info.version > 1 ? ` (version ${info.version})` : "");
   // Paramètre de version : le cadre recharge bien la page corrigée.
   const url = `/prof/sims/${encodeURIComponent(id)}?v=${info.version || 1}-${info.date || 0}`;
+  $("sim-frame").style.height = "";  // hauteur par défaut jusqu'au message de la page
   $("sim-frame").src = url;
   $("sim-newtab").href = url;
   const history = info.retours || [];
@@ -578,14 +588,20 @@ $("prof-prepare").addEventListener("click", async (event) => {
   const state = await profCall("preparer", { niveau: prof.level, matiere: prof.subject }, event.currentTarget, $("prof-programme"));
   if (state) loadProgramme();
 });
-$("prof-prev").addEventListener("click", () => {
+// Précédent / suivant n'ouvrent qu'un cours déjà rédigé : sinon, un message renvoie à la liste du programme
+// (rédiger un cours prend du temps au modèle local, ce doit être un choix).
+function goChapter(step) {
   const c = prof.lesson && prof.lesson.chapitre;
-  if (c && c.numero > 1) openLesson(`${c.niveau}/${c.matiere}/${c.numero - 1}`);
-});
-$("prof-next").addEventListener("click", () => {
-  const c = prof.lesson && prof.lesson.chapitre;
-  if (c && c.suivant) openLesson(`${c.niveau}/${c.matiere}/${c.numero + 1}`);
-});
+  if (!c || (step > 0 && !c.suivant) || (step < 0 && c.numero <= 1)) return;
+  const id = `${c.niveau}/${c.matiere}/${c.numero + step}`;
+  if (prof.prepared && prof.prepared.has(id)) { openLesson(id); return; }
+  const up = el("button", { type: "button", class: "small ghost" }, "Voir le programme ↑");
+  up.addEventListener("click", () => $("prof-programme").scrollIntoView({ behavior: "smooth", block: "start" }));
+  $("prof-lesson-status").replaceChildren(el("p", { class: "warn" },
+    `Le cours du chapitre ${c.numero + step} n'est pas encore rédigé. Crée-le avec son bouton « Préparer » dans la liste du programme, au-dessus. `, up));
+}
+$("prof-prev").addEventListener("click", () => goChapter(-1));
+$("prof-next").addEventListener("click", () => goChapter(1));
 $("prof-simpler").addEventListener("click", (event) => prof.chapter && openLesson(prof.chapter, { simple: true }, event.currentTarget));
 $("prof-rewrite").addEventListener("click", (event) => prof.chapter && openLesson(prof.chapter, { regenerer: true }, event.currentTarget));
 $("prof-more").addEventListener("click", async (event) => {

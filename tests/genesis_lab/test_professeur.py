@@ -431,6 +431,8 @@ def test_api_serves_simulations_in_a_sandbox(tmp_path: Path) -> None:
                                           process_names=lambda: set(), llm=LlmRouter(transport=ollama_stopped))))
     page = client.get("/prof/sims/coeur")
     assert page.status_code == 200 and "<canvas" in page.text
+    head = page.text.split("<title>")[0]
+    assert "AetherTwin : pause et taille du cadre" in head  # pause commune, placée avant les scripts de la page
     csp = page.headers["content-security-policy"]
     assert "sandbox allow-scripts" in csp and "default-src 'none'" in csp and "connect-src" not in csp
     assert client.get("/prof/sims/..%2Fsims").status_code == 404
@@ -440,3 +442,29 @@ def test_api_serves_simulations_in_a_sandbox(tmp_path: Path) -> None:
     assert "/static/professeur.js" in dashboard.text
     script = client.get("/static/professeur.js")
     assert script.status_code == 200 and "eval(" not in script.text and "new Function" not in script.text
+
+
+def test_builtin_sims_scripts_parse() -> None:
+    """Chaque script des simulations intégrées se compile (une erreur de syntaxe = une page figée sans message)."""
+    import json
+    import shutil
+    import subprocess
+
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js absent")
+    from modules.genesis_lab.sims import BUILTIN_DIR, HUB_TOOLS
+
+    checker = ("const fs=require('fs');const bad=[];for(const f of JSON.parse(process.argv[1])){"
+               r"const html=fs.readFileSync(f,'utf8');for(const m of html.matchAll(/<script>([\s\S]*?)<\/script>/g)){"
+               "try{new Function(m[1])}catch(e){bad.push(f+': '+e.message)}}}console.log(JSON.stringify(bad))")
+    files = [str(path) for path in sorted(BUILTIN_DIR.glob("*.html"))]
+    tools = BUILTIN_DIR.parent / "_hub_tools_check.html"
+    tools.write_text(HUB_TOOLS, encoding="utf-8")
+    try:
+        done = subprocess.run([node, "-e", checker, json.dumps([*files, str(tools)])], capture_output=True,  # noqa: S603
+                              text=True, encoding="utf-8", timeout=60, check=False)
+    finally:
+        tools.unlink()
+    assert done.returncode == 0, done.stderr
+    assert json.loads(done.stdout) == []
