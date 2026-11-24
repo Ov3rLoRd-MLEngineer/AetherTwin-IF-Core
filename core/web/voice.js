@@ -205,12 +205,23 @@
   let recorder = null;
   let chunks = [];
 
+  // Micro de dictée : NVIDIA Broadcast s'il est installé (écho des enceintes et voix autour retirés), sans
+  // traitement du navigateur par-dessus ; sinon le micro par défaut avec les filtres du navigateur.
+  async function micConstraints() {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const broadcast = devices.find((d) => d.kind === "audioinput" && /nvidia broadcast/i.test(d.label));
+      if (broadcast) return { deviceId: { exact: broadcast.deviceId }, echoCancellation: false, noiseSuppression: false };
+    } catch (error) { /* micro par défaut */ }
+    return { echoCancellation: true, noiseSuppression: true };
+  }
+
   async function startRecording() {
     audioContext();
     silence();
     let stream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: await micConstraints() });
     } catch (error) {
       note(`Micro inaccessible : ${error.message}`, true);
       return;

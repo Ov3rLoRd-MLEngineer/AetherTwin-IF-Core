@@ -18,6 +18,7 @@
         <button role="tab" data-mode="synth" aria-selected="true">Synthé et séquenceur</button>
         <button role="tab" data-mode="mod" aria-selected="false">Modulateur vocal</button>
         <button role="tab" data-mode="voices" aria-selected="false">Voix</button>
+        <button role="tab" data-mode="myvoice" aria-selected="false">Ma voix (IA)</button>
       </div>
       <span class="grow"></span>
       <span class="status" id="status" aria-live="polite"></span>
@@ -79,6 +80,9 @@
           <div class="row">
             <label>Entrée <select id="mod-input"></select></label>
           </div>
+          <p class="muted small" id="mod-broadcast" hidden>NVIDIA Broadcast est là : son micro retire l'écho des
+            enceintes et les voix autour (choisi par défaut). Garde « Speakers (NVIDIA Broadcast) » hors de la sortie :
+            il effacerait les effets.</p>
           <div class="row">
             <label>Profil <select id="mod-profile"></select></label>
             <button type="button" id="mod-save">Enregistrer sous…</button>
@@ -155,6 +159,7 @@
             <label>Voix <select id="vp-voice"></select></label>
             <label>Locuteur <select id="vp-speaker"></select></label>
             <label>Vitesse <input type="range" id="vp-speed" min="0.5" max="2" step="0.05" value="1"><output id="vp-speed-out">1</output></label>
+            <label title="Convertit la voix de synthèse vers une voix de ta banque (onglet « Ma voix (IA) »)">Timbre <select id="vp-convert"><option value="">Voix d'origine</option></select></label>
           </div>
           <div class="sliders" id="vp-sliders"></div>
           <div class="row">
@@ -163,6 +168,55 @@
             <button type="button" id="vp-save">Enregistrer le profil</button>
           </div>
           <p class="muted small" id="vp-state"></p>
+        </section>
+      </div>
+    </main>
+
+    <!-- ==================== ma voix (conversion IA) ==================== -->
+    <main class="view" data-view="myvoice" hidden>
+      <div class="mod-grid">
+        <section class="card">
+          <h2>Banque de voix</h2>
+          <div id="vc-state" class="muted">…</div>
+          <div class="row">
+            <button type="button" id="vc-install" class="primary" hidden>Installer la conversion (1,3 Go)</button>
+          </div>
+          <p class="muted small">Conversion kNN-VC (MIT) : WavLM-Large et un vocodeur HiFi-GAN, téléchargés depuis les
+            publications officielles de kNN-VC, taille et empreinte vérifiées. Tout reste sur ce PC.</p>
+          <div class="row">
+            <label>Voix <select id="vc-voice"></select></label>
+            <button type="button" id="vc-delete" class="ghost">Supprimer cette voix</button>
+          </div>
+          <h3>Nouvelle voix</h3>
+          <div class="form-grid">
+            <label>Prénom <input id="vc-name" maxlength="40" autocomplete="off"></label>
+            <label>Nom de la voix <input id="vc-label" maxlength="60" placeholder="Ma voix"></label>
+          </div>
+          <label class="consent-box"><input type="checkbox" id="vc-attest"> J'atteste que c'est ma voix, ou celle
+            d'une personne présente qui a donné son accord et lit elle-même les textes. Aucune voix d'une autre
+            personne sans son accord.</label>
+          <div class="row"><button type="button" id="vc-create">Créer la voix</button></div>
+        </section>
+        <section class="card wide">
+          <h2>Enregistrer la voix</h2>
+          <p class="muted small">D'abord la phrase de consentement, puis des textes à lire à voix normale. Whisper
+            vérifie que le texte lu est bien celui affiché. Une minute suffit pour commencer ; trois à cinq minutes
+            donnent un timbre plus fidèle. Micro : celui du modulateur (NVIDIA Broadcast s'il est là).</p>
+          <blockquote id="vc-prompt" class="prompt">Crée une voix pour commencer.</blockquote>
+          <div class="row">
+            <button type="button" id="vc-rec" class="primary">⏺ Lire et enregistrer</button>
+            <span class="muted" id="vc-rec-state"></span>
+          </div>
+          <ul id="vc-takes" class="takes"></ul>
+          <h3>Convertir</h3>
+          <p class="muted small">Dis une phrase : elle revient avec le timbre de la voix choisie (quelques secondes,
+            plus la première fois). Pour une voix de synthèse avec ce timbre : onglet Voix → profil → Timbre.</p>
+          <div class="row">
+            <button type="button" id="vc-conv-rec">⏺ Enregistrer une phrase à convertir</button>
+            <button type="button" id="vc-conv-play" disabled>▶ Réécouter</button>
+            <button type="button" id="vc-conv-save" disabled>Exporter en WAV</button>
+            <span class="muted" id="vc-conv-state"></span>
+          </div>
         </section>
       </div>
     </main>

@@ -1,12 +1,12 @@
 {
   "name": "voice",
   "version": "0.1.0",
-  "description": "Voix locale : réponses parlées (Piper, voix de Windows), écoute au micro (Whisper), profils et effets, modulateur, VB-Cable, MCP",
+  "description": "Voix locale : réponses parlées (Piper, voix de Windows), écoute au micro (Whisper), profils et effets, modulateur, conversion vers ta voix (kNN-VC, avec consentement), VB-Cable, MCP",
   "entry": "modules.voice.module:VoiceModule",
   "vram_min_gb": 0,
   "vram_comfort_gb": 0,
   "python_deps": ["numpy", "faster-whisper"],
-  "optional_deps": [],
+  "optional_deps": ["torch"],
   "triggers": {
     "processes": [],
     "windows": [],

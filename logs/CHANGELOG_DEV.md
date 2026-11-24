@@ -1534,3 +1534,44 @@ Il a autorisé les téléchargements nécessaires.
 - **Tests :** `tests/core/test_dashboard.py::test_guides_catalog_and_page` ; `test_routine.py` vert 4 fois de
   suite ; essai réel de la page et des liens sur le Hub de test (5760).
 
+## 2026-11-24 — Conversion de voix (kNN-VC) avec consentement, NVIDIA Broadcast
+
+- **Agent :** Cloud
+- **Demande de Jérémy :** suite prévue après le premier passage voix ; il a installé NVIDIA Broadcast (écho des
+  enceintes, voix autour) et autorise à s'en servir.
+- **Choix du moteur :** kNN-VC (MIT), sans entraînement, une voix = des enregistrements. Écartés : RVC (entraînement
+  par voix, lourd), OpenVoice (dépendances figées), Seed-VC (GPL, pas dans le processus). PyTorch 2.11 (CUDA 12.8)
+  était déjà dans l'environnement ; ni `torchaudio` ni `transformers` ajoutés.
+- **Fichiers :**
+  - `modules/voice/vc/` : WavLM et générateur HiFi-GAN repris de kNN-VC (MIT), non reformatés, exclus de ruff ;
+  - `modules/voice/convert.py` : banque de voix, poids vérifiés, conversion ;
+  - `service.py` : `Timbre` appliqué après la synthèse ;
+  - `profiles.py` : champ `convert` ;
+  - `module.py` : commandes `vc_*` ;
+  - `core/web/audio_app.*` : onglet « Ma voix (IA) », choix « Timbre » des profils, micro NVIDIA Broadcast ;
+  - `core/web/voice.js` : dictée sur NVIDIA Broadcast ;
+  - `tests/voice/test_convert.py` ; `pyproject.toml` ; `THIRD_PARTY.md` ; `modules/voice/README.md`.
+- **Sécurité :**
+  - WavLM faisait `eval()` sur un texte lu dans le fichier de poids : remplacé par `parse_conv_layers`, qui n'accepte
+    que « [(a,b,c)] * n + … » ;
+  - poids chargés avec `weights_only=True`, taille et SHA-256 figés ;
+  - adresse de téléchargement limitée aux publications de kNN-VC.
+- **Consentement :**
+  - attestation cochée ;
+  - phrase de consentement dite avec le prénom, retrouvée par Whisper ;
+  - textes affichés à lire, chacun vérifié (60 % de ressemblance au moins) ;
+  - aucune importation de fichier ;
+  - voix prête à 30 s de lecture.
+- **Trouvé à l'essai et corrigé :**
+  - `decode` rééchantillonnait dans le mauvais sens (voix ralenties et plus graves) ;
+  - un enregistrement muet n'était pas retiré ;
+  - la phrase « Quatre-vingt-dix-neuf… » échouait (Whisper écrit « 99 ») : remplacée ;
+  - 21 s de lecture donnaient un résultat peu compréhensible : seuil « prête » à 30 s, progression affichée.
+- **Essais réels :**
+  - Piper « gilles » converti vers « siwis » : hauteur 97 → 197 Hz (cible 187 Hz), 73 % du texte reconnu par Whisper
+    avec 54 s de référence ;
+  - processeur : 12 à 16 s de chargement, puis 1,6 s pour 5 s de parole ; carte graphique : 0,05 s ;
+  - Hub de test : création refusée sans attestation, autre phrase refusée, consentement et prises acceptés, `vc_convert`
+    et `/v1/audio/speech` avec « Timbre ».
+- **En cours :** essai avec la vraie voix de Jérémy et NVIDIA Broadcast.
+

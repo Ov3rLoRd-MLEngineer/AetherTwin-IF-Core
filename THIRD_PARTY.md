@@ -94,5 +94,16 @@ de ces fichiers n'est versionné ni redistribué par AetherTwin.
 | Voix `fr_FR-gilles-low` | v1.0.0 | CC0 | voix « inoue », « robot » |
 | Voix `fr_FR-mls-medium` | v1.0.0 | CC-BY 4.0 (Multilingual LibriSpeech) | voix « radio », 125 locuteurs |
 
+Conversion de voix (module `voice`, `convert.py`). Les poids sont téléchargés à la demande dans
+`data/voice/knnvc/`, depuis les publications de kNN-VC, taille et SHA-256 vérifiés. Le code est repris dans
+`modules/voice/vc/` (`LICENSE-knn-vc`) :
+
+| Élément | Version | Licence | Usage |
+|---|---|---|---|
+| kNN-VC (bshall/knn-vc) : code du modèle WavLM et du générateur HiFi-GAN, repris dans `modules/voice/vc/` | master (2023) | MIT | conversion de voix ; `eval` de la configuration remplacé par un analyseur strict |
+| WavLM-Large (`WavLM-Large.pt`, Microsoft, via les publications de kNN-VC v0.1) | v0.1 | MIT (microsoft/unilm) | encodeur de parole (couche 6) |
+| Vocodeur `prematch_g_02500000.pt` (kNN-VC v0.1) | v0.1 | MIT | HiFi-GAN entraîné sur LibriSpeech (CC-BY 4.0) |
+| PyTorch (déjà présent dans l'environnement) | 2.11.0 | BSD-3-Clause | exécute WavLM et HiFi-GAN |
+
 VB-Cable (VB-Audio, donationware) n'est ni fourni ni téléchargé : la page donne le lien du site officiel et vérifie
 seulement s'il est installé.

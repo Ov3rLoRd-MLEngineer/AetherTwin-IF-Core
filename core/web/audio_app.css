@@ -128,3 +128,11 @@ button.recording { background: var(--bad); border-color: var(--bad); color: #fff
   .instrument { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); max-height: 40vh; }
   .card.wide { grid-column: auto; }
 }
+/* Ma voix (conversion IA) */
+.prompt { margin: 10px 0; padding: 12px 16px; border-left: 3px solid var(--accent); background: var(--panel-2);
+          border-radius: 0 8px 8px 0; font-size: 17px; line-height: 1.5; }
+.prompt.consent { border-left-color: var(--second, #f2a541); }
+.consent-box { display: block; margin: 8px 0; font-size: 13px; line-height: 1.4; }
+.takes { list-style: none; margin: 8px 0; padding: 0; font-size: 13px; max-height: 180px; overflow: auto; }
+.takes li { display: flex; align-items: center; gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--line); }
+.takes li span { flex: 1; }

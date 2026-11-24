@@ -407,6 +407,7 @@ modules/
     __init__.py
     agent.py
     app.py
+    convert.py
     effects.py
     engines.py
     installer.py
@@ -417,6 +418,13 @@ modules/
     README.md
     service.py
     stt.py
+    vc/
+      __init__.py
+      hifigan.py
+      hifigan_config.json
+      LICENSE-knn-vc
+      wavlm.py
+      wavlm_modules.py
 scripts/
   __init__.py
   extract_ui_strings.py
@@ -516,6 +524,7 @@ tests/
   test_repo_hygiene.py
   voice/
     __init__.py
+    test_convert.py
     test_voice.py
 docs/
   .gitkeep
@@ -1833,6 +1842,34 @@ Fenêtre de bureau du studio audio : `python -m modules.voice.app` (lancée par 
 - `def page_url() -> str`
 - `def main() -> int`
 
+### `modules/voice/convert.py`
+
+Conversion de voix (kNN-VC, MIT) : donne à une voix le timbre d'une voix enregistrée avec consentement.
+
+- `def words(text: str) -> list[str]`
+- `def similarity(expected: str, heard: str) -> float`
+- `def trim_silence(x: np.ndarray, rate: int=RATE, floor_db: float=-45.0) -> np.ndarray` — Retire le silence du début et de la fin (trames de 20 ms sous `floor_db` par rapport à la crête).
+- `def decode(audio: bytes) -> np.ndarray` — Tout format (WAV, WebM/Opus du navigateur…) → float32 mono à 16 kHz.
+- `def fetch_to(url: str, target: Path, size: int, sha256: str, timeout: float=120) -> None` — Télécharge `url` (publications de kNN-VC seulement) vers `target`, taille et empreinte vérifiées.
+- `def weights_status(folder: Path) -> dict[str, bool]`
+- `def install(folder: Path, fetcher: Callable[[str, Path, int, str], None]=fetch_to) -> dict[str, Any]`
+- `def reading_seconds(voice: dict[str, Any]) -> float` — Durée des textes lus, sans la phrase de consentement.
+- **`class VoiceBank`** — Voix enregistrées avec consentement : `bank/<id>/voice.json`, `takes/*.wav` (16 kHz), `features.pt`.
+  - `def get(self, vid: str) -> dict[str, Any]`
+  - `def all(self) -> list[dict[str, Any]]`
+  - `def create(self, vid: str, label: str, name: str, attest: bool) -> dict[str, Any]` — Nouvelle voix, encore inutilisable : la phrase de consentement doit d'abord être dite (`add_take`).
+  - `def next_prompt(self, vid: str) -> dict[str, Any]`
+  - `def add_take(self, vid: str, audio: bytes, prompt: int, transcribe: Callable[[bytes], str]) -> dict[str, Any]` — Ajoute une prise lue en direct ; refusée si Whisper n'entend pas le texte affiché.
+  - `def delete_take(self, vid: str, take: int) -> bool`
+  - `def delete(self, vid: str) -> bool`
+  - `def takes(self, vid: str) -> list[np.ndarray]`
+- **`class Converter`** — WavLM + HiFi-GAN chargés à la première conversion (≈ 1,4 Go de mémoire ; processeur par défaut).
+  - `def available() -> bool`
+  - `def status(self) -> dict[str, Any]`
+  - `def unload(self) -> bool`
+  - `def convert(self, x: np.ndarray, vid: str) -> np.ndarray` — Échantillons à 16 kHz → mêmes paroles avec le timbre de la voix `vid` (16 kHz).
+  - `def convert_wav(self, wav: bytes, vid: str) -> bytes`
+
 ### `modules/voice/effects.py`
 
 Effets de voix appliqués à un enregistrement (NumPy seul) : mêmes réglages que le modulateur en direct de la page.
@@ -1895,6 +1932,7 @@ Module du Hub : voix locale (synthèse Piper / Windows, écoute Whisper, profils
   - `def health(self) -> Health`
   - `def hermes(self, register: bool=False) -> dict[str, Any]` — État du branchement MCP chez Hermes Agent ; `register` le déclare (config.yaml sauvegardée avant).
   - `def handle_event(self, event: Event) -> None`
+  - `def conversion(self, command: str, payload: dict[str, Any]) -> Any`
   - `def run(self, command: str, payload: dict[str, Any]) -> Any` — Exécute une commande (aussi appelée directement par les tests).
 
 ### `modules/voice/profiles.py`
@@ -1933,6 +1971,73 @@ Reconnaissance vocale locale (faster-whisper, MIT ; modèles Whisper, MIT), un s
 - **`class Transcriber`**
   - `def loaded(self) -> bool`
   - `def transcribe(self, audio: bytes, language: str | None='fr') -> dict[str, Any]`
+
+### `modules/voice/vc/__init__.py`
+
+Code repris de kNN-VC (MIT) : WavLM-Large (Microsoft, MIT) et générateur HiFi-GAN (MIT). Voir LICENSE-knn-vc.
+
+*(aucun symbole public)*
+
+### `modules/voice/vc/hifigan.py`
+
+- `def init_weights(m, mean=0.0, std=0.01)`
+- `def get_padding(kernel_size, dilation=1)`
+- **`class AttrDict(dict)`**
+- **`class ResBlock1(torch.nn.Module)`**
+  - `def forward(self, x)`
+  - `def remove_weight_norm(self)`
+- **`class ResBlock2(torch.nn.Module)`**
+  - `def forward(self, x)`
+  - `def remove_weight_norm(self)`
+- **`class Generator(torch.nn.Module)`**
+  - `def forward(self, x)` — `x` as (bs, seq_len, dim), regular hifi assumes input of shape (bs, n_mels, seq_len)
+  - `def remove_weight_norm(self)`
+
+### `modules/voice/vc/wavlm.py`
+
+- `def parse_conv_layers(spec)` — « [(512,10,5)] + [(512,3,2)] * 4 » → liste de triplets, sans rien exécuter (remplace `eval`).
+- `def compute_mask_indices(shape: Tuple[int, int], padding_mask: Optional[torch.Tensor], mask_prob: float, mask_length: int, mask_type: str='static', mask_other: float=0.0, min_masks: int=0, no_overlap: bool=False, min_space: int=0) -> np.ndarray` — Computes random mask spans for a given shape
+- **`class WavLMConfig`**
+  - `def update(self, cfg: dict)`
+- **`class WavLM(nn.Module)`**
+  - `def apply_mask(self, x, padding_mask)`
+  - `def forward_padding_mask(self, features: torch.Tensor, padding_mask: torch.Tensor) -> torch.Tensor`
+  - `def extract_features(self, source: torch.Tensor, padding_mask: Optional[torch.Tensor]=None, mask: bool=False, ret_conv: bool=False, output_layer: Optional[int]=None, ret_layer_results: bool=False)`
+- **`class ConvFeatureExtractionModel(nn.Module)`**
+  - `def forward(self, x, mask=None)`
+- **`class TransformerEncoder(nn.Module)`**
+  - `def forward(self, x, padding_mask=None, streaming_mask=None, layer=None)`
+  - `def extract_features(self, x, padding_mask=None, streaming_mask=None, tgt_layer=None)`
+- **`class TransformerSentenceEncoderLayer(nn.Module)`** — Implements a Transformer Encoder Layer used in BERT/XLM style pre-trained
+  - `def forward(self, x: torch.Tensor, self_attn_mask: torch.Tensor=None, self_attn_padding_mask: torch.Tensor=None, need_weights: bool=False, pos_bias=None)` — LayerNorm is applied either before or after the self-attention/ffn
+
+### `modules/voice/vc/wavlm_modules.py`
+
+- **`class TransposeLast(nn.Module)`**
+  - `def forward(self, x)`
+- **`class Fp32LayerNorm(nn.LayerNorm)`**
+  - `def forward(self, input)`
+- **`class Fp32GroupNorm(nn.GroupNorm)`**
+  - `def forward(self, input)`
+- **`class GradMultiply(torch.autograd.Function)`**
+  - `def forward(ctx, x, scale)`
+  - `def backward(ctx, grad)`
+- **`class SamePad(nn.Module)`**
+  - `def forward(self, x)`
+- **`class Swish(nn.Module)`** — Swish function
+  - `def forward(self, x)`
+- **`class GLU_Linear(nn.Module)`**
+  - `def forward(self, x)`
+- `def gelu_accurate(x)`
+- `def gelu(x: torch.Tensor) -> torch.Tensor`
+- `def get_activation_fn(activation: str)` — Returns the activation function corresponding to `activation`
+- `def init_bert_params(module)` — Initialize the weights specific to the BERT Model.
+- `def quant_noise(module, p, block_size)` — Wraps modules and applies quantization noise to the weights for
+- **`class MultiheadAttention(nn.Module)`** — Multi-headed attention.
+  - `def reset_parameters(self)`
+  - `def compute_bias(self, query_length, key_length)`
+  - `def forward(self, query, key: Optional[Tensor], value: Optional[Tensor], key_padding_mask: Optional[Tensor]=None, incremental_state: Optional[Dict[str, Dict[str, Optional[Tensor]]]]=None, need_weights: bool=True, static_kv: bool=False, attn_mask: Optional[Tensor]=None, before_softmax: bool=False, need_head_weights: bool=False, position_bias: Optional[Tensor]=None) -> Tuple[Tensor, Optional[Tensor], Optional[Tensor]]` — Input shape: Time x Batch x Channel
+  - `def apply_sparse_mask(self, attn_weights, tgt_len: int, src_len: int, bsz: int)`
 
 ### `scripts/extract_ui_strings.py`
 

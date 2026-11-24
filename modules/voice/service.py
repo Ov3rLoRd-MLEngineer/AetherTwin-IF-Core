@@ -14,7 +14,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from modules.voice import effects, engines, installer, stt
+from modules.voice import convert, effects, engines, installer, stt
 from modules.voice.profiles import ProfileStore, validate
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -44,7 +44,8 @@ def vbcable_status() -> dict[str, Any]:
 
 
 class VoiceService:
-    def __init__(self, data_dir: Path = DATA_DIR, whisper_model: str = "small", whisper_device: str = "cpu") -> None:
+    def __init__(self, data_dir: Path = DATA_DIR, whisper_model: str = "small", whisper_device: str = "cpu",
+                 vc_device: str = "cpu") -> None:
         self.data_dir = Path(data_dir)
         self.profiles = ProfileStore(self.data_dir / "profiles.json")
         self.piper = engines.PiperEngine(self.data_dir / "piper")
@@ -52,6 +53,8 @@ class VoiceService:
         self.transcriber = stt.Transcriber(whisper_model, whisper_device,
                                            "int8" if whisper_device == "cpu" else "float16")
         self.tmp = self.data_dir / "tmp"
+        self.bank = convert.VoiceBank(self.data_dir / "bank")
+        self.converter = convert.Converter(self.data_dir / "knnvc", self.bank, vc_device)
         self._play_lock = threading.Lock()
         self._playing = False
 
@@ -61,7 +64,8 @@ class VoiceService:
         return {"piper": self.piper.exe.is_file(), "piper_voices": [k for k, v in install["voices"].items() if v],
                 "sapi": self.sapi.available(), "whisper": stt.available(), "whisper_model": self.transcriber.model_name,
                 "whisper_loaded": self.transcriber.loaded(), "catalog": install["catalog"],
-                "playing": self._playing, **{k: v for k, v in self.profiles.all().items() if k != "profiles"}}
+                "playing": self._playing, "conversion": self.converter.status(),
+                **{k: v for k, v in self.profiles.all().items() if k != "profiles"}}
 
     def voices(self) -> list[dict[str, Any]]:
         return self.piper.voices() + self.sapi.voices()
@@ -88,6 +92,8 @@ class VoiceService:
         engine, voice, note = self._engine_for(p)
         started = time.monotonic()
         wav = engine.synthesize(text, voice, float(speed or p.get("speed", 1.0)), int(p.get("speaker", 0)))
+        if p.get("convert"):  # timbre d'une voix de la banque (enregistrée avec consentement)
+            wav = self.converter.convert_wav(wav, p["convert"])
         settings = dict(p.get("effects") or {})
         if isinstance(effects_override, dict):
             settings.update(effects_override)

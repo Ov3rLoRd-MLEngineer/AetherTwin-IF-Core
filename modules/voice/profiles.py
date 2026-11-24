@@ -60,6 +60,11 @@ def validate(profile: Any) -> dict[str, Any]:
         out.update(engine=engine, voice=str(profile.get("voice", ""))[:120],
                    speaker=max(0, min(500, int(profile.get("speaker", 0) or 0))),
                    speed=max(0.5, min(2.0, float(profile.get("speed", 1.0) or 1.0))))
+        target = str(profile.get("convert") or "").strip()
+        if target:  # conversion vers une voix de la banque (`convert.py`)
+            if not PROFILE_ID.match(target):
+                raise ValueError("voix de conversion invalide")
+            out["convert"] = target
     return out
 
 

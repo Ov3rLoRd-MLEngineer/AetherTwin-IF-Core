@@ -916,12 +916,15 @@
   }
   async function fillDevices() {
     const { inputs, outputs } = await listDevices();
-    const keepIn = $("mod-input").value;
+    // micro : celui déjà choisi, sinon celui retenu, sinon NVIDIA Broadcast (écho et voix autour retirés) s'il existe
+    const broadcast = inputs.find((d) => /nvidia broadcast/i.test(d.label));
+    const keepIn = $("mod-input").value || store("aether-audio-input") || broadcast?.deviceId || "";
     const keepOut = $("mod-output").value || store("aether-audio-output") || "";
     $("mod-input").replaceChildren(...inputs.map((d, i) => el("option", { value: d.deviceId, selected: d.deviceId === keepIn }, d.label || `Micro ${i + 1}`)));
     const outs = outputs.filter((d) => d.deviceId !== "default" && d.deviceId !== "communications");
     $("mod-output").replaceChildren(el("option", { value: "" }, "Sortie par défaut (haut-parleurs ou casque)"),
       ...outs.map((d, i) => el("option", { value: d.deviceId, selected: d.deviceId === keepOut }, d.label || `Sortie ${i + 1}`)));
+    $("mod-broadcast").hidden = !broadcast;
     const cable = outs.find((d) => /cable input/i.test(d.label));
     $("vb-route").hidden = !cable || $("mod-output").value === cable.deviceId;
     return { inputs, outputs: outs, cable };
@@ -1075,9 +1078,11 @@
       mod.ctx = new AudioContext({ latencyHint: "interactive" });
       await mod.ctx.audioWorklet.addModule("/static/audio_worklet.js");
       const deviceId = $("mod-input").value;
+      // NVIDIA Broadcast nettoie déjà le son : pas de seconde réduction de bruit du navigateur par-dessus
+      const cleaned = /nvidia broadcast/i.test($("mod-input").selectedOptions[0]?.textContent || "");
       mod.stream = await navigator.mediaDevices.getUserMedia({ audio: {
         deviceId: deviceId ? { exact: deviceId } : undefined, echoCancellation: false,
-        noiseSuppression: $("mod-noise").checked, autoGainControl: false, channelCount: 1 } });
+        noiseSuppression: $("mod-noise").checked && !cleaned, autoGainControl: false, channelCount: 1 } });
       mod.nodes = buildModChain(mod.ctx, mod.ctx.createMediaStreamSource(mod.stream));
       lastRadio = -1;
       applyMod();
@@ -1106,7 +1111,10 @@
     $("mod-start").classList.remove("recording");
   }
   $("mod-start").addEventListener("click", modStart);
-  $("mod-input").addEventListener("change", () => { if (mod.nodes) { modStop(); modStart(); } });
+  $("mod-input").addEventListener("change", () => {
+    store("aether-audio-input", $("mod-input").value);
+    if (mod.nodes) { modStop(); modStart(); }
+  });
   $("mod-noise").addEventListener("change", () => { if (mod.nodes) { modStop(); modStart(); } });
 
   $("mod-record").addEventListener("click", () => {
@@ -1221,6 +1229,8 @@
     $("vp-speed").value = p.speed;
     $("vp-speed-out").textContent = `×${Number(p.speed).toFixed(2)}`;
     vpSliders.set(p.effects);
+    editing.convert = p.convert || "";
+    fillConvertSelect();
     $("vp-delete").disabled = p.builtin;
     $("vp-delete").textContent = p.overrides ? "Revenir à l'original" : "Supprimer";
     $("vp-state").textContent = p.builtin ? "Profil intégré : tes changements l'enregistrent comme profil personnel." : "";
@@ -1256,7 +1266,8 @@
   function formProfile() {
     return { id: slug($("vp-id").value || $("vp-label").value), label: $("vp-label").value.trim() || $("vp-id").value,
              kind: "synthese", engine: $("vp-engine").value, voice: $("vp-voice").value,
-             speaker: Number($("vp-speaker").value) || 0, speed: Number($("vp-speed").value), effects: compact(vpSliders.get()) };
+             speaker: Number($("vp-speaker").value) || 0, speed: Number($("vp-speed").value), effects: compact(vpSliders.get()),
+             convert: $("vp-convert").value || undefined };
   }
   $("vp-test").addEventListener("click", async () => {
     const button = $("vp-test");
@@ -1310,9 +1321,175 @@
   });
   document.querySelectorAll("code").forEach((c) => { if (c.textContent.startsWith("http://127.0.0.1")) c.textContent = `${location.origin}/v1`; });
   let enginesLoaded = false;
-  views.voices = () => { if (!enginesLoaded) { enginesLoaded = true; loadEngines(); } };
+  views.voices = () => { if (!enginesLoaded) { enginesLoaded = true; loadEngines(); loadVc().catch(() => {}); } };
+
+  // =====================================================================================================
+  // Ma voix (IA) : banque de voix enregistrées avec consentement, conversion kNN-VC (modules/voice/convert.py)
+  // =====================================================================================================
+  const vc = { rec: null, voices: [], prompt: null, wav: null, ctx: null };
+  function fillConvertSelect() {
+    const keep = editing?.convert || "";
+    const ready = vc.voices.filter((v) => v.ready);
+    const options = [el("option", { value: "" }, "Voix d'origine"),
+      ...ready.map((v) => el("option", { value: v.id, selected: v.id === keep }, `→ ${v.label}`))];
+    if (keep && !ready.some((v) => v.id === keep)) options.push(el("option", { value: keep, selected: true }, `→ ${keep} (pas prête)`));
+    $("vp-convert").replaceChildren(...options);
+  }
+  async function vcStream() {
+    // même micro que le modulateur ; NVIDIA Broadcast nettoie déjà : pas de filtre du navigateur par-dessus
+    const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+    const broadcast = devices.find((d) => d.kind === "audioinput" && /nvidia broadcast/i.test(d.label));
+    const chosen = store("aether-audio-input") || broadcast?.deviceId || "";
+    const cleaned = Boolean(broadcast) && chosen === broadcast.deviceId;
+    const audio = { echoCancellation: !cleaned, noiseSuppression: !cleaned, autoGainControl: false, channelCount: 1 };
+    try {
+      return await navigator.mediaDevices.getUserMedia({ audio: { ...audio, deviceId: chosen ? { exact: chosen } : undefined } });
+    } catch (error) {
+      if (!chosen) throw error;
+      return navigator.mediaDevices.getUserMedia({ audio });  // micro retenu débranché : micro par défaut
+    }
+  }
+  function toggleRecord(button, label, onBlob) {
+    if (vc.rec) { vc.rec.stop(); return; }
+    vcStream().then((stream) => {
+      const type = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/webm"]
+        .find((t) => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || "";
+      const rec = new MediaRecorder(stream, type ? { mimeType: type } : {});
+      const chunks = [];
+      rec.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
+      rec.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        vc.rec = null;
+        button.textContent = label;
+        button.classList.remove("recording");
+        onBlob(new Blob(chunks, { type: rec.mimeType }));
+      };
+      vc.rec = rec;
+      rec.start();
+      button.textContent = "⏹ Arrêter";
+      button.classList.add("recording");
+    }).catch((error) => status(`Micro inaccessible : ${error.message}`, true));
+  }
+  const toDataUrl = (blob) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+  async function loadVc(keep) {
+    let s;
+    try { s = await voiceCommand("vc_status"); } catch (error) { $("vc-state").textContent = `Module voix indisponible : ${error.message}`; return; }
+    vc.voices = s.voices;
+    vc.readySeconds = s.ready_seconds;
+    $("vc-state").textContent = !s.torch ? "PyTorch absent : conversion indisponible."
+      : s.installed ? `Conversion installée (${s.device === "cpu" ? "processeur" : "carte graphique"}${s.loaded ? ", chargée" : ", chargée à la première conversion"}).`
+        : "Conversion non installée.";
+    $("vc-install").hidden = s.installed || !s.torch;
+    const selected = keep || $("vc-voice").value || store("aether-vc-voice") || "";
+    $("vc-voice").replaceChildren(...(s.voices.length
+      ? s.voices.map((v) => el("option", { value: v.id, selected: v.id === selected },
+        `${v.label} — ${v.seconds} s lues${v.ready ? "" : ` (prête à ${s.ready_seconds} s)`}`))
+      : [el("option", { value: "" }, "Aucune voix : crée la tienne")]));
+    fillConvertSelect();
+    await showVoice();
+  }
+  async function showVoice() {
+    const vid = $("vc-voice").value;
+    const ready = Boolean(vc.voices.find((v) => v.id === vid)?.ready);
+    $("vc-delete").disabled = !vid;
+    $("vc-rec").disabled = !vid;
+    $("vc-conv-rec").disabled = !ready;
+    if (!vid) {
+      $("vc-prompt").textContent = "Crée une voix pour commencer.";
+      $("vc-takes").replaceChildren();
+      return;
+    }
+    store("aether-vc-voice", vid);
+    const [voice, prompt] = await Promise.all([voiceCommand("vc_voice", { voice: vid }), voiceCommand("vc_prompt", { voice: vid })]);
+    vc.prompt = prompt;
+    $("vc-prompt").textContent = prompt.consent ? `Phrase de consentement, à dire toi-même : « ${prompt.text} »` : prompt.text;
+    $("vc-prompt").classList.toggle("consent", prompt.consent);
+    const read = voice.takes.filter((t) => t.prompt >= 0).reduce((sum, t) => sum + t.seconds, 0);
+    $("vc-rec-state").textContent = !voice.consented ? "" : read < vc.readySeconds
+      ? `${Math.round(read)} s lues sur ${vc.readySeconds} s minimum (3 à 5 min conseillées).`
+      : `${Math.round(read)} s lues : voix prête${read < 180 ? " (encore quelques prises pour plus de fidélité)" : ""}.`;
+    $("vc-takes").replaceChildren(...voice.takes.map((t, i) => el("li", {},
+      el("span", {}, `${i === 0 ? "Consentement" : `Prise ${i}`} — ${t.seconds} s, texte reconnu à ${Math.round(t.match * 100)} %`),
+      i === 0 ? "" : el("button", { type: "button", class: "ghost", "data-take": t.file.slice(0, 3) }, "Supprimer"))));
+  }
+  $("vc-voice").addEventListener("change", () => showVoice().catch((error) => status(error.message, true)));
+  $("vc-install").addEventListener("click", async () => {
+    const button = $("vc-install");
+    button.disabled = true;
+    button.textContent = "Téléchargement… (1,3 Go, quelques minutes)";
+    try {
+      const r = await voiceCommand("vc_install", {});
+      status(r.fetched.length ? `Installé : ${r.fetched.join(", ")}.` : "Déjà installé.");
+    } catch (error) { status(`Installation : ${error.message}`, true); }
+    button.disabled = false;
+    button.textContent = "Installer la conversion (1,3 Go)";
+    loadVc();
+  });
+  $("vc-create").addEventListener("click", async () => {
+    const name = $("vc-name").value.trim();
+    const label = $("vc-label").value.trim() || `Ma voix (${name})`;
+    try {
+      const voice = await voiceCommand("vc_create", { id: slug(label) || slug(name), label, name, attest: $("vc-attest").checked });
+      $("vc-attest").checked = false;
+      status(`Voix « ${voice.label} » créée : dis d'abord la phrase de consentement.`);
+      await loadVc(voice.id);
+    } catch (error) { status(error.message, true); }
+  });
+  $("vc-delete").addEventListener("click", async () => {
+    const vid = $("vc-voice").value;
+    if (!vid || !confirm(`Supprimer la voix « ${vid} » et toutes ses prises ? (définitif)`)) return;
+    try { await voiceCommand("vc_delete", { voice: vid }); store("aether-vc-voice", ""); await loadVc(); } catch (error) { status(error.message, true); }
+  });
+  $("vc-takes").addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-take]");
+    if (!button) return;
+    try { await voiceCommand("vc_take_delete", { voice: $("vc-voice").value, take: Number(button.dataset.take) }); await loadVc(); } catch (error) { status(error.message, true); }
+  });
+  $("vc-rec").addEventListener("click", () => toggleRecord($("vc-rec"), "⏺ Lire et enregistrer", async (blob) => {
+    const state = $("vc-rec-state");
+    state.textContent = "Vérification par Whisper…";
+    try {
+      const r = await voiceCommand("vc_take", { voice: $("vc-voice").value, prompt: vc.prompt?.index ?? -1, audio: await toDataUrl(blob) });
+      await loadVc($("vc-voice").value);
+      state.textContent = `✓ ${r.seconds} s, texte reconnu à ${Math.round(r.match * 100)} %. ${state.textContent}`;
+    } catch (error) { state.textContent = `✗ ${error.message}`; }
+  }));
+  function playWav(bytes) {
+    vc.ctx = vc.ctx || new AudioContext();
+    vc.ctx.decodeAudioData(bytes.buffer.slice(0)).then((buffer) => {
+      const source = vc.ctx.createBufferSource();
+      const gain = vc.ctx.createGain();
+      gain.gain.value = 0.6;  // écoute discrète
+      source.buffer = buffer;
+      source.connect(gain).connect(vc.ctx.destination);
+      source.start();
+    }).catch((error) => status(`Lecture impossible : ${error.message}`, true));
+  }
+  $("vc-conv-rec").addEventListener("click", () => toggleRecord($("vc-conv-rec"), "⏺ Enregistrer une phrase à convertir", async (blob) => {
+    const state = $("vc-conv-state");
+    state.textContent = "Conversion…";
+    try {
+      const r = await voiceCommand("vc_convert", { voice: $("vc-voice").value, audio: await toDataUrl(blob) });
+      if (!r.audio) throw new Error("enregistrement trop long pour revenir ici (1 min au plus)");
+      vc.wav = Uint8Array.from(atob(r.audio), (c) => c.charCodeAt(0));
+      state.textContent = `✓ ${r.duration} s converties en ${r.seconds} s.`;
+      $("vc-conv-play").disabled = false;
+      $("vc-conv-save").disabled = false;
+      playWav(vc.wav);
+    } catch (error) { state.textContent = `✗ ${error.message}`; }
+  }));
+  $("vc-conv-play").addEventListener("click", () => { if (vc.wav) playWav(vc.wav); });
+  $("vc-conv-save").addEventListener("click", () => {
+    if (vc.wav) download(new Blob([vc.wav], { type: "audio/wav" }), `voix-convertie-${$("vc-voice").value}.wav`);
+  });
+  views.myvoice = () => { loadVc().catch((error) => status(error.message, true)); };
 
   loadProfiles();
   const mode = store("aether-audio-mode");
-  showMode(["synth", "mod", "voices"].includes(mode) ? mode : "synth");
+  showMode(["synth", "mod", "voices", "myvoice"].includes(mode) ? mode : "synth");
 })();
