@@ -1,1 +1,2 @@
-"""Atelier circuits : console 8 bits à monter pièce par pièce, téléviseur cathodique, programmation 6502."""
+"""Atelier circuits : consoles à monter pièce par pièce, téléviseur cathodique, programmation, banc logique et
+microcontrôleurs."""

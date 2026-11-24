@@ -611,7 +611,12 @@
       b.setAttribute("aria-selected", String(on));
     }
     for (const v of document.querySelectorAll(".view")) v.hidden = v.dataset.view !== mode;
+    // Banc logique et microcontrôleurs : pas de téléviseur, toute la largeur ; la console se met en pause.
+    const wide = mode === "logic" || mode === "mcu";
+    document.querySelector(".work").classList.toggle("wide", wide);
+    if (wide && S.on && !S.paused) { S.paused = true; updatePowerButton(); }
     local.set("mode", mode);
+    document.dispatchEvent(new CustomEvent("circuit-mode", { detail: mode }));
     if (mode === "code") paintGutter(S.built ? S.built.errors.map((e) => e.line) : []);
   }
   // Textes de la page qui dépendent de l'établi choisi.
@@ -722,7 +727,8 @@
     wire();
     labels();
     drawBoard(); drawTray(); diagnose(); updatePowerButton(); showRegs();
-    setMode(local.get("mode", "bench"));
+    const mode = local.get("mode", "bench");
+    setMode(["bench", "code", "logic", "mcu"].includes(mode) ? mode : "bench");
     await loadSource();
     if (!S.installed.size) select("power");
     requestAnimationFrame(loop);

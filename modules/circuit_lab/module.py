@@ -1,6 +1,8 @@
-"""Module du Hub : atelier circuits (console 8 bits à monter, téléviseur, programmation de cartouches).
+"""Module du Hub : atelier circuits (consoles 8 et 16 bits à monter, téléviseur, programmation de cartouches, banc
+logique façon FPGA, cartes à microcontrôleur RP2040 et AVR).
 
-L'émulation (processeur 6502, vidéo, son, manettes) et l'assembleur tournent dans la page `core/web/circuit_app.html` ;
+Les émulations (processeurs, vidéo, son, manettes, portes logiques, microcontrôleurs) et les assembleurs tournent
+dans la page `core/web/circuit_app.html` ;
 le module fournit les exemples et range les programmes de l'utilisateur.
 
 Commandes (`POST /modules/circuit_lab/command/<commande>`, ou bus `module.circuit_lab.cmd.<commande>`) :

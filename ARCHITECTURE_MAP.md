@@ -227,10 +227,18 @@ core/
     labs_tool.js
     LICENSE.xterm-addon-fit.txt
     LICENSE.xterm.txt
+    logic_app.js
+    logic_sim.js
     logo-256.png
     logo-32.png
     logo.ico
     logo.svg
+    mcu_app.js
+    mcu_asm.js
+    mcu_avr.js
+    mcu_board.js
+    mcu_examples.js
+    mcu_rp2040.js
     nes_cpu.js
     nes_machine.js
     nes_ppu.js
@@ -536,7 +544,9 @@ tests/
     asm_check.js
     c16_check.js
     demo_check.js
+    logic_check.js
     machine_check.js
+    mcu_check.js
     nestest_run.js
     test_module.py
   core/
@@ -1325,7 +1335,7 @@ Solutions aqueuses à 25 °C : pH exact, dilutions, préparation, titrages acido
 
 ### `modules/circuit_lab/__init__.py`
 
-Atelier circuits : console 8 bits à monter pièce par pièce, téléviseur cathodique, programmation 6502.
+Atelier circuits : consoles à monter pièce par pièce, téléviseur cathodique, programmation, banc logique et
 
 *(aucun symbole public)*
 
@@ -1351,7 +1361,7 @@ Programmes de l'atelier circuits : exemples fournis (`examples/*.asm`) et progra
 
 ### `modules/circuit_lab/module.py`
 
-Module du Hub : atelier circuits (console 8 bits à monter, téléviseur, programmation de cartouches).
+Module du Hub : atelier circuits (consoles 8 et 16 bits à monter, téléviseur, programmation de cartouches, banc
 
 - **`class CircuitLabModule(ModuleBase)`**
   - `def start(self) -> None`

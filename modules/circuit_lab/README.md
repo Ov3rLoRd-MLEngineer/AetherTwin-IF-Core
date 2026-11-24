@@ -2,7 +2,8 @@
 
 Un établi d'électronique virtuel. On y monte une **console de jeu 8 bits** ou une **console 16 bits** composant
 par composant, on l'allume sur un **téléviseur cathodique**, et on écrit ses propres **cartouches** en assembleur
-6502 ou 65816.
+6502 ou 65816. Deux autres établis : un **banc logique** (portes, bascules, compteurs à câbler, chronogramme) et des
+**cartes à microcontrôleur** (RP2040 et AVR) à programmer, avec LED, boutons, afficheur ou écran.
 
 Ouverture : Hub → onglet **Outils** → **Atelier circuits**, ou le bouton **Ouvrir l'atelier** pour sa propre fenêtre.
 
@@ -105,6 +106,56 @@ et les registres.
 Le panneau **débogueur** montre les registres du processeur et les prochaines instructions (avec leur ligne
 dans ton programme) ; **Pause**, **Image suivante** et **Instruction suivante** permettent d'avancer pas à pas.
 
+## Le banc logique (façon FPGA)
+
+Onglet **Banc logique** : on pose des pièces sur une grille et on les câble à la souris (clic sur une sortie, à
+droite d'une pièce, puis sur une entrée, à gauche ; ou l'inverse). Les fils allumés portent un 1.
+
+- **Entrées** : interrupteur (clic), bouton poussoir (tant qu'on appuie), horloge (demi-période réglable),
+  constantes 0 et 1.
+- **Sorties** : LED (4 couleurs), sonde, afficheur 7 segments hexadécimal (4 bits) ou brut (8 segments).
+- **Portes** : NON, ET, OU, NON-ET, NON-OU, OU exclusif, NON-OU exclusif.
+- **Bascules** : verrou SR, bascules D, T et JK (front montant, remise à zéro immédiate).
+- **Blocs** : compteur 4 bits (validation, remise à zéro, chargement, retenue), registre 4 bits, additionneur
+  complet, additionneur 4 bits, multiplexeurs (1 bit et 4 bits), décodeur 2 vers 4, mémoire ROM 16 × 8 éditable.
+
+**Lancer**, **Pas** (touche Espace : une demi-période d'horloge) et **Remise à zéro**. Le **chronogramme** trace les
+entrées, horloges, LED et sondes. Toutes les bascules d'un même front prennent leur nouvel état en même temps,
+calculé sur les entrées d'avant le front (comme en vrai). Une boucle sans bascule qui ne se stabilise pas (un
+inverseur rebouclé sur lui-même) est signalée : « instable : le circuit oscille ».
+
+Montages d'exemple : demi-additionneur, additionneur complet en portes, verrou SR en portes NON-OU, diviseur
+d'horloge en bascules D, compteur 4 bits sur 7 segments, et un **petit processeur 4 bits** (compteur de programme,
+ROM, additionneur, multiplexeur, accumulateur ; trois instructions : CHARGE, AJOUTE, SAUTE). Le montage se garde
+dans la page et s'exporte ou s'importe en fichier `.logique.json`.
+
+## Les microcontrôleurs
+
+Onglet **Microcontrôleurs** : deux cartes, simulées instruction par instruction, à programmer en assembleur.
+
+- **Carte RP2040** (le microcontrôleur du Raspberry Pi Pico : un cœur ARM Cortex-M0+, jeu Thumb, 125 MHz).
+  LED sur GP0 à GP3 et GP25 (LED de la carte), boutons 1 à 4 sur GP10 à GP13 (appuyé = 1). Le programme est
+  chargé en SRAM à `0x20000000` et démarre à l'étiquette `main`. Comme sur la vraie puce, il faut libérer
+  IO_BANK0, PADS_BANK0 et TIMER (registre RESETS), choisir la fonction 5 (SIO) de chaque broche, puis activer la
+  sortie (`GPIO_OE_SET`). Le TIMER compte les microsecondes (`TIMERAWL`). Alias atomiques des registres
+  (`+0x1000` XOR, `+0x2000` SET, `+0x3000` CLR) ; une erreur d'accès arrête le cœur avec un message « HardFault ».
+- **Carte AVR 8 bits** (ATmega328P, 16 MHz). LED sur PB0 à PB3 et PB5 (LED « L »), boutons 1 à 4 sur PC0 à PC3
+  (reliés à la masse : il faut activer le tirage haut). Ports B, C, D (`DDRx`, `PORTx`, `PINx`), minuterie 0
+  (pré-diviseur, débordement, mode CTC) et ses interruptions, `sleep`, pile, lecture de la flash par `lpm`.
+- **Module** branché sur la carte, au choix : **afficheur 7 segments** ou **écran LCD 16 × 2** (contrôleur HD44780
+  en mode 4 bits : il faut l'initialiser comme un vrai, trois fois 3 puis 2).
+
+La luminosité d'une LED ou d'un segment est la part du temps où sa broche est restée à 1 : une modulation de
+largeur d'impulsion ou un affichage multiplexé se voient comme sur une vraie carte. Le panneau montre les
+registres, la ligne du programme en cours, et un diagnostic (broche oubliée en entrée, fonction SIO non choisie,
+bloc encore en reset…). **Pause**, **Instruction suivante** et **RESET** ; les boutons se pressent à la souris ou
+avec les touches 1 à 4. Huit exemples : clignotant, chenillard (par interruption sur l'AVR), compteur sur
+7 segments avec deux boutons, « Bonjour » sur l'écran LCD, pour chaque carte.
+
+Les deux assembleurs suivent la syntaxe habituelle : celle d'avra pour l'AVR (`.org`, `.equ`, `.def`, `.db`,
+`low()`, `high()`), celle de GNU as pour le Thumb (`movs`, `ldr r0, =valeur`, `push {r4, lr}`, `.word`, `.ltorg`).
+L'aide-mémoire sous l'éditeur donne les broches, les registres et les instructions de chaque carte.
+
 ## Ce qui est simulé, et ce qui ne l'est pas
 
 - Processeur 6502 exact à l'instruction près (vérifié avec le test de référence `nestest`, instructions officielles
@@ -115,8 +166,10 @@ dans ton programme) ; **Pause**, **Image suivante** et **Instruction suivante** 
 - Cartouches : mappeur 0 (NROM, 32 Ko de programme et 8 Ko de motifs). Les autres mappeurs sont **en cours**.
 - Au niveau des transistors, une console entière est trop lente pour tourner en direct : l'atelier simule
   chaque puce par son comportement, et les pannes par ce qu'elles font sur les bus.
-- **Banc logique** (portes et bascules façon FPGA) et **microcontrôleurs** (RP2040 du Raspberry Pi Pico, AVR) :
-  **en cours**. Un Raspberry Pi complet (processeur ARM sous Linux) dépasse ce qu'une page peut simuler en direct.
+- Microcontrôleurs : cœurs complets (jeu Thumb ARMv6-M, jeu AVR sauf quelques multiplications signées et
+  `elpm`) ; périphériques limités à ce que les cartes utilisent. Le second cœur du RP2040, ses interruptions, PIO,
+  UART, ADC et PWM matériel, et sur l'AVR les minuteries 1 et 2, l'UART et l'ADC sont **en cours**. Un Raspberry Pi
+  complet (processeur ARM sous Linux) dépasse ce qu'une page peut simuler en direct.
 
 Aucun jeu commercial, logo ni marque n'est fourni : la console de l'atelier est une machine **compatible** avec le
 format de cartouche iNES. Tu peux y charger tes propres fichiers `.nes` (mappeur 0).

@@ -1,5 +1,6 @@
 """circuit_lab : commandes du module, fenêtre de bureau, page de l'atelier (CSP du Hub respectée) et vérifications
-de la console en JavaScript (processeur, assembleur, carte mère, jeu d'exemple) quand Node.js est installé."""
+en JavaScript quand Node.js est installé : consoles (processeurs, assembleurs, cartes mères, jeux d'exemple), banc
+logique et cartes à microcontrôleur."""
 from __future__ import annotations
 
 import re
@@ -18,7 +19,10 @@ WEB = ROOT / "core" / "web"
 HERE = Path(__file__).resolve().parent
 PAGES = ("circuit_app", "crt")
 SCRIPTS = ("nes_cpu.js", "asm6502.js", "nes_ppu.js", "nes_machine.js", "crt.js", "crt_tv.js", "circuit_audio.js",
-           "c16_cpu.js", "c16_ppu.js", "c16_apu.js", "c16_machine.js", "asm65816.js")
+           "c16_cpu.js", "c16_ppu.js", "c16_apu.js", "c16_machine.js", "asm65816.js", "logic_sim.js", "logic_app.js",
+           "mcu_asm.js", "mcu_avr.js", "mcu_rp2040.js", "mcu_board.js", "mcu_examples.js", "mcu_app.js")
+# Scripts de chaque page dont les identifiants `$("…")` doivent exister dans la page.
+PAGE_SCRIPTS = {"circuit_app": ("circuit_app.js", "logic_app.js", "mcu_app.js"), "crt": ("crt_tv.js",)}
 
 
 def make(tmp_path: Path) -> CircuitLabModule:
@@ -70,7 +74,7 @@ def test_window_and_page(monkeypatch: pytest.MonkeyPatch) -> None:
 
     for name in PAGES:
         page = (WEB / f"{name}.html").read_text(encoding="utf-8")
-        script = (WEB / ("circuit_app.js" if name == "circuit_app" else "crt_tv.js")).read_text(encoding="utf-8")
+        script = "\n".join((WEB / s).read_text(encoding="utf-8") for s in PAGE_SCRIPTS[name])
         assert " style=" not in page  # la CSP du Hub refuse les styles en ligne
         assert "<script>" not in page
         ids = set(re.findall(r'\$\("([\w-]+)"\)', script))
@@ -93,6 +97,8 @@ NODE = shutil.which("node")
     ("machine_check.js", "carte mère : ok"),
     ("demo_check.js", "jeu d'exemple : ok"),
     ("c16_check.js", "console 16 bits : ok"),
+    ("logic_check.js", "banc logique : ok"),
+    ("mcu_check.js", "microcontrôleurs : ok"),
 ])
 def test_console_in_javascript(script: str, expected: str) -> None:
     done = subprocess.run([NODE, str(HERE / script)], capture_output=True, text=True, encoding="utf-8",  # noqa: S603

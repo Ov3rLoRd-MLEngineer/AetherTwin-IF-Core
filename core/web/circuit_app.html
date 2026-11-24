@@ -18,6 +18,14 @@
   <script src="/static/asm65816.js" defer></script>
   <script src="/static/crt.js" defer></script>
   <script src="/static/circuit_app.js" defer></script>
+  <script src="/static/logic_sim.js" defer></script>
+  <script src="/static/logic_app.js" defer></script>
+  <script src="/static/mcu_asm.js" defer></script>
+  <script src="/static/mcu_avr.js" defer></script>
+  <script src="/static/mcu_rp2040.js" defer></script>
+  <script src="/static/mcu_board.js" defer></script>
+  <script src="/static/mcu_examples.js" defer></script>
+  <script src="/static/mcu_app.js" defer></script>
 </head>
 <body>
   <div class="lab">
@@ -26,10 +34,11 @@
       <span class="wordmark">Aether<em>Twin</em></span>
       <span class="model">CIRCUITS</span>
       <div class="modes" role="tablist" id="modes">
-        <button role="tab" data-mode="bench" data-kind="c8" aria-selected="true" title="Console « Japon rouge et blanc 8 bits 1983 »">Établi : console 8 bits</button>
-        <button role="tab" data-mode="bench" data-kind="c16" aria-selected="false" title="Console « Japon grise 16 bits 1990 »">Établi : console 16 bits</button>
+        <button role="tab" data-mode="bench" data-kind="c8" aria-selected="true" title="Établi : console « Japon rouge et blanc 8 bits 1983 »">Console 8 bits</button>
+        <button role="tab" data-mode="bench" data-kind="c16" aria-selected="false" title="Établi : console « Japon grise 16 bits 1990 »">Console 16 bits</button>
         <button role="tab" data-mode="code" aria-selected="false" id="code-tab">Programmation</button>
-        <button role="tab" data-mode="soon" aria-selected="false">Banc logique et microcontrôleurs</button>
+        <button role="tab" data-mode="logic" aria-selected="false" title="Portes, bascules et compteurs à câbler, chronogramme">Banc logique</button>
+        <button role="tab" data-mode="mcu" aria-selected="false" title="Cartes RP2040 et AVR simulées instruction par instruction">Microcontrôleurs</button>
       </div>
       <span class="grow"></span>
       <span class="status" id="status" aria-live="polite"></span>
@@ -128,18 +137,87 @@
         </div>
       </main>
 
-      <!-- ==================== à venir ==================== -->
-      <main class="view soon" data-view="soon" hidden>
-        <h2>Banc logique et microcontrôleurs : en cours</h2>
-        <p>Deux établis de plus sont en préparation :</p>
-        <ul>
-          <li><b>Banc logique (façon FPGA)</b> : portes, bascules et compteurs à câbler, simulation pas à pas avec chronogrammes, puis
-            des montages complets (additionneur, compteur affiché sur 7 segments, petit processeur).</li>
-          <li><b>Microcontrôleurs</b> : une carte à microcontrôleur RP2040 (celui du Raspberry Pi Pico) et une carte AVR, simulées
-            instruction par instruction, avec LED, boutons et petit écran branchés sur leurs broches.</li>
-        </ul>
-        <p class="muted">Un vrai Raspberry Pi (processeur ARM avec Linux) est trop lourd pour être simulé en direct dans une page :
-          l'atelier s'en tient aux microcontrôleurs, qui se simulent bien et s'apprennent de la même façon.</p>
+      <!-- ==================== banc logique ==================== -->
+      <main class="view logic" data-view="logic" id="logic-view" hidden>
+        <aside class="tray">
+          <h2>Pièces</h2>
+          <p class="muted small">Clique une pièce pour la poser, puis glisse-la. Câbler : clique une sortie (à droite d'une pièce),
+            puis une entrée (à gauche). <kbd>Suppr</kbd> efface, <kbd>Espace</kbd> avance d'un pas.</p>
+          <div id="logic-palette"></div>
+        </aside>
+        <section class="logic-main">
+          <div class="toolbar">
+            <select id="logic-example" title="Montages d'exemple"><option value="">Montage personnel</option></select>
+            <span class="sep"></span>
+            <button type="button" id="logic-run" class="primary">▶ Lancer</button>
+            <button type="button" id="logic-step" title="Une demi-période d'horloge (touche Espace)">Pas</button>
+            <button type="button" id="logic-reset" title="Bascules, compteurs et chronogramme repartent de zéro">Remise à zéro</button>
+            <label title="Pas par seconde">Vitesse <input type="range" id="logic-speed" min="1" max="30" value="4"></label>
+          </div>
+          <div class="logic-stage" id="logic-stage"><svg id="logic-svg" class="logic-svg" role="img" aria-label="Plan de câblage"></svg></div>
+          <div class="logic-chrono">
+            <div class="row tight"><h2>Chronogramme</h2><span class="grow"></span>
+              <span class="small muted" id="logic-time"></span><span class="small" id="logic-stable"></span></div>
+            <div class="logic-chrono-box"><canvas id="logic-chrono"></canvas></div>
+          </div>
+        </section>
+        <aside class="logic-side">
+          <h2>Réglages</h2>
+          <div id="logic-props" class="part-info"></div>
+          <h2 class="gap">Montage</h2>
+          <p id="logic-about" class="small"></p>
+          <p id="logic-count" class="small muted"></p>
+          <div class="row tight">
+            <button type="button" id="logic-new" class="ghost small">Nouveau</button>
+            <button type="button" id="logic-import" class="ghost small">Importer…</button>
+            <button type="button" id="logic-export" class="ghost small">Exporter</button>
+            <input type="file" id="logic-file" accept=".json,application/json" hidden>
+          </div>
+        </aside>
+      </main>
+
+      <!-- ==================== microcontrôleurs ==================== -->
+      <main class="view mcu" data-view="mcu" id="mcu-view" hidden>
+        <section class="mcu-code">
+          <div class="toolbar">
+            <select id="mcu-board" title="Carte">
+              <option value="rp2040">Carte RP2040 (Cortex-M0+)</option>
+              <option value="avr">Carte AVR 8 bits (ATmega328P)</option>
+            </select>
+            <select id="mcu-module" title="Module branché sur la carte">
+              <option value="seg7">Module : 7 segments</option>
+              <option value="lcd">Module : LCD 16 × 2</option>
+            </select>
+            <span class="sep"></span>
+            <select id="mcu-example" title="Programmes d'exemple"></select>
+            <span class="grow"></span>
+            <button type="button" id="mcu-build" class="ghost" title="Assembler (vérifier)">Assembler</button>
+            <button type="button" id="mcu-run" class="primary" title="Assembler et lancer (Ctrl+Entrée)">▶ Lancer</button>
+          </div>
+          <div class="editor">
+            <pre class="gutter" id="mcu-gutter" aria-hidden="true">1</pre>
+            <textarea id="mcu-source" class="mcu-source" spellcheck="false" aria-label="Programme en assembleur"></textarea>
+          </div>
+          <div class="bottom">
+            <div id="mcu-errors" class="errors"></div>
+            <details class="cheat"><summary>Aide-mémoire de la carte</summary><div id="mcu-cheat" class="cheat-body small"></div></details>
+          </div>
+        </section>
+        <aside class="mcu-side">
+          <svg id="mcu-svg" class="mcu-svg" viewBox="0 0 400 300" role="img" aria-label="Carte à microcontrôleur"></svg>
+          <div class="row tight">
+            <button type="button" id="mcu-pause" class="ghost small">⏸ Pause</button>
+            <button type="button" id="mcu-step" class="ghost small">Instruction suivante</button>
+            <button type="button" id="mcu-reset" class="ghost small">RESET</button>
+            <span class="grow"></span>
+            <span class="small muted" id="mcu-speed"></span>
+          </div>
+          <div class="debug">
+            <pre id="mcu-regs" class="regs"></pre>
+            <pre id="mcu-line" class="disasm"></pre>
+          </div>
+          <div id="mcu-diag" class="diag small"></div>
+        </aside>
       </main>
 
       <!-- ==================== téléviseur et mesures ==================== -->

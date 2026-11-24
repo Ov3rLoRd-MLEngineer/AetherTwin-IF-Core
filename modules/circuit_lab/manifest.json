@@ -1,7 +1,7 @@
 {
   "name": "circuit_lab",
   "version": "0.1.0",
-  "description": "Atelier circuits : console 8 bits à monter composant par composant, téléviseur cathodique, programmation de cartouches en assembleur 6502",
+  "description": "Atelier circuits : consoles 8 et 16 bits à monter composant par composant, téléviseur cathodique, programmation en assembleur (6502, 65C816), banc logique façon FPGA, cartes à microcontrôleur RP2040 et AVR",
   "entry": "modules.circuit_lab.module:CircuitLabModule",
   "vram_min_gb": 0,
   "vram_comfort_gb": 0,

@@ -1712,3 +1712,20 @@ Il a autorisé les téléchargements nécessaires.
   identité Windows (AppUserModelID `AetherTwin.Hub`, icône de relance) et on pose l'icône sur la fenêtre.
 - **À faire de ton côté :** relancer `Installer AetherTwin.bat -Shortcut` pour que le raccourci du bureau prenne
   l'icône.
+
+## 2026-11-25 — atelier circuits : banc logique et microcontrôleurs
+
+- **Agent :** Cloud
+- **Demande de Jérémy :** remplacer l'onglet « Banc logique et microcontrôleurs : en cours » par les deux établis
+  annoncés ; garder les onglets de l'atelier sur une ligne dans le Hub ; mettre à jour le sous-titre du Hub.
+- **Fichiers :** `core/web/logic_sim.js` (simulateur), `logic_app.js` (éditeur, chronogramme) ; `mcu_asm.js`
+  (assembleurs AVR et Thumb), `mcu_avr.js` (cœur AVR), `mcu_rp2040.js` (cœur RP2040), `mcu_board.js` (cartes, écran
+  LCD), `mcu_examples.js`, `mcu_app.js` (onglet) ; `circuit_app.html`, `circuit_app.css`, `circuit_app.js` (onglets
+  courts, pleine largeur sans téléviseur) ; `dashboard.html` (sous-titre) ; `modules/circuit_lab` (manifeste, notes,
+  README) ; `tests/circuit_lab/logic_check.js`, `mcu_check.js`, `test_module.py`.
+- **Décisions :** le programme du RP2040 est chargé en SRAM comme par un débogueur (pas de ROM de démarrage ni de
+  flash externe à simuler) ; les blocs IO_BANK0, PADS_BANK0 et TIMER démarrent en reset comme sur la puce, avec un
+  diagnostic si on oublie de les libérer. La luminosité des LED est mesurée sur le temps passé à 1, pour que la MLI
+  et le multiplexage se voient.
+- **En cours :** second cœur, interruptions, PIO, UART, ADC et PWM du RP2040 ; minuteries 1 et 2, UART et ADC de
+  l'AVR.
