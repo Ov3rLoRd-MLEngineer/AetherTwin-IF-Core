@@ -1343,5 +1343,6 @@
  "Adresse du Hub": "Hub address",
  "Profil de voix": "Voice profile",
  "vide = celui de l'assistant (aether, narrateur, fuma, robot…)": "empty = the assistant's (aether, narrateur, fuma, robot…)",
- "http://127.0.0.1:5750/v1  (Hub AetherTwin, Open WebUI, faster-whisper-server…)": "http://127.0.0.1:5750/v1  (AetherTwin Hub, Open WebUI, faster-whisper-server…)"
+ "http://127.0.0.1:5750/v1  (Hub AetherTwin, Open WebUI, faster-whisper-server…)": "http://127.0.0.1:5750/v1  (AetherTwin Hub, Open WebUI, faster-whisper-server…)",
+ "Guide de la voix": "Voice guide"
 }

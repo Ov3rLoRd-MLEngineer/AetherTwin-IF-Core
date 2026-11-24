@@ -27,6 +27,7 @@
       <h1>AetherTwin <span>I&amp;F Core</span></h1>
       <p id="hub-line">Connexion au Hub…</p>
     </div>
+    <a class="guide-link" href="/static/guide.html?g=aethertwin" target="_blank" rel="noopener" title="Ouvrir le guide dans une nouvelle fenêtre">📖 Guides</a>
     <button id="hub-stop" type="button" class="ghost danger">Arrêter le Hub</button>
   </header>
 
@@ -173,6 +174,7 @@
         <div class="row">
           <button id="app-toggle" type="button">Lancer WoW Assistant</button>
           <span id="app-line" class="muted"></span>
+          <a class="guide-link" href="/static/guide.html?g=wow_assistant" target="_blank" rel="noopener" title="Ouvrir le guide dans une nouvelle fenêtre">📖 Guide de WoW Assistant</a>
         </div>
       </section>
       <section data-sub="Lecture du jeu">
@@ -220,6 +222,7 @@
             <select id="ask-voice" aria-label="Voix des réponses"></select>
             <label title="Volume de la voix">🔊 <input type="range" id="ask-volume" min="0" max="100" step="5" value="60" aria-label="Volume de la voix"></label>
             <button id="ask-hush" type="button" class="ghost" hidden title="Couper la voix (Échap)">Silence</button>
+            <a class="guide-link" href="/static/guide.html?g=voice" target="_blank" rel="noopener" title="Ouvrir le guide dans une nouvelle fenêtre">📖 Voix</a>
             <button id="chat-new" type="button" class="ghost">Nouvelle conversation</button>
             <button type="submit">Envoyer</button>
           </div>
@@ -350,6 +353,8 @@
       <section data-sub="Calculatrice" class="calc-tool">
         <div class="calc-tool-head">
           <h2>Calculatrice</h2>
+          <span class="grow"></span>
+          <a class="guide-link" href="/static/guide.html?g=calc_cas" target="_blank" rel="noopener" title="Ouvrir le guide dans une nouvelle fenêtre">📖 Guide</a>
           <button id="calc-window" type="button" title="Fenêtre séparée, redimensionnable">Ouvrir la calculatrice</button>
         </div>
         <div class="calc-frame-wrap">
@@ -363,6 +368,8 @@
       <section data-sub="Studio pixel" class="pixel-tool">
         <div class="calc-tool-head">
           <h2>Studio pixel</h2>
+          <span class="grow"></span>
+          <a class="guide-link" href="/static/guide.html?g=pixel_studio" target="_blank" rel="noopener" title="Ouvrir le guide dans une nouvelle fenêtre">📖 Guide</a>
           <button id="pixel-window" type="button" title="Fenêtre séparée, redimensionnable">Ouvrir le studio</button>
         </div>
         <iframe id="pixel-frame" class="pixel-frame" title="Studio pixel Æther" src="about:blank"></iframe>
@@ -374,6 +381,8 @@
       <section data-sub="Studio audio" class="pixel-tool">
         <div class="calc-tool-head">
           <h2>Studio audio</h2>
+          <span class="grow"></span>
+          <a class="guide-link" href="/static/guide.html?g=voice" target="_blank" rel="noopener" title="Ouvrir le guide dans une nouvelle fenêtre">📖 Guide</a>
           <button id="audio-window" type="button" title="Fenêtre séparée, redimensionnable">Ouvrir le studio</button>
         </div>
         <iframe id="audio-frame" class="pixel-frame" title="Studio audio Æther" src="about:blank"
@@ -398,7 +407,7 @@
     <!-- Scantrad -->
     <div data-subtabs class="panel" data-panel="scantrad" hidden>
       <section data-sub="Automatique">
-        <h2>Traduire une page</h2>
+        <h2>Traduire une page <a class="guide-link small" href="/static/guide.html?g=scantrad" target="_blank" rel="noopener" title="Ouvrir le guide dans une nouvelle fenêtre">📖 Guide</a></h2>
         <p class="muted">Usage personnel : tout reste sur cette machine. Le premier passage charge les modèles
           (environ 30 s), les suivants sont plus rapides.</p>
         <form id="scan-form" class="row">
@@ -539,7 +548,7 @@
     <!-- Studio (mangastudio) -->
     <div class="panel" data-panel="studio" hidden>
       <section>
-        <h2>Masque de main ou de pied</h2>
+        <h2>Masque de main ou de pied <a class="guide-link small" href="/static/guide.html?g=mangastudio" target="_blank" rel="noopener" title="Ouvrir le guide dans une nouvelle fenêtre">📖 Guide</a></h2>
         <p id="studio-status" class="muted">…</p>
         <div class="row">
           <input id="studio-file" type="file" accept="image/png,image/jpeg,image/webp">

@@ -175,3 +175,9 @@ section > p { margin: 0 0 14px; }
                   padding: 5px 14px; }
 .subtabs button[aria-selected="true"] { color: #fff; background: var(--accent); border-color: var(--accent); font-weight: 600; }
 section.sub-off { display: none; }
+/* liens vers les guides (README lus dans le Hub, core/web/guide.html) */
+a.guide-link { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 8px; font-size: 13px;
+               color: var(--accent); border: 1px solid transparent; text-decoration: none; white-space: nowrap; }
+a.guide-link:hover { border-color: var(--accent); }
+a.guide-link.small { font-size: 12px; font-weight: 400; padding: 1px 8px; vertical-align: middle; }
+.calc-tool-head .grow { flex: 1; }

@@ -2306,7 +2306,18 @@ class UI:
         self.pill((x, y + 4, 200, 32), "Tester la voix", False,
                   lambda: self.voice.speak("Bonjour, ceci est un test de la voix de l'assistant.") if self.voice else None)
         self.pill((x + 212, y + 4, 260, 32), "Tester le micro (une phrase)", False, self._modal_voice)
+        self.pill((x + 484, y + 4, 200, 32), "Guide de la voix", False, self._open_voice_guide)
         self._voice_test_status(m, x, y + 46, rect.w - 48)
+
+    def _open_voice_guide(self):
+        """Guide de la voix (module voice) servi par le Hub, dans le navigateur."""
+        import webbrowser
+
+        base = (self.settings.get("voice.tts.hub_url") or "http://127.0.0.1:5750").strip().rstrip("/")
+        base = base[:-3] if base.endswith("/v1") else base
+        if not base.startswith(("http://127.0.0.1", "http://localhost")):
+            base = "http://127.0.0.1:5750"
+        webbrowser.open(base + "/static/guide.html?g=voice")
 
     def _settings_web(self, m, x, y, rect):
         self.text("Widgets web : Open WebUI et lecteur vidéo", "medium", "gold", (x, y), shadow=True)

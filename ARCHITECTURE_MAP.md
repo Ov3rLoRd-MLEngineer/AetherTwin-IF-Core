@@ -195,6 +195,9 @@ core/
     dev.css
     dev.js
     ether_scene.js
+    guide.css
+    guide.html
+    guide.js
     LICENSE.xterm-addon-fit.txt
     LICENSE.xterm.txt
     logo.svg
@@ -542,6 +545,7 @@ logs/
 
 API HTTP locale du démon (FastAPI). Servie sur 127.0.0.1 uniquement par `core.daemon`.
 
+- `def guide_catalog() -> dict[str, tuple[str, Path]]` — Guides lisibles depuis l'interface : le README du dépôt, celui de WoW Assistant et ceux des modules.
 - `def audio_suffix(content_type: str, filename: str='') -> str`
 - `def multipart_fields(content_type: str, body: bytes) -> dict[str, tuple[bytes, str, str]]` — Champs d'un formulaire multipart : nom → (contenu, type, nom de fichier). Sans python-multipart.
 - `async def save_upload(request: Request, folder: Path) -> Path` — Enregistre l'image envoyée (corps brut, PNG/JPEG/WebP, 25 Mo au plus) sous un nom horodaté.

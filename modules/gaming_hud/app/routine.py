@@ -231,7 +231,11 @@ class RoutineStore:
             self.reload_if_changed()
             if len(self.tasks) >= MAX_TASKS or any(t["text"].lower() == text.lower() for t in self.tasks):
                 return False
-            self.tasks.append({"id": f"t{int(time.time() * 1000):x}", "text": text, "period": period})
+            stamp = int(time.time() * 1000)
+            ids = {t["id"] for t in self.tasks}
+            while f"t{stamp:x}" in ids:  # deux ajouts dans la même milliseconde : identifiants distincts
+                stamp += 1
+            self.tasks.append({"id": f"t{stamp:x}", "text": text, "period": period})
             return self._save()
 
     def remove_task(self, task_id):

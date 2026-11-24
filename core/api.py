@@ -18,6 +18,8 @@ donner `http://127.0.0.1:<port>` comme serveur) :
     POST /v1/audio/speech          texte → WAV (module `voice` : « voice » = profil de voix d'AetherTwin)
     POST /v1/audio/transcriptions  audio (multipart « file », ou corps brut) → {"text"} (Whisper local)
 
+Guides (README du dépôt, lus par `core/web/guide.html`) : GET /guides, GET /guides/{id}.
+
 Toutes les générations passent par `core.llm_router` : règles VRAM appliquées, rien ne part vers le cloud.
 """
 from __future__ import annotations
@@ -59,6 +61,28 @@ VOICE_TMP_NAME = re.compile(r"[0-9a-f]{32}\.wav")
 AUDIO_TYPES = {"audio/wav": "wav", "audio/x-wav": "wav", "audio/wave": "wav", "audio/webm": "webm",
                "video/webm": "webm", "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a",
                "audio/x-m4a": "m4a", "audio/flac": "flac"}
+
+
+GUIDE_FIXED = {"aethertwin": "README.md", "wow_assistant": "modules/gaming_hud/app/README.md"}
+
+
+def guide_catalog() -> dict[str, tuple[str, Path]]:
+    """Guides lisibles depuis l'interface : le README du dépôt, celui de WoW Assistant et ceux des modules.
+
+    Liste fermée calculée côté serveur (identifiant → fichier) : la page ne donne jamais de chemin.
+    """
+    found: dict[str, Path] = {gid: REPO_ROOT / rel for gid, rel in GUIDE_FIXED.items()}
+    for readme in sorted((REPO_ROOT / "modules").glob("*/README.md")):
+        if re.fullmatch(r"[a-z][a-z0-9_]*", readme.parent.name):
+            found[readme.parent.name] = readme
+    catalog: dict[str, tuple[str, Path]] = {}
+    for gid, path in found.items():
+        if not path.is_file():
+            continue
+        first = path.read_text(encoding="utf-8", errors="replace").lstrip().splitlines()[:1]
+        title = first[0].lstrip("# ").strip() if first and first[0].startswith("#") else gid
+        catalog[gid] = (title[:80], path)
+    return catalog
 
 
 def audio_suffix(content_type: str, filename: str = "") -> str:
@@ -912,6 +936,19 @@ def create_app(daemon: Daemon) -> FastAPI:
             return Response(content=str(result.get("text", "")), media_type="text/plain; charset=utf-8")
         return {"text": result.get("text", ""), "language": result.get("language"),
                 "duration": result.get("duration")}
+
+    # -- guides (README du dépôt, en lecture seule, liste fermée)
+    @app.get("/guides")
+    def guides() -> list[dict[str, str]]:
+        return [{"id": gid, "title": title} for gid, (title, _path) in guide_catalog().items()]
+
+    @app.get("/guides/{gid}")
+    def guide(gid: str) -> dict[str, str]:
+        entry = guide_catalog().get(gid)
+        if entry is None:
+            raise HTTPException(status_code=404, detail="guide inconnu")
+        title, path = entry
+        return {"id": gid, "title": title, "markdown": path.read_text(encoding="utf-8", errors="replace")[:400_000]}
 
     @app.get("/v1/models")
     def v1_models() -> dict[str, Any]:

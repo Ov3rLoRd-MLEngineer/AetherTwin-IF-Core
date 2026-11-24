@@ -254,3 +254,6 @@ input, textarea, select { font: inherit; }
 .dialog .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 .toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #111a; color: #fff; backdrop-filter: blur(6px);
          padding: 6px 14px; border-radius: 8px; font-size: 13px; z-index: 20; pointer-events: none; }
+.brand a.guide-btn { border: 1px solid #3a414c; color: var(--alpha); border-radius: 6px; padding: 2px 9px; font-size: 12px;
+                    text-decoration: none; }
+.brand a.guide-btn:hover { border-color: var(--accent); color: var(--accent); }

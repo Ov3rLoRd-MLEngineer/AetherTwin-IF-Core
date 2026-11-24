@@ -1513,3 +1513,24 @@ Il a autorisé les téléchargements nécessaires.
   - `hermes mcp test` → 5 outils ;
   - « dis … avec le profil narrateur » → `voice_profiles` puis `voice_speak` (5,45 s d'audio), entendu et validé
     par Jérémy.
+
+## 2026-11-24 — Guides dans l'interface, test de routine stabilisé
+
+- **Agent :** Cloud
+- **Demande de Jérémy :** mettre les liens des guides dans l'interface quand c'est possible.
+- **Fichiers :**
+  - `core/api.py` : `guide_catalog()`, `GET /guides`, `GET /guides/{id}` ;
+  - `core/web/guide.html|css|js` : page « Guides » (Markdown rendu sans `innerHTML`, sommaire, recherche,
+    liens entre README) ;
+  - `core/web/dashboard.html|css|js`, `audio_app.html`, `pixel_app.html|css`, `calc_app.html|css` : liens 📖 ;
+  - `modules/gaming_hud/app/ui.py`, `i18n_en.json` : bouton « Guide de la voix » (ouvre la page du Hub, adresse
+    locale seulement) ;
+  - `modules/gaming_hud/app/routine.py` : identifiants de tâches distincts.
+- **Décision :** la page reçoit un identifiant, jamais un chemin ; la liste est calculée côté serveur (README du
+  dépôt, de WoW Assistant et `modules/*/README.md`).
+- **Test de routine :** `test_store_keeps_alts_tasks_and_unchecks_them_at_reset` ne dépendait pas du jour ; deux
+  tâches ajoutées dans la même milliseconde recevaient le même identifiant, et en supprimer une supprimait
+  l'autre. Corrigé dans `RoutineStore.add_task` (vrai défaut, rare à la main).
+- **Tests :** `tests/core/test_dashboard.py::test_guides_catalog_and_page` ; `test_routine.py` vert 4 fois de
+  suite ; essai réel de la page et des liens sur le Hub de test (5760).
+

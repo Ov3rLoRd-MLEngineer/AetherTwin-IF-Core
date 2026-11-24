@@ -1,0 +1,63 @@
+/* Guides d'AetherTwin : les README du dépôt lus dans le Hub. Même identité que les studios. */
+:root {
+  --bg: #15181d; --bg-2: #1b1f26; --panel: #20252d; --panel-2: #272d37; --line: #313845; --line-2: #3d4554;
+  --ink: #e8edf3; --muted: #8f9aab; --accent: #2ec4d6; --second: #f2a541; --mark: rgba(242, 165, 65, .35);
+  --mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+  --ui: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --bg: #f4f6f9; --bg-2: #ffffff; --panel: #ffffff; --panel-2: #eef1f5; --line: #d7dde5; --line-2: #c3ccd7;
+  --ink: #1c222b; --muted: #637083; --accent: #0f8a99; --mark: rgba(242, 165, 65, .45); color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.6 var(--ui); display: flex; flex-direction: column; }
+button, input { font: inherit; color: inherit; }
+button { background: transparent; border: 1px solid var(--line-2); border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+button:hover { border-color: var(--accent); color: var(--accent); }
+.muted { color: var(--muted); }
+.grow { flex: 1; }
+
+.brand { display: flex; align-items: center; gap: 8px; padding: 8px 14px; flex: none;
+         background: linear-gradient(var(--bg-2), var(--bg)); border-bottom: 1px solid var(--line); }
+.brand .logo { width: 24px; height: auto; }
+.brand .wordmark { font-weight: 300; font-size: 18px; letter-spacing: .06em; }
+.brand .wordmark em { font-style: normal; font-weight: 700; background: linear-gradient(90deg, var(--accent), var(--second));
+                      -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand .model { font-size: 10px; font-weight: 600; letter-spacing: .2em; color: var(--second);
+                border: 1px solid rgba(242, 165, 65, .5); border-radius: 4px; padding: 1px 5px; }
+#search { width: min(320px, 40vw); background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 6px; padding: 4px 8px; }
+
+.layout { flex: 1; min-height: 0; display: grid; grid-template-columns: 260px minmax(0, 1fr); }
+.side { border-right: 1px solid var(--line); overflow-y: auto; padding: 12px 14px; font-size: 13px; }
+.side h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 14px 0 6px; }
+.side h2:first-child { margin-top: 0; }
+.side ul { list-style: none; margin: 0; padding: 0; }
+.side li a { display: block; padding: 3px 8px; border-radius: 5px; color: var(--ink); text-decoration: none; }
+.side li a:hover { background: var(--panel-2); }
+.side li a.current { background: var(--accent); color: #062a2f; font-weight: 600; }
+.side li.sub a { padding-left: 20px; color: var(--muted); }
+
+.doc { overflow-y: auto; padding: 24px 40px 80px; outline: none; }
+.doc > * { max-width: 920px; }
+.doc h1 { font-size: 28px; margin: 0 0 14px; }
+.doc h2 { font-size: 21px; margin: 32px 0 10px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+.doc h3 { font-size: 17px; margin: 24px 0 8px; }
+.doc h4 { font-size: 15px; margin: 18px 0 6px; }
+.doc a { color: var(--accent); }
+.doc code { font: 13px var(--mono); background: var(--panel-2); border-radius: 4px; padding: 1px 5px; }
+.doc pre { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; }
+.doc pre code { background: none; padding: 0; }
+.doc blockquote { margin: 12px 0; padding: 6px 14px; border-left: 3px solid var(--second); background: var(--panel); border-radius: 0 6px 6px 0; }
+.doc table { border-collapse: collapse; margin: 12px 0; display: block; overflow-x: auto; max-width: 100%; }
+.doc th, .doc td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+.doc th { background: var(--panel-2); }
+.doc li { margin: 3px 0; }
+.doc mark { background: var(--mark); color: inherit; border-radius: 2px; }
+
+@media (max-width: 760px) {
+  .layout { grid-template-columns: 1fr; }
+  .side { display: none; }
+  .doc { padding: 16px; }
+}

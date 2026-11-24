@@ -215,3 +215,19 @@ def test_panels_use_subtabs_and_system_assets(client) -> None:
         assert response.status_code == 200 and kind in response.headers["content-type"]
         assert "http" not in response.text.replace("http://www.w3.org/2000/svg", "")
     assert "setupSubtabs" in client.get("/static/dashboard.js").text
+
+
+def test_guides_catalog_and_page(client) -> None:
+    """Les README du dépôt se lisent dans le Hub : liste fermée, identifiants seulement, aucun chemin accepté."""
+    ids = {g["id"] for g in client.get("/guides").json()}
+    assert {"aethertwin", "wow_assistant", "voice", "calc_cas", "pixel_studio"} <= ids
+    guide = client.get("/guides/voice").json()
+    assert guide["id"] == "voice" and guide["markdown"].startswith("#") and guide["title"]
+    for bad in ("inconnu", "..%2FREADME", "..%2F..%2Fconfig%2Flocal.example.yaml", "Voice", "voice.md"):
+        assert client.get(f"/guides/{bad}").status_code == 404
+    page = client.get("/static/guide.html")
+    assert page.status_code == 200 and "/static/guide.js" in page.text
+    script = client.get("/static/guide.js").text
+    assert ".innerHTML" not in script and "http" not in script.replace("/^https?:", "")
+    dashboard = client.get("/").text
+    assert 'href="/static/guide.html?g=voice"' in dashboard and 'g=wow_assistant' in dashboard

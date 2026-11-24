@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Guides — AetherTwin</title>
+  <link rel="icon" href="/static/logo.svg">
+  <link rel="stylesheet" href="/static/guide.css">
+  <script src="/static/guide.js" defer></script>
+</head>
+<body>
+  <header class="brand">
+    <img class="logo" src="/static/logo.svg" alt="" width="26" height="26">
+    <span class="wordmark">Aether<em>Twin</em></span>
+    <span class="model">GUIDES</span>
+    <span class="grow"></span>
+    <input id="search" type="search" placeholder="Chercher dans ce guide…" aria-label="Chercher dans ce guide">
+    <button type="button" id="btn-theme" title="Thème clair ou sombre">◐</button>
+  </header>
+  <div class="layout">
+    <nav class="side" aria-label="Guides">
+      <h2>Guides</h2>
+      <ul id="guides"></ul>
+      <h2>Dans ce guide</h2>
+      <ul id="toc"></ul>
+    </nav>
+    <main id="doc" class="doc" tabindex="-1"><p class="muted">Chargement…</p></main>
+  </div>
+</body>
+</html>

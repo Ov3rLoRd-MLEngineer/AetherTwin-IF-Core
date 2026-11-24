@@ -231,8 +231,10 @@ function moduleState(module) {
   return ["arrêté", module.error ? "state-err" : ""];
 }
 
+let guideIds = null;  // guides disponibles (README des modules), lus une fois
 async function refreshModules() {
   try {
+    if (!guideIds) guideIds = new Set((await api("/guides").catch(() => [])).map((g) => g.id));
     const modules = await api("/modules");
     modulesByName = Object.fromEntries(modules.map((m) => [m.name, m]));
     const body = $("modules");
@@ -248,6 +250,10 @@ async function refreshModules() {
         const app = el("button", { class: "ghost" }, module.app_running ? `Fermer ${module.app}` : `Ouvrir ${module.app}`);
         app.addEventListener("click", () => toggleApp(module.name, app));
         actions.append(app);
+      }
+      if (guideIds.has(module.name)) {
+        actions.append(el("a", { class: "guide-link", href: `/static/guide.html?g=${module.name}`, target: "_blank",
+                                 rel: "noopener" }, "📖 Guide"));
       }
       body.append(el("tr", {},
         el("td", {}, el("b", {}, module.name), el("div", { class: "muted" }, `v${module.version}`)),

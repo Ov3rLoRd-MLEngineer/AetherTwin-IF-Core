@@ -221,3 +221,5 @@ button.small[aria-pressed="true"] { border-color: var(--second); color: var(--se
   .brand > button { padding: 3px 6px; }
   .saved { display: none; }
 }
+.brand > a.guide-btn { border: 1px solid var(--line-2); border-radius: 6px; padding: 3px 10px; color: inherit; text-decoration: none; }
+.brand > a.guide-btn:hover { border-color: var(--accent); color: var(--accent); }
