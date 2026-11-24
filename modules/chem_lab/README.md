@@ -40,6 +40,6 @@ Serveur MCP `aethertwin_chimie` (`python -I modules/chem_lab/mcp_server.py`) : `
 `chem_preparation`. Un modèle local délègue ces calculs au lieu de les estimer. Commande Hub `hermes_register`
 pour le brancher sur Hermes Agent ; pour Claude Code :
 
-    claude mcp add chimie -- <python du Hub> -I modules/chem_lab/mcp_server.py
+    claude mcp add --scope user chimie -- <python du Hub> -I modules/chem_lab/mcp_server.py
 
 En cours : acides polyprotiques (H3PO4…), cinétique et équilibres en phase gaz, titrages d'oxydoréduction.

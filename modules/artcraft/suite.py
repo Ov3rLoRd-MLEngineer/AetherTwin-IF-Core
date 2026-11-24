@@ -292,7 +292,7 @@ class Suite:
             args += ["--automation-read-root", str(work), "--automation-write-root", str(work)]
         line = " ".join(f'"{a}"' if " " in a or "\\" in a else a for a in [cli, *args])
         return {"app": key, "name": f"artcraft_{key}", "command": cli, "args": args, "folder": str(work),
-                "claude_code": f"claude mcp add {key} -- {line}"}
+                "claude_code": f"claude mcp add --scope user {key} -- {line}"}
 
     def supports_roots(self, cli: str) -> bool:
         if cli not in self._help:

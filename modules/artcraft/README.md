@@ -52,7 +52,8 @@ réduites à 128 px pour l'affichage, sans retouche). Sans elles, chaque carte m
 Chaque logiciel livre un outil en ligne de commande `<logiciel>-cli` dont la commande `mcp` démarre un serveur MCP
 (stdio) : un agent peut créer et modifier des images, des documents, des feuilles de calcul…
 
-- **Claude Code** : bouton **MCP**, puis copier la ligne `claude mcp add <logiciel> -- "<chemin>\<logiciel>-cli.exe" mcp`.
+- **Claude Code** : bouton **MCP**, puis copier la ligne `claude mcp add --scope user <logiciel> -- "<chemin>\<logiciel>-cli.exe" mcp …`
+  (`--scope user` : le serveur est visible depuis n'importe quel dossier, pas seulement celui où la ligne est lancée).
 - **Hermes Agent** : bouton **Brancher sur Hermes** (serveur nommé `artcraft_<logiciel>`).
 
 ## Commandes du module

@@ -54,6 +54,7 @@ Lance-les depuis la racine du dépôt. Utilise `cmd.exe` ou PowerShell. **Pas Gi
 | Relais, simulation | `.venv\Scripts\python.exe scripts\relay_orchestrator.py --dry-run` |
 | Relais, état | `.venv\Scripts\python.exe scripts\relay_orchestrator.py --status` |
 | Relais, réel | `.venv\Scripts\python.exe scripts\relay_orchestrator.py` |
+| Veilleur de quota (passation interactive) | `.venv\Scripts\python.exe -m modules.dev_launcher.quota_watch` (`--essai` : passation tout de suite) |
 | Relevé GPU réel | `.venv\Scripts\python.exe -m core.hardware.gpu_monitor` |
 | Installer les dépendances | `.venv\Scripts\python.exe -m pip install -r requirements-dev.txt` |
 

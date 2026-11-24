@@ -1668,3 +1668,16 @@ Il a autorisé les téléchargements nécessaires.
   elles restaient bloquées : elles oscillent maintenant autour de leur position de repos. Le téléviseur en plein
   écran recouvre l'atelier, que le navigateur met en veille : plus d'images, l'écran s'éteignait.
 - **En cours :** plein écran F11 à confirmer sur le PC de Jérémy.
+
+## 2026-11-24 — veilleur de quota : passation interactive vers Claude Code local
+
+- **Agent :** Cloud
+- **Demande de Jérémy :** un vrai test de passation en fin de quota : l'agent local confirme prendre le relais et
+  demande s'il faut continuer ou attendre.
+- **Fichiers :** `modules/dev_launcher/quota_watch.py` (nouveau), `modules/dev_launcher/launch.py`
+  (`batch_script(..., prompt=)` : premier message), `tests/dev_launcher/test_quota_watch.py` ; lignes Claude Code du
+  Hub avec `--scope user` (`modules/artcraft/suite.py`, README d'artcraft, chem_lab, data_lab).
+- **Décision :** le relais existant ne voit que l'agent cloud qu'il lance ; le veilleur lit les transcriptions de
+  toutes les sessions (format réel : `You've hit your 5-hour limit · resets 7:30pm (Europe/Paris)`, erreur
+  `rate_limit`). L'agent local est ouvert en mode « demander avant chaque action ».
+- **En cours :** passation réelle à la prochaine fin de quota.

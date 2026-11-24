@@ -101,8 +101,8 @@ def _safe(text: str, what: str) -> str:
 
 
 def batch_script(env: dict[str, str], folder: Path, command: list[str], title: str,
-                 mcp: Path | None = None, tools: str = "", confirm: bool = False) -> str:
-    """Contenu du .bat : variables, dossier de travail, puis Claude Code."""
+                 mcp: Path | None = None, tools: str = "", confirm: bool = False, prompt: str = "") -> str:
+    """Contenu du .bat : variables, dossier de travail, puis Claude Code (`prompt` : premier message, facultatif)."""
     lines = ["@echo off", "chcp 65001 >nul", f"title {_safe(title, 'titre')[:60]}"]
     # Variables d'une session Claude Code qui aurait lancé le Hub : la nouvelle session part d'un état propre.
     lines += [f'set "{name}="' for name in INHERITED_SESSION_VARS]
@@ -116,6 +116,7 @@ def batch_script(env: dict[str, str], folder: Path, command: list[str], title: s
     # « default » : Claude Code demande avant chaque modification ou commande, même si le mode « auto » est réglé
     # dans les réglages globaux (son classificateur tournerait alors sur le modèle local).
     extra += ' --permission-mode "default"' if confirm else ""
+    extra += f' "{_safe(prompt, "premier message")}"' if prompt else ""
     lines.append(f'call {args} --model "{env["ANTHROPIC_MODEL"]}"{extra}')
     return "\r\n".join(lines) + "\r\n"
 

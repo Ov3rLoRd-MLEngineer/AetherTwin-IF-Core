@@ -48,7 +48,7 @@ Serveur MCP `aethertwin_donnees` (`python -I modules/data_lab/mcp_server.py`) : 
 `data_monte_carlo`, `data_goal_seek`. Un modèle local lit et remplit les classeurs, et laisse le moteur faire les
 calculs. Commande Hub `hermes_register` pour Hermes Agent ; pour Claude Code :
 
-    claude mcp add donnees -- <python du Hub> -I modules/data_lab/mcp_server.py
+    claude mcp add --scope user donnees -- <python du Hub> -I modules/data_lab/mcp_server.py
 
 En cours : plusieurs feuilles par classeur, mise en forme des cellules, questions en français à un modèle local
 depuis la fenêtre, solveur d'optimisation à plusieurs variables.

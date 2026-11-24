@@ -306,6 +306,7 @@ modules/
     launch.py
     manifest.json
     module.py
+    quota_watch.py
     relay_check.py
     tasks.py
   gaming_hud/
@@ -553,6 +554,7 @@ tests/
   dev_launcher/
     __init__.py
     test_dev_launcher.py
+    test_quota_watch.py
   gaming_hud/
     __init__.py
     conftest.py
@@ -1501,7 +1503,7 @@ Lancement de Claude Code local : fichier de lancement (.bat), Windows Terminal o
 - `def windows_terminal() -> str`
 - `def route_env(route: str, model: str, context: int, ollama_url: str, omniroute_url: str) -> dict[str, str]` — Variables d'environnement de Claude Code pour la route choisie.
 - `def mcp_config(path: Path, role: str='claude') -> Path` — Configuration MCP passée à Claude Code (`--mcp-config`) : le pont vers Hermes et le Hub.
-- `def batch_script(env: dict[str, str], folder: Path, command: list[str], title: str, mcp: Path | None=None, tools: str='', confirm: bool=False) -> str` — Contenu du .bat : variables, dossier de travail, puis Claude Code.
+- `def batch_script(env: dict[str, str], folder: Path, command: list[str], title: str, mcp: Path | None=None, tools: str='', confirm: bool=False, prompt: str='') -> str` — Contenu du .bat : variables, dossier de travail, puis Claude Code (`prompt` : premier message, facultatif).
 - `def write_launch(launches: Path, script: str, keep: int=30) -> Path` — Écrit le fichier de lancement (dossier du module, ignoré par Git) ; garde les 30 derniers.
 - `def open_in_windows_terminal(bat: Path, folder: Path, title: str, spawner: Any=subprocess.Popen) -> str` — Ouvre le lancement dans Windows Terminal (repli : une console classique).
 
@@ -1529,6 +1531,21 @@ Module du Hub : lanceur de Claude Code local, pont MCP avec Hermes, tâches conf
   - `def state(self) -> dict[str, Any]`
   - `def models(self) -> dict[str, Any]`
   - `def launch(self, payload: dict[str, Any]) -> dict[str, Any]`
+
+### `modules/dev_launcher/quota_watch.py`
+
+Veilleur de quota : quand Claude (app de bureau ou Claude Code) atteint sa limite d'usage, Claude Code local prend
+
+- `def french_time(when: str) -> str` — « 7:30pm » → « 19 h 30 » ; tout autre format est rendu tel quel.
+- `def parse_limit(record: Any) -> dict[str, str] | None` — Message de limite d'usage dans une ligne de transcription, sinon None.
+- `def last_user_request(lines: Iterable[str], limit: int=1500) -> str` — Dernier message écrit par l'utilisateur (pas un résultat d'outil ni un rappel système).
+- **`class Watcher`** — Lit seulement ce qui s'ajoute aux transcriptions depuis le démarrage.
+  - `def files(self) -> list[Path]`
+  - `def poll(self) -> tuple[dict[str, str], Path] | None`
+- `def handoff_text(info: dict[str, str], request: str, model: str, git_log: str, git_status: str, essai: bool=False) -> str`
+- `def open_local(model: str='', claude_dir: str='', spawner: Callable[..., Any] | None=None) -> dict[str, Any]` — Ouvre Claude Code local dans Windows Terminal, premier message = lire la passation.
+- `def hand_over(info: dict[str, str], transcript: Path | None, model: str='', essai: bool=False, opener: Callable[..., dict[str, Any]]=open_local) -> dict[str, Any]`
+- `def main(argv: list[str] | None=None) -> int`
 
 ### `modules/dev_launcher/relay_check.py`
 

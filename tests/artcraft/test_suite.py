@@ -103,7 +103,7 @@ def test_install_portable_verified(monkeypatch, tmp_path):
     assert info["command"].endswith("gridcraft-cli.exe")
     assert info["args"] == ["mcp", "--automation-read-root", info["folder"], "--automation-write-root", info["folder"]]
     assert Path(info["folder"]).is_dir() and Path(info["folder"]).name == "echange"
-    assert info["claude_code"].startswith("claude mcp add gridcraft -- ")
+    assert info["claude_code"].startswith("claude mcp add --scope user gridcraft -- ")
     assert not list((tmp_path / "downloads").glob("*"))
     suite.uninstall("gridcraft")
     assert not suite.catalog()[8]["installed"]
