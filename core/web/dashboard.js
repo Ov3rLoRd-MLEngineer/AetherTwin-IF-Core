@@ -1668,3 +1668,14 @@ function refreshAll() {
 }
 showTab(currentTab());
 setInterval(refreshAll, 3000);
+
+// ---------- thème (sombre par défaut, comme les studios ; mémorisé avec celui des guides) ----------
+(function theme() {
+  const KEY = "aether-guide-theme";
+  try { const saved = localStorage.getItem(KEY); if (saved) document.documentElement.dataset.theme = saved; } catch { /* rien */ }
+  $("btn-theme").addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem(KEY, next); } catch { /* rien */ }
+  });
+})();

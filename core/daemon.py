@@ -486,12 +486,22 @@ def port_in_use(port: int) -> bool:
         return sock.connect_ex(("127.0.0.1", port)) == 0
 
 
+def open_dashboard(port: int) -> None:
+    """Tableau de bord dans sa propre fenêtre (avec l'icône d'AetherTwin), sinon dans le navigateur."""
+    try:
+        from core import hub_window
+
+        hub_window.spawn(port)
+    except OSError:
+        webbrowser.open(f"http://127.0.0.1:{port}/")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Démon AetherTwin (I&F Core).")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="port de l'API (toujours sur 127.0.0.1)")
     parser.add_argument("--no-api", action="store_true", help="ne lance pas l'API HTTP")
     parser.add_argument("--tick-seconds", type=float, default=2.0)
-    parser.add_argument("--open", action="store_true", help="ouvre le tableau de bord dans le navigateur")
+    parser.add_argument("--open", action="store_true", help="ouvre le tableau de bord dans sa propre fenêtre")
     parser.add_argument("--activate", action="append", default=[], metavar="MODULE",
                         help="active ce module dès le démarrage (répétable)")
     args = parser.parse_args(argv)
@@ -500,7 +510,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_api and port_in_use(args.port):
         print(f"Un démon AetherTwin (ou autre programme) écoute déjà sur le port {args.port} : {url}")
         if args.open:
-            webbrowser.open(url)
+            open_dashboard(args.port)
         return 0
 
     from core.knowledge.service import KnowledgeService
@@ -520,7 +530,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_api:
         print(f"Tableau de bord : {url}   (Ctrl+C ou fermer cette fenêtre pour arrêter)")
         if args.open:
-            threading.Timer(1.5, webbrowser.open, args=(url,)).start()
+            open_dashboard(args.port)
     stop = threading.Event()
 
     def loop() -> None:

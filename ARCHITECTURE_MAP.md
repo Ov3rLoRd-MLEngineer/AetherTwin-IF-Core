@@ -153,6 +153,7 @@ serveur sur `http://127.0.0.1:5750` (API compatible OpenAI servie par `core/api.
 core/
   __init__.py
   api.py
+  app_window.py
   bus.py
   config.py
   daemon.py
@@ -165,6 +166,7 @@ core/
     asus_fan_probe.ps1
     gpu_monitor.py
     system_info.py
+  hub_window.py
   knowledge/
     __init__.py
     fetcher.py
@@ -225,6 +227,9 @@ core/
     labs_tool.js
     LICENSE.xterm-addon-fit.txt
     LICENSE.xterm.txt
+    logo-256.png
+    logo-32.png
+    logo.ico
     logo.svg
     nes_cpu.js
     nes_machine.js
@@ -606,6 +611,7 @@ tests/
     test_scantrad.py
     test_scantrad_module.py
   test_architecture_map.py
+  test_hub_window.py
   test_relay_orchestrator.py
   test_repo_hygiene.py
   voice/
@@ -649,6 +655,16 @@ API HTTP locale du démon (FastAPI). Servie sur 127.0.0.1 uniquement par `core.d
 - **`class AskRequest(BaseModel)`**
 - **`class ChatRequest(BaseModel)`**
 - `def create_app(daemon: Daemon) -> FastAPI`
+
+### `core/app_window.py`
+
+Fenêtres d'application d'AetherTwin : une page du Hub ouverte dans Edge (ou Chrome) en mode application, avec
+
+- `def find_browser(candidates: tuple[str, ...]=CANDIDATES) -> str | None` — Premier navigateur Chromium installé (Edge, puis Chrome), ou `None`.
+- `def app_args(browser: str, url: str, profile: Path, size: tuple[int, int]) -> list[str]` — Ligne de commande (liste, jamais de shell) d'une fenêtre d'application isolée.
+- `def open_app(url: str, profile: Path, size: tuple[int, int], app_id: str, name: str, command: str) -> subprocess.Popen | None` — Ouvre `url` dans sa propre fenêtre d'application (avec l'icône d'AetherTwin) ; `None` sans Edge ni Chrome.
+- `def brand_window(pid: int, app_id: str, name: str, command: str, icon: Path=ICON, timeout_s: float=20.0) -> int` — Attend les fenêtres du processus `pid` (jusqu'à `timeout_s`) et leur applique l'identité d'AetherTwin.
+- `def brand_in_background(pid: int, app_id: str, name: str, command: str) -> threading.Thread`
 
 ### `core/bus.py`
 
@@ -703,6 +719,7 @@ Le démon : centre de l'architecture en étoile.
   - `def modules_status(self) -> list[dict[str, Any]]`
 - `def setup_journal(daemon: Daemon, path: Path=REPO_ROOT / 'logs' / 'hub.log') -> logging.Logger` — Journal du Hub (`logs/hub.log`, 1 Mo × 3 fichiers, ignoré par Git) : démarrages, arrêts, erreurs, alertes
 - `def port_in_use(port: int) -> bool`
+- `def open_dashboard(port: int) -> None` — Tableau de bord dans sa propre fenêtre (avec l'icône d'AetherTwin), sinon dans le navigateur.
 - `def main(argv: list[str] | None=None) -> int`
 
 ### `core/guardians/fuma.py`
@@ -790,6 +807,15 @@ Moniteur GPU : mesure la topologie réelle au lieu de la présumer.
 - `def lhm_sensors(url: str='http://127.0.0.1:8085/data.json', timeout: float=2.0) -> dict[str, Any]` — Capteurs de LibreHardwareMonitor (serveur web local activé). Vide s'il ne tourne pas.
 - `def read_bios_fans(out: Path) -> dict[str, Any]` — Lance la lecture des courbes du BIOS avec élévation (Windows demande l'autorisation). Lecture seule.
 - `def bios_fans(out: Path) -> dict[str, Any] | None`
+
+### `core/hub_window.py`
+
+Fenêtre du Hub : `python -m core.hub_window [--port 5750]`.
+
+- `def wait_for_hub(port: int, timeout_s: float=30.0) -> bool`
+- `def open_window(port: int) -> bool` — Ouvre la fenêtre du Hub ; `False` si elle a dû s'ouvrir dans le navigateur par défaut.
+- `def spawn(port: int) -> None` — Lance la fenêtre dans un processus à part (appelé par le démon : il ne l'attend pas).
+- `def main(argv: list[str] | None=None) -> int`
 
 ### `core/knowledge/__init__.py`
 
@@ -1033,7 +1059,6 @@ Le CAS comme outil des agents locaux : un modèle délègue un calcul exact au l
 Fenêtre de bureau de la calculatrice : `python -m modules.calc_cas.app` (lancée par le Hub).
 
 - `def hub_url() -> str` — Adresse de la page, d'après le port du démon dans la configuration (5750 par défaut).
-- `def find_browser(candidates: tuple[str, ...]=CANDIDATES) -> str | None` — Premier navigateur Chromium installé (Edge, puis Chrome), ou `None`.
 - `def browser_args(browser: str, url: str, profile: Path=PROFILE, size: tuple[int, int]=WINDOW_SIZE) -> list[str]` — Ligne de commande (liste, jamais de shell) d'une fenêtre d'application isolée.
 - `def tie_children_to_this_process() -> bool` — Windows : place ce processus dans un objet de tâche « tuer à la fermeture ». Le navigateur lancé ensuite
 - `def main() -> int`

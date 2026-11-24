@@ -9,22 +9,16 @@ fermer (« Arrêter l'application »).
 """
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 import webbrowser
 from pathlib import Path
 
+from core.app_window import CANDIDATES, app_args, brand_in_background, find_browser  # noqa: F401
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PROFILE = REPO_ROOT / "data" / "calc_cas" / "window-profile"
 WINDOW_SIZE = (500, 900)
-CANDIDATES = (
-    r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe",
-    r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe",
-    r"%ProgramFiles%\Google\Chrome\Application\chrome.exe",
-    r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe",
-    r"%LocalAppData%\Google\Chrome\Application\chrome.exe",
-)
 
 
 def hub_url() -> str:
@@ -38,21 +32,10 @@ def hub_url() -> str:
     return f"http://127.0.0.1:{port}/static/calc_app.html"
 
 
-def find_browser(candidates: tuple[str, ...] = CANDIDATES) -> str | None:
-    """Premier navigateur Chromium installé (Edge, puis Chrome), ou `None`."""
-    for raw in candidates:
-        path = Path(os.path.expandvars(raw))
-        if "%" not in str(path) and path.is_file():
-            return str(path)
-    return None
-
-
 def browser_args(browser: str, url: str, profile: Path = PROFILE,
                  size: tuple[int, int] = WINDOW_SIZE) -> list[str]:
     """Ligne de commande (liste, jamais de shell) d'une fenêtre d'application isolée."""
-    width, height = size
-    return [browser, f"--app={url}", f"--user-data-dir={profile}", f"--window-size={width},{height}",
-            "--no-first-run", "--no-default-browser-check", "--disable-features=Translate"]
+    return app_args(browser, url, profile, size)
 
 
 def tie_children_to_this_process() -> bool:
@@ -97,6 +80,8 @@ def main() -> int:
     PROFILE.mkdir(parents=True, exist_ok=True)
     tie_children_to_this_process()
     proc = subprocess.Popen(browser_args(browser, url), stdin=subprocess.DEVNULL)  # noqa: S603 — chemin fixe
+    brand_in_background(proc.pid, "AetherTwin.calc_cas", "Calculatrice Æther CAS",
+                        f'"{sys.executable}" -m modules.calc_cas.app')
     try:
         return proc.wait()
     except KeyboardInterrupt:

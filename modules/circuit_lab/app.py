@@ -10,7 +10,13 @@ import subprocess
 import sys
 import webbrowser
 
-from modules.calc_cas.app import browser_args, find_browser, hub_url, tie_children_to_this_process
+from modules.calc_cas.app import (
+    brand_in_background,
+    browser_args,
+    find_browser,
+    hub_url,
+    tie_children_to_this_process,
+)
 from modules.circuit_lab.lab import DATA_DIR
 
 PROFILE = DATA_DIR / "window-profile"
@@ -33,6 +39,8 @@ def main() -> int:
     tie_children_to_this_process()
     proc = subprocess.Popen(browser_args(browser, url, PROFILE, WINDOW_SIZE),  # noqa: S603 — chemin fixe
                             stdin=subprocess.DEVNULL)
+    brand_in_background(proc.pid, "AetherTwin.circuit_lab", "Atelier circuits Æther",
+                        f'"{sys.executable}" -m modules.circuit_lab.app')
     try:
         return proc.wait()
     except KeyboardInterrupt:

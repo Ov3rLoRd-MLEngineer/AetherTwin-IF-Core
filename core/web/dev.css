@@ -1,6 +1,6 @@
 /* Onglet Développement (module dev_launcher) : identité violette, cohérente avec le Hub. */
-.dev { --dev: #7048e8; --dev-soft: #f3f0ff; }
-@media (prefers-color-scheme: dark) { .dev { --dev: #9775fa; --dev-soft: #221a3d; } }
+.dev { --dev: #9775fa; --dev-soft: #221a3d; }
+:root[data-theme="light"] .dev { --dev: #7048e8; --dev-soft: #f3f0ff; }
 .dev h2 { display: flex; align-items: center; gap: 8px; margin: 0; }
 .dev h2::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--dev); }
 .dev :where(button:not(.ghost):not(.chip)) { background: var(--dev); }

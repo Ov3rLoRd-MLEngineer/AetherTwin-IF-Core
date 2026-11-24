@@ -71,6 +71,7 @@ if ($Shortcut) {
     $link.TargetPath = Join-Path $root "Lancer AetherTwin.bat"
     $link.WorkingDirectory = $root
     $link.Description = "AetherTwin (I&F Core) - Hub local"
+    $link.IconLocation = (Join-Path $root "core\web\logo.ico") + ",0"
     $link.Save()
     Write-Host "Raccourci « AetherTwin » créé sur le bureau."
 }

@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AetherTwin — Hub</title>
+  <link rel="icon" href="/static/logo.svg">
+  <link rel="icon" type="image/png" sizes="256x256" href="/static/logo-256.png">
   <link rel="stylesheet" href="/static/dashboard.css">
   <link rel="stylesheet" href="/static/dev.css">
   <link rel="stylesheet" href="/static/system.css">
@@ -26,12 +28,14 @@
 </head>
 <body>
   <header>
-    <img src="/static/logo.svg" alt="" width="40" height="40">
-    <div class="grow">
-      <h1>AetherTwin <span>I&amp;F Core</span></h1>
-      <p id="hub-line">Connexion au Hub…</p>
+    <img class="logo" src="/static/logo.svg" alt="" width="30" height="30">
+    <div class="brand-text">
+      <h1>Aether<em>Twin</em></h1>
+      <span class="model">I&amp;F CORE · HUB</span>
     </div>
+    <p id="hub-line" class="grow">Connexion au Hub…</p>
     <a class="guide-link" href="/static/guide.html?g=aethertwin" target="_blank" rel="noopener" title="Ouvrir le guide dans une nouvelle fenêtre">📖 Guides</a>
+    <button id="btn-theme" type="button" class="ghost" title="Thème clair ou sombre">◐</button>
     <button id="hub-stop" type="button" class="ghost danger">Arrêter le Hub</button>
   </header>
 

@@ -148,7 +148,8 @@ def _glossary(series: str) -> Any:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 STATIC_TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
-                ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml"}
+                ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png",
+                ".ico": "image/x-icon"}
 CSP = ("default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' blob:; connect-src 'self'; "
        "frame-src 'self' http://127.0.0.1:5757")  # simulations du Professeur ; aperçu de l'overlay OBS (local)
 # Page du terminal (cadre du tableau de bord) : xterm.js ajoute ses propres règles de style ; WebSocket locale.
@@ -688,7 +689,7 @@ def create_app(daemon: Daemon) -> FastAPI:
 
     @app.get("/favicon.ico", include_in_schema=False)
     def favicon() -> Response:
-        return Response(status_code=204)
+        return static("logo.ico")
 
     @app.get("/events")
     def events(limit: int = 50) -> list[dict[str, Any]]:

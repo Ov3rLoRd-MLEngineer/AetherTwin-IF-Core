@@ -1,8 +1,8 @@
 @echo off
 rem Lanceur AetherTwin (I&F Core) : double-clic, ou raccourci « AetherTwin » du bureau.
-rem Il démarre le Hub et ouvre le tableau de bord dans le navigateur ; tout se pilote de là
+rem Il démarre le Hub et ouvre le tableau de bord dans sa propre fenêtre (icône AetherTwin) ; tout se pilote de là
 rem (modules, WoW Assistant, overlay OBS, Professeur, connaissances, scantrad).
-rem Si le Hub tourne déjà, il ouvre seulement le tableau de bord.
+rem Si le Hub tourne déjà, il ouvre seulement la fenêtre du tableau de bord.
 chcp 65001 >nul
 setlocal
 cd /d "%~dp0"

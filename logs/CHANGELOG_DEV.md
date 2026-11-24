@@ -1696,3 +1696,19 @@ Il a autorisé les téléchargements nécessaires.
   son est rattrapé à chaque accès à ses ports et à chaque fin de ligne.
 - **En cours :** modes vidéo autres que le mode 1 (écrits, à essayer sur des programmes de test), écho du DSP,
   cartouches à coprocesseur ; son à écouter au casque ; téléviseur « Grand écran » avec la console 16 bits.
+
+## 2026-11-24 — Hub : charte des studios, fenêtre à part, icône AetherTwin
+
+- **Agent :** Cloud
+- **Demande de Jérémy :** harmoniser tout le Hub avec la charte du studio audio, lancer le Hub dans sa propre fenêtre
+  plutôt que dans un onglet, avec l'icône d'AetherTwin. WoW Assistant garde sa charte (style du jeu).
+- **Fichiers :** `core/web/dashboard.css` (palette et composants des studios), `dashboard.html` (barre de marque,
+  bouton de thème), `dashboard.js` (thème), `dev.css` ; `core/app_window.py` (fenêtre d'application, identité
+  Windows et icône), `core/hub_window.py`, `core/daemon.py` (`--open` ouvre la fenêtre) ; `core/api.py` (PNG, ICO,
+  `/favicon.ico`) ; `core/web/logo.ico`, `logo-256.png`, `logo-32.png` (rendus depuis `logo.svg`) ; lien d'icône
+  PNG dans toutes les pages ; fenêtres des studios et ateliers (`modules/*/app.py`) ; `scripts/setup.ps1`
+  (icône du raccourci) ; `Lancer AetherTwin.bat` ; `tests/test_hub_window.py`.
+- **Décision :** une fenêtre « --app » de Chromium se range sous l'icône du navigateur ; on lui donne sa propre
+  identité Windows (AppUserModelID `AetherTwin.Hub`, icône de relance) et on pose l'icône sur la fenêtre.
+- **À faire de ton côté :** relancer `Installer AetherTwin.bat -Shortcut` pour que le raccourci du bureau prenne
+  l'icône.
