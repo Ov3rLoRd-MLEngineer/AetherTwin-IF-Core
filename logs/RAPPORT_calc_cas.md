@@ -25,7 +25,7 @@ supprimés.
 4. **Dépendance ajoutée** : `matplotlib==3.10.7` dans `requirements.txt` (déjà installée dans le venv) ;
    `THIRD_PARTY.md` complété (matplotlib et ses dépendances : contourpy, cycler, kiwisolver, fonttools, pyparsing,
    python-dateutil, packaging). `pygame` (déjà présent) sert aussi au mode jeu.
-5. **Hermes** : serveur MCP **`aethertwin_calc`** déclaré dans `C:\Users\Ov3rLoRd\AppData\Local\hermes\config.yaml`
+5. **Hermes** : serveur MCP **`aethertwin_calc`** déclaré dans `%LOCALAPPDATA%\hermes\config.yaml`
    (sauvegarde `.bak` horodatée à côté) : commande `D:\AetherTwin\AetherTwin-IF-Core\.venv\Scripts\python.exe`,
    arguments `-I D:\AetherTwin\AetherTwin-IF-Core\modules\calc_cas\mcp_server.py`. `mcp_server.py` se lance
    désormais comme script depuis n'importe quel dossier (la racine du dépôt remplace le dossier du script dans
