@@ -56,8 +56,8 @@ supprimés.
 
 ## Tests et vérifications
 
-- `ruff check .` : propre. **Suite complète après fusion : 943 réussis, 5 ignorés** (tests réels sur GPU / outils
-  absents), 200 s.
+- `ruff check .` : propre. **Suite complète sur `main` (8f32409) : 944 réussis, 4 ignorés** (tests réels sur GPU),
+  215 s.
 - Nouveaux fichiers de tests : `tests/calc_cas/test_render.py`, `test_games.py`, `test_emulators.py` ; ajouts dans
   `test_geometry.py`, `test_module.py`, `test_app.py`, `tests/dev_launcher/test_dev_launcher.py`.
 - Essais réels (Hub de test sur le port 5760, celui de Jérémy sur 5750 non touché) : onglet Outils (cadre,
