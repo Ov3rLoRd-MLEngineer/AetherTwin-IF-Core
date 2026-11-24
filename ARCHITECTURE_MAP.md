@@ -178,6 +178,11 @@ core/
   terminals.py
   translate.py
   web/
+    audio_app.css
+    audio_app.html
+    audio_app.js
+    audio_tool.js
+    audio_worklet.js
     calc_app.css
     calc_app.html
     calc_app.js
@@ -204,6 +209,8 @@ core/
     terminal.css
     terminal.html
     terminal.js
+    voice.css
+    voice.js
     xterm-addon-fit.js
     xterm.css
     xterm.js
@@ -393,6 +400,20 @@ modules/
     README.md
     testpage.py
     typeset.py
+  voice/
+    __init__.py
+    agent.py
+    app.py
+    effects.py
+    engines.py
+    installer.py
+    manifest.json
+    mcp_server.py
+    module.py
+    profiles.py
+    README.md
+    service.py
+    stt.py
 scripts/
   __init__.py
   extract_ui_strings.py
@@ -490,6 +511,9 @@ tests/
   test_architecture_map.py
   test_relay_orchestrator.py
   test_repo_hygiene.py
+  voice/
+    __init__.py
+    test_voice.py
 docs/
   .gitkeep
   captures/
@@ -518,6 +542,8 @@ logs/
 
 API HTTP locale du démon (FastAPI). Servie sur 127.0.0.1 uniquement par `core.daemon`.
 
+- `def audio_suffix(content_type: str, filename: str='') -> str`
+- `def multipart_fields(content_type: str, body: bytes) -> dict[str, tuple[bytes, str, str]]` — Champs d'un formulaire multipart : nom → (contenu, type, nom de fichier). Sans python-multipart.
 - `async def save_upload(request: Request, folder: Path) -> Path` — Enregistre l'image envoyée (corps brut, PNG/JPEG/WebP, 25 Mo au plus) sous un nom horodaté.
 - `def image_file(root: Path, kind: str, filename: str) -> Response` — Image servie seulement depuis `<root>/entrees` ou `<root>/sorties`, nom contrôlé.
 - `def static(filename: str) -> Response` — Sert un fichier de `core/web/` (liste fermée d'extensions, aucun chemin hors du dossier).
@@ -1782,6 +1808,127 @@ Réincrustation : texte traduit centré dans la bulle, taille ajustée, retours 
 - `def wrap(text: str, font: ImageFont.FreeTypeFont | ImageFont.ImageFont, width: int, draw: ImageDraw.ImageDraw) -> list[str] | None` — Coupe aux espaces pour tenir dans `width`. `None` si un mot seul est trop large.
 - `def fit(text: str, width: int, height: int, load: FontLoader, draw: ImageDraw.ImageDraw, max_size: int=30, min_size: int=8) -> tuple[int, list[str], int]` — Plus grande taille de police qui fait tenir le texte : (taille, lignes, hauteur de ligne).
 - `def make_typesetter(font_path: str='', color: tuple[int, int, int]=(0, 0, 0)) -> Callable[..., np.ndarray]`
+
+### `modules/voice/__init__.py`
+
+Service vocal d'AetherTwin : écoute (Whisper), synthèse (Piper, voix de Windows), profils et effets.
+
+*(aucun symbole public)*
+
+### `modules/voice/agent.py`
+
+La voix comme outil des agents locaux (Hermes Agent, modèles du Hub) : parler sur le PC, choisir ou créer une voix.
+
+- `def duration(wav: bytes) -> float`
+- `def call_tool(service: VoiceService, name: str, arguments: dict[str, Any] | None) -> dict[str, Any]` — Exécute un outil. Ne lève jamais : toute erreur devient `{"ok": False, "error": …}`.
+
+### `modules/voice/app.py`
+
+Fenêtre de bureau du studio audio : `python -m modules.voice.app` (lancée par le Hub).
+
+- `def page_url() -> str`
+- `def main() -> int`
+
+### `modules/voice/effects.py`
+
+Effets de voix appliqués à un enregistrement (NumPy seul) : mêmes réglages que le modulateur en direct de la page.
+
+- `def clean(settings: Any) -> dict[str, float]` — Réglages bornés ; les clés inconnues sont ignorées.
+- `def read_wav(data: bytes) -> tuple[np.ndarray, int]` — WAV PCM 16 bits (mono ou stéréo) → échantillons float32 mono dans [-1, 1], fréquence.
+- `def write_wav(samples: np.ndarray, rate: int) -> bytes`
+- `def resample(x: np.ndarray, factor: float) -> np.ndarray` — Lecture `factor` fois plus rapide (interpolation linéaire) : plus court et plus aigu si factor > 1.
+- `def stretch(x: np.ndarray, factor: float, rate: int) -> np.ndarray` — Durée multipliée par `factor` sans changer la hauteur (recouvrement-addition, fenêtres de Hann de 40 ms).
+- `def pitch_shift(x: np.ndarray, semitones: float, rate: int) -> np.ndarray`
+- `def shelf_eq(x: np.ndarray, rate: int, bass_db: float, treble_db: float, band: tuple[float, float] | None=None) -> np.ndarray` — Égaliseur dans le domaine des fréquences (traitement hors temps réel) ; `band` = passe-bande.
+- `def delay_line(x: np.ndarray, rate: int, seconds: float, feedback: float, mix: float, tail: float=1.0) -> np.ndarray`
+- `def reverb(x: np.ndarray, rate: int, amount: float) -> np.ndarray`
+- `def apply(x: np.ndarray, rate: int, settings: Any) -> np.ndarray`
+- `def normalize(x: np.ndarray, target_db: float=-23.0, peak: float=0.7) -> np.ndarray` — Même volume perçu pour toutes les voix (moyenne quadratique visée), crêtes bornées : jamais assourdissant.
+- `def apply_wav(data: bytes, settings: Any, level: bool=False) -> bytes` — Effets (et, avec `level`, volume égalisé) sur un WAV ; neutre sans égalisation = WAV rendu tel quel.
+
+### `modules/voice/engines.py`
+
+Moteurs de synthèse vocale, tous locaux, chacun dans son propre processus :
+
+- `def clean_text(text: str) -> str` — Texte prononçable : sans blocs de code, liens ni balises Markdown ; noms propres du projet respellés.
+- `def sentences(text: str) -> list[str]` — Découpe en phrases (pour commencer à parler avant la fin d'une longue réponse).
+- **`class PiperEngine`**
+  - `def exe(self) -> Path`
+  - `def available(self) -> bool`
+  - `def voices(self) -> list[dict[str, Any]]`
+  - `def synthesize(self, text: str, voice: str, speed: float=1.0, speaker: int=0, timeout: float=120) -> bytes`
+- **`class SapiEngine`** — Voix de Windows. Le texte passe par l'entrée standard (jamais dans la ligne de commande).
+  - `def available(self) -> bool`
+  - `def voices(self) -> list[dict[str, Any]]`
+  - `def synthesize(self, text: str, voice: str, speed: float=1.0, speaker: int=0, timeout: float=120) -> bytes`
+
+### `modules/voice/installer.py`
+
+Installation de Piper et des voix françaises libres, depuis leurs sources officielles uniquement (adresses fixes).
+
+- `def fetch(url: str, timeout: float=120) -> bytes`
+- `def extract_zip(data: bytes, target: Path) -> int` — Extrait sans jamais sortir de `target` (chemins absolus ou « .. » refusés).
+- `def status(folder: Path) -> dict[str, Any]`
+- `def install(folder: Path, voices: list[str] | None=None, fetcher: Callable[[str], bytes]=fetch) -> dict[str, Any]` — Installe Piper (s'il manque) et les voix demandées (toutes par défaut) ; rend ce qui a été ajouté.
+
+### `modules/voice/mcp_server.py`
+
+Serveur MCP (stdio, JSON-RPC ligne par ligne) : la voix d'AetherTwin pour Hermes Agent ou tout client MCP.
+
+- `def tool_list() -> list[dict[str, Any]]`
+- `def handle(service: VoiceService, message: Any) -> dict[str, Any] | None`
+- `def serve(stdin: TextIO, stdout: TextIO, service: VoiceService) -> None`
+- `def main() -> None`
+
+### `modules/voice/module.py`
+
+Module du Hub : voix locale (synthèse Piper / Windows, écoute Whisper, profils, effets, VB-Cable, MCP).
+
+- `def b64(data: Any, limit: int=stt.MAX_AUDIO) -> bytes`
+- **`class VoiceModule(ModuleBase)`**
+  - `def start(self) -> None`
+  - `def stop(self) -> None`
+  - `def health(self) -> Health`
+  - `def hermes(self, register: bool=False) -> dict[str, Any]` — État du branchement MCP chez Hermes Agent ; `register` le déclare (config.yaml sauvegardée avant).
+  - `def handle_event(self, event: Event) -> None`
+  - `def run(self, command: str, payload: dict[str, Any]) -> Any` — Exécute une commande (aussi appelée directement par les tests).
+
+### `modules/voice/profiles.py`
+
+Profils de voix : un moteur, une voix (et un locuteur pour les voix multiples), une vitesse et des effets.
+
+- `def validate(profile: Any) -> dict[str, Any]`
+- **`class ProfileStore`**
+  - `def all(self) -> dict[str, Any]`
+  - `def get(self, pid: str | None) -> dict[str, Any]`
+  - `def save(self, profile: Any) -> dict[str, Any]`
+  - `def delete(self, pid: str) -> bool`
+  - `def settings(self, values: dict[str, Any]) -> dict[str, Any]`
+
+### `modules/voice/service.py`
+
+Service vocal partagé par le module du Hub et le serveur MCP : profils, synthèse, écoute, lecture sur le PC.
+
+- `def vbcable_status() -> dict[str, Any]` — VB-Cable (VB-Audio, gratuit, à installer soi-même) : présent si un périphérique audio « VB-Audio » existe.
+- **`class VoiceService`**
+  - `def status(self) -> dict[str, Any]`
+  - `def voices(self) -> list[dict[str, Any]]`
+  - `def synthesize(self, text: str, profile: str | None=None, speed: float | None=None, effects_override: Any=None, inline: Any=None) -> dict[str, Any]` — `inline` : profil complet non enregistré (essai depuis le studio), validé comme les autres.
+  - `def play(self, wav: bytes) -> None`
+  - `def stop(self) -> bool`
+  - `def transcribe(self, audio: bytes, language: str | None='fr') -> dict[str, Any]`
+  - `def tmp_path(self, name: str) -> Path`
+  - `def tmp_write(self, data: bytes, suffix: str='wav') -> str`
+  - `def install(self, voices: list[str] | None=None) -> dict[str, Any]`
+
+### `modules/voice/stt.py`
+
+Reconnaissance vocale locale (faster-whisper, MIT ; modèles Whisper, MIT), un seul modèle chargé pour tout le Hub.
+
+- `def available() -> bool`
+- **`class Transcriber`**
+  - `def loaded(self) -> bool`
+  - `def transcribe(self, audio: bytes, language: str | None='fr') -> dict[str, Any]`
 
 ### `scripts/extract_ui_strings.py`
 

@@ -16,6 +16,9 @@
   <script src="/static/pixel_tool.js" defer></script>
   <script src="/static/dev.js" defer></script>
   <script src="/static/system.js" defer></script>
+  <link rel="stylesheet" href="/static/voice.css">
+  <script src="/static/voice.js" defer></script>
+  <script src="/static/audio_tool.js" defer></script>
 </head>
 <body>
   <header>
@@ -212,6 +215,11 @@
           <div class="row">
             <label><input type="checkbox" id="ask-context" checked> avec le contexte des modules actifs (ex. ton jeu)</label>
             <label><input type="checkbox" id="ask-knowledge"> chercher dans la base de connaissances (sources citées)</label>
+            <button id="ask-mic" type="button" class="ghost" title="Parler au micro : clic pour commencer, clic pour envoyer">🎙 Parler</button>
+            <label><input type="checkbox" id="ask-speak"> lire les réponses à voix haute</label>
+            <select id="ask-voice" aria-label="Voix des réponses"></select>
+            <label title="Volume de la voix">🔊 <input type="range" id="ask-volume" min="0" max="100" step="5" value="60" aria-label="Volume de la voix"></label>
+            <button id="ask-hush" type="button" class="ghost" hidden title="Couper la voix (Échap)">Silence</button>
             <button id="chat-new" type="button" class="ghost">Nouvelle conversation</button>
             <button type="submit">Envoyer</button>
           </div>
@@ -337,7 +345,7 @@
       </section>
     </div>
 
-    <!-- Outils (modules calc_cas et pixel_studio) -->
+    <!-- Outils (modules calc_cas, pixel_studio et voice) -->
     <div data-subtabs class="panel" data-panel="outils" hidden>
       <section data-sub="Calculatrice" class="calc-tool">
         <div class="calc-tool-head">
@@ -362,6 +370,14 @@
           <span id="pixel-hermes-state">Hermes : …</span>
           <button id="pixel-hermes" type="button" class="ghost" hidden>Brancher sur Hermes</button>
         </p>
+      </section>
+      <section data-sub="Studio audio" class="pixel-tool">
+        <div class="calc-tool-head">
+          <h2>Studio audio</h2>
+          <button id="audio-window" type="button" title="Fenêtre séparée, redimensionnable">Ouvrir le studio</button>
+        </div>
+        <iframe id="audio-frame" class="pixel-frame" title="Studio audio Æther" src="about:blank"
+                allow="microphone; speaker-selection; autoplay"></iframe>
       </section>
     </div>
 

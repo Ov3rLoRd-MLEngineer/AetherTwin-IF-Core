@@ -1450,3 +1450,59 @@ RPG 16 bits avec Fuma et Inoue).
 - Fusion dans `main` en avance rapide (`ad61b2e`), suite complète : 959 réussis, 5 ignorés ; ruff propre.
 - **Hermes réel** : serveur `aethertwin_pixel` déclaré (sauvegarde `.bak` horodatée du `config.yaml`),
   `hermes mcp test` → 6 outils ; « crée un sprite essai_hermes en croix » → sprite 5×5 exact (66 s), puis supprimé.
+
+## 2026-11-24 — Voix locale et studio audio (`voice`), branche `feature/voice`
+
+Demandé par Jérémy :
+- un « synthé et séquenceur audio » avec un modulateur vocal en direct ;
+- des réponses parlées et le micro dans WoW Assistant, le Hub et ses outils IA ;
+- des voix modifiables, la sienne comprise ;
+- MCP ;
+- VB-Cable pour Discord et les jeux, avec seulement le lien de téléchargement et un bouton de vérification.
+
+Il a autorisé les téléchargements nécessaires.
+
+- **Module** `modules/voice/` :
+  - écoute faster-whisper, un seul modèle chargé ;
+  - Piper et voix de Windows, chaque moteur dans son propre processus ;
+  - profils de synthèse et de micro dans `data/voice/profiles.json` ;
+  - effets NumPy ;
+  - installateur à adresses fixes (archive vérifiée contre la sortie de dossier) ;
+  - détection de VB-Cable ;
+  - 5 outils d'agent et serveur MCP `aethertwin_voice` ;
+  - fenêtre de bureau.
+- **Choix des voix :**
+  - binaire Piper MIT ; espeak-ng (GPL-3) seulement dans le processus de Piper ;
+  - 4 voix françaises aux licences relevées dans leurs MODEL_CARD ; « tom » écartée (AGPL) ;
+  - révision v1.0.0 des voix imposée (la configuration de `main` fait échouer ce binaire : « "aɪ" is not a single
+    codepoint ») ;
+  - Kokoro écarté pour l'instant : espeak-ng lié dans le même processus, et plus lourd.
+- **API** (`core/api.py`) :
+  - `/v1/audio/speech` et `/v1/audio/transcriptions`, compatibles OpenAI ; multipart lu avec `email.parser`
+    (python-multipart absent) ;
+  - `/voice/settings` et `/voice/profiles`, sans lancer le module ;
+  - l'audio passe par des fichiers d'échange `data/voice/tmp/` (le bus porte 8 Mo au plus).
+- **Hub, onglet Assistant** (`voice.js`, `voice.css`) :
+  - micro (MediaRecorder) ;
+  - lecture phrase par phrase par Web Audio (la CSP interdit `<audio>` sur blob:) ;
+  - choix de la voix, volume, Silence ;
+  - `dashboard.js` émet `aether-ask` et `aether-reply`.
+- **Studio audio** (`audio_app.*`, `audio_worklet.js`, `audio_tool.js`) :
+  - synthé et séquenceur, export WAV ;
+  - modulateur vocal en direct ;
+  - profils de voix (essai d'un profil non enregistré : `profile_data`) ;
+  - VB-Cable ;
+  - sous-onglet « Studio audio » de l'onglet Outils.
+- **WoW Assistant** :
+  - voix « Voix du Hub » (`voice.tts.hub_url`, `voice.tts.hub_voice`) ;
+  - exemple d'adresse STT pointant sur le Hub ;
+  - 5 chaînes anglaises ajoutées.
+- **Trouvé à l'essai et corrigé :**
+  - la commande « stop » arrêtait le module : la voix se coupe maintenant avec `silence` ;
+  - « Æther » mal prononcé : table de prononciation ;
+  - volume trop fort, signalé par Jérémy : volume égalisé à −23 dB, crêtes à 0,7, et réglette de volume dans la
+    page.
+- **Tests :**
+  - `tests/voice/` (12) ;
+  - `test_routine.py::test_store_keeps_alts_tasks_and_unchecks_them_at_reset` échoue aussi sur `main` sans ces
+    changements : il dépend du jour (mardi, jour de remise à zéro) ; à corriger à part.

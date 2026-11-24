@@ -6,7 +6,8 @@ Module vocal : micro (appuyer pour parler ou activation vocale), reconnaissance 
 - Activation vocale : détection d'énergie (seuil réglable) avec un court pré-enregistrement.
 - STT : serveur compatible OpenAI (/v1/audio/transcriptions : Open WebUI, faster-whisper-server...), programme local
   (whisper.cpp...) ou la bibliothèque faster-whisper.
-- TTS : voix de Windows (SAPI, sans installation), Piper (programme + modèle), ou désactivé.
+- TTS : voix de Windows (SAPI, sans installation), Piper (programme + modèle), voix du Hub AetherTwin (profils
+  de voix et effets du module voice, /v1/audio/speech), ou désactivé.
 """
 import array
 import io
@@ -267,6 +268,8 @@ class Speaker:
         try:
             if backend == "piper":
                 self._piper(text)
+            elif backend == "hub":
+                self._hub(text)
             else:
                 self._sapi(text)
         except Exception as e:
@@ -299,6 +302,37 @@ class Speaker:
             self._proc.communicate(text.encode("utf-8"))
             if os.path.getsize(path) > 44:
                 self._play_wav(path)
+        finally:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+
+    def _hub(self, text):
+        """Voix du Hub AetherTwin : même profil que l'assistant du Hub (ou celui choisi ici), lue sur ce PC."""
+        base = (self._cfg("hub_url") or "http://127.0.0.1:5750").strip().rstrip("/")
+        if base.endswith("/v1"):
+            base = base[:-3]
+        body = {"input": text}
+        if self._cfg("hub_voice").strip():
+            body["voice"] = self._cfg("hub_voice").strip()
+        request = urllib.request.Request(base + "/v1/audio/speech", data=json.dumps(body).encode("utf-8"),
+                                         headers={"Content-Type": "application/json", "User-Agent": "WoWAssistant/1.7"},
+                                         method="POST")
+        try:
+            with urllib.request.urlopen(request, timeout=120) as response:
+                wav = response.read(30_000_000)
+        except urllib.error.HTTPError as e:
+            raise RuntimeError(f"Voix du Hub : erreur HTTP {e.code} : {e.read().decode('utf-8', 'ignore')[:200]}")
+        except OSError as e:
+            raise RuntimeError(f"Hub injoignable ({base}) : {e}")
+        if len(wav) <= 44 or wav[:4] != b"RIFF":
+            raise RuntimeError("Voix du Hub : réponse inattendue")
+        fd, path = tempfile.mkstemp(suffix=".wav")
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(wav)
+            self._play_wav(path)
         finally:
             try:
                 os.remove(path)

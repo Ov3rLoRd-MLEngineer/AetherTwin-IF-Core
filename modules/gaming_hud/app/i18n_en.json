@@ -1338,5 +1338,10 @@
  "… (+{0} lignes)": "… (+{0} lines)",
  "… et {0} autre(s) dans settings.json": "… and {0} more in settings.json",
  "… et {0} autres  (onglet Journal des quêtes)": "… and {0} more  (Quest log tab)",
- "● J'écoute…": "● Listening…"
+ "● J'écoute…": "● Listening…",
+ "Voix du Hub": "Hub voice",
+ "Adresse du Hub": "Hub address",
+ "Profil de voix": "Voice profile",
+ "vide = celui de l'assistant (aether, narrateur, fuma, robot…)": "empty = the assistant's (aether, narrateur, fuma, robot…)",
+ "http://127.0.0.1:5750/v1  (Hub AetherTwin, Open WebUI, faster-whisper-server…)": "http://127.0.0.1:5750/v1  (AetherTwin Hub, Open WebUI, faster-whisper-server…)"
 }

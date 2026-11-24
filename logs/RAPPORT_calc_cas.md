@@ -95,6 +95,38 @@ Proposé à Jérémy avec d'autres outils ; il a retenu le studio pixel (jeu fa�
    Hermes a créé un sprite 5×5 correct en 66 s.
 5. Tests : `tests/pixel_studio/` (15) ; suite complète **959 réussis, 5 ignorés** ; ruff propre.
 
+## Voix locale et studio audio `voice` (24/11, fusionné dans `main`)
+
+Demandé par Jérémy. Il veut :
+- un synthé et séquenceur avec un modulateur vocal en direct ;
+- des réponses parlées et le micro dans le Hub, WoW Assistant et ses outils IA, avec des voix modifiables ;
+- MCP ;
+- VB-Cable, avec seulement le lien officiel et une vérification.
+
+La branche `feature/voice` et le worktree `D:\AetherTwin\AetherTwin-voice` ont été supprimés après la fusion.
+
+1. **Nouveau module** `modules/voice/` (README détaillé) :
+   - Whisper local, Piper, voix de Windows en secours ;
+   - profils dans `data/voice/profiles.json` ; Piper et ses voix dans `data/voice/piper` (bouton « Installer ») ;
+   - fenêtre « Studio audio Æther » ;
+   - serveur MCP **`aethertwin_voice`** (5 outils).
+2. **API du Hub** (`core/api.py`) :
+   - `/v1/audio/speech` et `/v1/audio/transcriptions`, compatibles OpenAI ; le module est lancé à la demande ;
+   - `/voice/settings` et `/voice/profiles`.
+3. **Tableau de bord** :
+   - onglet Assistant : bouton 🎙, case « lire les réponses à voix haute », voix, volume, Silence (`voice.js`,
+     `voice.css`) ;
+   - `dashboard.js` émet les événements `aether-ask` et `aether-reply` ;
+   - onglet Outils : troisième sous-onglet « Studio audio » (`audio_tool.js` ; page `audio_app.*` et
+     `audio_worklet.js`).
+4. **WoW Assistant** (`modules/gaming_hud/app/`) :
+   - voix « Voix du Hub » (`voice.tts.hub_url`, `voice.tts.hub_voice`), dans `voice.py`, `settings.py` et `ui.py` ;
+   - 5 chaînes anglaises dans `i18n_en.json`.
+5. **À savoir :** `tests/gaming_hud/test_routine.py::test_store_keeps_alts_tasks_and_unchecks_them_at_reset` échoue
+   aussi sans ces changements. Il dépend du jour (mardi, jour de remise à zéro) et est à corriger à part.
+6. Tests : `tests/voice/` (12) ; suite complète **969 réussis, 5 ignorés** (le test daté ci-dessus mis de côté) ;
+   ruff propre.
+
 ## Rappels
 
 - Rien n'a été poussé. Les documents finaux gelés (README final, HARDWARE_FIT, DEMO_SCRIPT, overlord_notes) n'ont

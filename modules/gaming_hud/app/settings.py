@@ -57,7 +57,8 @@ DEFAULTS = {
         "speak_answers": False,               # lit les réponses de l'assistant à voix haute
         "stt": {"backend": "api", "endpoint": "", "model": "whisper-1", "fw_model": "small", "api_key": "", "exe": "",
                 "args": "-f {audio} -l fr -nt", "language": "fr"},
-        "tts": {"backend": "sapi", "rate": 0, "max_chars": 700, "piper_exe": "piper", "piper_model": ""},
+        "tts": {"backend": "sapi", "rate": 0, "max_chars": 700, "piper_exe": "piper", "piper_model": "",
+                "hub_url": "http://127.0.0.1:5750", "hub_voice": ""},
     },
     "vision": {"hide_ms": 80, "watch_clipboard": True, "max_edge": 1600},
     "web": {

@@ -382,6 +382,7 @@ $("ask-form").addEventListener("submit", async (event) => {
   const button = $("ask-form").querySelector("button[type=submit]");
   button.disabled = true;
   $("ask-prompt").value = "";
+  document.dispatchEvent(new CustomEvent("aether-ask"));  // voice.js : coupe la voix en cours
   chatBubble("user", prompt);
   const out = chatBubble("assistant", "Le modèle local réfléchit… (le premier chargement prend 10 à 20 s)");
   let text = "";
@@ -408,10 +409,12 @@ $("ask-form").addEventListener("submit", async (event) => {
         if (msg.text !== undefined) {
           text += msg.text;
           renderMarkdown(out, text);
+          document.dispatchEvent(new CustomEvent("aether-reply", { detail: { text, done: false } }));
           $("chat").scrollTop = $("chat").scrollHeight;
         } else if (msg.sources) {
           sources = msg.sources;
         } else if (msg.done) {
+          document.dispatchEvent(new CustomEvent("aether-reply", { detail: { text, done: true } }));
           if (sources.length) {
             const line = el("span", { class: "meta" }, "Sources : ");
             sources.forEach((s, i) => {

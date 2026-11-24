@@ -34,7 +34,7 @@ FastAPI installe aussi `starlette` (BSD-3-Clause) et `pydantic` (MIT).
 | Ajouté le 22/11/2026 | Version | Licence | Usage |
 |---|---|---|---|
 | onnxruntime | 1.32.0 | MIT | exécute LaMa sur le processeur (Scantrad) |
-| faster-whisper (facultatif, `-Voice`) | 1.2.1 | MIT | reconnaissance vocale locale (onglet Traduction) |
+| faster-whisper (facultatif, `-Voice`) | 1.2.1 | MIT | reconnaissance vocale locale (onglet Traduction, module `voice`) |
 | lupa (développement seulement) | 2.8 | MIT | tests : compile l'addon HermesAssistant et exécute ses fonctions sur un faux jeu |
 | sympy (ajouté le 23/11) | 1.14.0 | BSD-3-Clause | calcul formel du module `calc_cas` |
 | mpmath (apporté par sympy) | 1.3.0 | BSD-3-Clause | arithmétique multiprécision de SymPy |
@@ -79,3 +79,20 @@ Modèles téléchargés (non versionnés, dans `models/` ou le cache Hugging Fac
 
 Le produit final ne fait aucune requête de génération vers un service cloud. Le cloud ne sert qu'au
 développement du projet.
+
+## Téléchargés à la demande (hors du dépôt, module `voice`)
+
+Installés dans `data/voice/piper/` par le bouton « Installer » du studio audio, depuis des adresses fixes ; aucun
+de ces fichiers n'est versionné ni redistribué par AetherTwin.
+
+| Élément | Version | Licence | Usage |
+|---|---|---|---|
+| Piper (rhasspy/piper, `piper_windows_amd64.zip`) | 2023.11.14-2 | MIT | synthèse vocale, lancée comme programme séparé |
+| espeak-ng (inclus dans l'archive de Piper) | — | GPL-3.0 | phonétisation, dans le processus de Piper uniquement (aucune liaison avec AetherTwin) |
+| Voix `fr_FR-siwis-medium` (rhasspy/piper-voices v1.0.0) | v1.0.0 | CC-BY 4.0 (corpus SIWIS) | voix « aether », « fuma » |
+| Voix `fr_FR-upmc-medium` | v1.0.0 | CC-BY-SA 4.0 | voix « narrateur » |
+| Voix `fr_FR-gilles-low` | v1.0.0 | CC0 | voix « inoue », « robot » |
+| Voix `fr_FR-mls-medium` | v1.0.0 | CC-BY 4.0 (Multilingual LibriSpeech) | voix « radio », 125 locuteurs |
+
+VB-Cable (VB-Audio, donationware) n'est ni fourni ni téléchargé : la page donne le lien du site officiel et vérifie
+seulement s'il est installé.

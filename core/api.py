@@ -15,6 +15,8 @@ donner `http://127.0.0.1:<port>` comme serveur) :
 
     GET  /v1/models
     POST /v1/chat/completions      (réponse complète, sans diffusion mot à mot)
+    POST /v1/audio/speech          texte → WAV (module `voice` : « voice » = profil de voix d'AetherTwin)
+    POST /v1/audio/transcriptions  audio (multipart « file », ou corps brut) → {"text"} (Whisper local)
 
 Toutes les générations passent par `core.llm_router` : règles VRAM appliquées, rien ne part vers le cloud.
 """
@@ -26,6 +28,9 @@ import re
 import subprocess
 import threading
 import time
+import uuid
+from email.parser import BytesParser
+from email.policy import default as email_policy
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -37,6 +42,7 @@ from pydantic import BaseModel
 
 from core import config
 from core.daemon import REPO_ROOT, Daemon
+from core.guardians.inoue import Verdict
 from core.hardware import system_info as sysinfo
 from core.llm_router import LlmError, LlmRefused, openai_to_ollama
 from core.strata import StrataError, is_strata
@@ -48,6 +54,34 @@ LAUNCHES_DIR = REPO_ROOT / "data" / "dev_launcher" / "lancements"  # écrits par
 SYSTEM_DIR = REPO_ROOT / "data" / "system"  # lectures des courbes de ventilateurs du BIOS
 IMAGE_TYPES = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
 MAX_UPLOAD = 25 * 1024 * 1024
+MAX_VOICE_AUDIO = 5_500_000
+VOICE_TMP_NAME = re.compile(r"[0-9a-f]{32}\.wav")
+AUDIO_TYPES = {"audio/wav": "wav", "audio/x-wav": "wav", "audio/wave": "wav", "audio/webm": "webm",
+               "video/webm": "webm", "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a",
+               "audio/x-m4a": "m4a", "audio/flac": "flac"}
+
+
+def audio_suffix(content_type: str, filename: str = "") -> str:
+    kind = AUDIO_TYPES.get(content_type.split(";")[0].strip().lower())
+    if kind:
+        return kind
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    return ext if ext in AUDIO_TYPES.values() else "bin"
+
+
+def multipart_fields(content_type: str, body: bytes) -> dict[str, tuple[bytes, str, str]]:
+    """Champs d'un formulaire multipart : nom → (contenu, type, nom de fichier). Sans python-multipart."""
+    message = BytesParser(policy=email_policy).parsebytes(
+        b"Content-Type: " + content_type.encode("latin-1") + b"\r\nMIME-Version: 1.0\r\n\r\n" + body)
+    fields: dict[str, tuple[bytes, str, str]] = {}
+    if not message.is_multipart():
+        return fields
+    for part in message.iter_parts():
+        name = part.get_param("name", header="content-disposition")
+        if name:
+            fields[str(name)] = (part.get_payload(decode=True) or b"", part.get_content_type(),
+                                 str(part.get_filename() or ""))
+    return fields
 
 
 # Noms sous lesquels on joint le Hub. « testserver » est le nom utilisé par le client de test de FastAPI.
@@ -757,6 +791,127 @@ def create_app(daemon: Daemon) -> FastAPI:
             raise HTTPException(status_code=404, detail=f"modèle non chargé : {model}")
         llm_call(lambda: daemon.llm.unload(model) or {})
         return {"unloaded": model}
+
+    # -- voix (module `voice`, lancé à la demande)
+    def voice_dir() -> Path:
+        return REPO_ROOT / str(config.section("voice").get("data_dir") or "data/voice")
+
+    def voice_command(command: str, payload: dict[str, Any], timeout_s: float = 240.0) -> dict[str, Any]:
+        if "voice" not in daemon.modules:
+            raise HTTPException(status_code=404, detail="module voice absent")
+        if not daemon.modules["voice"].running():
+            decision = daemon.activate("voice")
+            if decision.verdict is not Verdict.GRANTED:
+                raise HTTPException(status_code=503, detail=f"voix indisponible : {decision.reason}")
+        try:
+            reply = daemon.command("voice", command, payload, timeout_s)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except TimeoutError as exc:
+            raise HTTPException(status_code=504, detail=str(exc)) from exc
+        if not reply.get("ok"):
+            raise HTTPException(status_code=400, detail=str(reply.get("error") or "erreur de la voix"))
+        return reply.get("result") or {}
+
+    @app.get("/voice/settings")
+    def voice_settings() -> dict[str, Any]:
+        """Profils de voix et réglages (lus directement : la page n'a pas besoin du module pour les afficher)."""
+        from modules.voice.profiles import ProfileStore
+
+        return ProfileStore(voice_dir() / "profiles.json").all()
+
+    @app.post("/voice/settings")
+    def voice_settings_save(data: dict[str, Any]) -> dict[str, Any]:
+        from modules.voice.profiles import ProfileStore
+
+        values = {k: data[k] for k in ("default", "mic", "speak_replies") if k in data}
+        try:
+            return ProfileStore(voice_dir() / "profiles.json").settings(values)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/voice/profiles")
+    def voice_profile_save(data: dict[str, Any]) -> dict[str, Any]:
+        """Crée ou modifie un profil de voix (synthèse ou micro) ; le studio audio et le module partagent le fichier."""
+        from modules.voice.profiles import ProfileStore
+
+        try:
+            return ProfileStore(voice_dir() / "profiles.json").save(data)
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.delete("/voice/profiles/{pid}")
+    def voice_profile_delete(pid: str) -> dict[str, Any]:
+        from modules.voice.profiles import ProfileStore
+
+        return {"deleted": ProfileStore(voice_dir() / "profiles.json").delete(pid)}
+
+    @app.post("/v1/audio/speech")
+    def v1_speech(data: dict[str, Any]) -> Response:
+        """Format OpenAI : {input, voice, speed}. `voice` est un profil d'AetherTwin ; inconnu (alloy…) = défaut."""
+        text = str(data.get("input") or data.get("text") or "")
+        if not text.strip() or len(text) > 8000:
+            raise HTTPException(status_code=400, detail="texte vide ou de plus de 8 000 caractères")
+        profile = str(data.get("voice") or "")
+        profiles = {p["id"] for p in voice_command("profiles", {}).get("profiles", [])}
+        payload: dict[str, Any] = {"text": text, "profile": profile if profile in profiles else None, "file": True}
+        if data.get("speed") is not None:
+            payload["speed"] = data["speed"]
+        if isinstance(data.get("effects"), dict):
+            payload["effects"] = data["effects"]
+        if isinstance(data.get("profile_data"), dict):  # profil non enregistré (essai dans le studio audio)
+            payload["profile_data"] = data["profile_data"]
+        result = voice_command("speak", payload)
+        name = str(result.get("file", ""))
+        if not VOICE_TMP_NAME.fullmatch(name):
+            raise HTTPException(status_code=500, detail="réponse de la voix inattendue")
+        path = voice_dir() / "tmp" / name
+        try:
+            wav = path.read_bytes()
+        finally:
+            path.unlink(missing_ok=True)
+        return Response(content=wav, media_type="audio/wav",
+                        headers={"X-Voice-Profile": str(result.get("profile", "")),
+                                 "X-Voice-Engine": str(result.get("engine", "")),
+                                 "X-Voice-Fallback": "1" if result.get("note") else "0",
+                                 "Cache-Control": "no-store"})
+
+    @app.post("/v1/audio/transcriptions")
+    async def v1_transcriptions(request: Request) -> Any:
+        """Format OpenAI (multipart : file, language, response_format) ou audio brut (`?language=fr`)."""
+        content_type = request.headers.get("content-type", "")
+        body = await request.body()
+        if not body or len(body) > MAX_VOICE_AUDIO + 100_000:
+            raise HTTPException(status_code=413, detail="enregistrement vide ou de plus de 5 Mo")
+        language, response_format = request.query_params.get("language", "fr"), "json"
+        if content_type.lower().startswith("multipart/form-data"):
+            fields = multipart_fields(content_type, body)
+            if "file" not in fields:
+                raise HTTPException(status_code=400, detail="champ « file » attendu")
+            audio, kind, filename = fields["file"]
+            suffix = audio_suffix(kind, filename)
+            if "language" in fields:
+                language = fields["language"][0].decode("utf-8", "replace").strip()
+            if "response_format" in fields:
+                response_format = fields["response_format"][0].decode("utf-8", "replace").strip()
+        else:
+            audio, suffix = body, audio_suffix(content_type)
+        if not audio or len(audio) > MAX_VOICE_AUDIO:
+            raise HTTPException(status_code=413, detail="enregistrement vide ou de plus de 5 Mo")
+        if language and not re.fullmatch(r"[a-z]{2,3}", language):
+            language = "" if language == "auto" else "fr"
+        folder = voice_dir() / "tmp"
+        folder.mkdir(parents=True, exist_ok=True)
+        name = f"{uuid.uuid4().hex}.{suffix}"
+        (folder / name).write_bytes(audio)
+        try:
+            result = await run_in_threadpool(voice_command, "transcribe", {"file": name, "language": language or None})
+        finally:
+            (folder / name).unlink(missing_ok=True)
+        if response_format == "text":
+            return Response(content=str(result.get("text", "")), media_type="text/plain; charset=utf-8")
+        return {"text": result.get("text", ""), "language": result.get("language"),
+                "duration": result.get("duration")}
 
     @app.get("/v1/models")
     def v1_models() -> dict[str, Any]:

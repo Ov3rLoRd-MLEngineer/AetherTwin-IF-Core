@@ -1710,7 +1710,8 @@ class UI:
                         ("set_v_stt_model", "voice.stt.model"), ("set_v_stt_key", "voice.stt.api_key"),
                         ("set_v_stt_exe", "voice.stt.exe"), ("set_v_stt_args", "voice.stt.args"),
                         ("set_v_stt_lang", "voice.stt.language"), ("set_v_tts_exe", "voice.tts.piper_exe"),
-                        ("set_v_tts_model", "voice.tts.piper_model"), ("set_w_openwebui", "web.openwebui_url"),
+                        ("set_v_tts_model", "voice.tts.piper_model"), ("set_v_tts_hub", "voice.tts.hub_url"),
+                        ("set_v_tts_hubvoice", "voice.tts.hub_voice"), ("set_w_openwebui", "web.openwebui_url"),
                         ("set_w_video", "web.video_url"), ("set_w_allowed", "web.allowed_hosts"))
 
     def open_settings(self, page="llm"):
@@ -2278,7 +2279,7 @@ class UI:
                               (("api", "Serveur API"), ("exe", "Programme local"), ("faster-whisper", "faster-whisper")), pw=190)
         backend = self.settings.get("voice.stt.backend", "api")
         if backend == "api":
-            y = self._field(x, y, "Endpoint (…/v1)", "set_v_stt_endpoint", "http://127.0.0.1:8000/v1  (Open WebUI, faster-whisper-server…)", 270, 640)
+            y = self._field(x, y, "Endpoint (…/v1)", "set_v_stt_endpoint", "http://127.0.0.1:5750/v1  (Hub AetherTwin, Open WebUI, faster-whisper-server…)", 270, 640)
             y = self._field(x, y, "Modèle / clé API", "set_v_stt_model", "whisper-1", 270, 300)
             self.input_box((x + 270 + 310, y - 44, 284, 34), "set_v_stt_key", "clé API (facultative)", mask=True)
             self._clear_key_button((x + 270 + 310 + 292, y - 44, 38, 34), "set_v_stt_key", "voice.stt.api_key")
@@ -2293,7 +2294,12 @@ class UI:
                       "tiny", "gray", (x + 270, y - 8))
             y += 18
         y = self._pill_choice(x, y, "Voix (TTS)", "voice.tts.backend",
-                              (("sapi", "Voix Windows"), ("piper", "Piper"), ("off", "Désactivée")), pw=190)
+                              (("sapi", "Voix Windows"), ("piper", "Piper"), ("hub", "Voix du Hub"),
+                               ("off", "Désactivée")), pw=150)
+        if self.settings.get("voice.tts.backend") == "hub":
+            y = self._field(x, y, "Adresse du Hub", "set_v_tts_hub", "http://127.0.0.1:5750", 270, 300)
+            y = self._field(x, y, "Profil de voix", "set_v_tts_hubvoice",
+                            "vide = celui de l'assistant (aether, narrateur, fuma, robot…)", 270, 640)
         if self.settings.get("voice.tts.backend") == "piper":
             y = self._field(x, y, "Piper : programme", "set_v_tts_exe", "piper.exe", 270, 300)
             y = self._field(x, y, "Piper : modèle (.onnx)", "set_v_tts_model", "C:\\...\\fr_FR-siwis-medium.onnx", 270, 640)

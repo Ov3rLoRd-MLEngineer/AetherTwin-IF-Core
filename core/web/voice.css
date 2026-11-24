@@ -1,0 +1,9 @@
+/* Voix de l'assistant : bouton micro, voix des réponses. */
+#ask-mic.recording { background: #c0392b; border-color: #c0392b; color: #fff; animation: voice-pulse 1.2s ease-in-out infinite; }
+#ask-voice { max-width: 190px; }
+#ask-volume { width: 90px; }
+#ask-voice:empty { display: none; }
+.msg.voice-note { font-size: 12px; color: var(--muted); padding: 4px 10px; }
+.msg.voice-note.warn { color: var(--warn, #e67e22); }
+@keyframes voice-pulse { 50% { opacity: 0.65; } }
+@media (prefers-reduced-motion: reduce) { #ask-mic.recording { animation: none; } }

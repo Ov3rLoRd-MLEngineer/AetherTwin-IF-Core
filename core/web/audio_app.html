@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Studio audio Æther — AetherTwin</title>
+  <link rel="icon" href="/static/logo.svg">
+  <link rel="stylesheet" href="/static/audio_app.css">
+  <script src="/static/audio_app.js" defer></script>
+</head>
+<body>
+  <div class="studio">
+    <header class="brand">
+      <img class="logo" src="/static/logo.svg" alt="" width="26" height="26">
+      <span class="wordmark">Aether<em>Twin</em></span>
+      <span class="model">AUDIO</span>
+      <div class="modes" role="tablist" id="modes">
+        <button role="tab" data-mode="synth" aria-selected="true">Synthé et séquenceur</button>
+        <button role="tab" data-mode="mod" aria-selected="false">Modulateur vocal</button>
+        <button role="tab" data-mode="voices" aria-selected="false">Voix</button>
+      </div>
+      <span class="grow"></span>
+      <span class="status" id="status" aria-live="polite"></span>
+      <button type="button" id="btn-theme" title="Thème clair ou sombre">◐</button>
+    </header>
+
+    <!-- ==================== synthé et séquenceur ==================== -->
+    <main class="view" data-view="synth">
+      <div class="transport">
+        <button type="button" id="play" class="primary" title="Lecture / arrêt (Espace)">▶ Lecture</button>
+        <label>Tempo <input type="number" id="bpm" min="40" max="240" value="110"> BPM</label>
+        <label>Pas <select id="steps"><option value="16">16</option><option value="32">32</option></select></label>
+        <label>Swing <input type="range" id="swing" min="0" max="0.6" step="0.05" value="0"></label>
+        <label>Écho <input type="range" id="fx-delay" min="0" max="1" step="0.05" value="0.3"></label>
+        <label>Salle <input type="range" id="fx-reverb" min="0" max="1" step="0.05" value="0.25"></label>
+        <label>Volume <input type="range" id="master" min="0" max="1" step="0.05" value="0.6"></label>
+        <span class="grow"></span>
+        <input id="song-name" class="doc-name" value="morceau" spellcheck="false" aria-label="Nom du morceau">
+        <button type="button" id="song-new" title="Morceau de démonstration">Nouveau</button>
+        <button type="button" id="song-open" title="Ouvrir un morceau (.json)">Ouvrir</button>
+        <button type="button" id="song-save" title="Enregistrer le morceau (.json)">Enregistrer</button>
+        <button type="button" id="song-export" class="primary" title="Exporter en WAV (4 boucles)">Exporter WAV</button>
+        <input type="file" id="song-file" accept="application/json,.json" hidden>
+      </div>
+      <div class="synth-body">
+        <aside class="tracks" id="tracks" aria-label="Pistes"></aside>
+        <section class="editor">
+          <div class="roll-head">
+            <span id="editor-title">Piste</span>
+            <span class="grow"></span>
+            <span class="hint" id="editor-hint">Clic : poser une note · glisser : allonger · clic droit : effacer</span>
+            <button type="button" id="oct-down" title="Une octave plus bas">Octave −</button>
+            <button type="button" id="oct-up" title="Une octave plus haut">Octave +</button>
+            <button type="button" id="clear-track" title="Effacer toutes les notes de la piste">Effacer</button>
+          </div>
+          <div class="roll-wrap" id="roll-wrap"><canvas id="roll"></canvas></div>
+          <div class="drums" id="drums" hidden></div>
+          <div class="keyboard" id="keyboard" aria-label="Clavier (touches A Z E R… ou W X C…)"></div>
+        </section>
+        <aside class="instrument" id="instrument" aria-label="Instrument"></aside>
+      </div>
+    </main>
+
+    <!-- ==================== modulateur vocal ==================== -->
+    <main class="view" data-view="mod" hidden>
+      <div class="mod-grid">
+        <section class="card">
+          <h2>Modulateur en direct</h2>
+          <p class="muted">Ta voix passe par les effets en temps réel. Mêmes réglages que les voix de synthèse : un
+            profil « micro » s'applique ici, un profil de synthèse aux réponses parlées.</p>
+          <div class="row">
+            <button type="button" id="mod-start" class="primary">🎙 Activer le micro</button>
+            <label><input type="checkbox" id="mod-bypass"> sans effet</label>
+            <label><input type="checkbox" id="mod-monitor" checked> m'écouter</label>
+            <label><input type="checkbox" id="mod-noise" checked> réduction de bruit</label>
+          </div>
+          <div class="meter"><div id="mod-meter"></div></div>
+          <div class="row">
+            <label>Entrée <select id="mod-input"></select></label>
+          </div>
+          <div class="row">
+            <label>Profil <select id="mod-profile"></select></label>
+            <button type="button" id="mod-save">Enregistrer sous…</button>
+            <button type="button" id="mod-delete" class="ghost">Supprimer</button>
+            <button type="button" id="mod-reset" class="ghost">Neutre</button>
+          </div>
+          <div class="row">
+            <button type="button" id="mod-record">⏺ Enregistrer ma voix modifiée</button>
+            <span class="muted" id="mod-record-state"></span>
+          </div>
+        </section>
+        <section class="card">
+          <h2>Réglages</h2>
+          <div class="sliders" id="mod-sliders"></div>
+        </section>
+        <section class="card">
+          <h2>Pour Discord ou en jeu (VB-Cable)</h2>
+          <p class="muted">Pour que Discord, un jeu ou OBS entendent ta voix modifiée, il faut un câble audio virtuel.
+            VB-Cable (VB-Audio, gratuit, donationware) s'installe à part, depuis son site officiel.</p>
+          <ol class="steps-list">
+            <li>Télécharge et installe VB-Cable, puis redémarre le PC si l'installateur le demande.</li>
+            <li>Ici, choisis la sortie « CABLE Input » et active le micro.</li>
+            <li>Dans Discord ou le jeu, choisis le micro « CABLE Output ».</li>
+          </ol>
+          <div class="row">
+            <a class="button" id="vb-link" href="https://vb-audio.com/Cable/" target="_blank" rel="noopener noreferrer">Télécharger VB-Cable (site officiel)</a>
+            <button type="button" id="vb-check">Vérifier l'installation</button>
+          </div>
+          <p id="vb-state" class="muted">État : non vérifié.</p>
+          <div class="row">
+            <label>Sortie <select id="mod-output"></select></label>
+            <button type="button" id="vb-route" hidden>Envoyer vers VB-Cable</button>
+          </div>
+          <p class="muted small">« m'écouter » garde ta voix sur tes haut-parleurs ou ton casque pendant qu'elle part
+            dans le câble (casque conseillé : sinon le micro reprend le son).</p>
+        </section>
+      </div>
+    </main>
+
+    <!-- ==================== voix ==================== -->
+    <main class="view" data-view="voices" hidden>
+      <div class="mod-grid">
+        <section class="card">
+          <h2>Moteurs</h2>
+          <div id="engine-state" class="muted">…</div>
+          <div class="row">
+            <button type="button" id="install" class="primary">Installer Piper et les voix françaises</button>
+          </div>
+          <p class="muted small">Piper (MIT) et quatre voix libres : Siwis (CC-BY 4.0), UPMC (CC-BY-SA 4.0), Gilles
+            (CC0), MLS (CC-BY 4.0, 125 voix). Téléchargés depuis leurs dépôts officiels, environ 300 Mo, tout reste sur
+            ce PC. La voix de Windows sert de secours.</p>
+          <h3>Réponses parlées</h3>
+          <div class="row">
+            <label>Voix des réponses <select id="default-voice"></select></label>
+            <label><input type="checkbox" id="speak-replies"> lire les réponses de l'assistant</label>
+          </div>
+          <h3>Agents (MCP)</h3>
+          <p class="muted" id="hermes-state">Hermes : …</p>
+          <button type="button" id="hermes-register" hidden>Brancher sur Hermes</button>
+          <p class="muted small">API compatible OpenAI pour tes autres outils : <code>http://127.0.0.1:5750/v1</code>
+            (<code>/audio/speech</code>, <code>/audio/transcriptions</code>).</p>
+        </section>
+        <section class="card wide">
+          <h2>Profils de voix</h2>
+          <div class="row">
+            <label>Profil <select id="vp-select"></select></label>
+            <button type="button" id="vp-new">Nouveau</button>
+            <button type="button" id="vp-delete" class="ghost">Supprimer</button>
+          </div>
+          <div class="form-grid">
+            <label>Identifiant <input id="vp-id" spellcheck="false" maxlength="40"></label>
+            <label>Nom <input id="vp-label" maxlength="60"></label>
+            <label>Moteur <select id="vp-engine"><option value="piper">Piper</option><option value="sapi">Voix de Windows</option></select></label>
+            <label>Voix <select id="vp-voice"></select></label>
+            <label>Locuteur <select id="vp-speaker"></select></label>
+            <label>Vitesse <input type="range" id="vp-speed" min="0.5" max="2" step="0.05" value="1"><output id="vp-speed-out">1</output></label>
+          </div>
+          <div class="sliders" id="vp-sliders"></div>
+          <div class="row">
+            <input id="vp-text" class="wide-input" value="Bonjour ! Je suis ta nouvelle voix, prête pour l'aventure.">
+            <button type="button" id="vp-test" class="primary">Écouter</button>
+            <button type="button" id="vp-save">Enregistrer le profil</button>
+          </div>
+          <p class="muted small" id="vp-state"></p>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
