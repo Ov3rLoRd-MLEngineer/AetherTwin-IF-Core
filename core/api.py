@@ -37,6 +37,7 @@ from pydantic import BaseModel
 
 from core import config
 from core.daemon import REPO_ROOT, Daemon
+from core.hardware import system_info as sysinfo
 from core.llm_router import LlmError, LlmRefused, openai_to_ollama
 from core.strata import StrataError, is_strata
 from core.terminals import TerminalError, TerminalManager
@@ -44,6 +45,7 @@ from core.terminals import TerminalError, TerminalManager
 WEB_DIR = Path(__file__).resolve().parent / "web"
 SCANTRAD_DIR = REPO_ROOT / "data" / "scantrad"
 LAUNCHES_DIR = REPO_ROOT / "data" / "dev_launcher" / "lancements"  # écrits par le module dev_launcher
+SYSTEM_DIR = REPO_ROOT / "data" / "system"  # lectures des courbes de ventilateurs du BIOS
 IMAGE_TYPES = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
 MAX_UPLOAD = 25 * 1024 * 1024
 
@@ -482,6 +484,65 @@ def create_app(daemon: Daemon) -> FastAPI:
             return fn()
         except TerminalError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # -- état du PC (Accueil, Inoue) : lecture sans droits administrateur ; actions sur clic, listes fermées
+    sampler, sysdata = sysinfo.SystemSampler(), sysinfo.SystemInfo()
+    fans_file = SYSTEM_DIR / "ventilateurs_bios.json"
+
+    def system_action(work: Any) -> Any:
+        try:
+            return work()
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/system/live")
+    def system_live() -> dict[str, Any]:
+        return sampler.read()
+
+    @app.get("/system/info")
+    def system_info(refresh: bool = False) -> dict[str, Any]:
+        return sysdata.info(refresh)
+
+    @app.get("/system/devices")
+    def system_devices(refresh: bool = False) -> dict[str, Any]:
+        return sysdata.devices(refresh)
+
+    @app.get("/system/processes")
+    def system_processes() -> dict[str, Any]:
+        return {"processus": sysinfo.heavy_processes(), "alimentation": sysinfo.power_plans()}
+
+    @app.post("/system/process/stop")
+    def system_stop(payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        body = payload or {}
+        return system_action(lambda: sysinfo.stop_process(int(body.get("pid") or 0), str(body.get("nom", ""))))
+
+    @app.post("/system/power")
+    def system_power(payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        guid = str((payload or {}).get("guid", ""))
+        return {"alimentation": system_action(lambda: sysinfo.set_power_plan(guid))}
+
+    @app.post("/system/open")
+    def system_open(payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        body = payload or {}
+        return {"ouvert": system_action(lambda: sysinfo.open_windows(str(body.get("cible", "")),
+                                                                    str(body.get("lecteur", ""))))}
+
+    @app.get("/system/tools")
+    def system_tools() -> list[dict[str, Any]]:
+        return sysinfo.tools_state()
+
+    @app.post("/system/tools/launch")
+    def system_tool_launch(payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        return {"ouvert": system_action(lambda: sysinfo.launch_tool(str((payload or {}).get("outil", ""))))}
+
+    @app.get("/system/sensors")
+    def system_sensors() -> dict[str, Any]:
+        return {"lhm": sysinfo.lhm_sensors(), "gpus": sysinfo.nvml_details(),
+                "ventilateurs_bios": sysinfo.bios_fans(fans_file)}
+
+    @app.post("/system/fans/read")
+    def system_fans_read() -> dict[str, Any]:
+        return sysinfo.read_bios_fans(fans_file)
 
     @app.get("/terminal", include_in_schema=False)
     def terminal_page() -> Response:

@@ -352,3 +352,54 @@ def test_task_model_needs_a_large_context(tmp_path: Path, monkeypatch: pytest.Mo
     assert small["CLAUDE_CODE_MAX_CONTEXT_TOKENS"] == "32768" and "65536" in mod.context_warning(small)
     mod.config["modele_taches"] = "qwen3-coder:30b"
     assert mod.task_model() == "qwen3-coder:30b"  # choix explicite respecté (avec avertissement)
+
+
+def test_64k_variant_name_and_creation(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert catalog.variant_name("devstral:24b") == "devstral:24b-64k"
+    assert catalog.variant_name("qwen3-coder") == "qwen3-coder:64k" == catalog.variant_name("qwen3-coder:latest")
+    for bad in ("devstral:24b-64k", "x:64k", "../x", ""):
+        with pytest.raises(ValueError):
+            catalog.variant_name(bad)
+    sent: list[Any] = []
+
+    class Reply:
+        def __enter__(self) -> Reply:
+            return self
+
+        def __exit__(self, *exc: Any) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b'{"status": "success"}'
+
+    def urlopen(req: Any, timeout: float) -> Reply:
+        sent.append(req)
+        return Reply()
+
+    monkeypatch.setattr(catalog.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(catalog, "num_ctx", lambda base, name: 65536)
+    result = catalog.create_variant("http://127.0.0.1:11434", "devstral:24b")
+    body = json.loads(sent[0].data)
+    assert sent[0].full_url == "http://127.0.0.1:11434/api/create"
+    assert body == {"model": "devstral:24b-64k", "from": "devstral:24b", "parameters": {"num_ctx": 65536},
+                    "stream": False}
+    assert result == {"modele": "devstral:24b-64k", "depuis": "devstral:24b", "contexte": 65536,
+                      "contexte_servi": 65536}
+
+
+def test_confirm_mode_and_task_history_by_origin(tmp_path: Path) -> None:
+    env = launch.route_env("ollama", "qwen3-coder:30b", 65536, "http://127.0.0.1:11434", "")
+    assert '--permission-mode "default"' in launch.batch_script(env, tmp_path, ["claude.cmd"], "t", confirm=True)
+    assert "--permission-mode" not in launch.batch_script(env, tmp_path, ["claude.cmd"], "t")
+    folder = tmp_path / "data" / "taches"
+    folder.mkdir(parents=True)
+    for index, origin in enumerate(("Hub", "Hermes · WoW Assistant", "Hermes · hermes.exe")):
+        task_id = f"{index:012x}"
+        state = {"id": task_id, "origine": origin, "tache": "t", "etat": "terminée", "dossier": str(tmp_path),
+                 "modele": "m", "debut": 0, "duree": 1}
+        (folder / f"{task_id}.json").write_text(json.dumps(state), encoding="utf-8")
+    tasks = TaskRunner(tmp_path / "data", [tmp_path], lambda: ["claude.cmd"], lambda model: env)
+    assert len(tasks.list(10)) == 3
+    assert sorted(t["origine"] for t in tasks.list(10, "hermes")) == ["Hermes · WoW Assistant", "Hermes · hermes.exe"]
+    assert [t["origine"] for t in tasks.list(10, "Hub")] == ["Hub"]
+    assert len(tasks.list(1)) == 1

@@ -6,12 +6,14 @@
   <title>AetherTwin — Hub</title>
   <link rel="stylesheet" href="/static/dashboard.css">
   <link rel="stylesheet" href="/static/dev.css">
+  <link rel="stylesheet" href="/static/system.css">
   <script src="/static/ether_scene.js" defer></script>
   <script src="/static/dashboard.js" defer></script>
   <script src="/static/professeur.js" defer></script>
   <link rel="stylesheet" href="/static/calc_cas.css">
   <script src="/static/calc_cas.js" defer></script>
   <script src="/static/dev.js" defer></script>
+  <script src="/static/system.js" defer></script>
 </head>
 <body>
   <header>
@@ -40,8 +42,8 @@
 
   <main>
     <!-- Accueil -->
-    <div class="panel" data-panel="accueil">
-      <section>
+    <div data-subtabs class="panel" data-panel="accueil">
+      <section data-sub="Vue d'ensemble">
         <h2>Cartes graphiques</h2>
         <div id="gpus" class="cards"><p class="muted">Mesure en cours…</p></div>
         <p id="llm-line" class="muted"></p>
@@ -52,7 +54,7 @@
           <button type="button" id="strata-stop" class="ghost">Arrêter Strata</button>
         </p>
       </section>
-      <section>
+      <section data-sub="Vue d'ensemble">
         <h2>Budget VRAM (Inoue)</h2>
         <p class="muted">Inoue garde 10 % de la VRAM en réserve et n'accepte qu'un gros modèle de langage à la fois.</p>
         <div class="bar big"><i id="inoue-bar"></i></div>
@@ -61,7 +63,94 @@
           met les nouveaux chargements en attente. Décharge un modèle dans « Cartes graphiques » pour faire de la place.</p>
         <ul id="inoue-list" class="links"></ul>
       </section>
-      <section>
+      <section data-sub="Performance" class="sys">
+        <div class="sys-head"><h2>Performance</h2><span class="grow"></span>
+          <button type="button" class="ghost small" data-open="gestionnaire_taches">Gestionnaire des tâches</button>
+          <button type="button" class="ghost small" data-open="moniteur_ressources">Moniteur de ressources</button></div>
+        <div class="perf">
+          <div id="perf-list" class="perf-list" role="tablist" aria-label="Ressources"><p class="muted">Mesure en cours…</p></div>
+          <div class="perf-main">
+            <div class="perf-title"><h3 id="perf-name">Processeur</h3><span id="perf-model" class="muted"></span></div>
+            <p id="perf-axis" class="perf-axis muted"></p>
+            <canvas id="perf-chart" class="perf-chart" width="760" height="250" aria-label="Courbe d'utilisation"></canvas>
+            <p class="perf-axis muted"><span>60 secondes</span><span>0</span></p>
+            <div id="perf-details" class="perf-details"></div>
+          </div>
+        </div>
+      </section>
+      <section data-sub="Stockage et périphériques" class="sys">
+        <div class="sys-head"><h2>Lecteurs</h2><span class="grow"></span>
+          <button type="button" class="ghost small" data-open="ce_pc">Ouvrir Ce PC</button>
+          <button type="button" class="ghost small" data-open="gestion_disques">Gestion des disques</button></div>
+        <div id="sys-drives" class="drives"><p class="muted">Lecture des lecteurs…</p></div>
+      </section>
+      <section data-sub="Stockage et périphériques" class="sys">
+        <div class="sys-head"><h2>Périphériques</h2><span class="grow"></span>
+          <button type="button" class="ghost small" data-open="peripheriques">Bluetooth et appareils</button>
+          <button type="button" class="ghost small" data-open="imprimantes">Imprimantes et scanners</button>
+          <button type="button" class="ghost small" data-open="gestionnaire_peripheriques">Gestionnaire de périphériques</button></div>
+        <div id="sys-devices" class="devices"><p class="muted">Recherche des périphériques…</p></div>
+      </section>
+      <section data-sub="Système" class="sys">
+        <div id="sys-tiles" class="sys-tiles"></div>
+        <div class="sys-head"><h2 id="sys-name">Ce PC</h2><span class="grow"></span>
+          <button type="button" id="sys-copy" class="ghost small">Copier</button>
+          <button type="button" class="ghost small" data-open="a_propos">Paramètres › À propos</button></div>
+        <dl id="sys-specs" class="specs"><dt>Lecture</dt><dd class="muted">Fiche système en cours de lecture…</dd></dl>
+      </section>
+      <section data-sub="Carte mère" class="sys board">
+        <div class="board-grid">
+          <div class="board-id">
+            <svg class="board-svg" viewBox="0 0 160 190" aria-hidden="true">
+              <rect x="6" y="6" width="148" height="178" rx="6"/><rect x="52" y="22" width="44" height="44" rx="3"/>
+              <rect x="110" y="16" width="6" height="64"/><rect x="120" y="16" width="6" height="64"/>
+              <rect x="130" y="16" width="6" height="64"/><rect x="140" y="16" width="6" height="64"/>
+              <rect x="18" y="96" width="112" height="8"/><rect x="18" y="124" width="112" height="8"/>
+              <rect x="18" y="150" width="112" height="8"/><rect x="14" y="22" width="28" height="60" rx="2"/>
+            </svg>
+            <b id="board-name">Carte mère</b>
+            <span id="board-line" class="muted"></span>
+          </div>
+          <div class="board-monitor"><h2>Moniteur du système</h2><div id="board-groups" class="board-groups"></div></div>
+        </div>
+        <p id="board-note" class="muted"></p>
+      </section>
+      <section data-sub="Carte mère" class="sys">
+        <h2>Ventilateurs et pompe</h2>
+        <p class="muted">Les ventilateurs de la carte mère se règlent par courbe température → vitesse dans le BIOS
+          (Q-Fan), comme dans Armoury Crate (Fan Xpert). Le Hub lit ces courbes avec ton autorisation Windows ; il ne
+          les modifie pas tant que la lecture réelle n'a pas été vérifiée.</p>
+        <div id="fans" class="fans"></div>
+        <div class="row">
+          <button type="button" id="fans-read" class="ghost">Lire les courbes du BIOS (autorisation Windows)</button>
+          <button type="button" class="ghost" data-tool="armoury_crate">Ouvrir Armoury Crate</button>
+        </div>
+        <div id="fan-curves" class="fan-curves"></div>
+      </section>
+      <section data-sub="Optimisation (Inoue)" class="sys">
+        <h2>Inoue : optimiser le PC</h2>
+        <p class="muted">Inoue repère les programmes gourmands, la chauffe et le mode d'alimentation. Rien n'est fermé
+          ni changé sans ton clic ; les processus de Windows et du Hub ne sont jamais proposés.</p>
+        <div id="opt-advice" class="opt-advice"></div>
+        <div class="row">
+          <label>Mode d'alimentation <select id="power-plan" aria-label="Mode d'alimentation"></select></label>
+          <button type="button" id="power-apply" class="ghost">Appliquer</button>
+          <button type="button" class="ghost" data-open="alimentation">Options d'alimentation</button>
+          <span class="grow"></span>
+          <button type="button" id="opt-refresh">Analyser</button>
+        </div>
+        <table class="opt-table">
+          <thead><tr><th>Programme</th><th>Processeur</th><th>Mémoire</th><th></th></tr></thead>
+          <tbody id="opt-procs"><tr><td colspan="4" class="muted">« Analyser » pour mesurer.</td></tr></tbody>
+        </table>
+      </section>
+      <section data-sub="Outils ASUS" class="sys">
+        <h2>Outils ASUS et CPUID</h2>
+        <p class="muted">Trouvés dans leurs dossiers d'installation par défaut. Certains demandent l'autorisation de
+          Windows à l'ouverture.</p>
+        <div id="sys-tools" class="tools"></div>
+      </section>
+      <section data-sub="Modules">
         <h2>Modules</h2>
         <table>
           <thead><tr><th>Module</th><th>État</th><th>Détail</th><th></th></tr></thead>
@@ -72,8 +161,8 @@
     </div>
 
     <!-- Jeu -->
-    <div class="panel" data-panel="jeu" hidden>
-      <section>
+    <div data-subtabs class="panel" data-panel="jeu" hidden>
+      <section data-sub="WoW Assistant">
         <h2>WoW Assistant</h2>
         <p class="muted">L'application de bureau d'origine (fenêtre Pygame), lancée par le Hub.</p>
         <div class="row">
@@ -81,7 +170,7 @@
           <span id="app-line" class="muted"></span>
         </div>
       </section>
-      <section>
+      <section data-sub="Lecture du jeu">
         <h2>Lecture du jeu (gaming_hud)</h2>
         <div class="row">
           <button id="hud-toggle" type="button">Activer gaming_hud</button>
@@ -90,7 +179,7 @@
         <h3>Ce que l'assistant sait de ton jeu</h3>
         <pre id="hud-context" class="answer">—</pre>
       </section>
-      <section>
+      <section data-sub="Showcase">
         <h2>Mode Showcase (diffusion)</h2>
         <p class="muted">Quand OBS est ouvert, gaming_hud passe seul en mode Showcase : il retire de ce qu'il
           publie le nom de compte, les chemins de fichiers, les clés, et arrondit l'or. L'overlay OBS, lui, est
@@ -101,7 +190,7 @@
           <button id="showcase-off" type="button" class="ghost">Repasser en normal</button>
         </div>
       </section>
-      <section>
+      <section data-sub="Overlay OBS">
         <h2>Overlay OBS</h2>
         <p>Dans OBS : Sources → + → Navigateur, URL <code id="overlay-url">http://127.0.0.1:5757/obs-hud</code>,
           largeur 420, hauteur 600. gaming_hud doit être actif.</p>
@@ -129,8 +218,8 @@
     </div>
 
     <!-- Professeur -->
-    <div class="panel" data-panel="professeur" hidden>
-      <section>
+    <div data-subtabs class="panel" data-panel="professeur" hidden>
+      <section data-sub="Cours">
         <h2>Professeur</h2>
         <p class="muted">Programmes de l'Éducation nationale, du CP à la terminale : l'année en trois trimestres, un cours
           par chapitre avec schéma, exemple corrigé et exercices, adaptés à l'âge. Le modèle local rédige à partir de
@@ -144,7 +233,7 @@
         <p id="prof-status" class="muted"></p>
         <div id="prof-programme"></div>
       </section>
-      <section id="prof-lesson-box" hidden>
+      <section data-sub="Cours" id="prof-lesson-box" hidden>
         <div class="row">
           <button id="prof-prev" type="button" class="ghost">← Chapitre précédent</button>
           <button id="prof-next" type="button" class="ghost">Chapitre suivant →</button>
@@ -171,7 +260,7 @@
           <button type="submit" class="ghost">Envoyer et améliorer le cours</button>
         </form>
       </section>
-      <section>
+      <section data-sub="Simulations">
         <h2>Simulations</h2>
         <p class="muted">Des expériences à manipuler. Chaque page tourne dans un cadre isolé, sans accès au réseau ni
           au reste du Hub. Une nouvelle simulation peut être programmée par le modèle local ou demandée au Claude Code
@@ -209,7 +298,7 @@
         </form>
         <div id="sim-result" class="answer" hidden></div>
       </section>
-      <section>
+      <section data-sub="Laboratoire">
         <h2>Laboratoire avancé : exercices de calcul</h2>
         <p class="muted">Génétique, astrophysique, génie chimique : les calculs sont faits par du code ; le modèle local
           explique et cite ses sources.</p>
@@ -232,7 +321,7 @@
         </div>
         <div id="prof-result" class="answer" hidden></div>
       </section>
-      <section>
+      <section data-sub="Laboratoire">
         <h2>Laboratoire : analyse FASTA</h2>
         <p class="muted">Colle une ou plusieurs séquences au format FASTA. Longueur, composition, GC %, cadres de
           lecture ouverts (ORF) et protéine traduite : tout est calculé par le code, aucun modèle n'intervient.</p>
@@ -247,8 +336,8 @@
     </div>
 
     <!-- Outils (module calc_cas) -->
-    <div class="panel" data-panel="outils" hidden>
-      <section>
+    <div data-subtabs class="panel" data-panel="outils" hidden>
+      <section data-sub="Calculatrice">
         <div class="row"><h2 class="grow">Calculatrice à calcul formel</h2>
           <button id="calc-window" type="button" title="Fenêtre redimensionnable : Calculs, Graphes, Tableur, Programmes">Ouvrir la calculatrice</button></div>
         <p class="muted">Résultats exacts et valeurs approchées, calculés sur cette machine (SymPy). Écris
@@ -276,7 +365,7 @@
           </div>
         </div>
       </section>
-      <section>
+      <section data-sub="Graphes">
         <h2>Graphes</h2>
         <div id="calc-curves" class="calc-curves"></div>
         <div class="row">
@@ -297,7 +386,7 @@
         </div>
         <div id="calc-analysis"></div>
       </section>
-      <section>
+      <section data-sub="Tableur et statistiques">
         <h2>Tableur et statistiques</h2>
         <p class="muted">Une valeur par case (nombres ou expressions : <code>1/3</code>, <code>sqrt(2)</code>). La colonne
           « effectifs » est facultative.</p>
@@ -319,7 +408,7 @@
         </div>
         <div id="calc-stats-out"></div>
       </section>
-      <section>
+      <section data-sub="Agent">
         <h2>Le modèle local délègue ses calculs</h2>
         <p class="muted">Le modèle du Hub ne calcule pas de tête : il demande chaque calcul au moteur exact, puis
           rédige sa réponse à partir des résultats.</p>
@@ -344,8 +433,8 @@
     </div>
 
     <!-- Scantrad -->
-    <div class="panel" data-panel="scantrad" hidden>
-      <section>
+    <div data-subtabs class="panel" data-panel="scantrad" hidden>
+      <section data-sub="Automatique">
         <h2>Traduire une page</h2>
         <p class="muted">Usage personnel : tout reste sur cette machine. Le premier passage charge les modèles
           (environ 30 s), les suivants sont plus rapides.</p>
@@ -387,7 +476,7 @@
         </div>
         <div id="scan-bubbles"></div>
       </section>
-      <section>
+      <section data-sub="Manuel">
         <h2>Mode manuel : zones posées à la main</h2>
         <p class="muted">Pour une page où la détection rate des bulles. <b>1.</b> Trace une boîte autour de chaque
           bulle, <b>dans l'ordre de lecture</b> (le numéro s'affiche). Les onomatopées et le texte hors bulle se
@@ -430,7 +519,7 @@
           <button id="man-text" type="button" class="ghost small">Texte (.txt)</button></figcaption>
           <img id="man-after" alt="page traduite"></figure>
       </section>
-      <section>
+      <section data-sub="Glossaire">
         <h2>Glossaire d'une série</h2>
         <p class="muted">Pour qu'une série garde les mêmes noms et les mêmes mots d'un chapitre à l'autre. Une entrée par
           ligne : <code>langue d'origine = français</code>. Seules les entrées présentes dans la page sont données
@@ -542,8 +631,8 @@
     </div>
 
     <!-- Développement -->
-    <div class="panel dev" data-panel="developpement" hidden>
-      <section>
+    <div data-subtabs class="panel dev" data-panel="developpement" hidden>
+      <section data-sub="Claude Code local">
         <div class="dev-head">
           <h2>Claude Code local</h2>
           <span class="grow"></span>
@@ -578,6 +667,7 @@
               <label><input type="radio" name="dev-mode" value="hub"> le Hub (sous le lanceur)</label>
             </fieldset>
             <label class="check"><input id="dev-mcp" type="checkbox" checked> Pont MCP : Hermes et le Hub disponibles dans Claude Code</label>
+            <label class="check"><input id="dev-confirm" type="checkbox" checked> Demander avant chaque action (modification, commande) : remplace le mode « auto » de tes réglages Claude Code, dont le contrôle tournerait sur le modèle local</label>
             <label class="check"><input id="dev-tools" type="checkbox" checked> Outils essentiels seulement (lire, écrire, chercher, commandes, plus le pont MCP ; sans tes autres serveurs MCP) : conseillé avec un modèle local, qui se trompe moins dans ses appels d'outils</label>
             <div class="row">
               <button id="dev-go" type="submit">Lancer Claude Code</button>
@@ -588,7 +678,7 @@
         </div>
       </section>
 
-      <section id="dev-terminals" hidden>
+      <section data-sub="Claude Code local" id="dev-terminals" hidden>
         <div class="dev-head">
           <h2>Terminaux</h2>
           <div id="dev-term-tabs" class="dev-term-tabs" role="tablist"></div>
@@ -599,7 +689,7 @@
         <iframe id="dev-term-frame" class="dev-term-frame" title="Terminal"></iframe>
       </section>
 
-      <section>
+      <section data-sub="Hermes ⇄ Claude Code">
         <h2>Hermes ⇄ Claude Code local</h2>
         <p class="muted">Le pont MCP du Hub relie les deux : Hermes peut confier une tâche de développement à Claude Code
           local (quel que soit le moyen de lui parler : application, <code>hermes.exe</code>, WoW Assistant…), et Claude
@@ -622,11 +712,23 @@
           </form>
         </div>
         <div id="dev-ask-result" class="answer" hidden></div>
-        <h3>Tâches confiées</h3>
+        <h3>Dernières tâches confiées <small class="muted">(tout est dans « Historique »)</small></h3>
         <div id="dev-tasks"><p class="muted">Aucune tâche pour l'instant.</p></div>
       </section>
 
-      <section>
+      <section data-sub="Historique">
+        <div class="dev-head"><h2>Historique des tâches confiées</h2><span class="grow"></span>
+          <div class="dev-chips" role="radiogroup" aria-label="Origine">
+            <button type="button" class="chip" data-origin="" aria-pressed="true">Toutes</button>
+            <button type="button" class="chip" data-origin="Hermes" aria-pressed="false">Hermes</button>
+            <button type="button" class="chip" data-origin="Hub" aria-pressed="false">Hub</button>
+          </div></div>
+        <p class="muted">Chaque tâche garde son origine (Hub, ou Hermes et le canal qui lui a parlé : WoW Assistant,
+          <code>hermes.exe</code>…), son modèle, sa durée, ses fichiers et la sortie de Claude Code.</p>
+        <p id="dev-history-count" class="muted"></p>
+        <div id="dev-history"></div>
+      </section>
+      <section data-sub="Relais">
         <h2>Relais quand le quota de Claude Code API est épuisé</h2>
         <p class="muted">Le relais (<code>scripts/relay_orchestrator.py</code>) bascule sur Claude Code local pendant la
           coupure, puis rend la main à Claude Code API avec un résumé à relire (journal, commits, diff). L'essai

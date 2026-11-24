@@ -5,7 +5,11 @@
   "entry": "modules.scantrad.module:ScantradModule",
   "vram_min_gb": 0,
   "vram_comfort_gb": 0,
-  "python_deps": ["opencv-python-headless", "numpy", "pillow"],
+  "python_deps": [
+    "opencv-python-headless",
+    "numpy",
+    "pillow"
+  ],
   "optional_deps": [],
   "triggers": {
     "processes": [],
@@ -13,5 +17,6 @@
     "ports": []
   },
   "network": [],
-  "experimental": false
+  "experimental": false,
+  "command_timeout_s": 900
 }

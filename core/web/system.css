@@ -1,0 +1,97 @@
+/* Accueil : état du PC (Performance, lecteurs, périphériques, fiche système, carte mère, Inoue, outils). */
+.sys-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.sys-head h2 { margin: 0; }
+
+/* Performance, disposition du Gestionnaire des tâches */
+.perf { display: grid; grid-template-columns: 250px 1fr; gap: 16px; }
+.perf-list { display: flex; flex-direction: column; gap: 4px; max-height: 560px; overflow-y: auto; }
+.perf-list button { display: grid; grid-template-columns: 70px 1fr; gap: 10px; align-items: center; text-align: left;
+                    background: transparent; color: var(--text); border: 1px solid transparent; border-radius: 6px; padding: 6px; }
+.perf-list button[aria-selected="true"] { background: var(--bg); border-color: var(--accent); }
+.perf-list button b { display: block; font-size: 14px; }
+.perf-list button small { display: block; font-size: 12px; line-height: 1.3; overflow-wrap: anywhere; }
+.spark { width: 70px; height: 40px; border: 1px solid var(--line); border-radius: 3px; background: var(--panel); }
+.perf-main { min-width: 0; }
+.perf-title { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; }
+.perf-title h3 { margin: 0; font-size: 22px; color: var(--text); font-weight: 600; }
+.perf-axis { display: flex; justify-content: space-between; margin: 4px 0; font-size: 12px; }
+.perf-chart { display: block; width: 100%; height: 250px; background: var(--panel); }
+.perf-details { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 18px; margin-top: 12px; }
+.perf-details span { display: block; font-size: 12px; }
+.perf-details b { font-size: 16px; font-weight: 500; overflow-wrap: anywhere; }
+
+/* Lecteurs, comme « Ce PC » */
+.drives { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.drive { display: grid; grid-template-columns: 44px 1fr; gap: 10px; align-items: center; text-align: left;
+         background: transparent; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+.drive:hover { border-color: var(--accent); }
+.drive b { display: block; overflow-wrap: anywhere; }
+.drive small { display: block; font-size: 12px; }
+.drive .bar { display: block; margin: 4px 0; }
+.drive .bar i.full { background: var(--bad); }
+.drive-icon { width: 40px; height: 30px; border: 2px solid var(--muted); border-radius: 4px; position: relative; }
+.drive-icon::after { content: ""; position: absolute; left: 4px; right: 4px; bottom: 4px; height: 3px; background: var(--accent); }
+
+/* Périphériques */
+.devices { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.dev-group-box { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+.dev-group-box summary { cursor: pointer; }
+.dev-group-box ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
+
+/* Fiche système, comme Paramètres › À propos */
+.sys-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.sys-tile { display: grid; grid-template-columns: 36px 1fr; column-gap: 10px; border: 1px solid var(--line); border-radius: 8px;
+            padding: 12px; }
+.sys-tile .ico { grid-row: span 3; width: 32px; height: 32px; border: 2px solid var(--accent); border-radius: 6px; }
+.sys-tile .ico.cpu { border-radius: 4px; outline: 2px dashed var(--accent); outline-offset: -9px; }
+.sys-tile .ico.ram { height: 18px; margin-top: 7px; }
+.sys-tile .ico.gpu { height: 22px; margin-top: 5px; border-radius: 3px; }
+.sys-tile .ico.disk { border-radius: 50%; }
+.sys-tile b { font-size: 17px; overflow-wrap: anywhere; }
+.sys-tile span, .sys-tile small { font-size: 12px; }
+.specs { display: grid; grid-template-columns: 220px 1fr; gap: 6px 16px; margin: 0; }
+.specs dt { color: var(--muted); }
+.specs dd { margin: 0; overflow-wrap: anywhere; }
+
+/* Carte mère, façon tableau de bord d'Armoury Crate */
+.board-grid { display: grid; grid-template-columns: 200px 1fr; gap: 18px; }
+.board-id { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.board-svg { width: 150px; }
+.board-svg rect { fill: none; stroke: var(--accent); stroke-width: 2; }
+.board-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.board-card { border: 1px solid var(--line); border-top: 3px solid var(--accent); border-radius: 6px; padding: 8px 10px; }
+.board-card h3 { margin: 0 0 6px; color: var(--text); }
+.board-card dl { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; margin: 0; font-size: 13px; }
+.board-card dt { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board-card dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
+.fans { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 10px 0; }
+.fan { display: grid; gap: 2px; border: 1px solid var(--line); border-radius: 8px; padding: 8px; text-align: center; justify-items: center; }
+.fan-ico { width: 28px; height: 28px; border-radius: 50%; border: 3px dotted var(--muted); }
+.fan.on .fan-ico { border-color: var(--ok); animation: fan-spin 2s linear infinite; }
+@keyframes fan-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .fan.on .fan-ico { animation: none; } }
+.fan-curves { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; margin-top: 10px; }
+.fan-curves > p { grid-column: 1 / -1; margin: 0; }
+.fan-curve { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.curve { display: block; width: 100%; margin-top: 6px; }
+.curve .grid { stroke: var(--line); stroke-width: 1; }
+.curve text { fill: var(--muted); font-size: 10px; }
+.curve .line { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+.curve .dot { fill: var(--panel); stroke: var(--accent); stroke-width: 2; }
+
+/* Inoue et outils */
+.opt-advice p { margin: 4px 0; }
+.opt-table { margin-top: 12px; }
+.opt-table td:nth-child(2), .opt-table td:nth-child(3) { font-variant-numeric: tabular-nums; }
+.tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.tool { display: grid; gap: 4px; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; align-content: start; }
+.tool.absent { opacity: .6; }
+.tool button { justify-self: start; }
+
+@media (max-width: 760px) {
+  .perf, .board-grid { grid-template-columns: 1fr; }
+  .perf-list { flex-direction: row; overflow-x: auto; max-height: none; }
+  .perf-list button { min-width: 210px; }
+  .specs { grid-template-columns: 1fr; }
+  .specs dd { margin-bottom: 6px; }
+}

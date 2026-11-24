@@ -48,6 +48,8 @@ class Manifest:
     experimental: bool = False
     # application de bureau facultative : (libellé, module Python lancé par `python -m`)
     app: tuple[str, str] | None = None
+    # Au-delà, une commande est considérée bloquée : le Hub arrête et relance le module (garde-fou).
+    command_timeout_s: float = 300.0
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -88,6 +90,10 @@ def parse_manifest(raw: Any) -> Manifest:
     if not isinstance(ports, list) or not all(isinstance(p, int) and 0 < p < 65536 for p in ports):
         raise ManifestError("`triggers.ports` doit être une liste de ports valides")
 
+    timeout = raw.get("command_timeout_s", 300)
+    if isinstance(timeout, bool) or not isinstance(timeout, int | float) or not 5 <= timeout <= 7200:
+        raise ManifestError("`command_timeout_s` doit être un nombre de secondes entre 5 et 7200")
+
     app = raw.get("app")
     if app is not None:
         if not isinstance(app, dict) or not isinstance(app.get("module"), str) \
@@ -101,6 +107,7 @@ def parse_manifest(raw: Any) -> Manifest:
         python_deps=_strings(raw, "python_deps"), optional_deps=_strings(raw, "optional_deps"),
         triggers=Triggers(_strings(trig, "processes"), _strings(trig, "windows"), tuple(ports)),
         network=_strings(raw, "network"), experimental=bool(raw.get("experimental", False)), app=app,
+        command_timeout_s=float(timeout),
     )
 
 

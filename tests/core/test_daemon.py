@@ -37,6 +37,9 @@ class Demo(ModuleBase):
         elif event.topic == "module.demo.cmd.crash":
             import os
             os._exit(7)
+        elif event.topic == "module.demo.cmd.loop":
+            while True:  # commande sans fin (ex. calcul qui ne termine pas)
+                pass
 '''
 
 
@@ -216,3 +219,35 @@ def test_local_api(hub: Daemon) -> None:
     answer = client.post("/ask", json={"prompt": "bonjour"})
     assert answer.status_code == 503 and "modèle" in answer.json()["detail"]  # erreur claire, pas de plantage
     assert client.get("/health").json()["llm"]["reachable"] is False  # mode dégradé visible dans /health
+
+
+def test_a_module_stuck_in_a_command_is_refused_fast_then_restarted(tmp_path: Path,
+                                                                   monkeypatch: pytest.MonkeyPatch) -> None:
+    import core.daemon as daemon_module
+
+    monkeypatch.setattr(daemon_module, "BUSY_FAIL_FAST_S", 1.0)
+    daemon = Daemon(make_modules(tmp_path / "modules", extra={"command_timeout_s": 5}),
+                    monitor=GpuMonitor(UnknownBackend()), process_names=Processes(),
+                    llm=LlmRouter(transport=ollama_stopped))
+    daemon.fuma.backoff_s = 0.0
+    topics: list[str] = []
+    daemon.bus.subscribe("*", lambda e: topics.append(e.topic))
+    daemon.start()
+    try:
+        daemon.activate("demo")
+        assert wait_for(lambda: "module.demo.started" in topics)
+        assert daemon.command("demo", "echo", {"text": "avant"})["result"] == "avant"
+        daemon.bus.publish(Event("module.demo.cmd.loop"))
+        module = daemon.modules["demo"]
+        assert wait_for(lambda: module.busy == "loop" and module.busy_s >= 1.0), "pas de battement « occupé »"
+        started = time.monotonic()
+        with pytest.raises(RuntimeError, match="occupé"):
+            daemon.command("demo", "echo", {"text": "pendant"})
+        assert time.monotonic() - started < 1.0  # refus immédiat, pas d'attente de 4 min
+        assert daemon.tick()["restarted"] == []  # pas encore au-delà de la limite
+        assert wait_for(lambda: "bloqué" in daemon.hung("demo"), timeout=15.0)
+        assert daemon.tick()["restarted"] == ["demo"]  # Fuma l'arrête de force et le relance
+        assert wait_for(lambda: topics.count("module.demo.started") == 2), "le module n'a pas été relancé"
+        assert daemon.command("demo", "echo", {"text": "après"})["result"] == "après"
+    finally:
+        daemon.stop()

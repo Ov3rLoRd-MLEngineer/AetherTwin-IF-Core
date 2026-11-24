@@ -162,7 +162,9 @@ core/
     inoue.py
   hardware/
     __init__.py
+    asus_fan_probe.ps1
     gpu_monitor.py
+    system_info.py
   knowledge/
     __init__.py
     fetcher.py
@@ -192,6 +194,8 @@ core/
     LICENSE.xterm.txt
     logo.svg
     professeur.js
+    system.css
+    system.js
     terminal.css
     terminal.html
     terminal.js
@@ -407,6 +411,7 @@ tests/
     test_llm_router.py
     test_module_api.py
     test_strata.py
+    test_system_info.py
     test_translate.py
   data/
     .gitkeep
@@ -537,6 +542,7 @@ Le démon : centre de l'architecture en étoile.
   - `def start_app(self, name: str) -> bool` — Lance l'application (`python -m <module>` depuis la racine du dépôt). `False` si elle tourne déjà.
   - `def stop_app(self, name: str, timeout_s: float=6.0) -> str` — Ferme l'application **doucement** (demande de fermeture de fenêtre : elle enregistre ce qu'elle doit),
   - `def notify(self, name: str, command: str, payload: dict[str, Any] | None=None) -> None` — Commande sans réponse attendue (ex. `showcase`).
+  - `def hung(self, name: str) -> str` — Raison pour laquelle un module lancé est considéré bloqué (vide s'il va bien).
   - `def command(self, name: str, command: str, payload: dict[str, Any] | None=None, timeout_s: float=240.0) -> dict[str, Any]` — Envoie `module.<nom>.cmd.<commande>` et attend la réponse portant le même `request_id`.
   - `def ask_messages(self, prompt: str, with_context: bool=True, history: list[dict[str, Any]] | None=None, passages: list[dict[str, Any]] | None=None) -> tuple[list[dict[str, Any]], str]` — Messages pour l'assistant : le contexte publié par les modules actifs (déjà filtré par eux), les
   - `def ask(self, prompt: str, model: str | None=None, with_context: bool=True) -> dict[str, Any]` — Question à l'assistant local, avec le contexte publié par les modules actifs (déjà filtré par eux).
@@ -606,6 +612,32 @@ Moniteur GPU : mesure la topologie réelle au lieu de la présumer.
   - `def snapshot(self) -> list[GpuInfo]` — État de chaque GPU. En cas d'erreur de lecture : liste vide et `last_error` renseigné.
   - `def total_vram_mib(self) -> int`
   - `def report(self) -> dict[str, Any]` — Résumé sérialisable (API `/gpu`, overlay OBS).
+
+### `core/hardware/system_info.py`
+
+État du PC pour l'Accueil (façon Gestionnaire des tâches) et pour Inoue : performance, stockage, périphériques,
+
+- **`class SystemSampler`** — Mesure le PC une fois par seconde (seulement pendant qu'on le regarde) et garde 60 points d'historique.
+  - `def read(self) -> dict[str, Any]` — Dernière mesure + historique ; démarre la mesure si besoin.
+  - `def sample(self) -> dict[str, Any]`
+- `def process_counts() -> dict[str, int]`
+- `def nvml_details() -> list[dict[str, Any]]` — Détails des cartes NVIDIA (fréquences, ventilateur, consommation, températures) ; liste vide sans NVML.
+- **`class SystemInfo`** — Fiche système et périphériques (requêtes lentes : en cache).
+  - `def info(self, refresh: bool=False) -> dict[str, Any]`
+  - `def devices(self, refresh: bool=False) -> dict[str, Any]`
+- `def volume_label(root: str) -> str`
+- `def volumes(disks: list[dict[str, Any]] | None=None) -> list[dict[str, Any]]` — Lecteurs comme dans « Ce PC » : nom, lettre, espace libre, disque physique.
+- `def heavy_processes(limit: int=15, interval: float=0.5) -> list[dict[str, Any]]` — Processus les plus gourmands (processeur et mémoire), sans les processus système.
+- `def stop_process(pid: int, name: str) -> dict[str, Any]` — Ferme un processus sur demande (clic), si son nom correspond toujours et s'il n'est pas protégé.
+- `def power_plans(runner: Callable[..., Any]=subprocess.run) -> list[dict[str, Any]]`
+- `def set_power_plan(guid: str, runner: Callable[..., Any]=subprocess.run) -> list[dict[str, Any]]`
+- `def open_windows(target: str, drive: str='', starter: Callable[[str], Any] | None=None) -> str`
+- `def tools_state() -> list[dict[str, Any]]`
+- `def appx_installed(family: str) -> bool`
+- `def launch_tool(key: str, starter: Callable[[str], Any] | None=None) -> str`
+- `def lhm_sensors(url: str='http://127.0.0.1:8085/data.json', timeout: float=2.0) -> dict[str, Any]` — Capteurs de LibreHardwareMonitor (serveur web local activé). Vide s'il ne tourne pas.
+- `def read_bios_fans(out: Path) -> dict[str, Any]` — Lance la lecture des courbes du BIOS avec élévation (Windows demande l'autorisation). Lecture seule.
+- `def bios_fans(out: Path) -> dict[str, Any] | None`
 
 ### `core/knowledge/__init__.py`
 
@@ -966,6 +998,8 @@ Catalogue des modèles pour Claude Code local : Ollama (direct) et OmniRoute (fa
 - `def service_up(url: str, timeout: float=3.0) -> bool` — Le service répond-il (même par une erreur HTTP : il est lancé) ?
 - `def num_ctx(base: str, name: str, timeout: float=4.0) -> int` — Contexte réglé dans le Modelfile du modèle (`PARAMETER num_ctx`), 0 s'il n'y en a pas.
 - `def ollama_models(base: str, timeout: float=4.0) -> dict[str, Any]` — Modèles installés (et chargés) dans Ollama. Les modèles d'embedding sont écartés.
+- `def variant_name(model: str, context: int=65536) -> str` — Nom de la variante : « dépôt:étiquette-64k » (« dépôt:latest » devient « dépôt:64k »).
+- `def create_variant(base: str, model: str, context: int=65536, timeout: float=600.0) -> dict[str, Any]` — Crée dans Ollama une variante du modèle servie avec `context` jetons (aucun poids copié).
 - `def omniroute_models(url: str, key_env: str='OMNIROUTE_API_KEY', fallback: Path | None=None, timeout: float=4.0) -> dict[str, Any]` — Modèles d'OmniRoute : liste en direct avec la clé (variable d'environnement), sinon la liste exportée.
 
 ### `modules/dev_launcher/hermes_link.py`
@@ -987,7 +1021,7 @@ Lancement de Claude Code local : fichier de lancement (.bat), Windows Terminal o
 - `def windows_terminal() -> str`
 - `def route_env(route: str, model: str, context: int, ollama_url: str, omniroute_url: str) -> dict[str, str]` — Variables d'environnement de Claude Code pour la route choisie.
 - `def mcp_config(path: Path, role: str='claude') -> Path` — Configuration MCP passée à Claude Code (`--mcp-config`) : le pont vers Hermes et le Hub.
-- `def batch_script(env: dict[str, str], folder: Path, command: list[str], title: str, mcp: Path | None=None, tools: str='') -> str` — Contenu du .bat : variables, dossier de travail, puis Claude Code.
+- `def batch_script(env: dict[str, str], folder: Path, command: list[str], title: str, mcp: Path | None=None, tools: str='', confirm: bool=False) -> str` — Contenu du .bat : variables, dossier de travail, puis Claude Code.
 - `def write_launch(launches: Path, script: str, keep: int=30) -> Path` — Écrit le fichier de lancement (dossier du module, ignoré par Git) ; garde les 30 derniers.
 - `def open_in_windows_terminal(bat: Path, folder: Path, title: str, spawner: Any=subprocess.Popen) -> str` — Ouvre le lancement dans Windows Terminal (repli : une console classique).
 
@@ -1038,7 +1072,7 @@ Tâches confiées à Claude Code local (par Hermes, par le Hub) : exécution san
   - `def settings_file(self) -> Path`
   - `def start(self, task: str, folder: str='', model: str='', origin: str='hub') -> dict[str, Any]`
   - `def view(self, task_id: str, tail: int=6000) -> dict[str, Any]`
-  - `def list(self, limit: int=20) -> list[dict[str, Any]]`
+  - `def list(self, limit: int=20, origin: str='') -> list[dict[str, Any]]`
 
 ### `modules/gaming_hud/__init__.py`
 

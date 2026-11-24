@@ -1353,3 +1353,31 @@ outine.json` ; le serveur MCP ne fait que le lire.
     `--tools` + `--strict-mcp-config` ; ensuite `hub_etat` appelé et réponse juste (14 s).
   - Relais : « RELAI REÇU » (sans S, toléré), titre daté de `AGENT_HANDOFF.md` recopié, `git status` identique avant
     et après.
+
+## 2026-11-24 01:00 — Garde-fous du Hub, Accueil façon Gestionnaire des tâches, sous-onglets, compléments du lanceur
+
+- **Agent :** Cloud
+- **Fichiers :** `core/module_api.py`, `core/module_runner.py`, `core/daemon.py`, `core/api.py`,
+  `core/hardware/system_info.py`, `core/hardware/asus_fan_probe.ps1`, `core/web/dashboard.{html,js,css}`,
+  `core/web/system.{js,css}`, `core/web/dev.js`, `modules/dev_launcher/{catalog,launch,tasks,module,bridge_mcp}.py`,
+  manifestes `scantrad`, `mangastudio`, `if_game` (`command_timeout_s`), tests.
+- **Raison :** demandes de Jérémy du 24/11 (garde-fous sur tout le Hub, Inoue inspiré de « sys_guardian », Accueil comme
+  le Gestionnaire des tâches et Paramètres › À propos, rendu d'Armoury Crate, outils ASUS, sous-onglets, trois ajouts
+  du lanceur).
+- **Décisions :**
+  - Battement des modules (2 s) ; refus immédiat d'une commande vers un module occupé depuis 60 s ou avec 4 demandes en
+    attente ; Fuma redémarre un module muet 30 s ou bloqué au-delà de `command_timeout_s` (300 s, réglable par manifeste).
+  - État du PC : lecture seule, sans administrateur ; fenêtres de Windows, outils et modes d'alimentation en listes
+    fermées ; fermeture d'un programme seulement sur clic confirmé, nom revérifié, processus système et du Hub refusés.
+  - Ventilateurs : pas d'`ASUSHW` (accès brut aux ports et au SMBus), pas de pilote noyau installé ; lecture des courbes
+    par l'interface officielle `ASUSManagement` (admin, sur clic) ; écriture en cours, après une lecture réelle réussie.
+  - Capteurs de la carte mère par LibreHardwareMonitor facultatif (serveur web local) ; Armoury Crate sans API publique.
+  - Sous-onglets génériques (`data-subtabs` / `data-sub`) ; la calculatrice n'a reçu que des attributs `data-sub`.
+- **Tests :** suite complète : 909 tests, 905 verts, 4 réels sur GPU ignorés par défaut, aucun échec (plus le test du relais ajouté pendant la suite, vert à part) ; ruff propre sur mes fichiers (reste un tri d'imports dans tests/gaming_hud/test_profit.py, pas de moi). Nouveaux : `tests/core/test_system_info.py` (8), sous-onglets et fichiers servis, modules
+  coincés (refus rapide puis redémarrage), variante 64 k, mode « confirmer », historique par origine.
+- **Essais réels :** Hub d'essai sur le port 5760 (celui de Jérémy laissé en marche) : tous les sous-onglets affichés avec
+  les vraies valeurs ; variante 64 k : bouton masqué pour `devstral:24b` (variante déjà présente) ; historique : 5 tâches,
+  origines Hermes / Hub.
+  - Relais : le vrai message de quota du 23/11 à 21 h 25, retrouvé dans les journaux de Claude Code (« You've hit your
+    5-hour limit · resets 12:30am (Europe/Paris) », `error: rate_limit`), est bien classé QUOTA par le relais ; ajouté
+    aux tests. La bascule complète déclenchée par ce vrai message n'a pas encore été observée.

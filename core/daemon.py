@@ -67,6 +67,11 @@ def psutil_process_names() -> set[str] | None:
     return names
 
 
+# Garde-fou des modules (voir `Daemon.hung` et `core.module_runner`).
+HEARTBEAT_STALE_S = 30.0  # plus de battement : processus figé
+BUSY_FAIL_FAST_S = 60.0  # occupé depuis plus longtemps : refus immédiat (un long travail n'est pas coupé)
+MAX_PENDING = 4  # demandes en attente au plus par module (protège les fils du serveur)
+
 @dataclass
 class ManagedModule:
     manifest: Manifest
@@ -78,6 +83,10 @@ class ManagedModule:
     last_health: dict[str, Any] = field(default_factory=dict)
     last_error: str = ""
     starts: int = 0
+    busy: str = ""  # commande en cours (battement de cœur du module)
+    busy_s: float = 0.0
+    heartbeat_at: float = 0.0  # 0 = jamais reçu (ancien module ou démarrage)
+    pending: int = 0  # commandes envoyées sans réponse
 
     def running(self) -> bool:
         return self.proc is not None and self.proc.poll() is None
@@ -199,10 +208,18 @@ class Daemon:
         module.starts += 1
         module.last_error = ""
         module.last_health = {}  # rempli par `module.<nom>.started` : sert à savoir qu'il écoute le bus
+        module.busy, module.busy_s, module.heartbeat_at = "", 0.0, 0.0  # état du processus précédent oublié
 
     def _respawn(self, name: str) -> None:
         with self._lock:
             module = self.modules[name]
+            if module.active and module.running() and module.proc is not None:
+                # Bloqué (commande sans fin, plus de battement) : arrêté de force avant d'être relancé.
+                module.proc.kill()
+                try:
+                    module.proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    return
             if module.active and not module.running():
                 self._spawn(module)
                 self.bus.publish(Event(f"module.{name}.restarted", {"starts": module.starts}, source="fuma"))
@@ -212,6 +229,9 @@ class Daemon:
         if not module.running():
             code = module.proc.poll() if module.proc else None
             return Health(ok=False, detail=f"processus arrêté (code {code})")
+        hung = self.hung(name)
+        if hung:
+            return Health(ok=False, detail=hung)
         return Health(ok=True, degraded=bool(module.last_health.get("degraded")),
                       detail=str(module.last_health.get("detail", "")))
 
@@ -226,6 +246,10 @@ class Daemon:
             module.last_health = dict(event.payload.get("health") or {})
         elif parts[2] == "error":
             module.last_error = str(event.payload.get("error", ""))
+        elif parts[2] == "heartbeat":
+            module.busy = str(event.payload.get("busy", ""))[:60]
+            module.busy_s = float(event.payload.get("busy_s") or 0.0)
+            module.heartbeat_at = self._now()
         elif parts[2] == "state":
             self.states[parts[1]] = {**event.payload, "received_at": self._now()}
             if event.payload.get("context"):
@@ -288,6 +312,20 @@ class Daemon:
             raise ValueError(f"commande invalide : {name}.{command}")
         self.bus.publish(Event(f"module.{name}.cmd.{command}", dict(payload or {})))
 
+    # -- garde-fou : module bloqué ou muet
+    def hung(self, name: str) -> str:
+        """Raison pour laquelle un module lancé est considéré bloqué (vide s'il va bien)."""
+        module = self.modules[name]
+        if not module.running() or not module.heartbeat_at:
+            return ""
+        silent = self._now() - module.heartbeat_at
+        if silent > HEARTBEAT_STALE_S:
+            return f"ne répond plus depuis {silent:.0f} s"
+        limit = module.manifest.command_timeout_s
+        if module.busy and module.busy_s + silent > limit:
+            return f"bloqué sur « {module.busy} » depuis {module.busy_s + silent:.0f} s (limite {limit:g} s)"
+        return ""
+
     # -- commandes vers un module (réponse attendue sur `module.<nom>.result`)
     def command(self, name: str, command: str, payload: dict[str, Any] | None = None,
                 timeout_s: float = 240.0) -> dict[str, Any]:
@@ -303,9 +341,16 @@ class Daemon:
         deadline = time.monotonic() + 30  # module tout juste lancé : on attend qu'il écoute le bus
         while not module.last_health and module.running() and time.monotonic() < deadline:
             time.sleep(0.1)
+        if module.busy and module.busy_s >= BUSY_FAIL_FAST_S:
+            # Réponse immédiate plutôt qu'une attente de 4 min qui occupe un fil du serveur (l'interface figeait).
+            raise RuntimeError(f"{name} est occupé (« {module.busy} » depuis {module.busy_s:.0f} s) ; réessaie dans "
+                               f"un moment. Au-delà de {module.manifest.command_timeout_s:g} s, le Hub le relance.")
+        if module.pending >= MAX_PENDING:
+            raise RuntimeError(f"{name} a déjà {module.pending} demandes en attente ; réessaie dans un moment")
         request_id = uuid.uuid4().hex
         done, reply = threading.Event(), {}
         self._pending[request_id] = (done, reply)
+        module.pending += 1
         try:
             self.bus.publish(Event(f"module.{name}.cmd.{command}", {**(payload or {}), "request_id": request_id}))
             if not done.wait(timeout_s):
@@ -313,6 +358,7 @@ class Daemon:
             return reply
         finally:
             self._pending.pop(request_id, None)
+            module.pending = max(0, module.pending - 1)
 
     # -- assistant
     def ask_messages(self, prompt: str, with_context: bool = True, history: list[dict[str, Any]] | None = None,
