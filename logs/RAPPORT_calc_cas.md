@@ -109,7 +109,8 @@ La branche `feature/voice` et le worktree `D:\AetherTwin\AetherTwin-voice` ont �
    - Whisper local, Piper, voix de Windows en secours ;
    - profils dans `data/voice/profiles.json` ; Piper et ses voix dans `data/voice/piper` (bouton « Installer ») ;
    - fenêtre « Studio audio Æther » ;
-   - serveur MCP **`aethertwin_voice`** (5 outils).
+   - serveur MCP **`aethertwin_voice`** (5 outils), déclaré chez Hermes (sauvegarde `.bak`) ; essai réel : Hermes a
+     parlé avec le profil « narrateur ».
 2. **API du Hub** (`core/api.py`) :
    - `/v1/audio/speech` et `/v1/audio/transcriptions`, compatibles OpenAI ; le module est lancé à la demande ;
    - `/voice/settings` et `/voice/profiles`.

@@ -1506,3 +1506,10 @@ Il a autorisé les téléchargements nécessaires.
   - `tests/voice/` (12) ;
   - `test_routine.py::test_store_keeps_alts_tasks_and_unchecks_them_at_reset` échoue aussi sur `main` sans ces
     changements : il dépend du jour (mardi, jour de remise à zéro) ; à corriger à part.
+- Fusion dans `main` en avance rapide (`3140578`), worktree et branche supprimés ; Piper et ses voix copiés dans
+  `data/voice/piper` du dépôt principal (hors Git).
+- **Hermes réel** :
+  - serveur `aethertwin_voice` déclaré (sauvegarde `.bak` horodatée du `config.yaml`) ;
+  - `hermes mcp test` → 5 outils ;
+  - « dis … avec le profil narrateur » → `voice_profiles` puis `voice_speak` (5,45 s d'audio), entendu et validé
+    par Jérémy.
