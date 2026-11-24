@@ -205,13 +205,17 @@ modules/
     agent.py
     app.py
     demos.py
+    emulators.py
     engine.py
+    games.py
+    games_examples.py
     geometry.py
     graph.py
     manifest.json
     mcp_server.py
     module.py
     README.md
+    render.py
     sandbox.py
     stats.py
     worker.py
@@ -386,10 +390,13 @@ tests/
     __init__.py
     test_agent.py
     test_app.py
+    test_emulators.py
     test_engine.py
+    test_games.py
     test_geometry.py
     test_graph.py
     test_module.py
+    test_render.py
     test_sandbox.py
     test_stats.py
     test_worker.py
@@ -812,6 +819,19 @@ Exemples de démonstration (interface, vidéo du concours, tests). Chacun est v�
 
 - `def catalog() -> dict[str, Any]`
 
+### `modules/calc_cas/emulators.py`
+
+Lanceur d'émulateurs externes pour l'application Programmes.
+
+- `def find_exe(candidates: tuple[str, ...], which: Callable[[str], str | None]=shutil.which) -> str | None`
+- `def detect(configured: dict[str, Any] | None=None, which: Callable[[str], str | None]=shutil.which) -> dict[str, dict[str, Any]]` — Émulateurs connus et leur exécutable (None s'il n'est pas installé). La configuration est prioritaire.
+- `def system_of(name: str) -> list[str]`
+- `def list_roms(folder: Path) -> list[dict[str, Any]]`
+- `def rom_path(folder: Path, name: str) -> Path` — Fichier du dossier des ROM ; refuse tout chemin qui en sortirait.
+- `def command(emulator: str, rom: Path, found: dict[str, dict[str, Any]]) -> list[str]`
+- `def launch(args: list[str], popen: Callable[..., Any]=subprocess.Popen) -> int`
+- `def catalog(folder: Path, configured: dict[str, Any] | None=None) -> dict[str, Any]`
+
 ### `modules/calc_cas/engine.py`
 
 Moteur de calcul formel du module calc_cas (SymPy).
@@ -848,16 +868,52 @@ Moteur de calcul formel du module calc_cas (SymPy).
 - `def latex_of(obj: Any) -> str`
 - `def mathml_of(obj: Any) -> str` — MathML de présentation (affiché nativement par les navigateurs, sans bibliothèque externe).
 - `def trim_zeros(text: str) -> str` — « 0.500000000000 » -> « 0.5 », « 4.00000 » -> « 4 » (texte, LaTeX et MathML).
+- `def pretty_of(obj: Any) -> str` — Repli texte de l'affichage en image : dessin unicode de SymPy (fractions, racines, matrices sur plusieurs
 - `def present(obj: Any) -> dict[str, Any]` — Résultat exact + approché, en texte, LaTeX et MathML. L'approché est omis s'il n'apporte rien.
 - `def define(text: str, session: Session) -> dict[str, Any]`
 - `def evaluate(text: str, session: Session | None=None) -> dict[str, Any]` — Évalue une saisie. Ne lève jamais : retourne `{"ok": False, "error": …}` en cas de problème.
 - `def to_float(value: Any, session: Session | None=None) -> float` — Valeur d'une cellule (nombre ou texte « 1/3 », « sqrt(2) ») -> flottant.
+
+### `modules/calc_cas/games.py`
+
+Mode jeu des Programmes : un programme Python du bac à sable dessine dans sa propre fenêtre, en temps réel.
+
+- **`class GameClosed(BaseException)`**
+- `def color_of(value: Any) -> tuple[int, int, int]` — « rouge », (r, g, b) ou « #rrggbb ».
+- **`class Game`** — État d'une partie (fenêtre, clavier, souris), derrière les fonctions du module `jeu`.
+  - `def fenetre(self, largeur: Any=480, hauteur: Any=360, titre: Any='Jeu') -> None`
+  - `def image(self, fps: Any=30) -> bool` — Affiche l'image dessinée, attend la suivante, lit le clavier. False quand la fenêtre est fermée.
+  - `def effacer(self, couleur: Any='noir') -> None`
+  - `def rect(self, x: Any, y: Any, largeur: Any, hauteur: Any, couleur: Any='blanc', plein: Any=True) -> None`
+  - `def cercle(self, x: Any, y: Any, rayon: Any, couleur: Any='blanc', plein: Any=True) -> None`
+  - `def ligne(self, x1: Any, y1: Any, x2: Any, y2: Any, couleur: Any='blanc', epaisseur: Any=1) -> None`
+  - `def polygone(self, points: Any, couleur: Any='blanc', plein: Any=True) -> None`
+  - `def texte(self, x: Any, y: Any, message: Any, couleur: Any='blanc', taille: Any=20) -> None`
+  - `def touche(self, nom: Any) -> bool` — Touche maintenue : « gauche », « droite », « haut », « bas », « espace », « entree », lettres, chiffres.
+  - `def appuyee(self, nom: Any) -> bool` — Touche enfoncée pendant la dernière image (une seule fois par appui).
+  - `def souris(self) -> tuple[int, int, int]` — (x, y, bouton enfoncé 0/1).
+  - `def temps(self) -> float`
+  - `def largeur(self) -> int`
+  - `def hauteur(self) -> int`
+  - `def print(self, *values: Any, sep: Any=' ', end: Any='\n') -> None`
+  - `def module(self) -> SimpleNamespace`
+- `def no_input(prompt: Any='') -> str`
+- `def play(code: str, pygame: Any=None) -> int` — Joue un programme. Rend le code de sortie (0 : fin normale, 1 : erreur, affichée sur la sortie d'erreur).
+- `def main(argv: list[str]) -> int`
+
+### `modules/calc_cas/games_examples.py`
+
+Jeux de démonstration du mode jeu (module `jeu`), écrits dans le Python du bac à sable : pas de classe, pas de
+
+*(aucun symbole public)*
 
 ### `modules/calc_cas/geometry.py`
 
 Mesures exactes de géométrie plane pour l'application Géométrie de la fenêtre.
 
 - `def measure(args: dict[str, Any], session: Session | None=None) -> dict[str, Any]` — Mesure exacte : `what` parmi distance, midpoint, slope, line, angle, area, perimeter, circle (centre, point),
+- `def solve_figure(objs: list[dict[str, Any]], session: Session, param: dict[str, Any] | None=None) -> dict[int, Any]`
+- `def figure_measure(args: dict[str, Any], session: Session) -> dict[str, Any]` — Valeur exacte d'une mesure de la construction : `measure` = {"m": len|angle|area|pt|eq, "refs"|"c"}.
 
 ### `modules/calc_cas/graph.py`
 
@@ -886,8 +942,21 @@ Module du Hub : calculatrice à calcul formel (CAS), graphes, statistiques, outi
   - `def start(self) -> None`
   - `def stop(self) -> None`
   - `def health(self) -> Health`
+  - `def game_running(self) -> bool`
+  - `def game_stop(self) -> bool`
+  - `def game_run(self, code: str) -> dict[str, Any]`
+  - `def game_status(self) -> dict[str, Any]`
+  - `def hermes(self, register: bool=False) -> dict[str, Any]` — État du branchement MCP chez Hermes Agent ; `register` le déclare (config.yaml sauvegardée avant).
   - `def handle_event(self, event: Event) -> None`
   - `def run(self, command: str, payload: dict[str, Any]) -> Any` — Exécute une commande (aussi appelée directement par les tests).
+
+### `modules/calc_cas/render.py`
+
+Rendu des résultats en image : LaTeX de SymPy dessiné par matplotlib (mathtext), PNG transparent.
+
+- `def mathtext_of(latex: str) -> str` — Adapte le LaTeX de SymPy au sous-ensemble mathtext de matplotlib.
+- `def png_of(latex: str) -> bytes | None` — PNG transparent de la formule, ou `None` si mathtext ne sait pas la dessiner.
+- `def png_base64(latex: str) -> str | None`
 
 ### `modules/calc_cas/sandbox.py`
 
@@ -896,7 +965,7 @@ Mode programmation : programmes Python exécutés dans un bac à sable.
 - **`class SandboxError(ValueError)`** — Programme refusé avant exécution (construction interdite).
 - **`class NeedInput(Exception)`**
 - **`class OutputLimit(Exception)`**
-- `def check_program(code: str) -> ast.Module` — Refuse un programme qui sortirait du bac à sable. Lève `SandboxError` avec la ligne fautive.
+- `def check_program(code: str, modules: dict[str, Any] | None=None) -> ast.Module` — Refuse un programme qui sortirait du bac à sable. Lève `SandboxError` avec la ligne fautive.
 - **`class Program`** — Une exécution : sortie, dessins, réponses aux `input()`.
   - `def write(self, text: str) -> None`
   - `def print(self, *values: Any, sep: Any=' ', end: Any='\n') -> None`
@@ -977,6 +1046,7 @@ Lien avec Hermes Agent : pont MCP déclaré chez Hermes, questions posées à He
 - `def state(exe: str) -> dict[str, Any]`
 - `def backup(path: Path) -> str`
 - `def register(exe: str, runner: Callable[..., Any]=subprocess.run) -> dict[str, Any]` — Déclare le pont chez Hermes avec sa propre commande, config.yaml sauvegardé avant.
+- `def register_server(exe: str, name: str, args: list[str], runner: Callable[..., Any]=subprocess.run) -> dict[str, Any]` — Déclare un serveur MCP stdio (lancé par le Python du Hub) chez Hermes, config.yaml sauvegardé avant.
 
 ### `modules/dev_launcher/launch.py`
 

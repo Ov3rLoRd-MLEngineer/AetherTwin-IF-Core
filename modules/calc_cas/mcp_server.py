@@ -1,6 +1,7 @@
 """Serveur MCP (stdio, JSON-RPC ligne par ligne) : les outils du CAS pour Hermes Agent ou tout client MCP local.
 
     .venv\\Scripts\\python.exe -m modules.calc_cas.mcp_server
+    .venv\\Scripts\\python.exe -I modules\\calc_cas\\mcp_server.py      (forme déclarée chez Hermes)
 
 Aucune écoute réseau. Chaque calcul tourne dans le processus de calcul, avec le même délai que le module.
 """
@@ -9,10 +10,14 @@ from __future__ import annotations
 import io
 import json
 import sys
+from pathlib import Path
 from typing import Any, TextIO
 
-from modules.calc_cas.agent import TOOL_SPECS, call_tool
-from modules.calc_cas.worker import CasRunner
+if __package__ in (None, ""):  # lancé comme script : la racine du dépôt remplace le dossier du script
+    sys.path[0] = str(Path(__file__).resolve().parents[2])
+
+from modules.calc_cas.agent import TOOL_SPECS, call_tool  # noqa: E402
+from modules.calc_cas.worker import CasRunner  # noqa: E402
 
 PROTOCOL_VERSIONS = ("2025-06-18", "2025-03-26", "2024-11-05")
 SERVER_INFO = {"name": "aethertwin-calc-cas", "version": "0.1.0"}

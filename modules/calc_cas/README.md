@@ -2,7 +2,8 @@
 
 Calculatrice haut de gamme du Hub : **résultats exacts et approchés**, graphes, tableur et statistiques, et un
 **outil de calcul exact pour les agents locaux** (un modèle Ollama délègue ses calculs au lieu de les inventer).
-Tout tourne sur la machine : SymPy (BSD), NumPy (BSD), aucun service en ligne, aucune VRAM.
+Tout tourne sur la machine : SymPy (BSD), NumPy (BSD), matplotlib (rendu des formules, licence PSF), pygame
+(mode jeu, LGPL), aucun service en ligne, aucune VRAM.
 
 Inspiration fonctionnelle des calculatrices graphiques à calcul formel du commerce, **sans en reprendre le nom,
 le logo, l'interface ni le logiciel** : l'identité visuelle (logo AetherTwin, graphite, sarcelle et ambre) est
@@ -11,7 +12,7 @@ celle du Hub ; aucune touche ni étiquette n'est copiée, seule l'organisation g
 
 ## Installation
 
-Rien à faire de plus que le Hub : `sympy` est dans `requirements.txt` (déjà installé avec le venv).
+Rien à faire de plus que le Hub : `sympy`, `matplotlib` et `pygame` sont dans `requirements.txt`.
 
 ```powershell
 .venv\Scripts\python.exe -m pip install -r requirements.txt
@@ -30,7 +31,16 @@ calc_cas:
   program_memory_mb: 768              # mémoire maximale du processus des programmes
   hub_api: "http://127.0.0.1:5750"    # modèle local du Hub pour « Le modèle délègue » (vide = désactivé)
   model: ""                           # vide = modèle par défaut du Hub
+  roms_dir: ""                        # dossier des ROM des émulateurs (vide = data/calc_cas/roms)
+  emulators: {}                       # émulateur installé hors des emplacements connus, ex. {mgba: 'D:\Jeux\mGBA.exe'}
 ```
+
+### Onglet « Outils » du Hub
+
+L'onglet montre **la calculatrice elle-même** (la fenêtre intégrée dans la page, cadre centré) et le bouton
+« Ouvrir la calculatrice » pour sa fenêtre de bureau. Les anciens panneaux (saisie, agents, graphes) ont disparu :
+les modèles passent par le serveur MCP, pas par l'onglet. Sous le cadre, une ligne d'état du branchement chez
+Hermes Agent (« Brancher sur Hermes » s'il n'est pas encore fait).
 
 ## Fenêtre de la calculatrice
 
@@ -58,11 +68,18 @@ la fenêtre (objet de tâche Windows qui lie Edge au lanceur).
   glisse un point libre. **Mesures exactes** à la demande (`√5`, `π/2`, `y = 3 − 3x/4`, cercle `(x − 1)² + (y − 1)² = 2`)
   grâce à la grille magnétique (points sur des valeurs simples). Supprimer retire aussi ce qui dépend de l'objet ;
   Ctrl+Z annule ; le pavé déplace le point sélectionné d'un pas de grille. Figure gardée dans la fenêtre.
+  **Transformations** : symétrie centrale, symétrie axiale, rotation (angle en degrés), translation (vecteur de
+  deux points), sur un point, une droite, un segment, un cercle ou un polygone ; l'image suit l'original.
+  **Point sur objet** (glisse sur une droite, un segment ou un cercle) et **Lieu** : le point tracé quand le point
+  sur objet parcourt sa courbe, avec son **équation exacte** (outil Équation puis « exact »). Valeurs exactes des
+  points construits (bouton « exact » du panneau des points) : la construction entière est refaite en calcul exact.
 - **Tableur** : listes l1…l4 (60 lignes), statistiques 1 et 2 variables, 6 régressions, courbe envoyée dans
   Graphes, colonnes envoyées dans Calculs (`l1 := […]`).
 - **Programmes** : éditeur Python (numéros de ligne, Tab = 4 espaces, indentation automatique), Ctrl+Entrée
   exécute, Ctrl+S enregistre ; console avec `input()` interactif ; dessin (`plot`, `scatter`, `fplot`, `text`) ;
-  `cas("…")` et `cas_value("…")` appellent le moteur exact ; 4 exemples ; programmes gardés dans la session.
+  `cas("…")` et `cas_value("…")` appellent le moteur exact ; 4 exemples et 4 jeux ; programmes gardés dans la
+  session. **Jouer** lance un programme `import jeu` dans sa fenêtre (voir « Mode jeu ») ; **Fichier** importe ou
+  exporte (`.py`, `.aether`) ; **Émulateurs** ouvre le lanceur d'émulateurs externes.
 
 ### Bac à sable des programmes
 
@@ -92,7 +109,14 @@ Alias français acceptés (entre parenthèses).
 | Listes | `mean` (moyenne), `median`, `variance`, `stdev` (écart_type), `min`, `max`, `sum([…])` |
 | Valeur approchée | `approx(expr, chiffres)` (alias `N`) ; chaque résultat numérique est aussi donné en approché |
 
-Affichage : MathML natif du navigateur (aucune bibliothèque externe), copie en texte ou en LaTeX.
+Affichage des résultats de Calculs : `sympy.latex()` dessiné par **matplotlib** (mathtext) en **PNG transparent**
+— vraies fractions, intégrales, racines, matrices (mises en page cellule par cellule, avec crochets). L'encre est
+noire ; en écran sombre la page l'inverse (filtre CSS), une seule image sert aux deux thèmes. Image rendue à
+200 ppp et affichée à la moitié (nette sur écran haute densité), ~0,1 s par formule, dans le processus de calcul.
+Si matplotlib ne sait pas dessiner (fonction par morceaux `cases`, matrice imbriquée, formule énorme) ou n'est pas
+installé : repli automatique sur `sympy.pretty(use_unicode=True)` (texte à plusieurs lignes), puis MathML. Les
+images ne sont pas gardées dans `session.json` : la page redemande celles de l'historique au chargement
+(commande `render`). Copie en texte ou en LaTeX inchangée.
 
 **Graphes** : `y = f(x)`, paramétriques `x(t), y(t)`, polaires `r(θ)` (variable `theta`) ; jusqu'à 8 courbes ;
 glisser pour déplacer, molette ou boutons pour zoomer ; zéros, extrema et intersections dans la fenêtre, avec la
@@ -108,9 +132,64 @@ nuage de points et courbe tracés dans « Graphes ».
 l'utilisateur. Trois portes :
 
 - bus du Hub : `POST /modules/calc_cas/command/tool` avec `{"name": "cas_compute", "arguments": {"expression": "…"}}` ;
-- serveur MCP stdio pour Hermes Agent ou tout client MCP : `.venv\Scripts\python.exe -m modules.calc_cas.mcp_server` ;
+- serveur MCP stdio pour Hermes Agent ou tout client MCP : `.venv\Scripts\python.exe -m modules.calc_cas.mcp_server`
+  (ou `-I modules\calc_cas\mcp_server.py`, lancé comme script depuis n'importe quel dossier). Déclaré chez Hermes
+  sous le nom **`aethertwin_calc`** par le bouton « Brancher sur Hermes » de l'onglet Outils (commande
+  `hermes_register` ; `hermes mcp add`, son `config.yaml` sauvegardé avant en `.bak` horodaté) ;
 - `POST /modules/calc_cas/command/ask` `{"question": "…"}` : le modèle du Hub écrit `CAS: <expression>`, le moteur
   calcule, le modèle répond à partir des résultats exacts (fonctionne avec tout modèle, même sans support des « tools »).
+
+## Mode jeu (module `jeu`)
+
+Un programme qui fait `import jeu` s'exécute dans **sa propre fenêtre**, en temps réel (pygame, processus séparé
+`games.py`, mémoire bornée à 768 Mo, pas de délai maximal : la partie s'arrête à la fermeture de la fenêtre, Échap
+ou « Arrêter le jeu »). Même bac à sable que la console, avec un module de plus ; `jeu` ne rend jamais d'objet
+pygame, seulement des nombres, booléens et tuples. « Exécuter » bascule seul en mode jeu si le code importe `jeu`.
+
+| Fonction | Rôle |
+|---|---|
+| `jeu.fenetre(l, h, "titre")` | ouvre la fenêtre (80×60 à 1920×1080, redimensionnable) |
+| `while jeu.image(30):` | affiche l'image, attend la suivante (30 par seconde) ; faux à la fermeture |
+| `effacer(c)`, `rect(x, y, l, h, c)`, `cercle(x, y, r, c)`, `ligne(…)`, `polygone(points, c)`, `texte(x, y, s, c, taille)` | dessin ; `c` = « rouge », `(r, g, b)` ou « #rrggbb » |
+| `touche("gauche")`, `appuyee("espace")` | touche maintenue / enfoncée à cette image |
+| `souris()`, `temps()`, `largeur()`, `hauteur()` | position et bouton, secondes écoulées, taille |
+
+`print` va dans la console de la calculatrice (relevée chaque seconde) ; `input()` n'existe pas en mode jeu.
+Jeux fournis (Programmes → Jeux), écrits dans ce Python restreint : **snake**, **pong**, **tetris**,
+**labyrinthe_3d** (lancer de rayons façon jeux de tir des années 90, ~25 images/s).
+
+## Import / export des programmes
+
+Programmes → **Fichier** : « Importer » lit un `.py` (texte) ou un `.aether` ; « Exporter en .py » télécharge le
+code seul ; « Exporter en .aether » télécharge un JSON :
+
+```json
+{"format": "aether-programme", "version": 1, "nom": "snake", "cree": "2026-11-24T10:00:00Z",
+ "application": "Æther CAS", "jeu": true, "code": "import jeu\n…"}
+```
+
+Un import ouvre le programme sans l'enregistrer (200 Ko au plus, nom nettoyé) ; « Enregistrer » le garde.
+
+## Émulateurs externes
+
+Programmes → **Émulateurs** : lanceur d'émulateurs **open source déjà installés** sur le PC. **Aucun émulateur,
+aucune ROM, aucun BIOS n'est fourni** ; l'utilisateur place dans le dossier des ROM (`data/calc_cas/roms`, bouton
+« Ouvrir le dossier des ROM ») uniquement des jeux libres (homebrew) ou des copies de ses propres jeux.
+
+Systèmes pris en charge, prévus large en puissance (repère : téléphone haut de gamme type Galaxy S10+, que tout PC
+de bureau récent dépasse) :
+
+| Niveau | Systèmes | Émulateurs détectés |
+|---|---|---|
+| léger | Game Boy / Color, NES, Super Nintendo, Mega Drive, GBA | mGBA, Mesen, Snes9x, BlastEm |
+| moyen | Nintendo 64, DS, PlayStation, PSP, Dreamcast | simple64, melonDS, DuckStation, PPSSPP, Flycast |
+| élevé (niveau S10+) | GameCube / Wii, 3DS | Dolphin, Azahar / Lime3DS |
+| très élevé (au-delà) | PlayStation 2 | PCSX2 |
+| tous | — | RetroArch (cœur choisi par RetroArch) |
+
+Détection : emplacements Windows connus, `PATH`, ou chemin donné dans `calc_cas.emulators`. Lancement : liste
+d'arguments fixe (jamais de shell), processus détaché, fichier pris **dans le dossier des ROM uniquement** (tout
+chemin qui en sortirait est refusé), extension vérifiée contre les systèmes de l'émulateur choisi.
 
 ## Exemples de démonstration
 
@@ -168,9 +247,16 @@ Essai réel (23/11/2026) : `qwen3-27b` via le Hub, 2 calculs délégués, répon
   chiffres : sûre quand elle est donnée, mais absente pour des racines exactes plus compliquées.
 - Graphes : 8 courbes (6 dans la fenêtre), échantillonnage à 600–700 points ; une asymptote très étroite peut être manquée.
 - Pas de débogueur pas à pas pour les programmes.
-- Géométrie : les mesures exactes partent des coordonnées affichées (converties en fractions) ; pour un point
-  construit à coordonnées irrationnelles (intersection d'un cercle…), la « valeur exacte » est celle d'une fraction
-  très proche. Pas de lieux géométriques, de transformations (symétrie, rotation) ni d'export de la figure.
+- Géométrie : les points libres sont pris à leurs coordonnées affichées (converties en fractions : grille
+  magnétique conseillée) ; un point sur objet posé sur un cercle aussi (sa valeur « exacte » est une fraction
+  proche). L'équation exacte d'un lieu n'existe que si le point tracé dépend rationnellement du point mobile (pas
+  de racine carrée en chemin, par ex. intersection avec un cercle mobile) ; sinon message clair, le tracé reste.
+  Pas d'export de la figure.
+- Mode jeu : une partie à la fois ; pas de son ni d'images chargées depuis des fichiers (le bac à sable n'ouvre
+  aucun fichier).
+- Émulateurs : vérifiés sans émulateur installé sur ce PC (détection, dossier, refus) ; le lancement réel d'un
+  émulateur est en cours de vérification. Les chemins connus visent les installations Windows par défaut ; sinon,
+  les indiquer dans la configuration.
 - Programmes : `input()` rejoue le programme depuis le début (un programme très long avant sa question est donc
   refait) ; pas de classes ni de modules autres que math, cmath, random, statistics.
 - L'interface a été vérifiée dans Edge (fenêtre d'application) et le navigateur intégré (Chromium) ; MathML demande
@@ -187,7 +273,10 @@ Essai réel (23/11/2026) : `qwen3-27b` via le Hub, 2 calculs délégués, répon
 | `agent.py` | outils pour agents, boucle de délégation |
 | `mcp_server.py` | serveur MCP stdio |
 | `sandbox.py` | bac à sable des programmes Python |
-| `geometry.py` | mesures exactes de géométrie (distance, angle, aire, droites, cercles) |
+| `geometry.py` | mesures exactes de géométrie ; construction refaite en exact, transformations, équation des lieux |
+| `render.py` | rendu des formules en PNG transparent (matplotlib mathtext), matrices |
+| `games.py`, `games_examples.py` | mode jeu (module `jeu`, pygame) et jeux d'exemple |
+| `emulators.py` | lanceur d'émulateurs externes (détection, dossier des ROM) |
 | `app.py` | lanceur de la fenêtre (Edge ou Chrome en mode application) |
 | `module.py` | module du Hub (commandes du bus, persistance) |
 | `demos.py` | exemples de démonstration |

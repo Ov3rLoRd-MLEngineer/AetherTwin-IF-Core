@@ -85,6 +85,10 @@ input, textarea, select { font: inherit; }
 .entry .in { font: 13px var(--mono); color: var(--screen-muted); overflow-wrap: anywhere; }
 .entry .out { display: flex; justify-content: flex-end; align-items: baseline; flex-wrap: wrap; gap: 4px 14px; margin-top: 2px; }
 .entry .out math { font-size: clamp(15px, 2.6cqw, 22px); }
+.entry .out img.tex { display: block; max-width: none; height: auto; }
+:root[data-screen="dark"] .entry .out img.tex { filter: invert(1); }
+.entry .out .pretty { font: 14px/1.25 var(--mono); margin: 0; white-space: pre; color: var(--screen-ink); }
+.entry .out .num { font: 16px var(--mono); }
 .entry .out .main { overflow-x: auto; overflow-y: hidden; max-width: 100%; padding-bottom: 2px; }
 .entry .approx { color: var(--screen-muted); font-size: .95em; overflow-x: auto; overflow-y: hidden; max-width: 100%; }
 .entry .err { color: var(--bad); text-align: right; font-size: 14px; }
@@ -238,5 +242,15 @@ input, textarea, select { font: inherit; }
 .menu li .k { color: var(--screen-muted); font: 12px var(--mono); }
 .menu li.group { color: var(--screen-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; cursor: default; padding-top: 10px; }
 .menu li.group:hover { background: transparent; box-shadow: none; }
+.dialog { width: min(600px, 100%); max-height: min(660px, 92vh); display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.dialog .body { overflow: auto; padding: 8px 14px 14px; font-size: 13px; user-select: text; }
+.dialog .body h4 { margin: 12px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; opacity: .7; }
+.dialog .body p { margin: 4px 0; opacity: .8; }
+.dialog table { width: 100%; border-collapse: collapse; }
+.dialog td { padding: 3px 4px; border-bottom: 1px solid rgba(128, 128, 128, .25); vertical-align: middle; }
+.dialog td.ok { color: #2f9e44; font-weight: 600; }
+.dialog td.no { opacity: .5; }
+.dialog select { font-size: 12px; max-width: 160px; }
+.dialog .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 .toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #111a; color: #fff; backdrop-filter: blur(6px);
          padding: 6px 14px; border-radius: 8px; font-size: 13px; z-index: 20; pointer-events: none; }

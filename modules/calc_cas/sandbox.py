@@ -77,8 +77,10 @@ def _namespace(module: Any, names: tuple[str, ...] | None = None) -> SimpleNames
     return SimpleNamespace(**{n: v for n, v in values.items() if not isinstance(v, type(sys))})
 
 
-def check_program(code: str) -> ast.Module:
-    """Refuse un programme qui sortirait du bac à sable. Lève `SandboxError` avec la ligne fautive."""
+def check_program(code: str, modules: dict[str, Any] | None = None) -> ast.Module:
+    """Refuse un programme qui sortirait du bac à sable. Lève `SandboxError` avec la ligne fautive.
+    `modules` : modules importables (par défaut `MODULES` ; le mode jeu y ajoute `jeu`)."""
+    allowed = MODULES if modules is None else modules
     if not isinstance(code, str):
         raise SandboxError("Le programme doit être du texte")
     if len(code) > MAX_CODE:
@@ -94,9 +96,12 @@ def check_program(code: str) -> ast.Module:
         if isinstance(node, ast.Import | ast.ImportFrom):
             names = [node.module or ""] if isinstance(node, ast.ImportFrom) else [a.name for a in node.names]
             for name in names:
-                if name not in MODULES:
+                if name == "jeu" and "jeu" not in allowed:
+                    raise SandboxError(f"Ligne {line} : ce programme utilise « jeu » : lance-le avec « Jouer » "
+                                       "(fenêtre de jeu)")
+                if name not in allowed:
                     raise SandboxError(f"Ligne {line} : module « {name} » non disponible "
-                                       f"(disponibles : {', '.join(sorted(MODULES))})")
+                                       f"(disponibles : {', '.join(sorted(allowed))})")
             if isinstance(node, ast.ImportFrom) and node.level:
                 raise SandboxError(f"Ligne {line} : import relatif interdit")
         if isinstance(node, ast.Name) and node.id.startswith("_"):
@@ -104,7 +109,9 @@ def check_program(code: str) -> ast.Module:
         if isinstance(node, ast.Attribute) and (node.attr.startswith("_") or node.attr in FORBIDDEN_ATTRS):
             raise SandboxError(f"Ligne {line} : attribut « {node.attr} » interdit dans le bac à sable")
         defined = (node.name if isinstance(node, ast.FunctionDef) else node.arg if isinstance(node, ast.arg)
-                   else node.asname if isinstance(node, ast.alias) else None)
+                   else None)
+        if isinstance(node, ast.alias):  # `from jeu import _x` comme `import x as _y`
+            defined = node.name if node.name.startswith("_") else node.asname
         if defined and defined.startswith("_"):
             raise SandboxError(f"Ligne {line} : les noms commençant par « _ » sont interdits")
     return tree
@@ -223,13 +230,14 @@ class Program:
         return number
 
 
-def _globals(program: Program) -> dict[str, Any]:
+def _globals(program: Program, modules: dict[str, Any] | None = None) -> dict[str, Any]:
     safe = {name: getattr(builtins, name) for name in SAFE_BUILTIN_NAMES}
+    allowed = MODULES if modules is None else modules
 
     def guarded_import(name: str, globals_: Any = None, locals_: Any = None, fromlist: Any = (), level: int = 0) -> Any:
-        if level or name not in MODULES:
+        if level or name not in allowed:
             raise ImportError(f"module « {name} » non disponible")
-        return MODULES[name]
+        return allowed[name]
 
     safe.update(print=program.print, input=program.input, __import__=guarded_import)
     return {"__builtins__": safe, "__name__": "programme", "plot": program.plot, "scatter": program.scatter,

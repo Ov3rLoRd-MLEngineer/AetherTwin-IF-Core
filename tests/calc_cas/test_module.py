@@ -148,3 +148,89 @@ def test_geometry_command(module: CalcCasModule) -> None:
     assert result["exact"] == "90"
     with pytest.raises(ValueError, match="alignés"):
         module.run("geometry", {"what": "circumcircle", "points": [[0, 0], [1, 1], [2, 2]]})
+
+
+def test_results_carry_an_image_but_history_file_does_not(tmp_path: Path) -> None:
+    pytest.importorskip("matplotlib")
+    module = make(tmp_path)
+    try:
+        result = module.run("eval", {"text": "integrate(x^2, x)"})
+        assert result["png"] and result["pretty"]
+        saved = json.loads((tmp_path / "session.json").read_text(encoding="utf-8"))
+        assert all("png" not in h for h in saved["history"])
+        images = module.run("render", {"latex": [r"\frac{1}{2}", r"\begin{cases} x \end{cases}"]})
+        assert images[0] and images[1] is None
+        with pytest.raises(ValueError):
+            module.run("render", {"latex": "x"})
+    finally:
+        module.stop()
+
+
+def test_geometry_figure_command(module: CalcCasModule) -> None:
+    objects = [{"id": 1, "t": "pt", "x": 0, "y": 0}, {"id": 2, "t": "pt", "x": 1, "y": 1}]
+    result = module.run("geometry", {"what": "figure", "objects": objects, "measure": {"m": "len", "refs": [1, 2]}})
+    assert result["exact"] == "sqrt(2)"
+
+
+def test_game_commands(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    pytest.importorskip("pygame")
+    import time
+
+    monkeypatch.setenv("SDL_VIDEODRIVER", "dummy")
+    module = make(tmp_path)
+    try:
+        refused = module.run("game_run", {"code": "import os\n"})
+        assert refused["ok"] is False and "os" in refused["error"]
+        assert module.run("game_run", {"code": "import jeu\nprint('partie', 1 + 1)\n"})["ok"]
+        deadline = time.monotonic() + 30
+        while module.run("game_status", {})["running"] and time.monotonic() < deadline:
+            time.sleep(0.2)
+        status = module.run("game_status", {})
+        assert status["exit_code"] == 0 and "partie 2" in status["output"]
+        assert module.run("game_stop", {}) is False
+        with pytest.raises(ValueError):
+            module.run("game_run", {})
+    finally:
+        module.stop()
+
+
+def test_programs_list_games(module: CalcCasModule) -> None:
+    assert {"snake", "pong", "tetris", "labyrinthe_3d"} <= set(module.run("programs", {})["games"])
+
+
+def test_emulator_commands(tmp_path: Path) -> None:
+    module = make(tmp_path, roms_dir=str(tmp_path / "roms"))
+    try:
+        catalog = module.run("emulators", {})
+        assert catalog["roms"] == [] and catalog["folder"] == str(tmp_path / "roms")
+        with pytest.raises(ValueError, match="introuvable"):
+            module.run("emulator_launch", {"emulator": "mgba", "rom": "../session.json"})
+    finally:
+        module.stop()
+
+
+def test_hermes_state_and_registration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from modules.dev_launcher import hermes_link
+    from modules.genesis_lab import sources
+
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setattr(sources, "hermes_exe", lambda: "")
+    module = make(tmp_path)
+    try:
+        assert module.run("hermes", {}) == {"installe": False, "branche": False, "nom": "aethertwin_calc"}
+        with pytest.raises(ValueError, match="introuvable"):
+            module.run("hermes_register", {})
+        (tmp_path / "config.yaml").write_text("mcp_servers:\n  aethertwin_calc:\n    command: py\n", encoding="utf-8")
+        monkeypatch.setattr(sources, "hermes_exe", lambda: "hermes.exe")
+        assert module.run("hermes", {})["branche"] is True
+        seen: dict = {}
+
+        def fake_register(exe: str, name: str, args: list[str]) -> dict:
+            seen.update(name=name, args=args)
+            return {}
+
+        monkeypatch.setattr(hermes_link, "register_server", fake_register)
+        module.run("hermes_register", {})
+        assert seen["name"] == "aethertwin_calc" and seen["args"][-1].endswith("mcp_server.py")
+    finally:
+        module.stop()

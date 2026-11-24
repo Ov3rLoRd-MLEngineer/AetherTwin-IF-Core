@@ -96,7 +96,16 @@ def _dispatch(sessions: dict[str, Any], op: str, args: dict[str, Any]) -> Any:
             session.settings[key] = value
         return dict(session.settings)
     if op == "eval":
-        return engine.evaluate(args["text"], session)
+        result = engine.evaluate(args["text"], session)
+        if result.get("ok") and args.get("png", True):
+            from modules.calc_cas.render import png_base64
+
+            result["png"] = png_base64(result.get("latex") or "")
+        return result
+    if op == "render":  # images de résultats déjà calculés (historique rechargé)
+        from modules.calc_cas.render import png_base64
+
+        return [png_base64(str(tex)) for tex in list(args.get("latex") or [])[:50]]
     if op == "restore":  # rejoue des définitions (après une relance)
         return [engine.evaluate(src, session)["ok"] for src in args["sources"]]
     if op == "vars":

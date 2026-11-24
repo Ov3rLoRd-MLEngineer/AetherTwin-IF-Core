@@ -141,6 +141,39 @@ function moveCaret(d) {
 }
 
 // ---------- Calculs ----------
+// Résultat exact : image PNG du moteur (LaTeX dessiné par matplotlib), sinon dessin unicode de SymPy.
+function pngUrl(r) {
+  if (!r._url) {
+    const bytes = Uint8Array.from(atob(r.png), (c) => c.charCodeAt(0));
+    r._url = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));  // CSP : img-src blob:
+  }
+  return r._url;
+}
+function resultNode(r) {
+  if (r.png) {
+    const img = el("img", { class: "tex", alt: r.exact, title: r.exact });
+    img.addEventListener("load", () => { img.width = Math.round(img.naturalWidth / 2); }, { once: true });
+    img.addEventListener("error", () => img.replaceWith(prettyNode(r)), { once: true });
+    img.src = pngUrl(r);
+    return img;
+  }
+  return prettyNode(r);
+}
+function prettyNode(r) {
+  const text = r.pretty || r.exact || "";
+  return text.includes("\n") ? el("pre", { class: "pretty" }, text) : el("code", { class: "pretty" }, text);
+}
+async function renderMissing(entries) {  // historique rechargé : images recalculées par paquets
+  const todo = entries.filter((r) => r.ok && !r.png && r.latex);
+  for (let k = 0; k < todo.length; k += 50) {
+    const batch = todo.slice(k, k + 50);
+    try {
+      const pngs = await call("render", { latex: batch.map((r) => r.latex) });
+      batch.forEach((r, i) => { r.png = pngs[i]; if (!r.png) r.png = null; });
+    } catch { return; }
+  }
+  if (todo.length) renderHistory();
+}
 function entryNode(r, index) {
   const node = el("div", { class: "entry", "data-i": index }, el("div", { class: "in" }, r.input));
   node.addEventListener("click", () => { S.sel = index; markSel(); });
@@ -149,9 +182,9 @@ function entryNode(r, index) {
   const out = el("div", { class: "out" });
   if (r.label) out.append(el("span", { class: "label" }, `${r.label} :=`));
   const approxFirst = S.mode === "approx" && r.approx;
-  const main = approxFirst ? mathNode(r.approx_mathml, r.approx) : mathNode(r.mathml, r.exact);
+  const main = approxFirst ? el("span", { class: "num" }, r.approx) : resultNode(r);
   out.append(el("span", { class: "main" }, main));
-  if (S.mode === "auto" && r.approx) out.append(el("span", { class: "approx" }, "≈ ", mathNode(r.approx_mathml, r.approx)));
+  if (S.mode === "auto" && r.approx) out.append(el("span", { class: "approx" }, `≈ ${r.approx}`));
   node.append(out);
   if (r.warning) node.append(el("div", { class: "warn" }, r.warning));
   return node;
@@ -644,7 +677,7 @@ function sheetClear() { if (confirm("Vider le tableur ?")) { S.sheet.data = Arra
 async function loadPrograms() {
   try {
     const r = await call("programs");
-    S.prog.programs = r.programs; S.prog.examples = r.examples; S.prog.loaded = true;
+    S.prog.programs = r.programs; S.prog.examples = r.examples; S.prog.games = r.games || {}; S.prog.loaded = true;
     if (!S.prog.name || !(S.prog.name in r.programs)) {
       const first = Object.keys(r.programs)[0];
       if (first) openProgram(first, r.programs[first]);
@@ -661,7 +694,8 @@ function renderProgList() {
   };
   $("prog-list").replaceChildren(el("h4", {}, "Mes programmes"),
     ...(Object.keys(S.prog.programs).length ? Object.entries(S.prog.programs).sort().map(([n, c]) => mk(n, c, false)) : [el("span", { class: "empty" }, "aucun")]),
-    el("h4", {}, "Exemples"), ...Object.entries(S.prog.examples).map(([n, c]) => mk(n, c, true)));
+    el("h4", {}, "Exemples"), ...Object.entries(S.prog.examples).map(([n, c]) => mk(n, c, true)),
+    el("h4", {}, "Jeux"), ...Object.entries(S.prog.games || {}).map(([n, c]) => mk(n, c, true)));
 }
 function openProgram(name, code, example = false) {
   if (S.prog.dirty && !confirm("Le programme en cours n'est pas enregistré. Continuer ?")) return;
@@ -691,7 +725,9 @@ async function deleteProgram() {
 }
 function status(text) { $("prog-status").textContent = text; }
 function consoleLine(text, cls) { $("console").append(el("span", { class: cls || "" }, text)); }
+const usesGame = (code) => /^\s*(import\s+jeu\b|from\s+jeu\s+import)/m.test(code);
 async function runProgram(continuing = false) {
+  if (!continuing && usesGame($("code").value)) { playProgram(); return; }
   if (!continuing) { S.prog.inputs = []; S.prog.seed = Math.floor(Math.random() * 1e9); }
   status("exécution…");
   try {
@@ -725,6 +761,119 @@ function syncGutter() {
   $("gutter").textContent = Array.from({ length: n }, (_, i) => i + 1).join("\n");
   $("gutter").scrollTop = $("code").scrollTop;
 }
+// ---------- mode jeu ----------
+async function playProgram() {
+  status("lancement du jeu…");
+  try {
+    const r = await call("game_run", { code: $("code").value });
+    if (!r.ok) { $("console").replaceChildren(el("span", { class: "err" }, r.error)); status("refusé"); return; }
+    const stop = el("button", { type: "button", class: "small" }, "Arrêter le jeu");
+    stop.addEventListener("click", () => call("game_stop").catch(() => {}));
+    $("console").replaceChildren(el("span", { class: "note" }, "Jeu lancé dans sa fenêtre (Échap ou fermer la fenêtre pour quitter).\n"), stop);
+    status("jeu en cours");
+    clearInterval(S.prog.gameTimer);
+    S.prog.gameTimer = setInterval(async () => {
+      let st;
+      try { st = await call("game_status"); } catch { clearInterval(S.prog.gameTimer); return; }
+      if (st.running) return;
+      clearInterval(S.prog.gameTimer);
+      const failed = Boolean(st.exit_code) && !st.stopped;
+      const end = st.stopped ? "— partie arrêtée —" : failed ? "— le jeu s'est arrêté sur une erreur —" : "— partie terminée —";
+      $("console").replaceChildren(el("span", { class: failed ? "err" : "" }, st.output || ""), el("span", { class: "note" }, `\n${end}\n`));
+      status(st.stopped ? "arrêté" : failed ? "erreur" : "terminé");
+    }, 1000);
+  } catch (e) { consoleLine(`\n${e.message}\n`, "err"); status("erreur"); }
+}
+
+// ---------- import / export ----------
+function download(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = el("a", { href: url, download: name });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+function exportProgram(kind) {
+  const name = ($("prog-name").value.trim() || "programme").replace(/[^\wÀ-ÿ-]/g, "_");
+  const code = $("code").value;
+  if (kind === "py") { download(`${name}.py`, code, "text/x-python"); return; }
+  const pack = { format: "aether-programme", version: 1, nom: name, cree: new Date().toISOString(),
+                 application: "Æther CAS", jeu: usesGame(code), code };
+  download(`${name}.aether`, JSON.stringify(pack, null, 2), "application/json");
+}
+function importProgram(file) {
+  if (!file) return;
+  if (file.size > 200000) { toast("Fichier trop gros (200 Ko au plus)"); return; }
+  file.text().then((text) => {
+    let name = file.name.replace(/\.(py|aether|json|txt)$/i, ""), code = text;
+    if (/\.(aether|json)$/i.test(file.name)) {
+      try {
+        const pack = JSON.parse(text);
+        if (pack.format !== "aether-programme" || typeof pack.code !== "string") throw new Error("format");
+        code = pack.code; name = String(pack.nom || name);
+      } catch { toast("Fichier .aether illisible", 3000); return; }
+    }
+    name = name.replace(/[^\wÀ-ÿ]/g, "_").replace(/^[^A-Za-zÀ-ÿ]+/, "").slice(0, 40) || "importe";
+    openProgram(name, code, true);
+    status("importé (non enregistré)");
+  });
+}
+function fileMenu() {
+  openMenu("Fichier", [
+    { label: "Importer un programme", hint: ".py ou .aether", act: () => { $("prog-import").value = ""; $("prog-import").click(); } },
+    { label: "Exporter en .py", hint: "le code seul", act: () => exportProgram("py") },
+    { label: "Exporter en .aether", hint: "code + informations (JSON)", act: () => exportProgram("aether") },
+  ], runItem);
+}
+
+// ---------- émulateurs externes ----------
+function dialog(title, ...content) {
+  closeMenu();
+  const close = el("button", { type: "button", "aria-label": "Fermer" }, "✕");
+  const overlay = el("div", { class: "overlay" }, el("div", { class: "menu dialog", role: "dialog", "aria-label": title },
+    el("h3", {}, title, close), el("div", { class: "body" }, ...content)));
+  close.addEventListener("click", closeMenu);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) closeMenu(); });
+  document.body.append(overlay);
+  S.menu = { node: overlay, move() {}, ok() {}, digit() {} };
+}
+async function emulatorsDialog() {
+  let cat;
+  try { cat = await call("emulators"); } catch (e) { toast(e.message, 3000); return; }
+  const installed = cat.emulators.filter((x) => x.path);
+  const sys = Object.fromEntries(cat.systems.map((s) => [s.id, s]));
+  const names = (ids) => ids.map((s) => sys[s]?.label || s).join(" / ");
+  const roms = cat.roms.map((rom) => {
+    const able = installed.filter((x) => x.systems.some((s) => rom.systems.includes(s)));
+    const pick = el("select", { "aria-label": "Émulateur" }, ...able.map((x) => el("option", { value: x.id }, x.label)));
+    const go = el("button", { type: "button", class: "small" }, "Lancer");
+    go.disabled = !able.length;
+    go.addEventListener("click", async () => {
+      try { await call("emulator_launch", { emulator: pick.value, rom: rom.file }); toast(`${rom.file} lancé`); }
+      catch (e) { toast(e.message, 3500); }
+    });
+    return el("tr", {}, el("td", {}, rom.file), el("td", {}, names(rom.systems)),
+      el("td", {}, able.length ? pick : "aucun émulateur installé"), el("td", {}, go));
+  });
+  const emus = cat.emulators.map((x) => el("tr", {}, el("td", {}, x.label),
+    el("td", {}, x.systems.length > 6 ? "tous (cœurs RetroArch)" : names(x.systems)),
+    el("td", { class: x.path ? "ok" : "no" }, x.path ? "installé" : "non trouvé")));
+  const tiers = cat.systems.map((s) => el("tr", {}, el("td", {}, s.label), el("td", {}, s.extensions.join(" ")), el("td", {}, s.tier)));
+  const folder = el("button", { type: "button", class: "small" }, "Ouvrir le dossier des ROM");
+  folder.addEventListener("click", () => call("roms_open").catch((e) => toast(e.message)));
+  const refresh = el("button", { type: "button", class: "small" }, "Actualiser");
+  refresh.addEventListener("click", emulatorsDialog);
+  dialog("Émulateurs externes",
+    el("p", {}, "Aucune ROM ni aucun BIOS n'est fourni. Mets dans le dossier des ROM uniquement des jeux libres (homebrew) ou des copies de tes propres jeux."),
+    el("div", { class: "row" }, folder, refresh),
+    el("h4", {}, `Fichiers du dossier (${cat.roms.length})`),
+    cat.roms.length ? el("table", {}, el("tbody", {}, ...roms)) : el("p", {}, `Dossier vide : ${cat.folder}`),
+    el("h4", {}, `Émulateurs (${installed.length} installé${installed.length > 1 ? "s" : ""})`),
+    el("table", {}, el("tbody", {}, ...emus)),
+    el("p", {}, "Installé ailleurs ? Indique son chemin dans config/local.yaml : calc_cas → emulators → id: chemin du .exe."),
+    el("h4", {}, "Systèmes et puissance demandée (repère : téléphone type Galaxy S10+)"),
+    el("table", {}, el("tbody", {}, ...tiers)));
+}
+
 function progHelp() {
   openMenu("Bac à sable Python", [
     { label: "print(…), input(\"question\")", hint: "input : la question s'affiche dans la console" },
@@ -733,6 +882,14 @@ function progHelp() {
     { label: "cas_value(\"sqrt(2)\")", hint: "valeur numérique Python" },
     { label: "plot(xs, ys) · scatter(xs, ys) · fplot(f, a, b) · text(x, y, s)", hint: "dessin à droite de la console" },
     { label: "Interdit : fichiers, réseau, os/sys, classes, noms « _… »", hint: `délai ${10} s, mémoire bornée` },
+    { isGroup: true, label: "Mode jeu : import jeu (bouton Jouer)" },
+    { label: "jeu.fenetre(480, 360, \"titre\")", hint: "ouvre la fenêtre de jeu" },
+    { label: "while jeu.image(30):", hint: "une image (30 par seconde) ; faux quand on ferme ou Échap" },
+    { label: "jeu.effacer(c) · rect(x, y, l, h, c) · cercle(x, y, r, c)", hint: "c = « rouge », (r, g, b) ou « #rrggbb »" },
+    { label: "jeu.ligne(x1, y1, x2, y2, c) · polygone(points, c) · texte(x, y, s, c, taille)", hint: "dessin" },
+    { label: "jeu.touche(\"gauche\") · jeu.appuyee(\"espace\")", hint: "maintenue / enfoncée à cette image" },
+    { label: "jeu.souris() · jeu.temps() · jeu.largeur() · jeu.hauteur()", hint: "(x, y, bouton), secondes écoulées" },
+    { label: "Exemples : Programmes → Jeux", hint: "snake, pong, tetris, labyrinthe_3d" },
   ], () => {});
 }
 
@@ -917,6 +1074,10 @@ function toggleKeys() {
   $("prog-run").addEventListener("click", () => runProgram()); $("prog-save").addEventListener("click", saveProgram);
   $("prog-new").addEventListener("click", newProgram); $("prog-del").addEventListener("click", deleteProgram);
   $("prog-help").addEventListener("click", progHelp);
+  $("prog-play").addEventListener("click", playProgram);
+  $("prog-file").addEventListener("click", fileMenu);
+  $("prog-emu").addEventListener("click", emulatorsDialog);
+  $("prog-import").addEventListener("change", (e) => importProgram(e.target.files[0]));
   $("code").addEventListener("input", () => { S.prog.dirty = true; syncGutter(); status("modifié"); });
   $("code").addEventListener("scroll", () => { $("gutter").scrollTop = $("code").scrollTop; });
   new ResizeObserver(() => { if (S.app === "graph") drawGraph(); if (S.app === "geo") geoDraw(); if (S.app === "prog") drawProgram(); }).observe($("device"));
@@ -926,6 +1087,6 @@ function toggleKeys() {
   try {
     const [hist, settings] = await Promise.all([call("history"), call("settings", {})]);
     S.history = hist; S.inputs = hist.map((h) => h.input); S.angle = settings.angle || "rad";
-    renderHistory(); badges();
+    renderHistory(); badges(); renderMissing(S.history);
   } catch (e) { $("history").replaceChildren(el("div", { class: "empty" }, e.message)); }
 })();

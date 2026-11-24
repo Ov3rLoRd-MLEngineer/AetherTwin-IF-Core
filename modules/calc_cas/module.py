@@ -7,10 +7,12 @@ Commandes reçues sur le bus (réponse sur `module.calc_cas.result`, avec le mê
     delete      {"name": "a"}                             supprime une définition
     reset       {}                                        efface variables, fonctions et historique
     history     {}                                        derniers calculs
+    render      {"latex": [...]}                          images PNG (base64) de formules, `null` si impossible
     plot        {"curves": [...], "window": {...}}        points des courbes (y, param, polar)
     analyze     {"what": "zeros"|"extrema"|"intersections", "expr", "other"?, "xmin", "xmax"}
     table       {"expr", "start", "step", "count"}       tableau de valeurs
     geometry    {"what", "points": [[x, y], …], "degrees"?}  mesure exacte (distance, angle, aire, cercle…)
+                {"what": "figure", "objects": [...], "measure": {...}}  valeur exacte dans une construction
     stats       {"x": [...], "y"?: [...], "freq"?: [...]} statistiques à une / deux variables
     regress     {"x", "y", "model"}                       régression (linear, quadratic, cubic, exponential…)
     tools       {}                                        définitions des outils pour agents (schémas JSON)
@@ -21,6 +23,9 @@ Commandes reçues sur le bus (réponse sur `module.calc_cas.result`, avec le mê
     programs    {}                                        programmes enregistrés + exemples
     program_save   {"name", "code"}  ·  program_delete {"name"}
     program_run    {"code", "inputs": [...], "seed"}       exécution dans le bac à sable (`sandbox.py`)
+    hermes      {}  ·  hermes_register {}                  serveur MCP de la calculatrice chez Hermes Agent
+    game_run    {"code"}  ·  game_stop {}  ·  game_status {}   mode jeu : le programme dans sa fenêtre (`games.py`)
+    emulators   {}  ·  emulator_launch {"emulator", "rom"}  ·  roms_open {}   émulateurs externes installés
 
 Tous les calculs passent par un processus séparé avec délai maximal (`worker.py`) : un calcul pathologique est
 interrompu et le module répond quand même. Variables, fonctions et historique sont gardés dans
@@ -34,24 +39,32 @@ Configuration (section `calc_cas` de `config/local.yaml`), tout est facultatif :
     hub_api: "http://127.0.0.1:5750"       # modèle local du Hub, pour `ask` (vide = désactivé)
     model: ""                              # vide = modèle par défaut du Hub
     session: "data/calc_cas/session.json"
+    roms_dir: "data/calc_cas/roms"         # dossier des ROM (fournies par l'utilisateur)
+    emulators: {}                          # chemins d'émulateurs non détectés, ex. {dolphin: "D:/Dolphin/Dolphin.exe"}
 """
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
+import sys
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 from core.module_api import Event, Health, ModuleBase
-from modules.calc_cas import agent, demos
+from modules.calc_cas import agent, demos, emulators
 from modules.calc_cas.worker import CasRunner
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HISTORY_MAX = 200
 PROGRAMS_MAX = 100
 PROGRAM_NAME = re.compile(r"^[^\W\d]\w{0,40}$")
+GAMES_SCRIPT = REPO_ROOT / "modules" / "calc_cas" / "games.py"
+MCP_NAME = "aethertwin_calc"
+MCP_SCRIPT = REPO_ROOT / "modules" / "calc_cas" / "mcp_server.py"
 
 
 def hub_llm(hub_api: str, model: str = "", timeout_s: float = 180.0) -> Callable[[list[dict[str, str]]], str]:
@@ -78,6 +91,10 @@ class CalcCasModule(ModuleBase):
                                  memory_mb=int(self.config.get("program_memory_mb", 768)))
         self.history: list[dict[str, Any]] = []
         self.programs: dict[str, str] = {}
+        self.game: Any = None
+        self.game_stopped = False
+        self.data_dir = self.save_path.parent
+        self.roms_dir = Path(str(self.config.get("roms_dir") or self.data_dir / "roms"))
         self.load_error = ""
         try:
             if self.save_path.is_file():
@@ -100,6 +117,7 @@ class CalcCasModule(ModuleBase):
             self.load_error = f"moteur de calcul non lancé : {exc}"
 
     def stop(self) -> None:
+        self.game_stop()
         self._save()
         self.runner.stop()
         self.sandbox.stop()
@@ -119,10 +137,71 @@ class CalcCasModule(ModuleBase):
             self.save_path.write_text(json.dumps({"definitions": self.runner.definitions.get("user", {}),
                                                   "settings": self.runner.settings.get("user", {}),
                                                   "programs": self.programs,
-                                                  "history": self.history[-HISTORY_MAX:]}, ensure_ascii=False,
+                                                  "history": [{k: v for k, v in h.items() if k != "png"}
+                                                              for h in self.history[-HISTORY_MAX:]]},
+                                                 ensure_ascii=False,
                                                  indent=1), encoding="utf-8")
         except OSError:
             pass  # sauvegarde impossible (disque) : le calcul reste valable
+
+    # -- mode jeu
+    def game_running(self) -> bool:
+        return self.game is not None and self.game.poll() is None
+
+    def game_stop(self) -> bool:
+        if not self.game_running():
+            return False
+        self.game_stopped = True
+        self.game.terminate()
+        try:
+            self.game.wait(5)
+        except subprocess.TimeoutExpired:
+            self.game.kill()
+        return True
+
+    def game_run(self, code: str) -> dict[str, Any]:
+        from modules.calc_cas.sandbox import MODULES, SandboxError, check_program
+
+        try:  # refus immédiat d'un programme interdit, avant d'ouvrir une fenêtre
+            check_program(code, {**MODULES, "jeu": None})
+        except SandboxError as exc:
+            return {"ok": False, "error": str(exc)}
+        self.game_stop()
+        self.game_stopped = False
+        folder = self.data_dir / "games"
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "partie.py").write_text(code, encoding="utf-8")
+        python = sys.executable[:-5] + ".exe" if sys.executable.lower().endswith("pythonw.exe") else sys.executable
+        log = (folder / "partie.log").open("w", encoding="utf-8")
+        env = {**os.environ, "PYGAME_HIDE_SUPPORT_PROMPT": "1", "PYTHONIOENCODING": "utf-8"}
+        self.game = subprocess.Popen([python, "-I", str(GAMES_SCRIPT), str(folder / "partie.py")],  # noqa: S603
+                                     stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, env=env,
+                                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        log.close()
+        return {"ok": True, "running": True}
+
+    def game_status(self) -> dict[str, Any]:
+        path = self.data_dir / "games" / "partie.log"
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")[-4000:] if path.is_file() else ""
+        except OSError:
+            text = ""
+        code = None if self.game is None or self.game_running() else self.game.returncode
+        return {"running": self.game_running(), "output": text, "exit_code": code,
+                "stopped": self.game_stopped}
+
+    def hermes(self, register: bool = False) -> dict[str, Any]:
+        """État du branchement MCP chez Hermes Agent ; `register` le déclare (config.yaml sauvegardée avant)."""
+        from modules.dev_launcher import hermes_link
+        from modules.genesis_lab.sources import hermes_exe
+
+        exe = hermes_exe()
+        result: dict[str, Any] = {}
+        if register:
+            result = hermes_link.register_server(exe, MCP_NAME, ["-I", str(MCP_SCRIPT)])
+        config = hermes_link.hermes_home() / "config.yaml"
+        text = config.read_text(encoding="utf-8", errors="replace") if config.is_file() else ""
+        return {**result, "installe": bool(exe), "branche": hermes_link.registered(text, MCP_NAME), "nom": MCP_NAME}
 
     def handle_event(self, event: Event) -> None:
         prefix = f"module.{self.name}.cmd."
@@ -160,6 +239,11 @@ class CalcCasModule(ModuleBase):
             return True
         if command == "history":
             return self.history
+        if command == "render":
+            latex = payload.get("latex")
+            if not isinstance(latex, list):
+                raise ValueError("`latex` (liste) obligatoire")
+            return self.runner.call("render", latex=[str(t) for t in latex[:50]])
         if command == "plot":
             return self.runner.call("plot", curves=payload.get("curves"), window=payload.get("window"),
                                     samples=int(payload.get("samples", 600)))
@@ -170,11 +254,34 @@ class CalcCasModule(ModuleBase):
             return self.runner.call("table", **{k: payload.get(k) for k in ("expr", "start", "step", "count")
                                                if payload.get(k) is not None})
         if command == "geometry":
-            return self.runner.call("geometry", **{k: payload.get(k) for k in ("what", "points", "degrees")
-                                                  if payload.get(k) is not None})
+            keys = ("what", "points", "degrees", "objects", "measure")
+            return self.runner.call("geometry", **{k: payload.get(k) for k in keys if payload.get(k) is not None})
         if command in ("stats", "regress"):
             return self.runner.call(command, **{k: payload.get(k) for k in ("x", "y", "freq", "model")
                                                if payload.get(k) is not None})
+        if command == "game_run":
+            code = payload.get("code")
+            if not isinstance(code, str):
+                raise ValueError("`code` (texte) obligatoire")
+            return self.game_run(code)
+        if command == "game_stop":
+            return self.game_stop()
+        if command == "game_status":
+            return self.game_status()
+        if command == "emulators":
+            return emulators.catalog(self.roms_dir, self.config.get("emulators") or {})
+        if command == "emulator_launch":
+            found = emulators.detect(self.config.get("emulators") or {})
+            args = emulators.command(str(payload.get("emulator", "")),
+                                     emulators.rom_path(self.roms_dir, str(payload.get("rom", ""))), found)
+            return {"pid": emulators.launch(args), "emulator": payload.get("emulator")}
+        if command == "roms_open":
+            self.roms_dir.mkdir(parents=True, exist_ok=True)
+            if sys.platform == "win32":
+                os.startfile(self.roms_dir)  # noqa: S606 — dossier fixe de la configuration
+            return str(self.roms_dir)
+        if command in ("hermes", "hermes_register"):
+            return self.hermes(register=command == "hermes_register")
         if command == "tools":
             return agent.TOOL_SPECS
         if command == "tool":
@@ -194,8 +301,9 @@ class CalcCasModule(ModuleBase):
             self._save()
             return result
         if command == "programs":
+            from modules.calc_cas.games_examples import GAMES
             from modules.calc_cas.sandbox import EXAMPLES
-            return {"programs": self.programs, "examples": EXAMPLES}
+            return {"programs": self.programs, "examples": EXAMPLES, "games": GAMES}
         if command == "program_save":
             name, code = str(payload.get("name", "")).strip(), payload.get("code")
             if not PROGRAM_NAME.match(name):

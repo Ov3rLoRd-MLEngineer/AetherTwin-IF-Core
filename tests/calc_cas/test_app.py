@@ -80,3 +80,13 @@ def test_window_files_are_served_by_the_hub(tmp_path: Path) -> None:
                        ("calc_geo.js", "javascript")):
         response = client.get(f"/static/{name}")
         assert response.status_code == 200 and kind in response.headers["content-type"]
+
+
+def test_hub_tools_tab_embeds_the_calculator() -> None:
+    page = (WEB / "dashboard.html").read_text(encoding="utf-8")
+    script = (WEB / "calc_cas.js").read_text(encoding="utf-8")
+    assert 'id="calc-frame"' in page and "/static/calc_cas.js" in page
+    ids = {i for pair in re.findall(r'\$\("([\w-]+)"\)|getElementById\("([\w-]+)"\)', script) for i in pair if i}
+    missing = sorted(i for i in ids if f'id="{i}"' not in page)
+    assert ids and not missing, f"identifiants absents du tableau de bord : {missing}"
+    assert "/static/calc_app.html" in script

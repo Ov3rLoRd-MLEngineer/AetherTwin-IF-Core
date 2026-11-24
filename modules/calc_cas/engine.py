@@ -591,10 +591,19 @@ def _wants_approx(obj: Any) -> bool:
     return not obj.free_symbols and not isinstance(obj, sp.logic.boolalg.Boolean)
 
 
+def pretty_of(obj: Any) -> str:
+    """Repli texte de l'affichage en image : dessin unicode de SymPy (fractions, racines, matrices sur plusieurs
+    lignes)."""
+    try:
+        return str(sp.pretty(obj, use_unicode=True, wrap_line=False))
+    except Exception:  # noqa: BLE001 — objet que `pretty` ne sait pas dessiner : texte simple
+        return text_of(obj)
+
+
 def present(obj: Any) -> dict[str, Any]:
     """Résultat exact + approché, en texte, LaTeX et MathML. L'approché est omis s'il n'apporte rien."""
     out: dict[str, Any] = {"exact": text_of(obj), "latex": latex_of(obj), "mathml": mathml_of(obj),
-                           "approx": None, "approx_latex": None, "approx_mathml": None}
+                           "pretty": pretty_of(obj), "approx": None, "approx_latex": None, "approx_mathml": None}
     if not _wants_approx(obj):
         return out
     approx = _evalf(obj)

@@ -11,7 +11,7 @@ Liste tenue à jour à chaque ajout de dépendance. Licences relevées dans les 
 | psutil | 7.2.2 | BSD-3-Clause | surveillance des processus (`core/daemon.py`) |
 | fastapi | 0.163.1 | MIT | API HTTP locale (`core/api.py`) |
 | uvicorn | 0.54.0 | BSD-3-Clause | serveur de l'API locale |
-| pygame | 2.6.1 | LGPL-2.1 | interface de WoW Assistant / `gaming_hud` |
+| pygame | 2.6.1 | LGPL-2.1 | interface de WoW Assistant / `gaming_hud` ; mode jeu de `calc_cas` |
 | pillow | 13.0.0 | MIT-CMU | captures d'écran, presse-papier image |
 
 ## Optionnelles
@@ -38,6 +38,10 @@ FastAPI installe aussi `starlette` (BSD-3-Clause) et `pydantic` (MIT).
 | lupa (développement seulement) | 2.8 | MIT | tests : compile l'addon HermesAssistant et exécute ses fonctions sur un faux jeu |
 | sympy (ajouté le 23/11) | 1.14.0 | BSD-3-Clause | calcul formel du module `calc_cas` |
 | mpmath (apporté par sympy) | 1.3.0 | BSD-3-Clause | arithmétique multiprécision de SymPy |
+| matplotlib (ajouté le 24/11) | 3.10.7 | Matplotlib License (PSF) | `calc_cas` : formules des résultats en PNG (mathtext) |
+| contourpy, cycler, kiwisolver (apportés par matplotlib) | 1.3.3, 0.12.1, 1.5.1 | BSD-3-Clause | dépendances de matplotlib |
+| fonttools, pyparsing (apportés par matplotlib) | 4.68.0, 3.3.3 | MIT | dépendances de matplotlib |
+| python-dateutil, packaging (apportés par matplotlib) | 4.0.0, 26.3 | BSD-3-Clause ; Apache-2.0 ou BSD-2-Clause | dépendances de matplotlib |
 
 | Ajouté le 23/11/2026 (onglet Développement) | Version | Licence | Usage |
 |---|---|---|---|

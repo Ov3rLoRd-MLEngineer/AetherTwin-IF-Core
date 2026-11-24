@@ -1353,3 +1353,27 @@ outine.json` ; le serveur MCP ne fait que le lire.
     `--tools` + `--strict-mcp-config` ; ensuite `hub_etat` appelé et réponse juste (14 s).
   - Relais : « RELAI REÇU » (sans S, toléré), titre daté de `AGENT_HANDOFF.md` recopié, `git status` identique avant
     et après.
+
+## 2026-11-24 — calc_cas : onglet Outils épuré, résultats en image, jeux, émulateurs, géométrie exacte
+
+- **Agent :** Cloud (session de la calculatrice, branche `feature/calc-cas`)
+- **Fichiers :** `modules/calc_cas/` (`render.py`, `games.py`, `games_examples.py`, `emulators.py` nouveaux ;
+  `geometry.py`, `module.py`, `worker.py`, `engine.py`, `sandbox.py`, `mcp_server.py`, `README.md`),
+  `core/web/dashboard.html`, `core/web/calc_cas.*`, `core/web/calc_app.*`, `core/web/calc_geo.js`,
+  `modules/dev_launcher/hermes_link.py`, `tests/calc_cas/`, `tests/dev_launcher/`, `tests/gaming_hud/test_profit.py`,
+  `requirements.txt`, `THIRD_PARTY.md`, `PROJECT_STATUS.md`.
+- **Raison :** demandes de Jérémy (24/11) : onglet Outils = la calculatrice seule (les modèles passent par le MCP) ;
+  résultats en vraies formules (`sympy.latex()` + matplotlib, repli `sympy.pretty`) ; import/export des programmes ;
+  jeux Python ; lanceur d'émulateurs externes prévu large en puissance ; reste de la liste précédente (ruff, Hermes,
+  transformations et lieux, valeurs exactes des points construits).
+- **Choix :**
+  - Rendu : mathtext de matplotlib (pas de LaTeX installé), encre noire inversée en écran sombre, matrices mises en
+    page à la main, `None` → repli texte ; images non gardées dans `session.json` (commande `render`).
+  - Jeux : module `jeu` en français sur pygame, processus `python -I games.py`, même contrôle AST, jamais d'objet
+    pygame rendu au programme ; `from jeu import _x` désormais refusé (alias vérifié aussi sur le nom importé).
+  - Émulateurs : détection seulement (chemins connus, PATH, configuration), ROM prises dans `data/calc_cas/roms`
+    uniquement, `Popen` en liste, processus détaché ; aucun téléchargement, aucune ROM, aucun BIOS.
+  - Géométrie : la page envoie la construction, le moteur la refait en exact ; lieux : élimination du paramètre.
+  - Hermes : `hermes_link.register_server()` généralisé (nom validé) ; `mcp_server.py` lançable comme script.
+- **Tests :** voir le rapport `logs/RAPPORT_calc_cas.md` (totaux de la suite complète).
+

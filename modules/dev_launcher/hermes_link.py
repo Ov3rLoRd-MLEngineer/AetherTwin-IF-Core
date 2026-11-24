@@ -65,19 +65,28 @@ def backup(path: Path) -> str:
 
 def register(exe: str, runner: Callable[..., Any] = subprocess.run) -> dict[str, Any]:
     """Déclare le pont chez Hermes avec sa propre commande, config.yaml sauvegardé avant."""
+    return register_server(exe, MCP_NAME, ["-I", str(BRIDGE), "hermes"], runner)
+
+
+def register_server(exe: str, name: str, args: list[str],
+                    runner: Callable[..., Any] = subprocess.run) -> dict[str, Any]:
+    """Déclare un serveur MCP stdio (lancé par le Python du Hub) chez Hermes, config.yaml sauvegardé avant.
+    Sert aussi à d'autres modules (ex. la calculatrice `calc_cas`)."""
     if not exe:
         raise ValueError("Hermes Agent introuvable sur ce PC")
+    if not re.fullmatch(r"[a-z][a-z0-9_]{1,40}", name):
+        raise ValueError(f"nom de serveur MCP invalide : {name!r}")
     config = hermes_home() / "config.yaml"
-    if registered(config.read_text(encoding="utf-8", errors="replace") if config.is_file() else ""):
+    if registered(config.read_text(encoding="utf-8", errors="replace") if config.is_file() else "", name):
         return {"pont": True, "deja": True, "sauvegarde": ""}
     saved = backup(config)
     python = sys.executable
     if python.lower().endswith("pythonw.exe"):
         python = python[:-5] + ".exe"
-    result = runner([exe, "mcp", "add", MCP_NAME, "--command", python, "--args", "-I", str(BRIDGE), "hermes"],
+    result = runner([exe, "mcp", "add", name, "--command", python, "--args", *args],
                     input="y\n", capture_output=True, text=True, encoding="utf-8", errors="replace",
                     timeout=300, creationflags=NO_WINDOW)
-    ok = registered(config.read_text(encoding="utf-8", errors="replace") if config.is_file() else "")
+    ok = registered(config.read_text(encoding="utf-8", errors="replace") if config.is_file() else "", name)
     if not ok:
         tail = ((result.stdout or "") + (result.stderr or "")).strip().splitlines()[-3:]
         raise ValueError("échec de « hermes mcp add » : " + " / ".join(tail))

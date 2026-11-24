@@ -21,10 +21,16 @@ const GEO_TOOLS = [
   { id: "bis", label: "Médiatrice", need: ["pt", "pt"], hint: "deux points (ou un segment)" },
   { id: "inter", label: "Intersection", need: ["cu", "cu"], hint: "deux droites ou cercles" },
   { id: "circ3", label: "Cercle circonscrit", need: ["pt", "pt", "pt"], hint: "trois points" },
-  { id: "len", label: "Longueur", need: ["pt", "pt"], hint: "deux points (ou un segment)" },
-  { id: "angle", label: "Angle", need: ["pt", "pt", "pt"], hint: "A, sommet, C" },
-  { id: "area", label: "Aire", need: "poly", hint: "un polygone, ou ses sommets puis OK" },
-  { id: "eq", label: "Équation", need: ["cu"], hint: "une droite ou un cercle" },
+  { id: "pton", label: "Point sur objet", need: ["cu"], hint: "une droite ou un cercle : le point glisse dessus" },
+  { id: "symc", label: "Symétrie centrale", need: ["ob", "pt"], hint: "un objet, puis le centre", group: "Transformer" },
+  { id: "syma", label: "Symétrie axiale", need: ["ob", "ln"], hint: "un objet, puis l'axe (droite ou segment)", group: "Transformer" },
+  { id: "rot", label: "Rotation", need: ["ob", "pt"], hint: "un objet, le centre, puis l'angle en degrés", group: "Transformer" },
+  { id: "trans", label: "Translation", need: ["ob", "pt", "pt"], hint: "un objet, puis le vecteur (origine, extrémité)", group: "Transformer" },
+  { id: "locus", label: "Lieu", need: ["pt", "pt"], hint: "le point tracé, puis le point sur objet qui le fait bouger", group: "Transformer" },
+  { id: "len", group: "Mesurer", label: "Longueur", need: ["pt", "pt"], hint: "deux points (ou un segment)" },
+  { id: "angle", group: "Mesurer", label: "Angle", need: ["pt", "pt", "pt"], hint: "A, sommet, C" },
+  { id: "area", group: "Mesurer", label: "Aire", need: "poly", hint: "un polygone, ou ses sommets puis OK" },
+  { id: "eq", group: "Mesurer", label: "Équation", need: ["cq"], hint: "une droite, un cercle ou un lieu" },
   { id: "del", label: "Supprimer", need: ["any"], hint: "un objet (et ce qui en dépend)" },
 ];
 const toolOf = (id) => GEO_TOOLS.find((t) => t.id === id);
@@ -75,9 +81,73 @@ function solveOne(o, R) {
       return { k: "ci", x, y, r: Math.hypot(a.x - x, a.y - y), pts: [a, b, c] };
     }
     case "poly": { const pts = o.pts.map(P); return pts.every(Boolean) ? { k: "pg", pts } : null; }
+    case "pton": { const c = R.get(o.c); return c && (c.k === "ln" || c.k === "ci") ? { k: "pt", ...onCurve(c, o.u), slide: true } : null; }
+    case "tr": return transformed(o, R);
+    case "locus": return locusValue(o, R);
     case "meas": return measureValue(o, R);
     default: return null;
   }
+}
+function onCurve(c, u) {
+  if (c.k === "ci") return { x: c.x + c.r * Math.cos(u), y: c.y + c.r * Math.sin(u) };
+  return { x: c.x + u * c.dx, y: c.y + u * c.dy };
+}
+function projectU(o, p) {  // paramètre du point de la courbe le plus proche de p
+  const c = G.solved.get(o.c);
+  if (!c) return o.u || 0;
+  if (c.k === "ci") return Math.atan2(p.y - c.y, p.x - c.x);
+  const u = ((p.x - c.x) * c.dx + (p.y - c.y) * c.dy) / (c.dx * c.dx + c.dy * c.dy);
+  return c.seg ? Math.max(0, Math.min(1, u)) : u;
+}
+function transformFn(o, R) {
+  const P = (id) => { const v = R.get(id); return v && v.k === "pt" ? v : null; };
+  if (o.f === "symc") { const c = P(o.c); return c && ((p) => ({ x: 2 * c.x - p.x, y: 2 * c.y - p.y })); }
+  if (o.f === "syma") {
+    const l = R.get(o.l);
+    if (!l || l.k !== "ln") return null;
+    const n2 = l.dx * l.dx + l.dy * l.dy;
+    return (p) => { const k = ((p.x - l.x) * l.dx + (p.y - l.y) * l.dy) / n2; return { x: 2 * (l.x + k * l.dx) - p.x, y: 2 * (l.y + k * l.dy) - p.y }; };
+  }
+  if (o.f === "rot") {
+    const c = P(o.c), t = (parseFloat(o.deg) * Math.PI) / 180;
+    if (!c || !Number.isFinite(t)) return null;
+    const cs = Math.cos(t), sn = Math.sin(t);
+    return (p) => ({ x: c.x + cs * (p.x - c.x) - sn * (p.y - c.y), y: c.y + sn * (p.x - c.x) + cs * (p.y - c.y) });
+  }
+  if (o.f === "trans") { const a = P(o.a), b = P(o.b); return a && b && ((p) => ({ x: p.x + b.x - a.x, y: p.y + b.y - a.y })); }
+  return null;
+}
+function transformed(o, R) {
+  const f = transformFn(o, R), v = R.get(o.s);
+  if (!f || !v) return null;
+  if (v.k === "pt") return { k: "pt", ...f(v) };
+  if (v.k === "ln") return lineThrough(f(v.a), f(v.b), v.seg);
+  if (v.k === "ci") { const c = f(v); return { k: "ci", x: c.x, y: c.y, r: v.r }; }
+  if (v.k === "pg") return { k: "pg", pts: v.pts.map(f) };
+  return null;
+}
+// lieu : on fait parcourir sa courbe au point mobile et on recalcule ce qui en dépend
+function locusValue(o, R) {
+  const drv = G.objs.find((q) => q.id === o.b), curve = drv && R.get(drv.c);
+  if (!drv || drv.t !== "pton" || !curve) return null;
+  const deps = dependents(drv.id), stop = G.objs.indexOf(o);
+  const need = G.objs.slice(0, stop).filter((q) => deps.has(q.id) && q.t !== "meas" && q.t !== "locus");
+  let u0 = 0, u1 = 1;
+  if (curve.k === "ci") u1 = 2 * Math.PI;
+  else if (!curve.seg) { const far = (G.view.s * 1600) / Math.hypot(curve.dx, curve.dy); u0 = -far; u1 = far; }
+  const over = new Map(), view = { get: (id) => (over.has(id) ? over.get(id) : R.get(id)) }, pts = [], N = 360;
+  for (let i = 0; i <= N; i += 1) {
+    const u = u0 + ((u1 - u0) * i) / N;
+    over.clear();
+    for (const q of need) {
+      let v = null;
+      try { v = q.id === drv.id ? { k: "pt", ...onCurve(curve, u) } : solveOne(q, view); } catch { v = null; }
+      over.set(q.id, v);
+    }
+    const m = over.get(o.a);
+    pts.push(m && m.k === "pt" && Number.isFinite(m.x) && Number.isFinite(m.y) ? { x: m.x, y: m.y } : null);
+  }
+  return { k: "lc", pts };
 }
 function intersect(u, v) {
   if (!u || !v) return [];
@@ -126,6 +196,10 @@ function measureValue(o, R) {
   if (o.m === "eq") {
     const c = R.get(o.c);
     if (!c) return null;
+    if (c.k === "lc") {
+      const at = c.pts.find(Boolean), lo = G.objs.find((q) => q.id === o.c);
+      return at ? { k: "ms", text: `lieu de ${nameOf(lo?.a)} (équation : « exact »)`, at, curve: c } : null;
+    }
     return { k: "ms", text: equationText(c), at: c.k === "ln" ? { x: c.x + c.dx / 2, y: c.y + c.dy / 2 } : { x: c.x, y: c.y + c.r }, curve: c };
   }
   return null;
@@ -145,15 +219,26 @@ function measureLabel(o, v) {
   if (o.m === "area") return `aire ${names.join("")} = ${fmt(+v.value.toPrecision(6))}`;
   return v.text;
 }
+function figureObjects() {  // la construction telle que le moteur la refait en exact (geometry.figure_measure)
+  return G.objs.filter((o) => o.t !== "meas").map((o) => {
+    const v = o.t === "pton" ? G.solved.get(o.id) : null;
+    return v ? { ...o, u: +o.u.toPrecision(12), x: +v.x.toPrecision(12), y: +v.y.toPrecision(12) } : o;
+  });
+}
 function exactRequest(o) {
-  const R = G.solved, xy = (p) => [+p.x.toPrecision(12), +p.y.toPrecision(12)];
-  if (o.m === "len") return { what: "distance", points: o.refs.map((id) => xy(R.get(id))) };
-  if (o.m === "angle") return { what: "angle", points: o.refs.map((id) => xy(R.get(id))), degrees: S.angle === "deg" };
-  if (o.m === "area") return { what: "area", points: o.refs.map((id) => xy(R.get(id))) };
-  const c = R.get(o.c);
-  if (c.k === "ln") return { what: "line", points: [xy(c.a), xy(c.b)] };
-  if (c.pts) return { what: "circumcircle", points: c.pts.map(xy) };
-  return { what: "circle", points: [xy(c.c), xy(c.p)] };
+  const measure = o.t === "meas" ? { m: o.m, refs: o.refs, c: o.c } : { m: "pt", refs: [o.id] };
+  return { what: "figure", objects: figureObjects(), measure, degrees: S.angle === "deg" };
+}
+function exactButton(o, out) {
+  const btn = el("button", { type: "button", class: "small" }, "exact");
+  btn.addEventListener("click", async () => {
+    out.replaceChildren(el("small", {}, "calcul…"));
+    try {
+      const r = await call("geometry", exactRequest(o));
+      out.replaceChildren(mathNode(r.mathml, r.exact), r.approx ? el("small", {}, ` ≈ ${r.approx}`) : "");
+    } catch (e) { out.replaceChildren(el("span", { class: "err" }, e.message)); }
+  });
+  return btn;
 }
 
 // ---------- vue ----------
@@ -188,10 +273,20 @@ function geoDraw() {
       if (v.k === "pg") {
         ctx.beginPath(); v.pts.forEach((p, i) => (i ? ctx.lineTo(X(p.x), Y(p.y)) : ctx.moveTo(X(p.x), Y(p.y)))); ctx.closePath();
         ctx.fillStyle = color(o, "") ? "rgba(232, 89, 12, .18)" : "rgba(46, 196, 214, .16)"; ctx.fill();
+        if (o.t === "tr") { ctx.strokeStyle = color(o, ink); ctx.lineWidth = 1.6; ctx.stroke(); }
+      } else if (v.k === "lc") {
+        ctx.strokeStyle = color(o, "#c2255c"); ctx.lineWidth = 2; ctx.beginPath();
+        let prev = null;
+        for (const p of v.pts) {
+          if (p && prev && Math.hypot(X(p.x) - X(prev.x), Y(p.y) - Y(prev.y)) < 120) ctx.lineTo(X(p.x), Y(p.y));
+          else if (p) ctx.moveTo(X(p.x), Y(p.y));
+          prev = p;
+        }
+        ctx.stroke();
       } else if (v.k === "ln") {
         const len = Math.hypot(v.dx, v.dy), far = (Math.hypot(w, h) * G.view.s * 2) / len;
         const [t0, t1] = v.seg ? [0, 1] : [-far, far];
-        ctx.strokeStyle = color(o, o.t === "seg" ? ink : "#7048e8"); ctx.lineWidth = o.t === "seg" ? 2.2 : 1.6;
+        ctx.strokeStyle = color(o, v.seg ? ink : "#7048e8"); ctx.lineWidth = v.seg ? 2.2 : 1.6;
         ctx.beginPath(); ctx.moveTo(X(v.x + t0 * v.dx), Y(v.y + t0 * v.dy)); ctx.lineTo(X(v.x + t1 * v.dx), Y(v.y + t1 * v.dy)); ctx.stroke();
       } else if (v.k === "ci") {
         ctx.strokeStyle = color(o, "#2f9e44"); ctx.lineWidth = 2;
@@ -214,7 +309,7 @@ function geoDraw() {
         ctx.fillRect(tx - 3, ty - 13, ctx.measureText(text).width + 6, 17);
         ctx.fillStyle = color(o, "#e8590c"); ctx.fillText(text, tx, ty);
       } else if (v.k === "pt") {
-        ctx.fillStyle = color(o, v.free ? accent : "#495057");
+        ctx.fillStyle = color(o, v.free ? accent : v.slide ? "#f08c00" : "#495057");
         ctx.beginPath(); ctx.arc(X(v.x), Y(v.y), v.free ? 5 : 4, 0, 2 * Math.PI); ctx.fill();
         ctx.strokeStyle = ink; ctx.lineWidth = 1; ctx.stroke();
         ctx.fillStyle = ink; ctx.fillText(names.get(o.id) || "", X(v.x) + 7, Y(v.y) - 7);
@@ -242,8 +337,10 @@ function hitTest(e, kinds) {
   for (const o of G.objs) {
     const v = G.solved.get(o.id);
     if (!v || o.hidden) continue;
-    const kind = v.k === "pt" ? "pt" : v.k === "ln" ? "ln" : v.k === "ci" ? "ci" : v.k === "pg" ? "pg" : "ms";
-    if (!kinds.includes(kind) && !(kinds.includes("cu") && (kind === "ln" || kind === "ci")) && !kinds.includes("any")) continue;
+    const kind = ["pt", "ln", "ci", "pg", "lc"].includes(v.k) ? v.k : "ms";
+    const ok = kinds.includes(kind) || kinds.includes("any") || (kinds.includes("cu") && (kind === "ln" || kind === "ci"))
+      || (kinds.includes("cq") && ["ln", "ci", "lc"].includes(kind)) || (kinds.includes("ob") && ["pt", "ln", "ci", "pg"].includes(kind));
+    if (!ok) continue;
     if (v.k === "pt") { const [x, y] = W(v); consider(o, Math.hypot(mx - x, my - y), 4); }
     else if (v.k === "ln") {
       const [x0, y0] = W(v), [x1, y1] = W({ x: v.x + v.dx, y: v.y + v.dy }), dx = x1 - x0, dy = y1 - y0, l2 = dx * dx + dy * dy;
@@ -252,6 +349,7 @@ function hitTest(e, kinds) {
       consider(o, Math.hypot(mx - (x0 + t * dx), my - (y0 + t * dy)), 0);
     } else if (v.k === "ci") { const [x, y] = W(v); consider(o, Math.abs(Math.hypot(mx - x, my - y) - v.r / s), 0); }
     else if (v.k === "pg" && insidePoly(toWorld(e), v.pts)) consider(o, 8, 0);
+    else if (v.k === "lc") for (const p of v.pts) if (p) { const [x, y] = W(p); consider(o, Math.hypot(mx - x, my - y), 0); }
   }
   return best;
 }
@@ -277,7 +375,7 @@ function dependents(id) {
     grew = false;
     for (const o of G.objs) {
       if (out.has(o.id)) continue;
-      const refs = [o.a, o.b, o.c, o.p, o.l, ...(o.pts || []), ...(o.refs || [])];
+      const refs = [o.a, o.b, o.c, o.p, o.l, o.s, ...(o.pts || []), ...(o.refs || [])];
       if (refs.some((r) => out.has(r))) { out.add(o.id); grew = true; }
     }
   }
@@ -317,14 +415,15 @@ function clickTool(e) {
     const seg = hitTest(e, ["pt", "ln"]);
     if (seg && seg.t === "seg") { snapshot(); G.pick = [seg.a, seg.b]; return complete(); }
   }
-  const kinds = want === "pt" ? ["pt"] : want === "ln" ? ["ln"] : want === "cu" ? ["cu"] : ["any"];
+  const kinds = ["pt", "ln", "cu", "cq", "ob"].includes(want) ? [want] : ["any"];
   const hit = hitTest(e, kinds);
+  if (want === "pt" && !hit && G.tool === "locus") { hint("Lieu : choisir un point existant"); return null; }
   if (!G.pick.length) snapshot();
   if (want !== "pt" && hit && G.pick.includes(hit.id)) { hint(`${t.label} : choisir un autre objet`); return null; }
   if (want === "pt") G.pick.push(hit ? hit.id : addPoint(p).id);
   else if (hit) G.pick.push(hit.id);
-  else { if (!G.pick.length) G.undo.pop(); hint(`${t.label} : choisir ${want === "ln" ? "une droite ou un segment" : want === "cu" ? "une droite ou un cercle" : "un objet"}`); return null; }
-  if (G.tool === "inter") G.clickAt = p;
+  else { if (!G.pick.length) G.undo.pop(); hint(`${t.label} : choisir ${want === "ln" ? "une droite ou un segment" : want === "cu" ? "une droite ou un cercle" : want === "cq" ? "une droite, un cercle ou un lieu" : "un objet"}`); return null; }
+  if (G.tool === "inter" || G.tool === "pton") G.clickAt = p;
   if (G.pick.length === t.need.length) return complete();
   hint(); geoDraw(); return null;
 }
@@ -350,6 +449,21 @@ function complete() {
     case "len": add({ t: "meas", m: "len", refs: [a, b] }); break;
     case "angle": add({ t: "meas", m: "angle", refs: [a, b, c] }); break;
     case "eq": add({ t: "meas", m: "eq", c: a }); break;
+    case "pton": { const o = add({ t: "pton", c: a, u: 0, name: freshName() }); o.u = projectU(o, G.clickAt || { x: 0, y: 0 }); break; }
+    case "symc": add({ t: "tr", f: "symc", s: a, c: b, name: primed(a) }); break;
+    case "syma": add({ t: "tr", f: "syma", s: a, l: b, name: primed(a) }); break;
+    case "trans": if (b === c) return reject("Vecteur nul : deux points distincts"); add({ t: "tr", f: "trans", s: a, a: b, b: c, name: primed(a) }); break;
+    case "rot": {
+      const deg = (prompt("Angle de la rotation, en degrés (sens direct) :", "90") || "").trim().replace(",", ".");
+      if (!/^-?\d{1,4}(\.\d{1,6})?$/.test(deg)) return reject("Angle : un nombre de degrés (ex. 90, -45, 22.5)");
+      add({ t: "tr", f: "rot", s: a, c: b, deg, name: primed(a) }); break;
+    }
+    case "locus": {
+      const drv = G.objs.find((q) => q.id === b);
+      if (!drv || drv.t !== "pton") return reject("Le 2ᵉ point doit être un point sur objet (outil « Point sur objet »)");
+      if (a === b || !dependents(b).has(a)) return reject("Le point tracé doit dépendre du point mobile");
+      add({ t: "locus", a, b }); break;
+    }
     case "del": remove(a); break;
     case "inter": {
       const found = intersect(G.solved.get(a), G.solved.get(b));
@@ -364,6 +478,14 @@ function complete() {
   }
   return finish();
 }
+function primed(id) {  // A -> A' (A'' si déjà pris) ; rien pour un objet sans nom
+  const src = G.objs.find((q) => q.id === id);
+  if (!src?.name) return undefined;
+  const used = new Set(G.objs.map((q) => q.name).filter(Boolean));
+  let n = `${src.name}'`;
+  while (used.has(n)) n += "'";
+  return n;
+}
 function reject(msg) { toast(msg); G.pick = []; geoUndo(); return null; }
 function finish() { G.pick = []; saveGeo(); hint(); geoDraw(); geoPanel(); return true; }
 
@@ -376,16 +498,13 @@ function geoPanel() {
   close.addEventListener("click", () => { box.hidden = true; });
   const list = rows.map((o) => {
     const out = el("td", { class: "exact" });
-    const btn = el("button", { type: "button", class: "small" }, "exact");
-    btn.addEventListener("click", async () => {
-      try {
-        const r = await call("geometry", exactRequest(o));
-        out.replaceChildren(mathNode(r.mathml, r.exact), r.approx ? el("small", {}, ` ≈ ${r.approx}`) : "");
-      } catch (e) { out.replaceChildren(el("span", { class: "err" }, e.message)); }
-    });
-    return el("tr", {}, el("td", {}, measureLabel(o, R.get(o.id))), el("td", {}, btn), out);
+    return el("tr", {}, el("td", {}, measureLabel(o, R.get(o.id))), el("td", {}, exactButton(o, out)), out);
   });
-  const pts = G.objs.filter((o) => R.get(o.id)?.k === "pt").map((o) => { const v = R.get(o.id); return el("tr", {}, el("td", {}, `${o.name} (${fmt(+v.x.toPrecision(6))} ; ${fmt(+v.y.toPrecision(6))})`)); });
+  const pts = G.objs.filter((o) => R.get(o.id)?.k === "pt").map((o) => {
+    const v = R.get(o.id), row = el("tr", {}, el("td", {}, `${o.name || "?"} (${fmt(+v.x.toPrecision(6))} ; ${fmt(+v.y.toPrecision(6))})`));
+    if (!v.free) { const out = el("td", { class: "exact" }); row.append(el("td", {}, exactButton(o, out)), out); }
+    return row;
+  });
   box.replaceChildren(el("div", { class: "row" }, el("b", {}, "Mesures"), " ", close),
     rows.length ? el("table", {}, el("tbody", {}, ...list)) : el("p", {}, "Aucune mesure : outils Longueur, Angle, Aire, Équation."),
     el("b", {}, "Points"), el("table", {}, el("tbody", {}, ...pts)));
@@ -404,7 +523,7 @@ function bindGeo() {
     geoSolve();
     if (G.tool === "move") {
       const hit = hitTest(e, ["pt"]);
-      const free = hit && hit.t === "pt";
+      const free = hit && (hit.t === "pt" || hit.t === "pton");
       if (hit) G.sel = hit.id;
       if (free) snapshot();
       G.drag = free ? { id: hit.id, moved: false } : { pan: true, x: e.clientX, y: e.clientY, view: { ...G.view } };
@@ -421,6 +540,7 @@ function bindGeo() {
     }
     if (G.drag) {
       const o = G.objs.find((q) => q.id === G.drag.id), q = snapped(p);
+      if (o?.t === "pton") { o.u = projectU(o, p); G.drag.moved = true; geoDraw(); geoPanel(); return; }
       if (o && (o.x !== q.x || o.y !== q.y)) { o.x = q.x; o.y = q.y; G.drag.moved = true; geoDraw(); geoPanel(); }
       return;
     }
@@ -472,8 +592,9 @@ function geoNav(dir) {
 }
 function geoDeleteSelected() { if (G.sel) { snapshot(); remove(G.sel); G.sel = null; saveGeo(); geoDraw(); geoPanel(); } }
 function geoMenuGroups() {
-  return [{ group: "Construire", items: GEO_TOOLS.slice(0, 12).map((t) => ({ label: t.label, hint: t.hint, act: () => setTool(t.id) })) },
-    { group: "Mesurer", items: GEO_TOOLS.slice(12).map((t) => ({ label: t.label, hint: t.hint, act: () => setTool(t.id) })) },
+  const of = (g) => GEO_TOOLS.filter((t) => (t.group || "Construire") === g).map((t) => ({ label: t.label, hint: t.hint, act: () => setTool(t.id) }));
+  return [{ group: "Construire", items: of("Construire") }, { group: "Transformer, lieux", items: of("Transformer") },
+    { group: "Mesurer", items: of("Mesurer") },
     { group: "Figure", items: [
       { label: "Panneau des mesures (valeurs exactes)", act: () => { $("geo-panel").hidden = false; geoPanel(); } },
       { label: `Grille magnétique : ${G.snap ? "désactiver" : "activer"}`, act: () => $("geo-snap").click() },

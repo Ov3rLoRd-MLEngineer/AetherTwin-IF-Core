@@ -40,6 +40,7 @@ def test_ranking_costs_sale_and_missing_prices() -> None:
 
 def test_market_profit_view_and_decor_collection_render(app, tmp_path) -> None:
     from addon_data import Market
+
     from config import WoWConfig
     app.test_ctx.craft.load_game_recipes(RECIPES)
     app.market = Market(WoWConfig.WOW_PATH, getattr(app.test_ctx.character, "realm", "") or "")

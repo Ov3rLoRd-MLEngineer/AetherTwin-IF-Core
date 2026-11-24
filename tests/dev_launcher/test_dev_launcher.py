@@ -352,3 +352,23 @@ def test_task_model_needs_a_large_context(tmp_path: Path, monkeypatch: pytest.Mo
     assert small["CLAUDE_CODE_MAX_CONTEXT_TOKENS"] == "32768" and "65536" in mod.context_warning(small)
     mod.config["modele_taches"] = "qwen3-coder:30b"
     assert mod.task_model() == "qwen3-coder:30b"  # choix explicite respecté (avec avertissement)
+
+
+def test_other_mcp_servers_can_be_registered(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    config = tmp_path / "config.yaml"
+    config.write_text("mcp_servers:\n  wow_assistant:\n    command: py\n", encoding="utf-8")
+    calls: list[list[str]] = []
+
+    def runner(args: list[str], **kw: Any) -> Any:
+        calls.append(args)
+        added = "  aethertwin_calc:\n    command: py\n"
+        config.write_text(config.read_text(encoding="utf-8") + added, encoding="utf-8")
+        return SimpleNamespace(stdout="ok", stderr="", returncode=0)
+
+    result = hermes_link.register_server("hermes.exe", "aethertwin_calc", ["-I", "mcp_server.py"], runner=runner)
+    assert result["pont"] and calls[0][1:4] == ["mcp", "add", "aethertwin_calc"]
+    assert calls[0][-2:] == ["-I", "mcp_server.py"]
+    for bad in ("Calc", "a", "calc-cas", "x; rm"):
+        with pytest.raises(ValueError, match="nom de serveur"):
+            hermes_link.register_server("hermes.exe", bad, [], runner=runner)
