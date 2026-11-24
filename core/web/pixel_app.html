@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Studio pixel Æther — AetherTwin</title>
+  <link rel="icon" href="/static/logo.svg">
+  <link rel="stylesheet" href="/static/pixel_app.css">
+  <script src="/static/pixel_app.js" defer></script>
+</head>
+<body>
+  <div class="studio" id="studio">
+    <!-- barre de marque et menus -->
+    <header class="brand">
+      <img class="logo" src="/static/logo.svg" alt="" width="26" height="26">
+      <span class="wordmark">Aether<em>Twin</em></span>
+      <span class="model">PIXEL</span>
+      <span class="dot" id="dot" title="Liaison avec le Hub"></span>
+      <input id="doc-name" class="doc-name" spellcheck="false" autocomplete="off" aria-label="Nom du projet"
+             title="Nom du projet (lettres, chiffres, « _ », « - »)">
+      <span class="saved" id="saved" aria-live="polite"></span>
+      <div class="modes" role="tablist" id="modes">
+        <button role="tab" data-mode="sprite" aria-selected="true">Sprite</button>
+        <button role="tab" data-mode="map" aria-selected="false">Carte</button>
+      </div>
+      <span class="grow"></span>
+      <button type="button" id="btn-new" title="Nouveau projet (Ctrl+Alt+N)">Nouveau</button>
+      <button type="button" id="btn-projects" title="Projets enregistrés (Ctrl+O)">Projets</button>
+      <button type="button" id="btn-save" title="Enregistrer (Ctrl+S)">Enregistrer</button>
+      <button type="button" id="btn-import" title="Importer une image dans le calque courant">Importer</button>
+      <button type="button" id="btn-export" class="primary" title="Exporter (Ctrl+E)">Exporter</button>
+      <button type="button" id="btn-game" title="Préparer pour les jeux de la calculatrice">Jeu</button>
+      <button type="button" id="btn-theme" title="Thème clair ou sombre">◐</button>
+      <button type="button" id="btn-help" title="Raccourcis clavier (F1)">?</button>
+      <input type="file" id="file-image" accept="image/png,image/gif,image/jpeg,image/webp" hidden>
+      <input type="file" id="file-palette" accept="image/png,image/gif,image/jpeg,image/webp" hidden>
+    </header>
+
+    <!-- outils -->
+    <nav class="tools" id="tools" aria-label="Outils">
+      <div class="tool-group" id="sprite-tools">
+        <button type="button" data-tool="pencil" title="Crayon (B)">✎</button>
+        <button type="button" data-tool="eraser" title="Gomme (E)">⌫</button>
+        <button type="button" data-tool="fill" title="Pot de peinture (G) · Maj : toutes les cases de la couleur">▰</button>
+        <button type="button" data-tool="picker" title="Pipette (I) · Alt avec un autre outil">⌖</button>
+        <button type="button" data-tool="line" title="Ligne (L) · Maj : angles de 45°">╱</button>
+        <button type="button" data-tool="rect" title="Rectangle (R) · Maj : plein">▭</button>
+        <button type="button" data-tool="ellipse" title="Ellipse (O) · Maj : pleine">◯</button>
+        <button type="button" data-tool="select" title="Sélection (M) : glisser pour déplacer, Ctrl+C / Ctrl+V">⬚</button>
+        <button type="button" data-tool="dither" title="Tramage (D) : damier des deux couleurs">▦</button>
+        <button type="button" data-tool="shade" title="Ombrage (S) : clic gauche éclaircit, droit assombrit, le long de la palette">◑</button>
+        <span class="sep"></span>
+        <button type="button" id="mirror-x" class="toggle" title="Symétrie verticale (axe gauche-droite)">⇋</button>
+        <button type="button" id="mirror-y" class="toggle" title="Symétrie horizontale (axe haut-bas)">⇵</button>
+        <button type="button" id="toggle-grid" class="toggle" title="Grille (Maj+G)">#</button>
+        <button type="button" id="toggle-onion" class="toggle" title="Pelure d'oignon : images voisines en transparence">◎</button>
+        <span class="sep"></span>
+        <label class="size" title="Taille du pinceau ([ et ])"><span id="brush-label">1</span>
+          <input type="range" id="brush" min="1" max="8" value="1" aria-label="Taille du pinceau"></label>
+      </div>
+      <div class="tool-group" id="map-tools" hidden>
+        <button type="button" data-maptool="paint" title="Poser la tuile (B)">✎</button>
+        <button type="button" data-maptool="erase" title="Effacer la case (E)">⌫</button>
+        <button type="button" data-maptool="fill" title="Remplir la zone (G)">▰</button>
+        <button type="button" data-maptool="pick" title="Prendre la tuile (I)">⌖</button>
+        <button type="button" data-maptool="solid" title="Case bloquante (K) : clic gauche pose, droit enlève">⛔</button>
+        <span class="sep"></span>
+        <button type="button" id="toggle-solid-view" class="toggle" title="Montrer les cases bloquantes">▨</button>
+        <button type="button" id="toggle-map-grid" class="toggle" title="Grille des cases">#</button>
+      </div>
+    </nav>
+
+    <!-- zone de dessin -->
+    <main class="stage" id="stage">
+      <canvas id="canvas" aria-label="Zone de dessin : molette pour zoomer, Espace ou clic milieu pour déplacer"></canvas>
+      <div class="hud">
+        <button type="button" id="zoom-out" title="Zoom arrière (-)">−</button>
+        <span id="zoom-label">800 %</span>
+        <button type="button" id="zoom-in" title="Zoom avant (+)">+</button>
+        <button type="button" id="zoom-fit" title="Ajuster (0)">⤢</button>
+      </div>
+      <div class="toast" id="toast" role="status" hidden></div>
+    </main>
+
+    <!-- panneaux de droite -->
+    <aside class="side" id="side">
+      <section class="panel colors-panel">
+        <h3>Couleurs</h3>
+        <div class="current">
+          <button type="button" class="chip" id="chip-primary" title="Couleur principale (clic gauche) — cliquer pour la modifier"></button>
+          <button type="button" class="chip second" id="chip-secondary" title="Couleur secondaire (clic droit) — cliquer pour la modifier"></button>
+          <button type="button" class="swap" id="swap-colors" title="Échanger (X)">⇄</button>
+          <input type="color" id="color-input" aria-label="Choisir une couleur" hidden>
+          <span class="hex" id="hex-primary"></span>
+        </div>
+        <div class="palette-head">
+          <select id="palette-select" aria-label="Palettes intégrées"></select>
+          <button type="button" class="small" id="pal-load" title="Remplacer la palette du projet">Charger</button>
+        </div>
+        <div class="swatches" id="swatches" aria-label="Palette : clic gauche principale, clic droit secondaire, double-clic modifier"></div>
+        <div class="row">
+          <button type="button" class="small" id="pal-add" title="Ajouter la couleur principale">+ couleur</button>
+          <button type="button" class="small" id="pal-remove" title="Retirer la couleur sélectionnée">− couleur</button>
+          <button type="button" class="small" id="pal-ramp" title="Ajouter une rampe de 5 tons autour de la couleur principale">Rampe</button>
+          <button type="button" class="small" id="pal-image" title="Palette tirée d'une image">Depuis une image</button>
+        </div>
+      </section>
+
+      <section class="panel preview-panel" id="preview-panel">
+        <h3>Aperçu <span class="muted" id="preview-info"></span></h3>
+        <div class="preview-box"><canvas id="preview" aria-label="Aperçu animé"></canvas></div>
+        <div class="row">
+          <button type="button" class="small" id="preview-scale" title="Taille de l'aperçu">×2</button>
+          <button type="button" class="small" id="preview-bg" title="Fond de l'aperçu">Damier</button>
+        </div>
+      </section>
+
+      <section class="panel layers-panel" id="layers-panel">
+        <h3>Calques</h3>
+        <ul class="layers" id="layers"></ul>
+        <label class="opacity">Opacité <input type="range" id="layer-opacity" min="0" max="100" value="100"
+               aria-label="Opacité du calque"> <span id="opacity-label">100 %</span></label>
+        <div class="row">
+          <button type="button" class="small" id="layer-add" title="Nouveau calque">+</button>
+          <button type="button" class="small" id="layer-dup" title="Dupliquer le calque">Dupliquer</button>
+          <button type="button" class="small" id="layer-up" title="Monter">▲</button>
+          <button type="button" class="small" id="layer-down" title="Descendre">▼</button>
+          <button type="button" class="small" id="layer-merge" title="Fusionner avec le calque du dessous">Fusionner</button>
+          <button type="button" class="small danger" id="layer-del" title="Supprimer le calque">Suppr.</button>
+        </div>
+      </section>
+
+      <section class="panel tiles-panel" id="tiles-panel" hidden>
+        <h3>Tuiles <span class="muted">(les images du projet)</span></h3>
+        <div class="tiles" id="tiles"></div>
+        <div class="map-layer" role="radiogroup" id="map-layer" aria-label="Couche de la carte">
+          <button type="button" data-layer="ground" aria-checked="true" role="radio">Sol</button>
+          <button type="button" data-layer="decor" aria-checked="false" role="radio">Décor</button>
+        </div>
+        <div class="map-size">
+          <label>Colonnes <input type="number" id="map-cols" min="1" max="128" value="16"></label>
+          <label>Lignes <input type="number" id="map-rows" min="1" max="128" value="12"></label>
+          <button type="button" class="small" id="map-resize">Appliquer</button>
+        </div>
+        <p class="hint">Les cases bloquantes (⛔) sont exportées avec la carte : un jeu s'en sert pour les murs.</p>
+        <button type="button" class="small danger" id="map-clear">Vider la carte</button>
+      </section>
+    </aside>
+
+    <!-- images (animation) -->
+    <footer class="timeline" id="timeline">
+      <div class="frame-tools">
+        <button type="button" id="play" class="primary" title="Lire l'animation (Entrée)">▶</button>
+        <button type="button" class="small" id="frame-add" title="Nouvelle image vide">+ image</button>
+        <button type="button" class="small" id="frame-dup" title="Dupliquer l'image (Ctrl+D)">Dupliquer</button>
+        <button type="button" class="small" id="frame-left" title="Déplacer à gauche">◀</button>
+        <button type="button" class="small" id="frame-right" title="Déplacer à droite">▶</button>
+        <button type="button" class="small danger" id="frame-del" title="Supprimer l'image">Suppr.</button>
+        <label class="duration">Durée <input type="number" id="frame-duration" min="10" max="10000" step="10" value="100"> ms</label>
+        <button type="button" class="small" id="duration-all" title="Même durée pour toutes les images">À toutes</button>
+      </div>
+      <div class="frames" id="frames" aria-label="Images de l'animation (, et . pour changer)"></div>
+    </footer>
+
+    <div class="status" id="status">
+      <span id="st-pos">—</span>
+      <span id="st-size"></span>
+      <span id="st-frame"></span>
+      <span class="grow"></span>
+      <span id="st-hint"></span>
+    </div>
+  </div>
+</body>
+</html>

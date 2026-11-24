@@ -47,9 +47,10 @@ def find_browser(candidates: tuple[str, ...] = CANDIDATES) -> str | None:
     return None
 
 
-def browser_args(browser: str, url: str, profile: Path = PROFILE) -> list[str]:
+def browser_args(browser: str, url: str, profile: Path = PROFILE,
+                 size: tuple[int, int] = WINDOW_SIZE) -> list[str]:
     """Ligne de commande (liste, jamais de shell) d'une fenêtre d'application isolée."""
-    width, height = WINDOW_SIZE
+    width, height = size
     return [browser, f"--app={url}", f"--user-data-dir={profile}", f"--window-size={width},{height}",
             "--no-first-run", "--no-default-browser-check", "--disable-features=Translate"]
 

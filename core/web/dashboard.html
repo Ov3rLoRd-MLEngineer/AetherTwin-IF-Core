@@ -12,6 +12,8 @@
   <script src="/static/professeur.js" defer></script>
   <link rel="stylesheet" href="/static/calc_cas.css">
   <script src="/static/calc_cas.js" defer></script>
+  <link rel="stylesheet" href="/static/pixel_tool.css">
+  <script src="/static/pixel_tool.js" defer></script>
   <script src="/static/dev.js" defer></script>
   <script src="/static/system.js" defer></script>
 </head>
@@ -335,7 +337,7 @@
       </section>
     </div>
 
-    <!-- Outils (module calc_cas) -->
+    <!-- Outils (modules calc_cas et pixel_studio) -->
     <div data-subtabs class="panel" data-panel="outils" hidden>
       <section data-sub="Calculatrice" class="calc-tool">
         <div class="calc-tool-head">
@@ -348,6 +350,17 @@
         <p class="muted calc-hermes">
           <span id="calc-hermes-state">Hermes : …</span>
           <button id="calc-hermes" type="button" class="ghost" hidden>Brancher sur Hermes</button>
+        </p>
+      </section>
+      <section data-sub="Studio pixel" class="pixel-tool">
+        <div class="calc-tool-head">
+          <h2>Studio pixel</h2>
+          <button id="pixel-window" type="button" title="Fenêtre séparée, redimensionnable">Ouvrir le studio</button>
+        </div>
+        <iframe id="pixel-frame" class="pixel-frame" title="Studio pixel Æther" src="about:blank"></iframe>
+        <p class="muted calc-hermes">
+          <span id="pixel-hermes-state">Hermes : …</span>
+          <button id="pixel-hermes" type="button" class="ghost" hidden>Brancher sur Hermes</button>
         </p>
       </section>
     </div>

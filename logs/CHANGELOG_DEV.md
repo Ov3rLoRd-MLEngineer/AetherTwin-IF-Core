@@ -1419,3 +1419,31 @@ outine.json` ; le serveur MCP ne fait que le lire.
   l'intérieur vers l'extérieur), puis élimination de Gröbner ; l'équation couvre le lieu algébrique entier (les
   deux points d'intersection).
 - **Tests :** 1 nouveau (cercle mobile ∩ droite → `y = 0` ; milieu d'une corde par C → `x² − x + y² − 3y = 0`).
+
+## 2026-11-24 — calc_cas : lancement réel d'un émulateur
+
+- mGBA 0.10.5 (portable, GPL) et le jeu libre µCity (GPL-3) téléchargés hors du dépôt ; la commande
+  `emulator_launch` ouvre la fenêtre « mGBA - MICROCITY (60 fps) », fermée ensuite. Ligne de statut passée
+  à `FAIT-TESTÉ`, README et rapport mis à jour.
+
+## 2026-11-24 — Studio pixel art (`pixel_studio`), branche `feature/pixel-studio`
+
+Proposé à Jérémy avec d'autres outils « aussi poussés que la calculatrice » ; il a retenu le studio pixel (jeu façon
+RPG 16 bits avec Fuma et Inoue).
+
+- **Module** `modules/pixel_studio/` : format `.aether-pixel` (JSON, un PNG base64 par case calque × image),
+  contrôle complet côté serveur, exports Pillow (PNG, planche + JSON, GIF animé, carte + JSON), palettes créées
+  pour AetherTwin et rampes à glissement de teinte, palette tirée d'une image, stockage atomique.
+- **Page** `core/web/pixel_app.*` : 10 outils de dessin, symétries, sélection flottante, calques, images et durées,
+  pelure d'oignon, aperçu animé, carte en tuiles (sol, décor, cases bloquantes), annuler/rétablir, enregistrement
+  automatique, thème clair/sombre, raccourcis (F1). Fenêtre de bureau (`app.py`, réutilise le lanceur de la
+  calculatrice ; `browser_args` prend maintenant une taille de fenêtre).
+- **Tableau de bord** : l'onglet Outils a deux sous-onglets, « Calculatrice » et « Studio pixel » (`pixel_tool.*`) ;
+  `tests/core/test_dashboard.py` exige désormais 2 sous-onglets pour Outils.
+- **Calculatrice** : `jeu.sprite`, `jeu.carte`, `jeu.bloque` dans le mode jeu ; le dossier des sprites est passé au
+  processus du jeu (`pixel_studio.data_dir` respecté).
+- **Agents** : 6 outils (`agent.py`), serveur MCP stdio `aethertwin_pixel`.
+- Vérifié pour de vrai sur un Hub de test (5760) : dessin à la souris, carte, exports, bouton Jeu puis partie lancée
+  (carte et sprite animé visibles), fenêtre de bureau. Trouvé à l'essai et corrigé : vue ajustée avant la mise en
+  page (zoom 25 %), cases sautées par un glissé rapide sur la carte, ombrage qui changeait de teinte, dossier des
+  sprites ignoré par les jeux quand `data_dir` est configuré, nom « Cœur » vidé (ligature œ).

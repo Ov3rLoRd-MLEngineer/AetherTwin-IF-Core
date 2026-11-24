@@ -153,6 +153,7 @@ pygame, seulement des nombres, booléens et tuples. « Exécuter » bascule seul
 | `effacer(c)`, `rect(x, y, l, h, c)`, `cercle(x, y, r, c)`, `ligne(…)`, `polygone(points, c)`, `texte(x, y, s, c, taille)` | dessin ; `c` = « rouge », `(r, g, b)` ou « #rrggbb » |
 | `touche("gauche")`, `appuyee("espace")` | touche maintenue / enfoncée à cette image |
 | `souris()`, `temps()`, `largeur()`, `hauteur()` | position et bouton, secondes écoulées, taille |
+| `sprite(nom, x, y, echelle, image)`, `carte(nom, x, y, echelle)`, `bloque(nom, px, py, x, y, echelle)` | sprites et cartes du studio pixel (bouton « Jeu » du studio, voir `modules/pixel_studio/README.md`) |
 
 `print` va dans la console de la calculatrice (relevée chaque seconde) ; `input()` n'existe pas en mode jeu.
 Jeux fournis (Programmes → Jeux), écrits dans ce Python restreint : **snake**, **pong**, **tetris**,
@@ -254,9 +255,10 @@ Essai réel (23/11/2026) : `qwen3-27b` via le Hub, 2 calculs délégués, répon
   construction très profonde peut dépasser le délai du calcul. Pas d'export de la figure.
 - Mode jeu : une partie à la fois ; pas de son ni d'images chargées depuis des fichiers (le bac à sable n'ouvre
   aucun fichier).
-- Émulateurs : vérifiés sans émulateur installé sur ce PC (détection, dossier, refus) ; le lancement réel d'un
-  émulateur est en cours de vérification. Les chemins connus visent les installations Windows par défaut ; sinon,
-  les indiquer dans la configuration.
+- Émulateurs : lancement réel vérifié avec mGBA 0.10.5 (version portable, chemin donné dans la configuration) et
+  le jeu libre µCity ; les autres émulateurs de la liste sont détectés et lancés de la même façon, mais n'ont pas
+  été essayés un par un. Les chemins connus visent les installations Windows par défaut ; sinon, les indiquer
+  dans la configuration.
 - Programmes : `input()` rejoue le programme depuis le début (un programme très long avant sa question est donc
   refait) ; pas de classes ni de modules autres que math, cmath, random, statistics.
 - L'interface a été vérifiée dans Edge (fenêtre d'application) et le navigateur intégré (Chromium) ; MathML demande

@@ -68,10 +68,12 @@ supprimés.
 - **Hermes réel** : `hermes mcp test aethertwin_calc` → connecté, 3 outils ; `hermes chat --oneshot -q …` → appel de
   `mcp__aethertwin_calc__cas_compute`, réponse « e − 2 » pour ∫₀¹ x²eˣ dx, en 31 s.
 
-## En cours
+## Émulateur : lancement réel (24/11, après le premier rapport)
 
-- Lancement réel d'un émulateur : aucun émulateur n'est installé sur ce PC ; détection, dossier et refus sont
-  testés, le lancement effectif est en cours de vérification (dès qu'un émulateur est installé).
+- mGBA 0.10.5 (GPL, archive portable officielle) et µCity (jeu Game Boy Color libre, GPL-3) téléchargés hors du
+  dépôt avec l'accord de Jérémy ; `emulator_launch {emulator: mgba, rom: homebrew/ucity.gbc}` → fenêtre
+  « mGBA - MICROCITY (60 fps) », puis fermée. Rien de téléchargé n'est dans le dépôt. Plus rien n'est en cours
+  sur `calc_cas`.
 
 ## Rappels
 

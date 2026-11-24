@@ -205,8 +205,8 @@ def test_panels_use_subtabs_and_system_assets(client) -> None:
     for panel in ("accueil", "jeu", "professeur", "outils", "scantrad", "developpement"):
         block = page.split(f'data-panel="{panel}"', 1)[1].split('<div class="panel', 1)[0]
         assert re.search(rf'<div data-subtabs class="panel[^"]*" data-panel="{panel}"', page)
-        # Outils : la calculatrice seule (décision de Jérémy, 24/11), prête à recevoir d'autres outils
-        assert len(set(re.findall(r'<section data-sub="([^"]+)"', block))) >= (1 if panel == "outils" else 3)
+        # Outils : la calculatrice et le studio pixel, chacun en entier (décision de Jérémy, 24/11)
+        assert len(set(re.findall(r'<section data-sub="([^"]+)"', block))) >= (2 if panel == "outils" else 3)
         assert not re.search(r"\n      <section(?! data-sub=)", block)  # aucune section hors sous-onglet
     for label in ("Performance", "Stockage et périphériques", "Système", "Carte mère", "Optimisation (Inoue)"):
         assert f'<section data-sub="{label}"' in page

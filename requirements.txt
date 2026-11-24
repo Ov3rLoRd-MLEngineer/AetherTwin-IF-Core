@@ -6,7 +6,7 @@ psutil==7.2.2             # surveillance des processus (absent : mode dégradé)
 fastapi==0.163.1          # API HTTP locale du démon (127.0.0.1 uniquement)
 uvicorn==0.54.0
 pygame==2.6.1             # interface de WoW Assistant / gaming_hud
-pillow==13.0.0            # captures d'écran et presse-papier image
+pillow==13.0.0            # captures d'écran, presse-papier image, studio pixel
 nvidia-ml-py==13.615.71   # lecture NVML (pynvml). Absent ou sans GPU : repli nvidia-smi, puis « inconnu »
 opencv-python-headless==5.0.0.93  # scantrad : détection des bulles, effacement (inpainting)
 numpy==2.4.6              # requis par OpenCV et calc_cas (graphes, statistiques)

@@ -1,6 +1,6 @@
 """Mode jeu des Programmes : un programme Python du bac à sable dessine dans sa propre fenêtre, en temps réel.
 
-    python -I modules/calc_cas/games.py <fichier du programme>      (lancé par le module, une partie à la fois)
+    python -I modules/calc_cas/games.py <fichier du programme> [dossier des sprites]   (lancé par le module)
 
 Le programme passe les mêmes contrôles que dans la console (`sandbox.check_program`), avec un module de plus,
 `jeu` : une petite bibliothèque graphique en français, construite sur pygame, qui ne rend **jamais** d'objet pygame
@@ -16,11 +16,22 @@ Le programme passe les mêmes contrôles que dans la console (`sandbox.check_pro
         jeu.cercle(x, 180, 12, "jaune")
         jeu.texte(8, 8, f"x = {x}")
 
+Sprites du studio pixel (bouton « Jeu » du studio, ou outil `pixel_export_for_game` des agents) :
+
+    jeu.sprite("fuma", x, y, echelle=3, image=0)   # une image du sprite, coin haut-gauche en (x, y)
+    jeu.carte("niveau", 0, 0, echelle=2)            # la carte en tuiles du projet
+    jeu.bloque("niveau", px, py, 0, 0, echelle=2)  # True si le point (px, py) tombe sur une case bloquante
+
+Les sprites sont lus dans le dossier des sprites du studio (`data/pixel_studio/sprites` par défaut, fixé par le
+module au lancement ; le programme ne donne qu'un nom, vérifié, jamais un chemin).
+
 Pas de délai maximal ici (un jeu dure) : la partie s'arrête à la fermeture de la fenêtre ou par « Arrêter ».
 """
 from __future__ import annotations
 
+import json
 import random
+import re
 import sys
 import time
 from pathlib import Path
@@ -40,6 +51,9 @@ KEYS = {"gauche": "left", "droite": "right", "haut": "up", "bas": "down", "espac
         "entrée": "return", "echap": "escape", "maj": "left shift", "ctrl": "left ctrl", "tab": "tab"}
 MAX_SIZE = (1920, 1080)
 MAX_PRINT = 20_000
+SPRITES_DIR = Path(__file__).resolve().parents[2] / "data" / "pixel_studio" / "sprites"
+SPRITE_NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{0,39}$")
+MAX_SPRITES = 64
 
 
 class GameClosed(BaseException):  # noqa: N818 — signal d'arrêt, pas une erreur ; hors d'atteinte des `except Exception`
@@ -68,7 +82,7 @@ def color_of(value: Any) -> tuple[int, int, int]:
 class Game:
     """État d'une partie (fenêtre, clavier, souris), derrière les fonctions du module `jeu`."""
 
-    def __init__(self, pygame: Any) -> None:
+    def __init__(self, pygame: Any, sprites_dir: Path = SPRITES_DIR) -> None:
         self.pg = pygame
         self.screen: Any = None
         self.clock: Any = None
@@ -79,6 +93,9 @@ class Game:
         self.closed = False
         self.started = time.monotonic()
         self.printed = 0
+        self.sprites: dict[str, tuple[Any, dict[str, Any]]] = {}
+        self.scaled: dict[tuple[str, int, int], Any] = {}
+        self.sprites_dir = Path(sprites_dir)
 
     def _need(self) -> Any:
         if self.screen is None:
@@ -145,6 +162,72 @@ class Game:
         surface = self.fonts[size].render(str(message)[:300], True, color_of(couleur))
         self._need().blit(surface, (int(x), int(y)))
 
+    # -- sprites du studio pixel
+    def _sprite(self, nom: Any) -> tuple[Any, dict[str, Any]]:
+        name = str(nom)
+        if name not in self.sprites:
+            if not SPRITE_NAME.match(name):
+                raise ValueError(f"nom de sprite invalide : {name!r}")
+            if len(self.sprites) >= MAX_SPRITES:
+                raise ValueError(f"{MAX_SPRITES} sprites au plus par partie")
+            png, meta = self.sprites_dir / f"{name}.png", self.sprites_dir / f"{name}.json"
+            if not png.is_file() or not meta.is_file():
+                raise ValueError(f"sprite « {name} » introuvable : bouton « Jeu » du studio pixel d'abord")
+            info = json.loads(meta.read_text(encoding="utf-8"))
+            sheet = self.pg.image.load(str(png))
+            if self.screen is not None:
+                sheet = sheet.convert_alpha()
+            self.sprites[name] = (sheet, info)
+        return self.sprites[name]
+
+    def _frame(self, name: str, index: int, scale: int) -> Any:
+        key = (name, index, scale)
+        if key not in self.scaled:
+            sheet, info = self._sprite(name)
+            w, h = int(info["frame_width"]), int(info["frame_height"])
+            surface = sheet.subsurface((index * w, 0, w, h))
+            if scale != 1:
+                surface = self.pg.transform.scale(surface, (w * scale, h * scale))
+            if len(self.scaled) > 2048:
+                self.scaled.clear()
+            self.scaled[key] = surface
+        return self.scaled[key]
+
+    def sprite(self, nom: Any, x: Any, y: Any, echelle: Any = 1, image: Any = 0) -> None:
+        """Dessine l'image `image` (0 = première, prise modulo le nombre d'images) du sprite `nom`."""
+        _, info = self._sprite(nom)
+        scale = max(1, min(int(echelle), 16))
+        index = int(image) % max(1, int(info["frames"]))
+        self._need().blit(self._frame(str(nom), index, scale), (int(x), int(y)))
+
+    def carte(self, nom: Any, x: Any = 0, y: Any = 0, echelle: Any = 1) -> None:
+        """Dessine la carte en tuiles du projet `nom` (sol puis décor), coin haut-gauche en (x, y)."""
+        _, info = self._sprite(nom)
+        tilemap = info.get("map")
+        if not tilemap:
+            raise ValueError(f"le sprite « {nom} » n'a pas de carte")
+        scale = max(1, min(int(echelle), 16))
+        w, h, cols = int(info["frame_width"]) * scale, int(info["frame_height"]) * scale, int(tilemap["cols"])
+        screen = self._need()
+        for key in ("ground", "decor"):
+            for i, t in enumerate(tilemap[key]):
+                if t >= 0:
+                    position = (int(x) + (i % cols) * w, int(y) + (i // cols) * h)
+                    screen.blit(self._frame(str(nom), int(t), scale), position)
+
+    def bloque(self, nom: Any, px: Any, py: Any, x: Any = 0, y: Any = 0, echelle: Any = 1) -> bool:
+        """True si le point (px, py) de l'écran tombe sur une case bloquante de la carte dessinée en (x, y)."""
+        _, info = self._sprite(nom)
+        tilemap = info.get("map")
+        if not tilemap:
+            return False
+        scale = max(1, min(int(echelle), 16))
+        c = (int(px) - int(x)) // (int(info["frame_width"]) * scale)
+        r = (int(py) - int(y)) // (int(info["frame_height"]) * scale)
+        if not (0 <= c < tilemap["cols"] and 0 <= r < tilemap["rows"]):
+            return False
+        return bool(tilemap["solid"][r * tilemap["cols"] + c])
+
     # -- entrées
     def touche(self, nom: Any) -> bool:
         """Touche maintenue : « gauche », « droite », « haut », « bas », « espace », « entree », lettres, chiffres."""
@@ -176,7 +259,7 @@ class Game:
 
     def module(self) -> SimpleNamespace:
         names = ("fenetre", "image", "effacer", "rect", "cercle", "ligne", "polygone", "texte", "touche", "appuyee",
-                 "souris", "temps", "largeur", "hauteur")
+                 "souris", "temps", "largeur", "hauteur", "sprite", "carte", "bloque")
         return SimpleNamespace(**{n: getattr(self, n) for n in names}, couleurs=tuple(COLORS))
 
 
@@ -184,7 +267,7 @@ def no_input(prompt: Any = "") -> str:
     raise ValueError("input() n'existe pas en mode jeu : lis le clavier avec jeu.touche(…) ou jeu.appuyee(…)")
 
 
-def play(code: str, pygame: Any = None) -> int:
+def play(code: str, pygame: Any = None, sprites_dir: Path = SPRITES_DIR) -> int:
     """Joue un programme. Rend le code de sortie (0 : fin normale, 1 : erreur, affichée sur la sortie d'erreur)."""
     from modules.calc_cas import sandbox
 
@@ -193,7 +276,7 @@ def play(code: str, pygame: Any = None) -> int:
 
         os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
         import pygame
-    game = Game(pygame)
+    game = Game(pygame, sprites_dir)
     modules = {**sandbox.MODULES, "jeu": game.module()}
     try:
         tree = sandbox.check_program(code, modules)
@@ -223,14 +306,14 @@ def play(code: str, pygame: Any = None) -> int:
 def main(argv: list[str]) -> int:
     from modules.calc_cas.worker import limit_memory
 
-    if len(argv) != 2:
-        sys.stderr.write("usage : games.py <programme.py>\n")
+    if len(argv) not in (2, 3):
+        sys.stderr.write("usage : games.py <programme.py> [dossier des sprites]\n")
         return 2
     limit_memory(768)
     for stream in (sys.stdout, sys.stderr):
         stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
     random.seed()
-    return play(Path(argv[1]).read_text(encoding="utf-8"))
+    return play(Path(argv[1]).read_text(encoding="utf-8"), sprites_dir=Path(argv[2]) if len(argv) == 3 else SPRITES_DIR)
 
 
 if __name__ == "__main__":

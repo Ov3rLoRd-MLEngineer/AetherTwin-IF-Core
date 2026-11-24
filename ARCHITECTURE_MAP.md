@@ -193,6 +193,11 @@ core/
     LICENSE.xterm-addon-fit.txt
     LICENSE.xterm.txt
     logo.svg
+    pixel_app.css
+    pixel_app.html
+    pixel_app.js
+    pixel_tool.css
+    pixel_tool.js
     professeur.js
     system.css
     system.js
@@ -362,6 +367,17 @@ modules/
     segment.py
     workflows/
       continuity.json
+  pixel_studio/
+    __init__.py
+    agent.py
+    app.py
+    manifest.json
+    mcp_server.py
+    module.py
+    palettes.py
+    project.py
+    README.md
+    studio.py
   scantrad/
     __init__.py
     __main__.py
@@ -462,6 +478,10 @@ tests/
   mangastudio/
     __init__.py
     test_mangastudio.py
+  pixel_studio/
+    __init__.py
+    test_module.py
+    test_project.py
   scantrad/
     __init__.py
     test_manual.py
@@ -841,7 +861,7 @@ Fenêtre de bureau de la calculatrice : `python -m modules.calc_cas.app` (lancé
 
 - `def hub_url() -> str` — Adresse de la page, d'après le port du démon dans la configuration (5750 par défaut).
 - `def find_browser(candidates: tuple[str, ...]=CANDIDATES) -> str | None` — Premier navigateur Chromium installé (Edge, puis Chrome), ou `None`.
-- `def browser_args(browser: str, url: str, profile: Path=PROFILE) -> list[str]` — Ligne de commande (liste, jamais de shell) d'une fenêtre d'application isolée.
+- `def browser_args(browser: str, url: str, profile: Path=PROFILE, size: tuple[int, int]=WINDOW_SIZE) -> list[str]` — Ligne de commande (liste, jamais de shell) d'une fenêtre d'application isolée.
 - `def tie_children_to_this_process() -> bool` — Windows : place ce processus dans un objet de tâche « tuer à la fermeture ». Le navigateur lancé ensuite
 - `def main() -> int`
 
@@ -921,6 +941,9 @@ Mode jeu des Programmes : un programme Python du bac à sable dessine dans sa pr
   - `def ligne(self, x1: Any, y1: Any, x2: Any, y2: Any, couleur: Any='blanc', epaisseur: Any=1) -> None`
   - `def polygone(self, points: Any, couleur: Any='blanc', plein: Any=True) -> None`
   - `def texte(self, x: Any, y: Any, message: Any, couleur: Any='blanc', taille: Any=20) -> None`
+  - `def sprite(self, nom: Any, x: Any, y: Any, echelle: Any=1, image: Any=0) -> None` — Dessine l'image `image` (0 = première, prise modulo le nombre d'images) du sprite `nom`.
+  - `def carte(self, nom: Any, x: Any=0, y: Any=0, echelle: Any=1) -> None` — Dessine la carte en tuiles du projet `nom` (sol puis décor), coin haut-gauche en (x, y).
+  - `def bloque(self, nom: Any, px: Any, py: Any, x: Any=0, y: Any=0, echelle: Any=1) -> bool` — True si le point (px, py) de l'écran tombe sur une case bloquante de la carte dessinée en (x, y).
   - `def touche(self, nom: Any) -> bool` — Touche maintenue : « gauche », « droite », « haut », « bas », « espace », « entree », lettres, chiffres.
   - `def appuyee(self, nom: Any) -> bool` — Touche enfoncée pendant la dernière image (une seule fois par appui).
   - `def souris(self) -> tuple[int, int, int]` — (x, y, bouton enfoncé 0/1).
@@ -930,7 +953,7 @@ Mode jeu des Programmes : un programme Python du bac à sable dessine dans sa pr
   - `def print(self, *values: Any, sep: Any=' ', end: Any='\n') -> None`
   - `def module(self) -> SimpleNamespace`
 - `def no_input(prompt: Any='') -> str`
-- `def play(code: str, pygame: Any=None) -> int` — Joue un programme. Rend le code de sortie (0 : fin normale, 1 : erreur, affichée sur la sortie d'erreur).
+- `def play(code: str, pygame: Any=None, sprites_dir: Path=SPRITES_DIR) -> int` — Joue un programme. Rend le code de sortie (0 : fin normale, 1 : erreur, affichée sur la sortie d'erreur).
 - `def main(argv: list[str]) -> int`
 
 ### `modules/calc_cas/games_examples.py`
@@ -970,6 +993,7 @@ Serveur MCP (stdio, JSON-RPC ligne par ligne) : les outils du CAS pour Hermes Ag
 Module du Hub : calculatrice à calcul formel (CAS), graphes, statistiques, outil pour les agents locaux.
 
 - `def hub_llm(hub_api: str, model: str='', timeout_s: float=180.0) -> Callable[[list[dict[str, str]]], str]` — Appel du modèle local **par le Hub** (API compatible OpenAI), jamais directement.
+- `def pixel_sprites_dir() -> Path` — Dossier des sprites du studio pixel (`pixel_studio.data_dir` de la configuration, sinon celui par défaut).
 - **`class CalcCasModule(ModuleBase)`**
   - `def start(self) -> None`
   - `def stop(self) -> None`
@@ -1535,6 +1559,92 @@ Segmentation des mains et des pieds : HandSegNet et FootSegNet (modèles de Jér
 - `def make_segmenter(target: str, settings: dict[str, Any]) -> SamSegmenter | SimulatedSegmenter` — Le vrai modèle si tout est là ; sinon la simulation, avec la raison précise.
 - `def combine(masks: list[np.ndarray]) -> np.ndarray` — Plusieurs mains (ou pieds) : réunion des masques.
 - `def overlay(image_rgb: np.ndarray, mask: np.ndarray, color: tuple[int, int, int]=(255, 64, 160), alpha: float=0.45) -> np.ndarray` — Image avec le masque teinté et son contour : pour voir d'un coup d'œil ce qui sera retouché.
+
+### `modules/pixel_studio/__init__.py`
+
+Studio pixel art d'AetherTwin : sprites, animations et cartes en tuiles, exports et outils pour les agents.
+
+*(aucun symbole public)*
+
+### `modules/pixel_studio/agent.py`
+
+Le studio pixel comme outil des agents locaux : un modèle dessine un sprite en texte, le studio le range.
+
+- `def call_tool(studio: Studio, name: str, arguments: dict[str, Any] | None) -> dict[str, Any]` — Exécute un outil. Ne lève jamais : toute erreur devient `{"ok": False, "error": …}`.
+
+### `modules/pixel_studio/app.py`
+
+Fenêtre de bureau du studio pixel : `python -m modules.pixel_studio.app` (lancée par le Hub).
+
+- `def page_url() -> str`
+- `def main() -> int`
+
+### `modules/pixel_studio/mcp_server.py`
+
+Serveur MCP (stdio, JSON-RPC ligne par ligne) : les outils du studio pixel pour Hermes Agent ou tout client MCP.
+
+- `def tool_list() -> list[dict[str, Any]]`
+- `def handle(studio: Studio, message: Any) -> dict[str, Any] | None`
+- `def serve(stdin: TextIO, stdout: TextIO, studio: Studio) -> None`
+- `def main() -> None`
+
+### `modules/pixel_studio/module.py`
+
+Module du Hub : studio pixel art (sprites, animations, cartes en tuiles), exports, outils pour les agents.
+
+- **`class PixelStudioModule(ModuleBase)`**
+  - `def start(self) -> None`
+  - `def stop(self) -> None`
+  - `def health(self) -> Health`
+  - `def hermes(self, register: bool=False) -> dict[str, Any]` — État du branchement MCP chez Hermes Agent ; `register` le déclare (config.yaml sauvegardée avant).
+  - `def handle_event(self, event: Event) -> None`
+  - `def run(self, command: str, payload: dict[str, Any]) -> Any` — Exécute une commande (aussi appelée directement par les tests).
+
+### `modules/pixel_studio/palettes.py`
+
+Palettes du studio : palettes intégrées (créées pour AetherTwin), rampes de couleurs, palette tirée d'une image.
+
+- `def check_hex(value: Any) -> str`
+- `def rgb_of(value: str) -> tuple[int, int, int]`
+- `def hex_of(r: float, g: float, b: float) -> str`
+- `def ramp(base: str, count: int=5, hue_shift: float=0.06) -> list[str]` — `count` tons du plus sombre au plus clair autour de `base` (au milieu), avec glissement de teinte.
+- `def catalog() -> list[dict[str, Any]]`
+- `def resolve(value: Any) -> list[str]` — Nom d'une palette intégrée, ou liste de couleurs « #rrggbb ».
+- `def from_image(data: bytes, count: int=16) -> list[str]` — Palette de `count` couleurs tirée d'une image (pixels transparents ignorés), triée par luminosité.
+
+### `modules/pixel_studio/project.py`
+
+Projets du studio pixel : format, contrôle, assemblage des calques, exports (Pillow).
+
+- `def clean_name(value: Any) -> str` — Nom de fichier sûr : minuscules, chiffres, « _ » et « - » (accents et espaces convertis).
+- `def png_b64(image: Any) -> str`
+- `def decode_png(data: str, size: tuple[int, int]) -> Any`
+- `def blank(width: int, height: int) -> Any`
+- `def validate(doc: Any) -> dict[str, Any]` — Contrôle complet d'un projet reçu de la page ou d'un fichier ; rend une copie normalisée.
+- `def new_project(name: str, width: int, height: int, palette: list[str], frames: int=1) -> dict[str, Any]`
+- `def compose(doc: dict[str, Any], index: int) -> Any` — Image d'une image (frame) : calques visibles superposés, avec leur opacité.
+- `def scaled(image: Any, scale: int) -> Any`
+- `def to_png(image: Any) -> bytes`
+- `def export_png(doc: dict[str, Any], frame: int=0, scale: int=1) -> bytes`
+- `def export_sheet(doc: dict[str, Any], scale: int=1, columns: int=0) -> tuple[bytes, dict[str, Any]]` — Planche de sprites (images côte à côte, `columns` par ligne ; 0 = une seule ligne) et sa description.
+- `def export_gif(doc: dict[str, Any], scale: int=1) -> bytes` — GIF animé en boucle ; les pixels à moins de 50 % d'opacité deviennent transparents.
+- `def export_map(doc: dict[str, Any], scale: int=1) -> tuple[bytes, dict[str, Any]]` — Image de la carte (sol puis décor, images du projet comme tuiles) et sa description (cases, blocages).
+- `def from_rows(rows: list[str], palette: list[str], width: int, height: int) -> Any` — Image depuis une grille de texte : « . » transparent, puis 0-9, a-z, A-Z = indices de la palette.
+- `def to_rows(image: Any, palette: list[str]) -> tuple[list[str], list[str]]` — Grille de texte d'une image ; les couleurs hors palette y sont ajoutées (64 symboles au plus).
+- **`class ProjectStore`**
+  - `def path(self, name: str) -> Path`
+  - `def list(self) -> list[dict[str, Any]]`
+  - `def load(self, name: str) -> dict[str, Any]`
+  - `def save(self, doc: dict[str, Any]) -> dict[str, Any]`
+  - `def delete(self, name: str) -> bool`
+
+### `modules/pixel_studio/studio.py`
+
+Dossiers et opérations partagés par le module du Hub et le serveur MCP : projets, exports, sprites des jeux.
+
+- **`class Studio`**
+  - `def export(self, doc: dict[str, Any], kind: str, scale: int=1, frame: int=0, columns: int=0) -> dict[str, Any]` — Exporte (fichier écrit dans `exports/`) et rend le contenu en base64 pour le téléchargement.
+  - `def game_export(self, name: str) -> dict[str, Any]` — Écrit le sprite (et sa carte) d'un projet enregistré pour les jeux de la calculatrice.
 
 ### `modules/scantrad/__init__.py`
 

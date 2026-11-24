@@ -81,6 +81,17 @@ def hub_llm(hub_api: str, model: str = "", timeout_s: float = 180.0) -> Callable
     return call
 
 
+def pixel_sprites_dir() -> Path:
+    """Dossier des sprites du studio pixel (`pixel_studio.data_dir` de la configuration, sinon celui par défaut)."""
+    try:
+        from core import config
+
+        data_dir = config.section("pixel_studio").get("data_dir")
+    except Exception:  # noqa: BLE001 — configuration absente ou illisible : dossier par défaut
+        data_dir = None
+    return REPO_ROOT / str(data_dir) / "sprites" if data_dir else REPO_ROOT / "data" / "pixel_studio" / "sprites"
+
+
 class CalcCasModule(ModuleBase):
     def start(self) -> None:
         self.save_path = Path(str(self.config.get("session") or REPO_ROOT / "data" / "calc_cas" / "session.json"))
@@ -174,7 +185,8 @@ class CalcCasModule(ModuleBase):
         python = sys.executable[:-5] + ".exe" if sys.executable.lower().endswith("pythonw.exe") else sys.executable
         log = (folder / "partie.log").open("w", encoding="utf-8")
         env = {**os.environ, "PYGAME_HIDE_SUPPORT_PROMPT": "1", "PYTHONIOENCODING": "utf-8"}
-        self.game = subprocess.Popen([python, "-I", str(GAMES_SCRIPT), str(folder / "partie.py")],  # noqa: S603
+        self.game = subprocess.Popen([python, "-I", str(GAMES_SCRIPT), str(folder / "partie.py"),  # noqa: S603
+                                      str(pixel_sprites_dir())],
                                      stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, env=env,
                                      creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         log.close()
