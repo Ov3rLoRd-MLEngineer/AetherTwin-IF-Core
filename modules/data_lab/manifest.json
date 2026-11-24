@@ -1,0 +1,18 @@
+{
+  "name": "data_lab",
+  "version": "0.1.0",
+  "description": "Explorateur de données : tableur à formules (fonctions françaises et anglaises, équations), import CSV/Excel, graphiques, ajustements, balayages, Monte-Carlo, valeur cible, outils MCP",
+  "entry": "modules.data_lab.module:DataLabModule",
+  "vram_min_gb": 0,
+  "vram_comfort_gb": 0,
+  "python_deps": ["numpy"],
+  "optional_deps": [],
+  "triggers": {
+    "processes": [],
+    "windows": [],
+    "ports": []
+  },
+  "network": [],
+  "app": {"label": "Explorateur de données Æther", "module": "modules.data_lab.app"},
+  "experimental": false
+}

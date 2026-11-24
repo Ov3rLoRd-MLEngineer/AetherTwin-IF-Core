@@ -22,6 +22,7 @@
   <script src="/static/audio_tool.js" defer></script>
   <script src="/static/circuit_tool.js" defer></script>
   <script src="/static/artcraft_tool.js" defer></script>
+  <script src="/static/labs_tool.js" defer></script>
 </head>
 <body>
   <header>
@@ -400,6 +401,26 @@
           <button id="circuit-window" type="button" title="Fenêtre séparée, redimensionnable">Ouvrir l'atelier</button>
         </div>
         <iframe id="circuit-frame" class="pixel-frame" title="Atelier circuits Æther" src="about:blank" allow="autoplay; gamepad"></iframe>
+      </section>
+      <section data-sub="Labo de chimie" class="pixel-tool">
+        <div class="calc-tool-head">
+          <h2>Labo de chimie</h2>
+          <span class="muted">tableau périodique, équations, pH, titrages simulés</span>
+          <span class="grow"></span>
+          <a class="guide-link" href="/static/guide.html?g=chem_lab" target="_blank" rel="noopener" title="Ouvrir le guide dans une nouvelle fenêtre">📖 Guide</a>
+          <button id="chem-window" type="button" title="Fenêtre séparée, redimensionnable">Ouvrir le labo</button>
+        </div>
+        <iframe id="chem-frame" class="pixel-frame" title="Labo de chimie Æther" src="about:blank"></iframe>
+      </section>
+      <section data-sub="Explorateur de données" class="pixel-tool">
+        <div class="calc-tool-head">
+          <h2>Explorateur de données</h2>
+          <span class="muted">tableur à formules, graphiques, ajustements, simulations</span>
+          <span class="grow"></span>
+          <a class="guide-link" href="/static/guide.html?g=data_lab" target="_blank" rel="noopener" title="Ouvrir le guide dans une nouvelle fenêtre">📖 Guide</a>
+          <button id="data-window" type="button" title="Fenêtre séparée, redimensionnable">Ouvrir l'explorateur</button>
+        </div>
+        <iframe id="data-frame" class="pixel-frame" title="Explorateur de données Æther" src="about:blank"></iframe>
       </section>
       <section data-sub="ArtCraft" class="artcraft-tool">
         <div class="calc-tool-head">

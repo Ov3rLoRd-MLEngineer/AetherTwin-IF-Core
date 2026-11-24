@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Explorateur de données Æther — AetherTwin</title>
+  <link rel="icon" href="/static/logo.svg">
+  <link rel="stylesheet" href="/static/data_app.css">
+  <script src="/static/data_app.js" defer></script>
+</head>
+<body>
+  <div class="lab">
+    <header class="brand">
+      <img class="logo" src="/static/logo.svg" alt="" width="26" height="26">
+      <span class="wordmark">Aether<em>Twin</em></span>
+      <span class="model">DONNÉES</span>
+      <div class="files">
+        <input id="book-name" class="field" value="classeur" title="Nom du classeur" autocomplete="off">
+        <button type="button" id="btn-save" class="primary" title="Enregistrer sur ce PC (Ctrl+S)">Enregistrer</button>
+        <select id="book-list" title="Ouvrir un classeur enregistré"><option value="">Ouvrir…</option></select>
+        <button type="button" id="btn-new" title="Nouveau classeur vide">Nouveau</button>
+        <select id="examples" title="Classeurs d'exemple"><option value="">Exemples…</option></select>
+        <label class="button" title="Importer un CSV ou un classeur Excel (.xlsx)">Importer<input id="file-in" type="file" accept=".csv,.tsv,.txt,.xlsx,.xlsm" hidden></label>
+        <button type="button" id="btn-export" title="Exporter les valeurs en CSV">Exporter CSV</button>
+      </div>
+      <span class="grow"></span>
+      <span class="status" id="status" aria-live="polite"></span>
+      <a class="button" href="/static/guide.html?g=data_lab" target="_blank" rel="noopener" title="Guide de l'explorateur">📖 Guide</a>
+      <button type="button" id="btn-theme" title="Thème clair ou sombre">◐</button>
+    </header>
+
+    <div class="fbar">
+      <input id="cell-name" class="field cell-name" value="A1" title="Cellule ou plage active (tape une référence pour y aller)" autocomplete="off">
+      <span class="fx">fx</span>
+      <input id="fx" class="field fx-input" placeholder="Valeur ou formule : =SOMME(B2:B20)   =RESOUDRE(&quot;x^2-2&quot;;1)" autocomplete="off" spellcheck="false">
+      <button type="button" id="btn-fill-down" title="Recopier la première ligne de la sélection vers le bas (Ctrl+D)">⇣ Recopier</button>
+      <button type="button" id="btn-fill-right" title="Recopier la première colonne de la sélection vers la droite (Ctrl+R)">⇢</button>
+      <button type="button" id="btn-values" title="Remplacer les formules de la sélection par leurs valeurs">Figer en valeurs</button>
+    </div>
+
+    <div class="work">
+      <div class="grid-wrap" id="grid-wrap" tabindex="0">
+        <table id="grid" class="grid"></table>
+        <input id="editor" class="editor" hidden autocomplete="off" spellcheck="false">
+        <div class="more"><button type="button" id="btn-more">+ 200 lignes</button></div>
+      </div>
+
+      <aside class="side">
+        <div class="tabs" id="tabs" role="tablist">
+          <button role="tab" data-tab="chart" aria-selected="true">Graphique</button>
+          <button role="tab" data-tab="fit" aria-selected="false">Ajustement</button>
+          <button role="tab" data-tab="sim" aria-selected="false">Simulation</button>
+          <button role="tab" data-tab="goal" aria-selected="false">Valeur cible</button>
+          <button role="tab" data-tab="stats" aria-selected="false">Statistiques</button>
+          <button role="tab" data-tab="sort" aria-selected="false">Trier, filtrer</button>
+          <button role="tab" data-tab="help" aria-selected="false">Formules</button>
+        </div>
+        <canvas id="plot" class="plot" width="420" height="280"></canvas>
+
+        <section class="pane" data-pane="chart">
+          <div class="form">
+            <label>X</label><input id="ch-x" class="field" placeholder="A2:A20 (vide = 1, 2, 3…)">
+            <label>Y</label><input id="ch-y" class="field" placeholder="B2:B20 ; C2:C20">
+            <label>Type</label><select id="ch-type"><option value="scatter">nuage de points</option><option value="line">courbe</option><option value="bar">barres</option></select>
+          </div>
+          <div class="row"><button type="button" id="ch-from-sel">Depuis la sélection</button><button type="button" id="ch-draw" class="primary">Tracer</button></div>
+          <p class="muted small">Sélectionne des colonnes (la première = X, les autres = Y ; une ligne de titres est reconnue), puis « Depuis la sélection ».</p>
+        </section>
+
+        <section class="pane" data-pane="fit" hidden>
+          <div class="form">
+            <label>X</label><input id="fit-x" class="field" placeholder="A2:A20">
+            <label>Y</label><input id="fit-y" class="field" placeholder="B2:B20">
+            <label>Modèle</label><select id="fit-model">
+              <option value="lineaire">linéaire  y = a·x + b</option><option value="polynome">polynôme</option>
+              <option value="exponentiel">exponentiel  y = a·e^(b·x)</option><option value="puissance">puissance  y = a·x^b</option>
+              <option value="logarithme">logarithme  y = a + b·ln x</option></select>
+            <label>Degré</label><input id="fit-deg" class="field" type="number" min="1" max="6" value="2">
+          </div>
+          <div class="row"><button type="button" id="fit-from-sel">Depuis la sélection</button><button type="button" id="fit-go" class="primary">Ajuster</button></div>
+          <div id="fit-out"></div>
+          <div class="row" id="fit-insert" hidden>
+            <label>Écrire le modèle en</label><input id="fit-cell" class="field short" value="C2">
+            <label>avec x =</label><input id="fit-xcell" class="field short" value="A2">
+            <button type="button" id="fit-put">Insérer</button>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="sim" hidden>
+          <h3>Balayage d'un paramètre</h3>
+          <div class="form">
+            <label>Entrée</label><input id="sw-in" class="field" placeholder="B1 (une valeur, pas une formule)">
+            <label>De … à</label><span class="pair"><input id="sw-a" class="field" type="number" step="any" value="0"><input id="sw-b" class="field" type="number" step="any" value="10"></span>
+            <label>Valeurs</label><input id="sw-n" class="field" type="number" min="2" max="2001" value="21">
+            <label>Sorties</label><input id="sw-out" class="field" placeholder="B5 ; B6">
+          </div>
+          <div class="row"><button type="button" id="sw-go" class="primary">Balayer</button>
+            <label>copier en</label><input id="sw-dest" class="field short" placeholder="E1"><button type="button" id="sw-copy" disabled>Copier dans la feuille</button></div>
+          <h3>Monte-Carlo</h3>
+          <div id="mc-inputs" class="mc-inputs"></div>
+          <div class="row"><button type="button" id="mc-add">+ entrée aléatoire</button></div>
+          <div class="form">
+            <label>Sortie</label><input id="mc-out" class="field" placeholder="B5">
+            <label>Tirages</label><input id="mc-n" class="field" type="number" min="10" max="50000" value="5000">
+            <label>Seuil</label><input id="mc-t" class="field" type="number" step="any" placeholder="facultatif : P(sortie > seuil)">
+          </div>
+          <div class="row"><button type="button" id="mc-go" class="primary">Simuler</button></div>
+          <div id="sim-out"></div>
+        </section>
+
+        <section class="pane" data-pane="goal" hidden>
+          <p class="muted small">Quelle valeur donner à une cellule d'entrée pour que la cellule cible atteigne une valeur ? (la formule est résolue numériquement)</p>
+          <div class="form">
+            <label>Cible</label><input id="gs-target" class="field" placeholder="B5">
+            <label>doit valoir</label><input id="gs-value" class="field" type="number" step="any" value="0">
+            <label>en changeant</label><input id="gs-input" class="field" placeholder="B1">
+          </div>
+          <div class="row"><button type="button" id="gs-go" class="primary">Résoudre</button><button type="button" id="gs-apply" disabled>Appliquer</button></div>
+          <div id="gs-out"></div>
+        </section>
+
+        <section class="pane" data-pane="stats" hidden>
+          <div class="form"><label>Plage</label><input id="st-range" class="field" placeholder="B2:B200"></div>
+          <div class="row"><button type="button" id="st-from-sel">Depuis la sélection</button><button type="button" id="st-go" class="primary">Décrire</button></div>
+          <div id="st-out"></div>
+        </section>
+
+        <section class="pane" data-pane="sort" hidden>
+          <h3>Trier</h3>
+          <div class="form">
+            <label>Plage</label><input id="so-range" class="field" placeholder="A1:D50">
+            <label>Colonne</label><input id="so-col" class="field short" placeholder="B">
+          </div>
+          <div class="row"><label><input id="so-head" type="checkbox" checked> 1re ligne = titres</label>
+            <button type="button" id="so-from-sel">Depuis la sélection</button>
+            <button type="button" id="so-asc">Croissant</button><button type="button" id="so-desc">Décroissant</button></div>
+          <h3>Filtrer l'affichage</h3>
+          <div class="form">
+            <label>Colonne</label><input id="fi-col" class="field short" placeholder="B">
+            <label>Condition</label><input id="fi-cond" class="field" placeholder="&gt;10   &lt;&gt;0   =Paris   contient:lyon">
+          </div>
+          <div class="row"><button type="button" id="fi-go" class="primary">Filtrer</button><button type="button" id="fi-clear">Tout afficher</button></div>
+          <p class="muted small" id="fi-state"></p>
+        </section>
+
+        <section class="pane help" data-pane="help" hidden>
+          <p>Une formule commence par <code>=</code>. Arguments séparés par <code>;</code>, décimales avec un point dans les formules
+            (<code>=ARRONDI(B2*1.2;2)</code>). Dans les cellules de valeur, la virgule française est comprise (<code>3,5</code>).</p>
+          <p>Références <code>A1</code>, absolues <code>$A$1</code>, plages <code>A1:C10</code>. Opérateurs <code>+ - * / ^ &amp;</code>,
+            comparaisons <code>= &lt;&gt; &lt; &gt; &lt;= &gt;=</code>, pourcentage <code>50%</code>. Attention : <code>-2^2</code> vaut −4 (convention mathématique).</p>
+          <h3>Équations</h3>
+          <p><code>=RESOUDRE("x^3-2*x-5";2)</code> racine près de 2 · <code>=DERIVEE("x^2*SIN(x)";1)</code> ·
+            <code>=INTEGRALE("EXP(-x^2)";0;3)</code>. La variable est <code>x</code> ; l'expression peut lire des cellules
+            (<code>"B1*x^2-B2"</code>). La valeur cible et les ajustements sont dans leurs onglets.</p>
+          <h3>Fonctions</h3>
+          <p id="fn-list" class="fn-list"></p>
+        </section>
+      </aside>
+    </div>
+  </div>
+</body>
+</html>

@@ -1623,3 +1623,35 @@ Il a autorisé les téléchargements nécessaires.
 - **Tests :** `pytest tests/genesis_lab` vert ; chaque page essayée sur le Hub de test.
 - **En cours :** ajustement du cadre vu dans le Hub (le navigateur intégré de l'essai bloque les cadres) ;
   chapitre suivant essayé avec un vrai cours.
+
+## 2026-11-24 — voix (100 prises), ArtCraft (intégration externe), labo de chimie, explorateur de données
+
+- **Agent :** Cloud
+- **Demande de Jérémy :** plus de prises et de textes pour la voix ; « Labo de chimie » et « Explorateur de données »
+  avec des fonctionnalités étoffées (équations dans le tableau, résultats en simulation) ; un onglet Outils pour
+  installer et brancher en MCP la suite libre ArtCraft, présentée comme une intégration externe.
+- **Fichiers :**
+  - `modules/voice/convert.py`, `module.py`, `core/web/audio_app.*` : 100 prises, 75 textes, textes longs en parties,
+    « Autre texte ↻ » ;
+  - `modules/artcraft/` (`suite.py`, `module.py`, README), `core/web/artcraft_tool.*`, `dashboard.html` ;
+    `modules/dev_launcher/hermes_link.py` : `register_server(..., command=)` pour un serveur MCP externe ;
+  - `core/mcp_stdio.py` : serveur MCP stdio commun (outils au format « function calling ») ;
+  - `modules/chem_lab/` (`elements.py`, `chemistry.py`, `solutions.py`, `agent.py`, `mcp_server.py`, `module.py`,
+    `app.py`, README), `core/web/chem_app.*` ;
+  - `modules/data_lab/` (`formula.py`, `analysis.py`, `workbooks.py`, `agent.py`, `mcp_server.py`, `module.py`,
+    `app.py`, README), `core/web/data_app.*` ;
+  - `core/web/labs_tool.js` : sous-onglets « Labo de chimie » et « Explorateur de données » ;
+  - `tests/artcraft/`, `tests/chem_lab/`, `tests/data_lab/`.
+- **Décisions :**
+  - ArtCraft : rien n'est fourni avec AetherTwin ; téléchargement à la demande depuis `github.com/storytold`, empreinte
+    obligatoire ; nom et logos ArtCraft = marques de leurs auteurs (hors licence libre), icônes gardées sur le PC
+    seulement ; mention « intégration externe, non affiliée à Adobe ni Microsoft » dans l'onglet et le guide.
+    Le règlement du concours n'a pas pu être vérifié ici : à confirmer par Jérémy.
+  - Le tableur calcule en Python (même moteur pour la fenêtre et pour les agents), sans `eval`.
+- **Trouvé à l'essai et corrigé :**
+  - icônes ArtCraft manquantes : le Hub refuse deux commandes simultanées au même module (409) → commandes en file ;
+  - serveur MCP ArtCraft sans accès fichier : dossiers d'automatisation accordés (dossier d'échange seulement) ;
+  - références absolues `$F$2` non reconnues dans les formules ; Entrée validait puis rouvrait la cellule suivante.
+- **Tests :** voir la suite complète ci-dessous ; essais réels sur le Hub de test 5760.
+- **En cours :** branchement Hermes d'ArtCraft essayé sur une vraie configuration ; acides polyprotiques ;
+  feuilles multiples et questions à un modèle local dans l'explorateur.

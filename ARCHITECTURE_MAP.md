@@ -171,6 +171,7 @@ core/
     service.py
     store.py
   llm_router.py
+  mcp_stdio.py
   module_api.py
   module_runner.py
   scheduler.py
@@ -178,6 +179,8 @@ core/
   terminals.py
   translate.py
   web/
+    artcraft_tool.css
+    artcraft_tool.js
     asm6502.js
     audio_app.css
     audio_app.html
@@ -190,6 +193,9 @@ core/
     calc_cas.css
     calc_cas.js
     calc_geo.js
+    chem_app.css
+    chem_app.html
+    chem_app.js
     circuit_app.css
     circuit_app.html
     circuit_app.js
@@ -202,12 +208,16 @@ core/
     dashboard.css
     dashboard.html
     dashboard.js
+    data_app.css
+    data_app.html
+    data_app.js
     dev.css
     dev.js
     ether_scene.js
     guide.css
     guide.html
     guide.js
+    labs_tool.js
     LICENSE.xterm-addon-fit.txt
     LICENSE.xterm.txt
     logo.svg
@@ -232,6 +242,12 @@ core/
     xterm.js
 modules/
   __init__.py
+  artcraft/
+    __init__.py
+    manifest.json
+    module.py
+    README.md
+    suite.py
   calc_cas/
     __init__.py
     agent.py
@@ -251,6 +267,17 @@ modules/
     sandbox.py
     stats.py
     worker.py
+  chem_lab/
+    __init__.py
+    agent.py
+    app.py
+    chemistry.py
+    elements.py
+    manifest.json
+    mcp_server.py
+    module.py
+    README.md
+    solutions.py
   circuit_lab/
     __init__.py
     app.py
@@ -260,6 +287,17 @@ modules/
     manifest.json
     module.py
     README.md
+  data_lab/
+    __init__.py
+    agent.py
+    analysis.py
+    app.py
+    formula.py
+    manifest.json
+    mcp_server.py
+    module.py
+    README.md
+    workbooks.py
   dev_launcher/
     __init__.py
     bridge_mcp.py
@@ -461,6 +499,9 @@ config/
   local.example.yaml
 tests/
   __init__.py
+  artcraft/
+    __init__.py
+    test_suite.py
   calc_cas/
     __init__.py
     test_agent.py
@@ -475,6 +516,9 @@ tests/
     test_sandbox.py
     test_stats.py
     test_worker.py
+  chem_lab/
+    __init__.py
+    test_chem.py
   circuit_lab/
     __init__.py
     asm_check.js
@@ -503,6 +547,9 @@ tests/
     scantrad/
       page_test.json
       page_test.png
+  data_lab/
+    __init__.py
+    test_data.py
   dev_launcher/
     __init__.py
     test_dev_launcher.py
@@ -812,6 +859,16 @@ Routeur LLM du Hub : toutes les demandes de génération passent par ici, vers O
   - `def state(self) -> dict[str, Any]` — État pour l'API du démon. Ne lève jamais : Ollama arrêté = mode dégradé.
 - `def openai_to_ollama(messages: list[dict[str, Any]]) -> list[dict[str, Any]]` — Convertit des messages au format OpenAI (texte, ou parties texte + `image_url` en data URI) pour Ollama.
 
+### `core/mcp_stdio.py`
+
+Serveur MCP minimal (stdio, JSON-RPC ligne par ligne) pour les outils des modules du Hub.
+
+- **`class ToolServer`**
+  - `def tool_list(self) -> list[dict[str, Any]]`
+  - `def handle(self, message: Any) -> dict[str, Any] | None`
+  - `def serve(self, stdin: TextIO, stdout: TextIO) -> None`
+  - `def main(self) -> None`
+
 ### `core/module_api.py`
 
 Contrat de module du Hub : manifeste, événements, cycle de vie.
@@ -910,6 +967,44 @@ Traduction générale vers le français : texte, image (capture, photo) ou messa
 - `def read_image(chat: Chat, image: bytes, lang: str='auto', model: str='qwen2.5vl:7b') -> str` — Texte d'une image (PNG, JPEG ou WebP), lu par le modèle de vision. L'image est réduite à ~1,3 Mpx : au-delà,
 - `def voice_available() -> bool`
 - `def transcribe(audio: bytes, lang: str='auto', model_name: str='small') -> dict[str, str]` — Message vocal → texte, sur cette machine (faster-whisper, sur le processeur en int8 : la VRAM reste aux
+
+### `modules/artcraft/__init__.py`
+
+Intégration externe des logiciels libres ArtCraft (installation, lancement, serveurs MCP).
+
+*(aucun symbole public)*
+
+### `modules/artcraft/module.py`
+
+Module du Hub : intégration externe de la suite libre ArtCraft (équipe ArtCraft, github.com/storytold).
+
+- **`class ArtCraftModule(ModuleBase)`**
+  - `def start(self) -> None`
+  - `def stop(self) -> None`
+  - `def health(self) -> Health`
+  - `def handle_event(self, event: Event) -> None`
+  - `def run(self, command: str, payload: dict[str, Any]) -> Any` — Exécute une commande (aussi appelée directement par les tests).
+
+### `modules/artcraft/suite.py`
+
+Suite ArtCraft : catalogue, installation depuis les publications GitHub officielles, lancement, MCP.
+
+- `def check_app(app: Any) -> str`
+- `def fetch(url: str, limit: int=20000000, timeout: float=60) -> bytes` — GET limité aux adresses ArtCraft connues.
+- `def pick_asset(assets: list[dict[str, Any]]) -> dict[str, Any] | None` — Le zip portable Windows x64 d'abord, sinon l'installateur .msi x64.
+- `def parse_sums(text: str) -> dict[str, str]`
+- `def safe_extract(archive: Path, target: Path) -> None` — Extrait un zip sans laisser un nom de fichier sortir de `target`.
+- **`class Suite`**
+  - `def find_exe(self, app: str) -> tuple[str, str]` — (programme, outil en ligne de commande) : version portable d'abord, puis installation .msi.
+  - `def catalog(self) -> list[dict[str, Any]]`
+  - `def fetch_icons(self) -> dict[str, Any]` — Télécharge les icônes officielles (kit presse) et les réduit à 128 px pour l'interface.
+  - `def icon(self, app: Any) -> bytes`
+  - `def install_async(self, app: Any) -> dict[str, Any]`
+  - `def uninstall(self, app: Any) -> dict[str, Any]`
+  - `def launch(self, app: Any) -> dict[str, Any]`
+  - `def mcp(self, app: Any) -> dict[str, Any]` — Commandes pour brancher le serveur MCP de l'appli (stdio : `<appli>-cli mcp`).
+  - `def supports_roots(self, cli: str) -> bool`
+  - `def hermes(self, app: Any, register: bool=False) -> dict[str, Any]`
 
 ### `modules/calc_cas/__init__.py`
 
@@ -1125,6 +1220,73 @@ Processus de calcul séparé, avec délai maximal.
   - `def alive(self) -> bool`
   - `def call(self, op: str, timeout_s: float | None=None, **args: Any) -> Any` — Exécute une opération dans le processus enfant. Délai dépassé : dictionnaire d'erreur, enfant relancé.
 
+### `modules/chem_lab/__init__.py`
+
+Labo de chimie : tableau périodique, équations, stœchiométrie, solutions et titrages simulés.
+
+*(aucun symbole public)*
+
+### `modules/chem_lab/agent.py`
+
+Le labo de chimie comme outil des agents locaux (bus du Hub et serveur MCP `aethertwin_chimie`).
+
+- `def call_tool(name: str, args: dict[str, Any]) -> dict[str, Any]`
+
+### `modules/chem_lab/app.py`
+
+Fenêtre de bureau du labo de chimie : `python -m modules.chem_lab.app` (lancée par le Hub).
+
+- `def page_url() -> str`
+- `def main() -> int`
+
+### `modules/chem_lab/chemistry.py`
+
+Formules, masses molaires, équilibrage exact des équations et stœchiométrie. Code déterministe.
+
+- **`class ChemError(ValueError)`** — Formule, équation ou grandeur invalide.
+- `def parse_species(text: str) -> dict[str, Any]` — « Fe2(SO4)3(aq) » → {formula, atoms, charge, state} ; « e^- » → électron.
+- `def molar_mass(formula: str) -> dict[str, Any]` — Masse molaire (g/mol) et composition massique d'une formule.
+- `def split_equation(text: str) -> tuple[list[str], list[str]]`
+- `def balance(equation: str) -> dict[str, Any]` — Équilibre une équation (coefficients entiers les plus petits), charges comprises.
+- `def stoichiometry(equation: str, quantities: dict[str, dict[str, Any]], yield_percent: float=100.0) -> dict[str, Any]` — Réactif limitant, avancement maximal, quantités consommées, formées et restantes.
+
+### `modules/chem_lab/elements.py`
+
+Tableau périodique embarqué : 118 éléments (nom français, masse atomique, groupe, famille, électronégativité).
+
+- `def period_of(z: int) -> int`
+- `def element(key: Any) -> dict[str, Any]` — Un élément par symbole (« Fe »), numéro atomique (26) ou nom français (« fer »).
+
+### `modules/chem_lab/mcp_server.py`
+
+Serveur MCP (stdio) du labo de chimie, pour Hermes Agent ou tout client MCP. Aucune écoute réseau.
+
+*(aucun symbole public)*
+
+### `modules/chem_lab/module.py`
+
+Module du Hub : labo de chimie (tableau périodique, équations, stœchiométrie, solutions, titrages simulés).
+
+- **`class ChemLabModule(ModuleBase)`**
+  - `def start(self) -> None`
+  - `def stop(self) -> None`
+  - `def health(self) -> Health`
+  - `def hermes(self, register: bool=False) -> dict[str, Any]`
+  - `def handle_event(self, event: Event) -> None`
+  - `def run(self, command: str, p: dict[str, Any]) -> Any` — Exécute une commande (aussi appelée directement par les tests).
+
+### `modules/chem_lab/solutions.py`
+
+Solutions aqueuses à 25 °C : pH exact, dilutions, préparation, titrages acido-basiques simulés.
+
+- **`class SolutionError(ValueError)`**
+- `def ph_of(acids: list[tuple[float, float]]=(), bases: list[tuple[float, float]]=(), cations: float=0.0, anions: float=0.0) -> float` — pH d'un mélange. acids : [(C, pKa)] couples HA/A⁻ apportés sous forme HA ; bases : [(C, pKa)] couples BH⁺/B
+- `def solution_ph(kind: str, concentration: float, pka: float | None=None) -> dict[str, Any]`
+- `def buffer_ph(acid_c: float, base_c: float, pka: float) -> dict[str, Any]` — Tampon HA / A⁻ (A⁻ apporté avec Na⁺) : pH exact et valeur de Henderson-Hasselbalch pour comparer.
+- `def dilution(c1: Any=None, v1: Any=None, c2: Any=None, v2: Any=None) -> dict[str, Any]` — C1·V1 = C2·V2 : laisse vide la grandeur cherchée (une seule).
+- `def preparation(formula: str, concentration: float, volume_l: float, purity_percent: float=100.0) -> dict[str, Any]` — Masse de solide à peser pour préparer V litres à C mol/L.
+- `def titration(analyte: str, c_analyte: float, v_analyte_ml: float, c_titrant: float, pka: float | None=None, v_max_ml: float | None=None, points: int=241) -> dict[str, Any]` — Courbe de titrage pH = f(V versé). Analyte : acide (fort/faible) titré par la soude, ou base (forte/faible)
+
 ### `modules/circuit_lab/__init__.py`
 
 Atelier circuits : console 8 bits à monter pièce par pièce, téléviseur cathodique, programmation 6502.
@@ -1161,6 +1323,122 @@ Module du Hub : atelier circuits (console 8 bits à monter, téléviseur, progra
   - `def health(self) -> Health`
   - `def handle_event(self, event: Event) -> None`
   - `def run(self, command: str, payload: dict[str, Any]) -> Any` — Exécute une commande (aussi appelée directement par les tests).
+
+### `modules/data_lab/__init__.py`
+
+Explorateur de données : tableur à formules, graphiques, ajustements, simulations.
+
+*(aucun symbole public)*
+
+### `modules/data_lab/agent.py`
+
+L'explorateur de données comme outil des agents locaux (bus du Hub et serveur MCP `aethertwin_donnees`).
+
+- `def call_tool(store: Store, name: str, args: dict[str, Any]) -> dict[str, Any]`
+
+### `modules/data_lab/analysis.py`
+
+Analyses du tableur : balayage de paramètres, Monte-Carlo, valeur cible, ajustement de courbes, statistiques, tri.
+
+- `def sweep(cells: dict[str, Any], input_ref: str, start: float, stop: float, steps: int, outputs: Any, input2: str | None=None, start2: float | None=None, stop2: float | None=None, steps2: int | None=None) -> dict[str, Any]` — Table de données : fait varier une cellule (ou deux) et relève les sorties.
+- `def summary(values: list[float], bins: int=30) -> dict[str, Any]`
+- `def monte_carlo(cells: dict[str, Any], inputs: dict[str, dict[str, Any]], outputs: Any, runs: int=5000, seed: int | None=None, threshold: float | None=None) -> dict[str, Any]` — Tire les entrées selon leur loi (et les ALEA() des formules), relève les sorties, résume leur distribution.
+- `def goal_seek(cells: dict[str, Any], target_ref: str, value: float, input_ref: str) -> dict[str, Any]` — Valeur cible : quelle valeur de la cellule d'entrée donne `value` dans la cellule cible ?
+- `def fit(cells: dict[str, Any], x_range: str, y_range: str, model: str='lineaire', degree: int=2) -> dict[str, Any]` — Moindres carrés : équation, coefficients, R², courbe et formule de tableur équivalente.
+- `def describe(cells: dict[str, Any], rng: str) -> dict[str, Any]`
+- `def sort_range(cells: dict[str, Any], rng: str, key_col: str, descending: bool=False, header: bool=False) -> dict[str, Any]` — Trie les lignes d'une plage de valeurs (pas de formules, elles changeraient de sens en bougeant).
+- `def errors_of(cells: dict[str, Any]) -> dict[str, str]`
+
+### `modules/data_lab/app.py`
+
+Fenêtre de bureau du explorateur de données : `python -m modules.data_lab.app` (lancée par le Hub).
+
+- `def page_url() -> str`
+- `def main() -> int`
+
+### `modules/data_lab/formula.py`
+
+Moteur de formules du tableur : analyse, évaluation paresseuse, dépendances et cycles. Aucun `eval` Python.
+
+- **`class SheetError(ValueError)`**
+- **`class Err`**
+- **`class Raise(Exception)`** — Arrête une évaluation avec une erreur de tableur.
+- `def col_index(letters: str) -> int`
+- `def col_name(index: int) -> str`
+- `def parse_ref(text: str) -> tuple[int, int]`
+- `def ref_name(c: int, r: int) -> str`
+- `def range_cells(text: str) -> list[str]` — « A1:B3 » → [A1, B1, A2, B2, A3, B3] (ligne par ligne).
+- `def parse_value(text: Any) -> Any` — Contenu non formule : nombre (virgule ou point décimal, espaces de milliers, %), booléen ou texte.
+- `def tokenize(text: str) -> list[tuple[str, str]]`
+- **`class Parser`** — Descente récursive : comparaison < concaténation < addition < multiplication < puissance < unaire.
+  - `def peek(self) -> tuple[str, str]`
+  - `def take(self, value: str | None=None) -> tuple[str, str]`
+  - `def parse(self) -> tuple`
+  - `def comparison(self) -> tuple`
+  - `def concat(self) -> tuple`
+  - `def additive(self) -> tuple`
+  - `def term(self) -> tuple`
+  - `def unary(self) -> tuple`
+  - `def power(self) -> tuple`
+  - `def postfix(self) -> tuple`
+  - `def atom(self) -> tuple`
+- `def parse_formula(text: str) -> tuple`
+- `def references(node: tuple) -> set[str]` — Cellules lues par une formule (plages développées).
+- `def to_num(v: Any) -> float`
+- `def to_bool(v: Any) -> bool`
+- `def to_text(v: Any) -> str`
+- `def display(v: Any) -> str`
+- `def flatten(values: Iterable[Any]) -> list[Any]`
+- `def numbers(values: Iterable[Any]) -> list[float]` — Nombres d'arguments ou de plages : dans une plage, textes et vides sont ignorés (comme un tableur).
+- `def criterion(crit: Any) -> Callable[[Any], bool]` — Critère de NB.SI / SOMME.SI : « >5 », « <>0 », « =abc », « abc », 3.
+- `def fn(*names: str, lazy: bool=False) -> Callable[[Callable[..., Any]], Callable[..., Any]]`
+- **`class Sheet`** — Une feuille : contenus bruts → valeurs. `rng` rend les tirages aléatoires reproductibles.
+  - `def formula_ast(self, ref: str) -> Any`
+  - `def value(self, ref: str) -> Any`
+  - `def eval(self, n: tuple, x: float | None) -> Any`
+  - `def call(self, name: str, args: list[tuple], x: float | None) -> Any`
+  - `def calculus(self, name: str, args: list[tuple], x: float | None) -> float` — Équations : l'expression (texte) dépend de `x` et peut lire la feuille.
+  - `def values(self) -> dict[str, Any]`
+- `def parse_ref_name(text: str) -> str`
+- `def simpson(f: Callable[[float], float], a: float, b: float, n: int=400) -> float`
+- `def find_root(f: Callable[[float], float], guess: float, tol: float=1e-12) -> float | None` — Racine de f près de `guess` : sécante, puis recherche d'un changement de signe et dichotomie.
+
+### `modules/data_lab/mcp_server.py`
+
+Serveur MCP (stdio) de l'explorateur de données, pour Hermes Agent ou tout client MCP. Aucune écoute réseau.
+
+- `def make_server(store: Store) -> ToolServer`
+
+### `modules/data_lab/module.py`
+
+Module du Hub : explorateur de données (tableur à formules, graphiques, ajustements, simulations).
+
+- `def recalc(cells: dict[str, Any]) -> dict[str, Any]`
+- **`class DataLabModule(ModuleBase)`**
+  - `def start(self) -> None`
+  - `def stop(self) -> None`
+  - `def health(self) -> Health`
+  - `def hermes(self, register: bool=False) -> dict[str, Any]`
+  - `def handle_event(self, event: Event) -> None`
+  - `def run(self, command: str, p: dict[str, Any]) -> Any` — Exécute une commande (aussi appelée directement par les tests).
+
+### `modules/data_lab/workbooks.py`
+
+Classeurs de l'explorateur : enregistrement local (JSON), import CSV et Excel (.xlsx), export CSV.
+
+- `def clean_name(name: Any) -> str`
+- `def clean_cells(cells: Any) -> dict[str, str]`
+- **`class Store`**
+  - `def path(self, name: Any) -> Path`
+  - `def list(self) -> list[dict[str, Any]]`
+  - `def load(self, name: Any) -> dict[str, Any]`
+  - `def save(self, name: Any, cells: Any, extra: dict[str, Any] | None=None) -> dict[str, Any]`
+  - `def delete(self, name: Any) -> dict[str, Any]`
+- `def table_to_cells(rows: list[list[Any]], origin: str='A1') -> dict[str, str]`
+- `def import_csv(data: bytes) -> dict[str, str]`
+- `def import_xlsx(data: bytes) -> dict[str, str]`
+- `def import_file(filename: str, data: bytes) -> dict[str, str]`
+- `def export_csv(cells: dict[str, Any], separator: str=';') -> str`
 
 ### `modules/dev_launcher/__init__.py`
 
@@ -1210,7 +1488,7 @@ Lien avec Hermes Agent : pont MCP déclaré chez Hermes, questions posées à He
 - `def state(exe: str) -> dict[str, Any]`
 - `def backup(path: Path) -> str`
 - `def register(exe: str, runner: Callable[..., Any]=subprocess.run) -> dict[str, Any]` — Déclare le pont chez Hermes avec sa propre commande, config.yaml sauvegardé avant.
-- `def register_server(exe: str, name: str, args: list[str], runner: Callable[..., Any]=subprocess.run) -> dict[str, Any]` — Déclare un serveur MCP stdio (lancé par le Python du Hub) chez Hermes, config.yaml sauvegardé avant.
+- `def register_server(exe: str, name: str, args: list[str], runner: Callable[..., Any]=subprocess.run, command: str='') -> dict[str, Any]` — Déclare un serveur MCP stdio (lancé par le Python du Hub) chez Hermes, config.yaml sauvegardé avant.
 
 ### `modules/dev_launcher/launch.py`
 
@@ -1914,6 +2192,7 @@ Fenêtre de bureau du studio audio : `python -m modules.voice.app` (lancée par 
 
 Conversion de voix (kNN-VC, MIT) : donne à une voix le timbre d'une voix enregistrée avec consentement.
 
+- `def prompt_label(index: int) -> str` — « Texte long « … », partie 2 sur 4 » pour les morceaux des textes longs, sinon vide.
 - `def words(text: str) -> list[str]`
 - `def similarity(expected: str, heard: str) -> float`
 - `def trim_silence(x: np.ndarray, rate: int=RATE, floor_db: float=-45.0) -> np.ndarray` — Retire le silence du début et de la fin (trames de 20 ms sous `floor_db` par rapport à la crête).
@@ -1926,7 +2205,7 @@ Conversion de voix (kNN-VC, MIT) : donne à une voix le timbre d'une voix enregi
   - `def get(self, vid: str) -> dict[str, Any]`
   - `def all(self) -> list[dict[str, Any]]`
   - `def create(self, vid: str, label: str, name: str, attest: bool) -> dict[str, Any]` — Nouvelle voix, encore inutilisable : la phrase de consentement doit d'abord être dite (`add_take`).
-  - `def next_prompt(self, vid: str) -> dict[str, Any]`
+  - `def next_prompt(self, vid: str, after: int | None=None) -> dict[str, Any]` — Prochain texte pas encore lu ; `after` (« Autre texte ») cherche à partir du texte suivant celui-là.
   - `def add_take(self, vid: str, audio: bytes, prompt: int, transcribe: Callable[[bytes], str]) -> dict[str, Any]` — Ajoute une prise lue en direct ; refusée si Whisper n'entend pas le texte affiché.
   - `def delete_take(self, vid: str, take: int) -> bool`
   - `def delete(self, vid: str) -> bool`
