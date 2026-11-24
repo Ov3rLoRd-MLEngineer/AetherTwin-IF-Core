@@ -11,7 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = Path("data") / "circuit_lab"
 EXAMPLES = Path(__file__).resolve().parent / "examples"
 MAX_SOURCE = 1_000_000
-EXAMPLE_TITLES = {"etoiles": "Fuma et les étoiles"}
+EXAMPLE_TITLES = {"etoiles": "Fuma et les étoiles", "lune16": "Fuma au clair de lune (console 16 bits)"}
 
 
 def clean_name(name: Any) -> str:

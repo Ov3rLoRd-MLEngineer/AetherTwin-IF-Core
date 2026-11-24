@@ -10,6 +10,11 @@
   <script src="/static/asm6502.js" defer></script>
   <script src="/static/nes_ppu.js" defer></script>
   <script src="/static/nes_machine.js" defer></script>
+  <script src="/static/c16_cpu.js" defer></script>
+  <script src="/static/c16_ppu.js" defer></script>
+  <script src="/static/c16_apu.js" defer></script>
+  <script src="/static/c16_machine.js" defer></script>
+  <script src="/static/asm65816.js" defer></script>
   <script src="/static/crt.js" defer></script>
   <script src="/static/circuit_app.js" defer></script>
 </head>
@@ -20,8 +25,9 @@
       <span class="wordmark">Aether<em>Twin</em></span>
       <span class="model">CIRCUITS</span>
       <div class="modes" role="tablist" id="modes">
-        <button role="tab" data-mode="bench" aria-selected="true">Établi : console 8 bits</button>
-        <button role="tab" data-mode="code" aria-selected="false">Programmation</button>
+        <button role="tab" data-mode="bench" data-kind="c8" aria-selected="true" title="Console « Japon rouge et blanc 8 bits 1983 »">Établi : console 8 bits</button>
+        <button role="tab" data-mode="bench" data-kind="c16" aria-selected="false" title="Console « Japon grise 16 bits 1990 »">Établi : console 16 bits</button>
+        <button role="tab" data-mode="code" aria-selected="false" id="code-tab">Programmation</button>
         <button role="tab" data-mode="soon" aria-selected="false">Banc logique et microcontrôleurs</button>
       </div>
       <span class="grow"></span>
@@ -49,9 +55,9 @@
             <button type="button" id="reset" title="Bouton RESET de la console">Reset</button>
             <label>Cartouche
               <select id="cart-pick">
-                <option value="example">Exemple : Fuma et les étoiles</option>
+                <option value="example" id="opt-example">Exemple : Fuma et les étoiles</option>
                 <option value="mine">Mon programme (onglet Programmation)</option>
-                <option value="file">Un fichier .nes à moi…</option>
+                <option value="file" id="opt-file">Un fichier .nes à moi…</option>
               </select>
             </label>
             <input type="file" id="nes-file" accept=".nes" hidden>
@@ -84,7 +90,7 @@
           <div id="errors" class="errors"></div>
           <details class="cheat">
             <summary>Aide-mémoire</summary>
-            <div class="cheat-body small">
+            <div class="cheat-body small" data-kind-only="c8">
               <p><b>Directives</b> : <code>.org $C000</code> · <code>.segment prg|chr</code> · <code>.byte 1, "texte"</code> ·
                 <code>.word etiquette</code> · <code>.res 4</code> (réserve en RAM) · <code>.align 256</code> ·
                 <code>.vectors nmi, reset, irq</code> · <code>.ines mirror=vertical</code> ·
@@ -96,6 +102,26 @@
               <p><b>Manette</b> : écrire 1 puis 0 dans <code>$4016</code>, puis 8 lectures : A, B, Select, Start, haut, bas, gauche, droite.</p>
               <p><b>Son</b> : <code>$4000-$4003</code> voie carrée 1 · <code>$4004-$4007</code> voie 2 · <code>$4008-$400B</code> triangle ·
                 <code>$400C-$400F</code> bruit · <code>$4015</code> marche/arrêt des voies.</p>
+            </div>
+            <div class="cheat-body small" data-kind-only="c16" hidden>
+              <p><b>Directives</b> : <code>.bank 0</code> (code en $00:8000) · <code>.org $0000</code> (variables) ·
+                <code>.byte</code> · <code>.word</code> · <code>.long</code> · <code>.res 4</code> · <code>.align 256</code> ·
+                <code>.title "MON JEU"</code> · <code>.vectors nmi, reset, irq</code> ·
+                <code>.tile4 "..1122ff"</code> (8 lignes, couleurs 0 à f) · <code>NOM = $2100</code></p>
+              <p><b>Largeurs</b> : <code>rep #$30</code> passe A, X, Y en 16 bits, <code>sep #$20</code> remet A en 8 bits ;
+                l'assembleur suit ces instructions (ou <code>.a8 .a16 .i8 .i16</code>). <code>lda.l</code> force une adresse longue
+                (24 bits), <code>lda.w</code> absolue, <code>lda.b</code> page directe ; <code>^etiquette</code> = sa banque.</p>
+              <p><b>Démarrage</b> : <code>sei</code>, <code>clc</code>, <code>xce</code> (mode natif), <code>rep #$30</code>, pile avec
+                <code>ldx #$1FFF</code> / <code>txs</code>.</p>
+              <p><b>Vidéo</b> : <code>$2100</code> écran (bit 7 : éteint, 0-15 : luminosité) · <code>$2105</code> mode ·
+                <code>$2107-$210A</code> cartes · <code>$210B</code> tuiles · <code>$210D-$2114</code> défilements ·
+                <code>$2115-$2119</code> mémoire vidéo · <code>$2121</code>/<code>$2122</code> couleurs · <code>$2102-$2104</code> sprites ·
+                <code>$212C</code> plans affichés.</p>
+              <p><b>Processeur</b> : <code>$4200</code> NMI et lecture auto des manettes · <code>$420B</code> DMA · <code>$420C</code> HDMA ·
+                <code>$4300+</code> canaux DMA · <code>$4202-$4206</code> multiplication et division · <code>$4218</code> manette 1
+                (B Y Select Start haut bas gauche droite / A X L R).</p>
+              <p><b>Son</b> : <code>$2140-$2143</code>, 4 ports vers le module son ; il attend <code>$BBAA</code>, puis reçoit son
+                programme octet par octet (voir l'exemple).</p>
             </div>
           </details>
         </div>
@@ -130,7 +156,7 @@
           <label>Volume <input type="range" id="volume" min="0" max="1" step="0.05" value="0.2"></label>
           <label title="Effet de tube cathodique"><input type="checkbox" id="crt-fx" checked> Effet cathodique</label>
         </div>
-        <p class="keys small muted">Manette 1 : flèches · <kbd>X</kbd> = A · <kbd>W</kbd>/<kbd>Z</kbd> = B · <kbd>Entrée</kbd> = Start ·
+        <p class="keys small muted" id="keys">Manette 1 : flèches · <kbd>X</kbd> = A · <kbd>W</kbd>/<kbd>Z</kbd> = B · <kbd>Entrée</kbd> = Start ·
           <kbd>Maj</kbd> droite = Select · une manette USB marche aussi.</p>
         <div class="debug">
           <div class="row tight">

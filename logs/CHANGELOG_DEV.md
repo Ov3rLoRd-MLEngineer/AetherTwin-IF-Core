@@ -1681,3 +1681,18 @@ Il a autorisé les téléchargements nécessaires.
   toutes les sessions (format réel : `You've hit your 5-hour limit · resets 7:30pm (Europe/Paris)`, erreur
   `rate_limit`). L'agent local est ouvert en mode « demander avant chaque action ».
 - **En cours :** passation réelle à la prochaine fin de quota.
+
+## 2026-11-24 — atelier circuits : établi console 16 bits
+
+- **Agent :** Cloud
+- **Demande de Jérémy :** ajouter à l'atelier circuits un établi de console 16 bits. Règle de nommage : jamais le nom
+  commercial d'une console (marques protégées), mais origine + couleur + nombre de bits + date de sortie.
+- **Fichiers :** `core/web/c16_cpu.js` (65C816), `c16_ppu.js` (vidéo), `c16_apu.js` (SPC700 + DSP),
+  `c16_machine.js` (carte, bus, DMA/HDMA, cartouches, pièces), `asm65816.js` (assembleur) ; `circuit_app.js`,
+  `circuit_app.html` (deux établis, programmation selon l'établi), `crt.js` (images RGBA directes) ;
+  `modules/circuit_lab/examples/lune16.asm`, `lab.py` ; `tests/circuit_lab/c16_check.js`, `test_module.py`.
+- **Décisions :** la ROM de démarrage du module son (microcode du fabricant) n'est pas incluse ; son protocole public
+  de chargement est reproduit en JavaScript. Interpolation du DSP calculée (cubique), pas de table copiée. Le module
+  son est rattrapé à chaque accès à ses ports et à chaque fin de ligne.
+- **En cours :** modes vidéo autres que le mode 1 (écrits, à essayer sur des programmes de test), écho du DSP,
+  cartouches à coprocesseur ; son à écouter au casque ; téléviseur « Grand écran » avec la console 16 bits.

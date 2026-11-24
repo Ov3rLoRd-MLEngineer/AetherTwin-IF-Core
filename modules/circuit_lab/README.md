@@ -1,7 +1,8 @@
 # circuit_lab — atelier circuits Æther
 
-Un établi d'électronique virtuel. On y monte une **console de jeu 8 bits** composant par composant, on l'allume
-sur un **téléviseur cathodique**, et on écrit ses propres **cartouches** en assembleur 6502.
+Un établi d'électronique virtuel. On y monte une **console de jeu 8 bits** ou une **console 16 bits** composant
+par composant, on l'allume sur un **téléviseur cathodique**, et on écrit ses propres **cartouches** en assembleur
+6502 ou 65816.
 
 Ouverture : Hub → onglet **Outils** → **Atelier circuits**, ou le bouton **Ouvrir l'atelier** pour sa propre fenêtre.
 
@@ -31,6 +32,52 @@ Ces pannes ne sont pas des messages écrits à l'avance : la machine tourne vrai
 - **Retirer** : double-clic sur la pièce, ou le bouton dans sa fiche.
 - **Allumer**, **Reset**, choix de la **cartouche** : l'exemple, ton programme, ou un fichier `.nes` à toi.
 - Pendant que la console tourne, les pistes et les puces s'éclairent selon les accès sur les bus.
+
+## L'établi 16 bits : la console « Japon grise 16 bits 1990 »
+
+Le deuxième onglet d'établi monte une **console 16 bits** (les noms commerciaux des consoles sont des marques : chaque
+machine de l'atelier est nommée par son origine, sa couleur, son nombre de bits et sa date de sortie). Douze pièces
+aussi, chacune avec sa panne :
+
+| Pièce | Référence | Si elle manque |
+|---|---|---|
+| Alimentation 5 V | régulateur 7805 | rien ne s'allume |
+| Quartz 21,477 MHz | oscillateur NTSC | aucune puce n'avance, neige |
+| Processeur 65C816 | 65C816 + DMA | la vidéo reste « écran éteint » : image noire |
+| RAM de travail 128 Ko | DRAM 128K | la pile est perdue, le programme plante |
+| Puce vidéo 1 | PPU1 | plus aucun motif : seule la couleur de fond sort |
+| Puce vidéo 2 | PPU2 | pas de synchro : la télé n'a aucun signal |
+| Mémoire vidéo 64 Ko | 2 × SRAM 32K | motifs parasites à la place du décor |
+| Module son | SPC700 + DSP + 64 Ko | silence, et le programme qui attend le module reste bloqué au démarrage |
+| Connecteur de cartouche, cartouche, ports de manettes, sortie vidéo | | comme sur la console 8 bits |
+
+Ce qui est simulé :
+
+- **Processeur 65C816** complet (mode émulation 6502 et mode natif, registres 8 ou 16 bits, 16 Mo d'adresses,
+  décimal, MVN/MVP) ; le temps se compte en cycles de l'horloge maître (6, 8 ou 12 par accès selon la zone, comme
+  sur la vraie carte). Multiplication et division matérielles, minuterie H/V, lecture automatique des manettes.
+- **DMA** (8 canaux, tous les modes) et **HDMA** (direct et indirect) : changer un registre à chaque ligne sans le
+  processeur (dégradés, ondulations).
+- **Vidéo** : modes 0 à 7 (dont la rotation du mode 7), 128 sprites de 8×8 à 64×64, fenêtres, transparences
+  (addition, soustraction, moitié), mosaïque, luminosité, 32 768 couleurs.
+- **Module son** : processeur SPC700 avec ses minuteries, DSP à 8 voix (échantillons BRR, enveloppes ADSR et GAIN,
+  bruit, modulation de hauteur, écho à 8 coefficients). La petite ROM de démarrage du module est un microcode du
+  fabricant : elle **n'est pas fournie**, son protocole public de chargement (attente de `$CC`, octets numérotés,
+  saut au programme) est reproduit en JavaScript.
+- **Cartouches** `.sfc` / `.smc` : cartes « LoROM » et « HiROM » reconnues par leur en-tête, en-tête de copieur de
+  512 octets retiré, mémoire de sauvegarde. Les cartouches à puce supplémentaire (coprocesseur) sont refusées avec
+  un message : **en cours**.
+
+L'onglet **Programmation** suit l'établi choisi : avec la console 16 bits, c'est un assembleur **65816** (directives
+`.bank`, `.long`, `.tile4` pour les tuiles 16 couleurs, `.title`, largeurs suivies automatiquement après
+`rep`/`sep` ou fixées par `.a8 .a16 .i8 .i16`, suffixes `.b .w .l`, `^etiquette` pour la banque). Il produit une
+cartouche LoROM avec son en-tête et sa somme de contrôle (**Exporter .sfc**). Les programmes enregistrés de chaque
+établi sont gardés à part dans la page.
+
+L'exemple **« Fuma au clair de lune »** : un ciel en dégradé par HDMA, la lune, des étoiles qui scintillent, Fuma
+qui marche sur l'herbe (flèches) et miaule une note (B) : le programme envoie au module son un petit programme
+SPC700 puis lui dit quoi jouer. Manette 16 bits au clavier : flèches, **X** = A, **W/Z** = B, **Q/A** = Y,
+**S** = X, **D** = L, **C** = R, **Entrée** = Start, **Maj droite** = Select.
 
 ## Le téléviseur
 

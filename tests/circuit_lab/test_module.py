@@ -17,7 +17,8 @@ ROOT = Path(__file__).resolve().parents[2]
 WEB = ROOT / "core" / "web"
 HERE = Path(__file__).resolve().parent
 PAGES = ("circuit_app", "crt")
-SCRIPTS = ("nes_cpu.js", "asm6502.js", "nes_ppu.js", "nes_machine.js", "crt.js", "crt_tv.js", "circuit_audio.js")
+SCRIPTS = ("nes_cpu.js", "asm6502.js", "nes_ppu.js", "nes_machine.js", "crt.js", "crt_tv.js", "circuit_audio.js",
+           "c16_cpu.js", "c16_ppu.js", "c16_apu.js", "c16_machine.js", "asm65816.js")
 
 
 def make(tmp_path: Path) -> CircuitLabModule:
@@ -29,6 +30,8 @@ def make(tmp_path: Path) -> CircuitLabModule:
 def test_examples_and_programs(tmp_path: Path) -> None:
     module = make(tmp_path)
     assert {"name": "etoiles", "title": "Fuma et les étoiles"} in module.run("examples", {})
+    assert {"name": "lune16", "title": "Fuma au clair de lune (console 16 bits)"} in module.run("examples", {})
+    assert ".vectors" in module.run("example", {"name": "lune16"})["source"]
     example = module.run("example", {"name": "etoiles"})
     assert ".vectors" in example["source"]
     with pytest.raises(ValueError):
@@ -89,6 +92,7 @@ NODE = shutil.which("node")
     ("asm_check.js", "assembleur : ok"),
     ("machine_check.js", "carte mère : ok"),
     ("demo_check.js", "jeu d'exemple : ok"),
+    ("c16_check.js", "console 16 bits : ok"),
 ])
 def test_console_in_javascript(script: str, expected: str) -> None:
     done = subprocess.run([NODE, str(HERE / script)], capture_output=True, text=True, encoding="utf-8",  # noqa: S603

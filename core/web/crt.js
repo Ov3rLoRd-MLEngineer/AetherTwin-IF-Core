@@ -84,11 +84,13 @@
       if (mode === 0 && this.mode !== 0) this.offAt = performance.now();
       this.mode = mode;
     }
-    // frame : Uint8Array 256×240 d'index de couleur (0-63)
+    // frame : Uint8Array 256×240 d'index de couleur (0-63, console 8 bits) ou Uint32Array 256×240 de points RGBA
+    // déjà calculés (console 16 bits, 32 768 couleurs)
     draw(frame) {
       if (frame && this.mode === 2) {
-        const pal = this.palette, out = new Uint32Array(this.rgba.buffer);
-        for (let i = 0; i < 61440; i++) out[i] = pal[frame[i]];
+        const out = new Uint32Array(this.rgba.buffer);
+        if (frame.BYTES_PER_ELEMENT === 4) out.set(frame.subarray(0, 61440));
+        else { const pal = this.palette; for (let i = 0; i < 61440; i++) out[i] = pal[frame[i]]; }
       }
       const rect = this.canvas.getBoundingClientRect();
       const w = Math.max(64, Math.round(rect.width * (window.devicePixelRatio || 1)));

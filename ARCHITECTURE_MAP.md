@@ -182,11 +182,16 @@ core/
     artcraft_tool.css
     artcraft_tool.js
     asm6502.js
+    asm65816.js
     audio_app.css
     audio_app.html
     audio_app.js
     audio_tool.js
     audio_worklet.js
+    c16_apu.js
+    c16_cpu.js
+    c16_machine.js
+    c16_ppu.js
     calc_app.css
     calc_app.html
     calc_app.js
@@ -283,6 +288,7 @@ modules/
     app.py
     examples/
       etoiles.asm
+      lune16.asm
     lab.py
     manifest.json
     module.py
@@ -523,6 +529,7 @@ tests/
   circuit_lab/
     __init__.py
     asm_check.js
+    c16_check.js
     demo_check.js
     machine_check.js
     nestest_run.js
