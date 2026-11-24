@@ -1403,5 +1403,8 @@ outine.json` ; le serveur MCP ne fait que le lire.
     uniquement, `Popen` en liste, processus détaché ; aucun téléchargement, aucune ROM, aucun BIOS.
   - Géométrie : la page envoie la construction, le moteur la refait en exact ; lieux : élimination du paramètre.
   - Hermes : `hermes_link.register_server()` généralisé (nom validé) ; `mcp_server.py` lançable comme script.
-- **Tests :** voir le rapport `logs/RAPPORT_calc_cas.md` (totaux de la suite complète).
+- **Tests :** `ruff check .` propre ; suite complète après fusion de `main` : 943 réussis, 5 ignorés.
+- **Essais réels :** Hub de test (5760) : onglet Outils, Calculs en image, géométrie (lieu, rotation), Pong lancé
+  et arrêté, dialogue des émulateurs, import/export ; Hermes → `cas_compute` → e − 2 (31 s). Rapport pour l'autre
+  session : `logs/RAPPORT_calc_cas.md`.
 
