@@ -508,6 +508,7 @@ modules/
       wavlm_modules.py
 scripts/
   __init__.py
+  build_release.py
   extract_ui_strings.py
   gen_architecture_map.py
   relay_orchestrator.py
@@ -621,6 +622,7 @@ tests/
     test_scantrad.py
     test_scantrad_module.py
   test_architecture_map.py
+  test_build_release.py
   test_hub_window.py
   test_relay_orchestrator.py
   test_repo_hygiene.py
@@ -630,13 +632,18 @@ tests/
     test_voice.py
 docs/
   .gitkeep
+  CANDIDATURE.md
   captures/
     ether_hd2d_jardin.png
     ether_hd2d_lac.png
     obs_hud.png
     scantrad_page_test_fr.png
+  DEMO_SCRIPT.md
+  HARDWARE_FIT.md
+  RELEASE.md
 research/
   .gitkeep
+  overlord_notes.md
 assets/
   .gitkeep
   logo_if_core.svg
@@ -2446,6 +2453,20 @@ Code repris de kNN-VC (MIT) : WavLM-Large (Microsoft, MIT) et générateur HiFi-
   - `def compute_bias(self, query_length, key_length)`
   - `def forward(self, query, key: Optional[Tensor], value: Optional[Tensor], key_padding_mask: Optional[Tensor]=None, incremental_state: Optional[Dict[str, Dict[str, Optional[Tensor]]]]=None, need_weights: bool=True, static_kv: bool=False, attn_mask: Optional[Tensor]=None, before_softmax: bool=False, need_head_weights: bool=False, position_bias: Optional[Tensor]=None) -> Tuple[Tensor, Optional[Tensor], Optional[Tensor]]` — Input shape: Time x Batch x Channel
   - `def apply_sparse_mask(self, attn_weights, tgt_len: int, src_len: int, bsz: int)`
+
+### `scripts/build_release.py`
+
+Construit l'archive installable d'AetherTwin à partir d'un commit Git, et peut la vérifier à neuf.
+
+- **`class ReleaseError(RuntimeError)`** — Construction ou vérification impossible ; le message dit pourquoi.
+- `def git(*args: str, cwd: Path=ROOT) -> str`
+- `def project_version() -> str`
+- `def release_name(version: str, short_sha: str) -> str`
+- `def scan_archive(zf: zipfile.ZipFile) -> list[str]` — Secrets, chemins personnels et fichiers interdits trouvés dans l'archive (liste vide : propre).
+- `def release_notes(name: str, version: str, sha: str, commit_date: str, ref: str) -> str`
+- `def build(ref: str='HEAD', out_dir: Path | None=None, version: str | None=None, log=print) -> Path` — Construit l'archive et son empreinte SHA-256 ; renvoie le chemin de l'archive.
+- `def verify(archive: Path, setup_args: list[str], log=print) -> None` — Installe l'archive à neuf dans dist/verify (setup.ps1), puis lance toute la suite de tests dedans.
+- `def main(argv: list[str] | None=None) -> int`
 
 ### `scripts/extract_ui_strings.py`
 

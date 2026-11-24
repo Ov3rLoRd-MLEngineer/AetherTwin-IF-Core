@@ -1,115 +1,179 @@
 # AetherTwin (I&F Core)
 
-> **Version provisoire du README** (écrite au J1, inexactitudes corrigées le 22/11/2026 ; la version finale
-> viendra avec la soumission). L'état détaillé de chaque brique est dans [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
-
-AetherTwin est un **hub d'agents locaux** : un démon central observe ce que fait la machine
-(jeu, lecteur, outil de création), active le module adapté et répartit la VRAM entre les modèles.
-Tout s'exécute en local, sous Ollama, sur du matériel NVIDIA grand public.
+**Un hub d'agents IA qui tourne entièrement en local.** Un démon central observe ce que fait la machine
+(un jeu, une page de manga, un cours, un outil de création). Il active le module adapté et partage la VRAM
+entre les modèles. Tout s'exécute sous Ollama, sur deux cartes NVIDIA grand public. Aucune requête de
+génération ne part vers un cloud.
 
 *À Inoue et Fuma.*
 
-## État actuel
+> **État évalué pour le concours ASUS Agent Computer Challenge** : le tag `v0.1.0-concours` (branche
+> `concours`), figé le 25/11/2026. Le développement continue sur `main`. AetherTwin est un projet **en
+> cours** : ce qui n'est pas fini est dit comme tel, ici et dans [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 
-| Élément | État |
-|---|---|
-| Structure du dépôt, conventions, CI, garde-fou anti-secrets | fait, testé |
-| Relais de développement Cloud ⇄ Local (`scripts/relay_orchestrator.py`) | testé en simulation |
-| Moniteur GPU, contrat de module | fait, testé |
-| Bus d'événements entre processus, démon, API locale (`127.0.0.1`) | fait, testé |
-| Gardiens Inoue (budget VRAM, VRAM mesurée comprise) et Fuma (watchdog, tâches de nuit) | branchés dans le démon, testés en réel |
-| Routeur LLM : un seul gros modèle chargé à la fois, `num_ctx` fixé, réponse mot à mot, API compatible OpenAI | fait, testé en réel sur 2 GPU |
-| Tableau de bord local en onglets (`http://127.0.0.1:5750/`), lanceur `Lancer AetherTwin.bat` | fait, utilisé par Jérémy |
-| Module `gaming_hud` (WoW Assistant porté) : état du jeu en lecture seule, mode Showcase | fait, testé en réel avec OBS |
-| Adaptateurs de jeu : WoW, journal texte, capture d'écran (expérimental) | faits ; seul WoW essayé sur un vrai jeu |
-| Overlay OBS local (état du jeu filtré + monitoring des GPU) | fait, vu dans OBS |
-| Base de connaissances (Wikipédia, vecteurs locaux) et `genesis_lab` (calculs, Professeur) | faits, testés en réel |
-| Professeur : programmes du CP à la terminale, cours, schémas, exercices corrigés, 10 simulations, simulations créées par le modèle local ou le Claude Code local | fait, testé en réel (23/11) |
-| Onglet Développement : Claude Code local (Ollama direct, OmniRoute facultatif) dans Windows Terminal ou un terminal du Hub, pont MCP Hermes ⇄ Claude Code, essai du relais | fait, testé en réel (23/11) |
-| `scantrad` : traduction de manga japonais → français (automatique ou zones posées à la main) | fait, testé sur de vraies pages |
-| `mangastudio` : masques de mains et de pieds (HandSegNet, FootSegNet), nœuds ComfyUI | masques réels ; ComfyUI non essayé ; réglages en cours |
-| `if_game` « Éther » : exploration calme, Fuma et Inoue, lieux inventés par le modèle local | fait, joué par Jérémy (démo technique) |
+<p>
+<img src="docs/captures/scantrad_page_test_fr.png" alt="Page de test traduite par scantrad" height="260">
+<img src="docs/captures/ether_hd2d_lac.png" alt="Jeu Éther : Fuma et Inoue au bord du lac" height="260">
+<img src="docs/captures/obs_hud.png" alt="Overlay OBS : personnage, quêtes, jauges des GPU" height="260">
+</p>
+
+## En bref
+
+- **Deux gardiens, pas une décoration.** Inoue garde la VRAM : un seul gros modèle chargé à la fois,
+  10 % de réserve, budget calculé sur la mesure réelle des cartes. Fuma garde la stabilité : il relance
+  un module planté, surveille les températures et lance les tâches de nuit.
+- **Des modules qui sont de vrais agents outillés.** Les modèles locaux appellent des outils exacts :
+  calcul formel, Python en bac à sable, tableur, chimie, pixel art, voix. Ces outils sont aussi servis en
+  **MCP** à d'autres agents (Claude Code local, Hermes Agent).
+- **Développé par des agents qui se relaient.** Quand le quota de l'agent cloud tombe, un agent local
+  (Qwen sous Ollama) reprend avec une passation écrite. Au retour, l'agent cloud relit le diff.
+- **Honnête sur ce qui marche.** Chaque brique porte un statut : `FAIT-TESTÉ`, `FAIT-NON-TESTÉ`,
+  `SIMULÉ`, `EN COURS`, `À FAIRE`. Les mesures sont datées.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Poste["Poste Windows — tout sur 127.0.0.1"]
+        UI["Tableau de bord<br/>(fenêtre du Hub)"]
+        subgraph Hub["Démon du Hub — core/daemon.py"]
+            API["API locale :5750<br/>+ compatible OpenAI"]
+            BUS["Bus d'événements<br/>entre processus"]
+            INOUE["Inoue<br/>budget VRAM"]
+            FUMA["Fuma<br/>watchdog, nuit"]
+            ROUTER["Routeur LLM<br/>un gros modèle à la fois"]
+        end
+        subgraph Modules["Modules (un processus chacun)"]
+            GAME["gaming_hud<br/>WoW Assistant"]
+            SCAN["scantrad"]
+            PROF["genesis_lab<br/>Professeur"]
+            TOOLS["calc_cas, data_lab,<br/>chem_lab, pixel_studio, voice"]
+            OTHERS["mangastudio, if_game,<br/>circuit_lab, dev_launcher"]
+        end
+        OLLAMA[("Ollama<br/>Qwen 27B / 30B, vision 7B")]
+        STRATA[("Strata (option)<br/>mélange d'experts")]
+        GPU["RTX 5080 16 Go<br/>RTX 5060 Ti 16 Go"]
+        MCP["Serveurs MCP<br/>(stdio)"]
+        EXT["Claude Code local,<br/>Hermes Agent"]
+        OBS["OBS<br/>overlay :5757"]
+    end
+    UI <--> API
+    API <--> BUS
+    BUS <--> Modules
+    INOUE --> ROUTER
+    FUMA --> Modules
+    ROUTER --> OLLAMA
+    ROUTER --> STRATA
+    OLLAMA --> GPU
+    INOUE -. mesure .-> GPU
+    TOOLS --> MCP --> EXT
+    GAME --> OBS
+```
+
+Le relais de développement Cloud ⇄ Local est décrit plus bas. Le rôle de chaque fichier et les
+signatures des fonctions publiques sont dans [`ARCHITECTURE_MAP.md`](ARCHITECTURE_MAP.md), généré par
+`scripts/gen_architecture_map.py`.
 
 ## Installation
 
-Windows 10 ou 11, Python 3.11.
+Windows 10 ou 11, **Python 3.11** (`py -0p` liste les versions installées). Ollama est conseillé. Sans
+lui, le Hub démarre quand même, en mode dégradé.
+
+**Depuis l'archive de la version** (`AetherTwin-IF-Core-<version>.zip`) : décompresser, double-cliquer
+sur `Installer AetherTwin.bat`, puis sur `Lancer AetherTwin.bat`.
+
+**Depuis le dépôt** :
 
 ```powershell
-git clone <URL-du-dépôt> AetherTwin-IF-Core
+git clone https://github.com/Ov3rLoRd-MLEngineer/AetherTwin-IF-Core
 cd AetherTwin-IF-Core
-.\scripts\setup.ps1
+.\scripts\setup.ps1 -Shortcut
+ollama pull qwen3-27b; ollama pull qwen2.5vl:7b; ollama pull nomic-embed-text
 .\.venv\Scripts\python.exe -m pytest
-```
-
-Sans le script :
-
-```powershell
-py -3.11 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-.\.venv\Scripts\python.exe -m pytest
-```
-
-### Optionnel : Strata, moteur des gros modèles « mélange d'experts »
-
-[Strata](https://github.com/Niko1221/Strata) (licence MIT) sert des modèles MoE au format OpenAI sur 127.0.0.1.
-Il **s'ajoute** à Ollama, qui garde la vision, les embeddings et les modèles denses. Sans Strata, rien ne change.
-
-```powershell
-# installation sans droits administrateur, dans le dossier choisi, sans toucher au PATH
-$env:STRATA_DATA_DIR = 'D:\Strata'; $env:STRATA_NO_PATH = '1'
-irm -TimeoutSec 120 https://github.com/Niko1221/Strata/releases/latest/download/install.ps1 | iex
-# modèle, préréglage « AetherTwin », port 8090 (8080 est souvent pris par Open WebUI)
-D:\Strata\terminal\current\bin\strata.cmd launch --family qwen36 --model UD-Q4_K_XL --data-dir D:\Strata\Models `
-  --context 64k --gpu 0,1 --access local --port 8090 --save-preset AetherTwin --yes --no-tui
-```
-
-Puis, dans `config/local.yaml`, la section `strata` (`enabled: true`, `launcher`, `data_dir`, `preset`) : voir
-`config/local.example.yaml`. Le tableau de bord (Accueil) montre son état et le démarre ou l'arrête ; ses modèles
-s'appellent `strata/<id>` dans le Hub. Tant que Strata tourne, il tient la place du gros modèle : Inoue refuse un
-gros modèle Ollama jusqu'à son arrêt. Strata arrêté : les questions `strata/…` passent sur le modèle Ollama par défaut.
-Avec 32 Go de RAM, Qwen3.6-35B-A3B convient ; Qwen3.8-Flash-Next (125B) veut 48 à 64 Go de RAM.
-Mesuré le 23/11 : 36 à 48 jetons/s sur une seule carte (le moteur de ce modèle n'en utilise qu'une : la RTX 5060 Ti,
-pour laisser la 5080 au jeu), mais 21 à 24 Go de RAM pris : arrêtez Strata avant un traitement lourd.
-Conclusion : avec 32 Go, manques de mémoire jusque dans le navigateur ; pour l'utiliser pleinement, 64 Go de RAM
-(une 3e carte graphique accélère, mais ne baisse pas la RAM demandée).
-
-## Lancer le Hub
-
-Double-clic sur `Lancer AetherTwin.bat` à la racine (ou le raccourci créé par `setup.ps1 -Shortcut`) : le Hub
-démarre et ouvre le tableau de bord sur `http://127.0.0.1:5750/`. En ligne de commande :
-
-```powershell
 .\.venv\Scripts\python.exe -m core.daemon --open
 ```
 
-Points d'accès utiles : `http://127.0.0.1:5750/health` (état du Hub et des deux gardiens),
-`/gpu` (mesure des cartes), `/modules`, `/events`. Le démon démarre aussi sans GPU, en mode dégradé.
+`[À COMPLÉTER PAR JÉRÉMY : adresse définitive du dépôt GitHub au moment du push]`
 
-Activer le HUD de jeu et poser une question au modèle local, avec le contexte du jeu :
+Si Windows refuse d'exécuter `setup.ps1`, passer par `Installer AetherTwin.bat`. Il autorise le script
+pour ce lancement seulement, sans changer le réglage de Windows. Options du script :
+
+| Option | Ajoute | Taille |
+|---|---|---|
+| `-Gpu` | PyTorch CUDA 12.8 et segment-anything (`mangastudio`) | environ 3 Go |
+| `-Weights` | poids HandSegNet, FootSegNet (Hugging Face) et LaMa (`scantrad`) | 2 × 375 Mo + 198 Mo |
+| `-Voice` | reconnaissance vocale locale (faster-whisper) | modèle de 480 Mo au premier usage |
+| `-Shortcut` | raccourci « AetherTwin » sur le bureau | — |
+
+Le script n'écrit que dans le dossier du projet (sauf le raccourci). Il crée `config/local.yaml` depuis
+l'exemple ; ce fichier est ignoré par Git et ne contient aucune clé.
+
+**Construire l'archive soi-même.** Après chaque ajout, la même commande refait le paquet :
 
 ```powershell
-curl.exe -X POST http://127.0.0.1:5750/modules/gaming_hud/activate
-curl.exe -X POST http://127.0.0.1:5750/ask -H "Content-Type: application/json" -d '{\"prompt\":\"Où est mon personnage ?\",\"model\":\"qwen3-27b:latest\"}'
+.\.venv\Scripts\python.exe scripts\build_release.py            # archive dans dist\
+.\.venv\Scripts\python.exe scripts\build_release.py --verify   # + installation à neuf et tests
 ```
 
-L'application de jeu d'origine (fenêtre, overlay, voix) se lance seule : `python -m modules.gaming_hud`.
+Le détail est dans [`docs/RELEASE.md`](docs/RELEASE.md).
 
-### Overlay pour OBS (mode Showcase)
+### Optionnel : Strata, moteur des gros modèles « mélange d'experts »
 
-Quand le module `gaming_hud` est actif, il sert une page à fond transparent, à ajouter dans OBS comme
-source « Navigateur » : `http://127.0.0.1:5757/obs-hud`.
+[Strata](https://github.com/Niko1221/Strata) (MIT) sert des modèles MoE au format OpenAI sur 127.0.0.1.
+Il **s'ajoute** à Ollama. Installation et réglage : section `strata` de `config/local.example.yaml`.
+Mesuré le 23/11 : 36 à 48 jetons par seconde sur une seule carte, mais 21 à 24 Go de RAM pris. Avec 32 Go
+de RAM, il faut l'arrêter avant un traitement lourd (voir [`docs/HARDWARE_FIT.md`](docs/HARDWARE_FIT.md)).
 
-<img src="docs/captures/obs_hud.png" alt="Overlay OBS : personnage, quêtes et jauges des deux GPU" width="300">
+## Démo en cinq minutes
 
-*Capture de la page avec des données de démonstration.*
+1. `Lancer AetherTwin.bat` : le Hub s'ouvre dans sa fenêtre, sur `http://127.0.0.1:5750/`.
+2. **Accueil** : les deux cartes mesurées en direct, le budget d'Inoue, les modèles chargés.
+3. **Assistant** : poser une question. La réponse s'écrit mot à mot. Les sources de la base locale sont
+   citées quand elles existent.
+4. **Scantrad** : ouvrir une page libre de droits, lancer la traduction, corriger une zone à la main.
+5. **Professeur** : choisir un niveau et un chapitre, « Préparer », puis un exercice corrigé.
+6. **Outils** : la calculatrice (résultats exacts), le labo de chimie, le tableur, le studio pixel,
+   l'atelier circuits (consoles à monter, banc logique, cartes RP2040 et AVR).
+7. **Jeu** (avec World of Warcraft installé) : état du personnage en lecture seule ; overlay OBS sur
+   `http://127.0.0.1:5757/obs-hud`.
 
-- Ce que la page affiche passe **toujours** par le filtre de confidentialité : ni chemin de fichier, ni nom
-  de compte, ni adresse e-mail, ni clé ; l'or est arrondi ou masqué ; les noms de personnages peuvent
-  être remplacés (`hide_character_names`).
-- Le serveur n'écoute que sur `127.0.0.1`. La page ne charge rien depuis Internet.
-- Lancer OBS fait aussi basculer le module en mode Showcase : ce qu'il publie sur le bus est alors filtré.
+Le scénario de la vidéo de deux minutes est dans [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md).
 
-### Mesures réelles (17/11/2026, RTX 5080 16 Go + RTX 5060 Ti 16 Go, Ollama 0.40.16)
+## Les modules
+
+| Module | Ce qu'il fait | État |
+|---|---|---|
+| `gaming_hud` | WoW Assistant porté dans le Hub : état du jeu en **lecture seule**, assistant, Hermes Agent comme coach, mode Showcase pour OBS avec filtre de confidentialité | testé en réel (jeu, OBS) ; une partie des onglets récents reste à essayer en jeu |
+| `scantrad` | Traduction locale de manga (japonais, chinois, coréen, anglais vers le français) : bulles, lecture par un modèle de vision, effacement (LaMa), traduction, réincrustation, mode manuel | testé sur de vraies pages (japonais) |
+| `genesis_lab` | Le Professeur : programmes du CP à la terminale, cours, schémas, exercices corrigés, simulations (dont des simulations écrites par le modèle local) ; calculs scientifiques vérifiés | testé en réel |
+| `calc_cas` | Calculatrice à calcul formel (SymPy), graphes, géométrie dynamique, Python en bac à sable, outils pour les agents, serveur MCP | testé en réel |
+| `data_lab`, `chem_lab` | Tableur à formules et labo de chimie (équilibrage exact, pH, titrages), avec outils MCP | testés ; plusieurs feuilles et cinétique **en cours** |
+| `pixel_studio` | Studio de pixel art : sprites, animation, cartes en tuiles, exports ; outils pour les agents | testé en réel |
+| `voice` | Voix locale : synthèse Piper, écoute Whisper, effets, studio audio ; conversion de voix kNN-VC **avec consentement** | testé ; modulateur en direct et micro NVIDIA Broadcast **en cours** |
+| `mangastudio` | Masques de mains et de pieds (HandSegNet, FootSegNet), nœuds ComfyUI | masques réels ; jamais chargé dans un vrai ComfyUI |
+| `if_game` | « Fuma et Inoue : les Gardiens de l'Éther », exploration calme en vue RPG 16 bits ; le modèle propose les lieux, le code valide | joué par Jérémy (démo technique) |
+| `circuit_lab` | Atelier circuits : consoles 8 et 16 bits à monter pièce par pièce, téléviseur cathodique, assembleurs, banc logique façon FPGA, cartes RP2040 et AVR | testé ; mappeurs, DMC, périphériques des microcontrôleurs **en cours** |
+| `dev_launcher` | Claude Code local (Ollama), terminal du Hub, pont MCP Hermes ⇄ Claude Code, relais | testé en réel |
+| `artcraft` | Intégration **externe** des logiciels libres ArtCraft, installés depuis leurs publications officielles | testé |
+
+Le détail brique par brique, avec les dates des essais : [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
+
+## Ce qui en fait un projet « Agentic AI » local
+
+- Les modèles locaux **délèguent** ce qu'ils font mal. Un calcul part vers le moteur exact, un programme
+  vers le bac à sable Python (`python_run`), une analyse vers le tableur. La réponse finale reprend le
+  résultat réel, pas une estimation du modèle.
+- Les mêmes outils sont servis en **MCP** (`aethertwin_calc`, `aethertwin_donnees`, `aethertwin_chimie`,
+  `aethertwin_pixel`, `aethertwin_voice`). Claude Code local et Hermes Agent s'en servent comme d'outils
+  natifs.
+- Le Hub **orchestre la mémoire**. Inoue décide quel modèle peut se charger, d'après la VRAM mesurée, et le
+  routeur décharge le gros modèle précédent avant d'en charger un autre.
+- Le projet est **développé par des agents qui se relaient**, avec une passation documentée
+  (`AGENT_HANDOFF.md`, `logs/CHANGELOG_DEV.md`).
+
+## Mesures réelles et adéquation matérielle
+
+17/11/2026, RTX 5080 16 Go + RTX 5060 Ti 16 Go, Ollama 0.40.16, contexte fixé :
 
 | Modèle | Quantification | `num_ctx` | VRAM occupée | Première réponse |
 |---|---|---|---|---|
@@ -118,79 +182,83 @@ source « Navigateur » : `http://127.0.0.1:5757/obs-hud`.
 | `qwen2.5vl:7b` (vision) | — | 4 096 | 6,3 Gio | 16,7 s |
 
 Les deux gros modèles dépassent la VRAM d'une seule carte de 16 Go : Ollama les répartit sur les deux
-GPU, et le Hub n'en garde jamais deux en mémoire. Débit en jetons par seconde : non mesuré.
+cartes. [`docs/HARDWARE_FIT.md`](docs/HARDWARE_FIT.md) détaille ce que coûte ce mur de la VRAM, et ce
+qu'une seule carte de 32 Go simplifierait (sans l'avoir testé).
 
 ## Développement 24 h/24 : le relais Cloud ⇄ Local
 
-Le projet est développé par deux agents qui se relaient, avec une passation documentée :
+Deux agents se relaient, avec une passation écrite :
 
 - un agent **cloud** (Claude Code), limité par une fenêtre de quota ;
-- un agent **local** (Qwen sous Ollama), qui prend le relais pendant la coupure. Par défaut c'est
-  Claude Code lui-même, branché sur Ollama par un routeur local (OmniRoute) ; Aider et OpenCode sont
-  aussi pris en charge.
+- un agent **local** (Qwen sous Ollama), qui reprend pendant la coupure. Par défaut, c'est Claude Code
+  lui-même, branché sur Ollama par un routeur local ; Aider et OpenCode sont aussi pris en charge.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Cloud: lancement, T0 enregistré
-    Cloud --> Cloud: 429 transitoire (backoff court)
+    Cloud --> Cloud: 429 transitoire (attente courte)
     Cloud --> Local: limite d'usage, ou 429 persistant
-    Local --> Cloud: T0 + fenêtre — arrêt propre, commit wip(local), résumé et diff pour revue
+    Local --> Cloud: T0 + fenêtre — arrêt propre, commit wip(local), résumé et diff
     Cloud --> [*]: mission terminée
 ```
 
-L'agent local reçoit `AGENT_HANDOFF.md`, `PROJECT_STATUS.md`, `ARCHITECTURE_MAP.md` et la liste de
-tâches courante. Il consigne son travail dans `logs/CHANGELOG_DEV.md`. À la reprise, l'agent cloud
-relit **le diff seulement**.
-
 ```powershell
-# simulation complète, sans appeler aucun service
-.\.venv\Scripts\python.exe scripts\relay_orchestrator.py --dry-run
-
-# relais réel
-.\.venv\Scripts\python.exe scripts\relay_orchestrator.py --backend claude-code --local-agent claude-code
-
-# état enregistré
-.\.venv\Scripts\python.exe scripts\relay_orchestrator.py --status
+.\.venv\Scripts\python.exe scripts\relay_orchestrator.py --dry-run   # simulation complète
+.\.venv\Scripts\python.exe scripts\relay_orchestrator.py --status    # état enregistré
 ```
 
-Options principales : `--window-minutes` (défaut 302, soit 5 h + 2 min), `--local-model`
-(défaut `qwen3-coder:30b-a3b-q4_K_M`), `--num-ctx` (défaut 32768), `--ollama-host`, `--max-cycles`.
+Une seule instance tourne (fichier verrou). L'état est écrit de façon atomique et relu après un
+redémarrage. Ctrl+C arrête proprement. Aucune clé dans le dépôt : les identifiants viennent de
+l'environnement.
 
-Robustesse : une seule instance (fichier verrou), état écrit de façon atomique dans
-`logs/relay_state.json` et relu après un redémarrage, journal `logs/relay.log`, arrêt propre sur
-Ctrl+C. Aucune clé dans le dépôt : les identifiants viennent de l'environnement.
+## Sécurité et vie privée
 
-## Ce que j'ai vérifié / ce que je n'ai pas pu vérifier
+- Le Hub n'écoute que sur `127.0.0.1`. Une écriture venue d'un autre site, ou d'un hôte non local, est
+  refusée (contrôle de l'origine et de l'hôte).
+- Les données de jeu sont lues **en lecture seule**. En mode Showcase, tout passe par le filtre de
+  confidentialité : ni chemin, ni compte, ni e-mail, ni clé ; or arrondi ; noms masquables.
+- Aucune commande issue d'un modèle n'est exécutée hors liste blanche. Le Python des agents tourne dans un
+  bac à sable, dans un processus séparé, avec un délai.
+- Aucun secret dans le dépôt : `tests/test_repo_hygiene.py` le vérifie à chaque exécution des tests.
+- Aucune page de manga protégée dans le dépôt. Ni ROM ni BIOS fournis. Les machines simulées de l'atelier
+  ne portent aucun nom commercial.
 
-**Vérifié (Windows 10, Python 3.11 ; détail et dates dans `PROJECT_STATUS.md`) :**
+## Ce qui a été vérifié, et ce qui ne l'a pas été
 
-- `pytest` (22/11) : 400 tests réussis, 4 tests réels sur GPU ignorés par défaut ; `ruff check .` propre.
-- Installation sur un clone vierge avec `scripts/setup.ps1` (avec et sans `-Gpu`).
-- Mode Showcase avec OBS réel et overlay affiché dans OBS (essais de Jérémy, 17/11).
-- Bout en bout réel (17/11) : démon → module `gaming_hud` → données du jeu → modèle local → réponse correcte.
-- Routeur LLM : deux gros modèles chargés l'un après l'autre, un seul en mémoire à chaque instant.
-- Filtre de confidentialité : aucune donnée privée de test, ni des données réelles, dans la sortie Showcase.
-- Moniteur GPU : lecture réelle de deux GPU NVIDIA (RTX 5080, RTX 5060 Ti) via `pynvml`.
-- Démon : lancé pour de vrai, API joignable sur `127.0.0.1:5750` uniquement ; un module de test tourne
-  dans un processus séparé, s'arrête proprement, et est relancé par Fuma après un plantage.
-- Relais : tous les scénarios en simulation (horloge virtuelle, serveur HTTP factice renvoyant des 429).
-- `relay_orchestrator.py --dry-run` : un cycle complet, code de sortie 0.
+**Vérifié** (Windows 10, Python 3.11 ; dates dans `PROJECT_STATUS.md`) :
 
-**Non vérifié :**
+- `pytest` le 25/11/2026 : `[NOMBRE_TESTS]`. Les tests sur GPU réel sont ignorés par défaut
+  (`AETHERTWIN_REAL_OLLAMA=1` pour les lancer). `ruff check .` propre.
+- Installation à neuf depuis l'archive de la version (`setup.ps1`), puis toute la suite de tests dans la
+  copie installée (`scripts/build_release.py --verify`, 25/11/2026).
+- Bout en bout réel : démon → module `gaming_hud` → données du jeu → modèle local → réponse correcte.
+- Mode Showcase avec un vrai OBS, overlay affiché dans OBS (essais de Jérémy).
+- Routeur : deux gros modèles chargés l'un après l'autre, un seul en mémoire à chaque instant.
+- `scantrad`, Professeur, calculatrice, outils des agents et serveurs MCP : essais réels avec `qwen3-27b`
+  et `qwen2.5vl:7b`.
+- Moniteur GPU : lecture réelle des deux cartes par `pynvml`.
 
-- Le relais face à une vraie limite de quota de Claude Code.
-- Le lancement réel de l'agent local (Claude Code via OmniRoute ; Aider et OpenCode ne sont pas installés).
-- Le backend API face au vrai service Anthropic.
-- La CI GitHub (le dépôt n'est pas encore poussé).
-- Les adaptateurs `log_tail` et `screen_ocr` sur un vrai jeu (testés sur un journal et une image de test).
-- Les nœuds et le workflow `mangastudio` dans un vrai ComfyUI.
+**Pas vérifié :**
+
+- Le relais face à une vraie limite de quota (testé en simulation seulement).
+- La CI GitHub (dépôt pas encore poussé à l'écriture de ce document).
+- Les adaptateurs de jeu `log_tail` et `screen_ocr` sur un vrai jeu.
+- Les nœuds `mangastudio` dans un vrai ComfyUI.
+- Une carte de 32 Go, la topologie à trois cartes, toute carte autre que NVIDIA.
 
 ## Feuille de route
 
-Voir [`PROJECT_STATUS.md`](PROJECT_STATUS.md) : hub et gardiens (J2), HUD de jeu (J3), mode Showcase
-OBS (J4), base vectorielle et laboratoire scientifique (J5), traduction de manga (J6), studio de
-retouche et mini-jeu (J7), vérification de l'installation et améliorations (J8), gel (J9).
+En cours après le concours (détail dans `PROJECT_STATUS.md`) :
+
+- troisième carte graphique (décembre) et mesures à 48 Go ; 64 Go de RAM pour Strata ;
+- relais Cloud ⇄ Local en conditions réelles ;
+- interface simplifiée pour un ComfyUI local (workflows `.json`, choix des modèles) ;
+- atelier circuits : autres machines, périphériques des microcontrôleurs, jusqu'à un jeu éducatif ;
+- WoW Assistant : essais en jeu des onglets récents ;
+- labos : plusieurs feuilles, cinétique, titrages d'oxydoréduction.
+
+Le laboratoire dont vient le projet est décrit dans [`research/overlord_notes.md`](research/overlord_notes.md).
 
 ## Licence
 
-Apache 2.0 — voir [`LICENSE`](LICENSE) et [`THIRD_PARTY.md`](THIRD_PARTY.md).
+Apache 2.0 — voir [`LICENSE`](LICENSE), [`NOTICE`](NOTICE) et [`THIRD_PARTY.md`](THIRD_PARTY.md).
