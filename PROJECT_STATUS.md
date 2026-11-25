@@ -49,7 +49,7 @@ Les documents finaux et le gel J9 attendent sa demande.
 
 | Brique | Priorité | Jalon | Statut | Détail |
 |---|---|---|---|---|
-| Structure, `CLAUDE.md`, suivi, CI | P0 | J0 | `FAIT-TESTÉ` | ruff propre, pytest vert en local. CI GitHub : `FAIT-NON-TESTÉ` (dépôt pas encore poussé) |
+| Structure, `CLAUDE.md`, suivi, CI | P0 | J0 | `FAIT-TESTÉ` | ruff propre, pytest vert en local. CI GitHub (25/11, dépôt public) : le premier passage a trouvé une erreur YAML dans le workflow et un nom de fichier en double sous Windows (horloge grossière), corrigés ; CI limitée à Windows, Ubuntu **en cours** (10 tests propres à Windows) |
 | `scripts/gen_architecture_map.py` | P0 | J0 | `FAIT-TESTÉ` | signatures extraites par `ast`, test de fraîcheur |
 | Garde-fou anti-secrets (`tests/test_repo_hygiene.py`) | P0 | J0 | `FAIT-TESTÉ` | scanne les fichiers suivis |
 | `scripts/relay_orchestrator.py` — logique (états, verrou, reprise, backoff) | P0 | J1 | `SIMULÉ` | horloge virtuelle + doublures ; `--dry-run` exécuté |

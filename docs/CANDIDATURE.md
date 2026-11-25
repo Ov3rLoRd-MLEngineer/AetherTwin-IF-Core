@@ -152,5 +152,5 @@ Rien de ceci n'a été fait automatiquement : le push et le tag restent des déc
    ```
 
 5. Créer le dépôt public sur GitHub, puis pousser `main`, `concours` et le tag.
-6. Vérifier sur GitHub que la CI passe (Windows et Ubuntu) et que le dépôt s'ouvre sans être connecté.
+6. Vérifier sur GitHub que la CI passe (Windows) et que le dépôt s'ouvre sans être connecté.
 7. Déposer la candidature avec le lien du dépôt, le tag et la vidéo.

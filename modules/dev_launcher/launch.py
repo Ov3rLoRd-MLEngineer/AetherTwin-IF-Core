@@ -124,7 +124,12 @@ def batch_script(env: dict[str, str], folder: Path, command: list[str], title: s
 def write_launch(launches: Path, script: str, keep: int = 30) -> Path:
     """Écrit le fichier de lancement (dossier du module, ignoré par Git) ; garde les 30 derniers."""
     launches.mkdir(parents=True, exist_ok=True)
-    path = launches / f"claude_{time.strftime('%Y%m%d-%H%M%S')}_{time.time_ns() % 1000000:06d}.bat"
+    stamp = time.strftime('%Y%m%d-%H%M%S')
+    n = time.time_ns() % 1000000
+    path = launches / f"claude_{stamp}_{n:06d}.bat"
+    while path.exists():  # horloge grossière (Windows) : deux lancements dans le même tic auraient le même nom
+        n += 1
+        path = launches / f"claude_{stamp}_{n:06d}.bat"
     path.write_text(script, encoding="utf-8")
     for old in sorted(launches.glob("claude_*.bat"))[:-keep]:
         old.unlink(missing_ok=True)

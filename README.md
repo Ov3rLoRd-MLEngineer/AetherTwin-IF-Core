@@ -250,7 +250,8 @@ l'environnement.
 **Pas vérifié :**
 
 - Le relais face à une vraie limite de quota (testé en simulation seulement).
-- La CI GitHub (dépôt pas encore poussé à l'écriture de ce document).
+- La CI GitHub sous Ubuntu : 10 tests propres à Windows (chemins, Piper, pywinpty), portage en cours. La CI
+  tourne sous Windows, la plateforme visée.
 - Les adaptateurs de jeu `log_tail` et `screen_ocr` sur un vrai jeu.
 - Les nœuds `mangastudio` dans un vrai ComfyUI.
 - Une carte de 32 Go, la topologie à trois cartes, toute carte autre que NVIDIA.

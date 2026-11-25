@@ -11,7 +11,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest]
+        # Le projet vise Windows (WebView2, pywinpty, Piper, chemins) ; Ubuntu : 10 tests propres à Windows,
+        # portage en cours (voir PROJECT_STATUS.md).
+        os: [windows-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
