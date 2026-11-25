@@ -48,9 +48,9 @@ WINDOWS_TARGETS: dict[str, tuple[str, str]] = {
 # Outils ASUS / CPUID, dans leurs dossiers d'installation par défaut.
 PF = os.environ.get("ProgramFiles", r"C:\Program Files")
 PF86 = os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")
-# Pages officielles de téléchargement (vérifiées le 25/11/2026 ; GPU Tweak III : l'ancienne page ASUS répond 404,
-# d'où la recherche du site ASUS ; le moniteur et GPU-Z ASUS sont livrés avec GPU Tweak III).
-GPU_TWEAK = "https://www.asus.com/search/?searchKey=GPU%20Tweak%20III"
+# Pages officielles de téléchargement (vérifiées le 25/11/2026 ; GPU Tweak III : page donnée par Jérémy ; le
+# moniteur et GPU-Z ASUS sont livrés avec GPU Tweak III).
+GPU_TWEAK = "https://www.asus.com/campaign/GPU-Tweak-III/nafr-ar/index.php"
 TOOLS: dict[str, dict[str, Any]] = {
     "armoury_crate": {"nom": "Armoury Crate", "role": "carte mère, ventilateurs (Fan Xpert), éclairage Aura",
                       "appx": "B9ECED6F.ArmouryCrate_qmba6cd70vzyy!App", "process": "ArmouryCrate.exe",

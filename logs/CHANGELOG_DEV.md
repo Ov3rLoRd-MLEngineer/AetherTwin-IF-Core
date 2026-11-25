@@ -1797,9 +1797,9 @@ Il a autorisé les téléchargements nécessaires.
      limites, licence des poids) et ses liens GitHub et Hugging Face, lus le 25/11 ; poids et dépendances
      installables depuis la page (liste fermée de tâches côté Hub : `/setup/dependencies`, `/setup/run`) ;
      outil de masque en trois étapes, réglé sur le modèle du sous-onglet.
-  4. Outils ASUS : lien de la page officielle de chaque outil (« Télécharger » s'il manque). GPU Tweak III :
-     l'ancienne page ASUS répond 404, le lien mène à la recherche du site ASUS ; GPU-Z : site qui refuse les
-     robots, adresse non vérifiée par la page elle-même.
+  4. Outils ASUS : lien de la page officielle de chaque outil (« Télécharger » s'il manque). GPU Tweak III (et
+     son moniteur, GPU-Z ASUS) : page ASUS donnée par Jérémy ; GPU-Z : site qui refuse les robots, adresse non
+     vérifiée par la page elle-même.
   5. Développement : sous-onglet « Dépendances » (Python, Git, Ollama, Claude Code, Windows Terminal, Hermes Agent,
      OmniRoute, faster-whisper) ; le violet de Claude Code devient l'orange du Hub.
   6. AetherTwin I&F Hommage : bandeau de dédicace à la mémoire d'Inoue et de Fuma, scène à gauche et journal à
