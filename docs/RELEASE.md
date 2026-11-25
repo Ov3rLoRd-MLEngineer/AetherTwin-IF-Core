@@ -28,6 +28,7 @@ Options :
 | `--out <dossier>` | autre dossier de sortie |
 | `--verify` | installer l'archive à neuf, puis lancer toute la suite de tests dans la copie installée |
 | `--setup-args "-Gpu"` | options passées à `setup.ps1` pendant `--verify` |
+| `--verify-dir <dossier>` | où faire la vérification (défaut : `%TEMP%\AetherTwin-verify`), toujours hors du dépôt |
 
 ## Vérifier à neuf
 
@@ -35,13 +36,13 @@ Options :
 .\.venv\Scripts\python.exe scripts\build_release.py --verify
 ```
 
-Le script décompresse l'archive dans `dist\verify\`, lance `scripts\setup.ps1` dans ce dossier (nouveau
+Le script décompresse l'archive dans `%TEMP%\AetherTwin-verify\`, hors du dépôt, lance `scripts\setup.ps1` dans ce dossier (nouveau
 venv Python 3.11, dépendances, `config\local.yaml` créé depuis l'exemple), puis `pytest` dans la copie
-installée. Il s'arrête avec un message clair à la première étape qui échoue. Le dossier `dist\verify\`
-peut être supprimé ensuite.
+installée. Il s'arrête avec un message clair à la première étape qui échoue. Ce dossier peut
+être supprimé ensuite.
 
 Dans la copie installée, il n'y a pas de dossier `.git` : les tests qui demandent le dépôt Git (empaquetage,
-fichiers ignorés par Git) sont sautés, et le garde-fou anti-secrets parcourt alors tout le dossier.
+fichiers ignorés par Git, fraîcheur de `ARCHITECTURE_MAP.md`) sont sautés, et le garde-fou anti-secrets parcourt alors tout le dossier.
 
 ## Installer sur une machine neuve
 

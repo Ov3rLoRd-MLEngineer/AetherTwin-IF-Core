@@ -2465,7 +2465,8 @@ Construit l'archive installable d'AetherTwin à partir d'un commit Git, et peut 
 - `def scan_archive(zf: zipfile.ZipFile) -> list[str]` — Secrets, chemins personnels et fichiers interdits trouvés dans l'archive (liste vide : propre).
 - `def release_notes(name: str, version: str, sha: str, commit_date: str, ref: str) -> str`
 - `def build(ref: str='HEAD', out_dir: Path | None=None, version: str | None=None, log=print) -> Path` — Construit l'archive et son empreinte SHA-256 ; renvoie le chemin de l'archive.
-- `def verify(archive: Path, setup_args: list[str], log=print) -> None` — Installe l'archive à neuf dans dist/verify (setup.ps1), puis lance toute la suite de tests dedans.
+- `def default_verify_dir() -> Path` — Dossier de vérification, hors du dépôt : Git ne doit pas y voir le dépôt de développement.
+- `def verify(archive: Path, setup_args: list[str], base: Path | None=None, log=print) -> None` — Installe l'archive à neuf hors du dépôt (setup.ps1), puis lance toute la suite de tests dedans.
 - `def main(argv: list[str] | None=None) -> int`
 
 ### `scripts/extract_ui_strings.py`

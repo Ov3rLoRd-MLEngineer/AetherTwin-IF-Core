@@ -1,7 +1,7 @@
 """Construit l'archive installable d'AetherTwin à partir d'un commit Git, et peut la vérifier à neuf.
 
     python scripts/build_release.py                  # dist/AetherTwin-IF-Core-<version>-<commit>.zip (+ .sha256)
-    python scripts/build_release.py --verify         # + décompression dans dist/verify, setup.ps1, pytest
+    python scripts/build_release.py --verify         # + décompression hors du dépôt, setup.ps1, pytest
     python scripts/build_release.py --ref v0.1.0-concours
 
 L'archive ne contient que ce qui est **commité** (`git archive`) : ni `.venv`, ni `config/local.yaml`, ni
@@ -19,6 +19,7 @@ import io
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import tomllib
 import zipfile
@@ -137,11 +138,18 @@ def build(ref: str = "HEAD", out_dir: Path | None = None, version: str | None = 
     return target
 
 
-def verify(archive: Path, setup_args: list[str], log=print) -> None:
-    """Installe l'archive à neuf dans dist/verify (setup.ps1), puis lance toute la suite de tests dedans."""
+def default_verify_dir() -> Path:
+    """Dossier de vérification, hors du dépôt : Git ne doit pas y voir le dépôt de développement."""
+    return Path(tempfile.gettempdir()) / "AetherTwin-verify"
+
+
+def verify(archive: Path, setup_args: list[str], base: Path | None = None, log=print) -> None:
+    """Installe l'archive à neuf hors du dépôt (setup.ps1), puis lance toute la suite de tests dedans."""
     if sys.platform != "win32":
         raise ReleaseError("--verify passe par setup.ps1 : Windows seulement")
-    base = archive.parent / "verify"
+    base = Path(base or default_verify_dir())
+    if ROOT in base.resolve().parents or base.resolve() == ROOT:
+        raise ReleaseError(f"le dossier de vérification doit être hors du dépôt : {base}")
     folder = base / archive.stem
     if folder.exists():
         shutil.rmtree(folder)
@@ -175,14 +183,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, default=None, help="dossier de sortie (défaut : dist/)")
     parser.add_argument("--version", default=None, help="numéro de version (défaut : celui de pyproject.toml)")
     parser.add_argument("--verify", action="store_true",
-                        help="installer l'archive à neuf dans dist/verify et y lancer toute la suite de tests")
+                        help="installer l'archive à neuf hors du dépôt et y lancer toute la suite de tests")
+    parser.add_argument("--verify-dir", type=Path, default=None,
+                        help="dossier de la vérification, hors du dépôt (défaut : %%TEMP%%\\AetherTwin-verify)")
     parser.add_argument("--setup-args", default="",
                         help="options passées à setup.ps1 pendant --verify, par exemple \"-Gpu\"")
     args = parser.parse_args(argv)
     try:
         archive = build(args.ref, args.out, args.version)
         if args.verify:
-            verify(archive, args.setup_args.split())
+            verify(archive, args.setup_args.split(), args.verify_dir)
     except ReleaseError as exc:
         print(f"Erreur : {exc}", file=sys.stderr)
         return 1

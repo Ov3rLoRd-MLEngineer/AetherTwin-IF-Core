@@ -1,9 +1,13 @@
 """La carte d'architecture générée ne doit jamais être périmée."""
 from __future__ import annotations
 
+import pytest
+
 from scripts import gen_architecture_map as gen
 
 
+@pytest.mark.skipif(not (gen.ROOT / ".git").exists(),
+                    reason="copie installée sans Git : les fichiers locaux (config, journaux) ne sont pas filtrés")
 def test_architecture_map_is_up_to_date() -> None:
     assert gen.main(["--check"]) == 0, "Lance : .venv\\Scripts\\python.exe scripts\\gen_architecture_map.py"
 

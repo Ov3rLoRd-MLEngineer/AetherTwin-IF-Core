@@ -67,7 +67,8 @@ def _doc_suffix(node: ast.AST) -> str:
 
 def git_ignored(paths: list[Path]) -> set[Path]:
     """Chemins ignorés par Git (réglages locaux, caches…) : la carte doit être la même sur tous les postes."""
-    if not paths:
+    # Sans dossier .git propre au projet, ne pas demander à Git : un dépôt parent répondrait à sa place.
+    if not paths or not (ROOT / ".git").exists():
         return set()
     try:
         result = subprocess.run(["git", "check-ignore", "-z", "--stdin"], cwd=ROOT, capture_output=True,  # noqa: S603, S607

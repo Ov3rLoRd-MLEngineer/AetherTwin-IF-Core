@@ -11,7 +11,6 @@ import pytest
 
 from modules.voice import convert, effects
 from modules.voice.profiles import validate
-from modules.voice.vc.wavlm import parse_conv_layers
 from tests.voice.test_voice import make
 
 
@@ -44,6 +43,10 @@ def test_trim_and_decode() -> None:
 
 
 def test_conv_layers_parser_never_executes() -> None:
+    # wavlm importe PyTorch, installé seulement avec setup.ps1 -Gpu.
+    pytest.importorskip("torch")
+    from modules.voice.vc.wavlm import parse_conv_layers
+
     spec = "[(512,10,5)] + [(512,3,2)] * 4 + [(512,2,2)] * 2"
     assert parse_conv_layers(spec) == [(512, 10, 5)] + [(512, 3, 2)] * 4 + [(512, 2, 2)] * 2
     for bad in ("__import__('os').system('x')", "[(1,2,3)] * 2 + open('x')", "[x for x in ()]"):
