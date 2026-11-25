@@ -413,6 +413,8 @@ modules/
       wowhead_links.json
     manifest.json
     module.py
+    obs_control.py
+    obs_mcp.py
     obs_server.py
     rules/
       log_tail.example.yaml
@@ -598,6 +600,7 @@ tests/
     test_market.py
     test_model3d.py
     test_module.py
+    test_obs_control.py
     test_obs_hud.py
     test_profit.py
     test_routine.py
@@ -1737,6 +1740,27 @@ Module du Hub : lit l'état du jeu par un `GameAdapter` et le publie sur le bus.
   - `def set_showcase(self, on: bool) -> None`
   - `def read(self) -> dict[str, Any]` — Lit l'état et rend ce qui a le droit de sortir du module dans le mode courant.
   - `def publish_state(self, force: bool=False) -> bool` — Publie l'état s'il a changé (ou si `force`). Retourne True si un événement est parti.
+
+### `modules/gaming_hud/obs_control.py`
+
+Pilotage d'OBS Studio par son serveur WebSocket (protocole obs-websocket v5, inclus dans OBS 28 et plus).
+
+- **`class ObsError(RuntimeError)`** — Erreur lisible renvoyée à l'agent.
+- `def obs_config_file() -> Path`
+- `def server_settings(config_file: Path | None=None) -> dict[str, Any]` — Port et mot de passe : variables d'environnement d'abord, puis les réglages locaux d'OBS.
+- `def auth_string(password: str, salt: str, challenge: str) -> str` — Réponse au défi d'obs-websocket v5 : base64(sha256(base64(sha256(mot de passe + sel)) + défi)).
+- `def out_dir() -> Path`
+- `def confined(name: str, suffix: str) -> Path` — Un nom de fichier simple dans le dossier de sortie ; tout chemin ou remontée est refusé.
+- **`class ObsClient`** — Une connexion courte : on s'identifie, on envoie des requêtes, on ferme.
+  - `def call(self, request: str, data: dict[str, Any] | None=None) -> dict[str, Any]`
+- `def run(obs: ObsClient, name: str, args: dict[str, Any]) -> Any`
+- `def call_tool(name: str, args: dict[str, Any], client: ObsClient | None=None) -> dict[str, Any]`
+
+### `modules/gaming_hud/obs_mcp.py`
+
+Serveur MCP (stdio) pour piloter OBS Studio en local : scènes, captures, vidéo, enregistrement. Pas de diffusion.
+
+*(aucun symbole public)*
 
 ### `modules/gaming_hud/obs_server.py`
 

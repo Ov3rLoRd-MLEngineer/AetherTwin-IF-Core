@@ -225,6 +225,16 @@ def test_panels_use_subtabs_and_system_assets(client) -> None:
     assert "setupSubtabs" in client.get("/static/dashboard.js").text
 
 
+def test_hub_always_opens_on_home_overview(client) -> None:
+    """Au démarrage ou au rechargement, le Hub montre Accueil > Vue d'ensemble, quel que soit le dernier onglet."""
+    js = client.get("/static/dashboard.js").text
+    assert "showTab(startTab());" in js
+    assert 'nav.type === "navigate" && location.hash ? currentTab() : "accueil"' in js
+    assert 'panel.dataset.panel === "accueil" ? HOME_SUBTAB' in js
+    assert "const HOME_SUBTAB = \"Vue d'ensemble\";" in js
+    assert "data-sub=\"Vue d'ensemble\"" in client.get("/").text
+
+
 def test_guides_catalog_and_page(client) -> None:
     """Les README du dépôt se lisent dans le Hub : liste fermée, identifiants seulement, aucun chemin accepté."""
     ids = {g["id"] for g in client.get("/guides").json()}

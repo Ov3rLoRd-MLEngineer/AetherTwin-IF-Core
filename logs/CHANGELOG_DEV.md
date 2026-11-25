@@ -1829,3 +1829,20 @@ Il a autorisé les téléchargements nécessaires.
   modèles sur une image du dépôt (boîte arbitraire : la qualité du masque n'est pas jugée ici).
 - **Tests :** la vérification de l'archive a d'abord échoué sur le nouveau test : ce journal contenait lui-même
   deux caractères BEL (même piège). Corrigé ; `pytest` complet vert ensuite ; copies d'essai supprimées.
+
+## 2026-11-25 — J9 : retours du soir, MCP pour OBS, intro de la vidéo
+
+- **Agent :** Cloud
+- **Demandes de Jérémy :** supprimer les anciennes archives ; ouvrir le Hub sur Accueil › Vue d'ensemble au
+  redémarrage ; noter la seconde RTX 5060 Ti (achetée), l'apport d'une carte de 32 Go pour l'image et la vidéo
+  (ComfyUI) et le reste de la plateforme (carte mère, processeur, 64 à 128 Go de RAM) ; un MCP pour OBS ; une
+  vidéo du logo (partie 1 de la vidéo) à mettre en ligne.
+- **Fichiers :** `core/web/dashboard.js` (onglet de départ), `tests/core/test_dashboard.py`, `docs/HARDWARE_FIT.md`
+  (§1, §4, nouveau §4 bis, §5), `docs/CANDIDATURE.md`, `README.md`, `modules/gaming_hud/obs_control.py`,
+  `modules/gaming_hud/obs_mcp.py`, `tests/gaming_hud/test_obs_control.py`, `PROJECT_STATUS.md`.
+- **Décisions :** le MCP d'OBS n'a aucun outil de diffusion (enregistrer oui, diffuser non) ; il ne se connecte
+  qu'à 127.0.0.1 ; les captures et enregistrements vont dans un seul dossier (`AETHERTWIN_OBS_OUT`, sinon
+  `cache/obs`) ; le mot de passe vient de `OBS_WEBSOCKET_PASSWORD` ou des réglages locaux d'OBS.
+- **Vidéo :** intro de 8 s (logo, titre, accroche) faite dans EffectCraft, rendue en H.264 1080p hors du dépôt.
+  YouTube ne permet pas de remplacer le fichier d'une vidéo en gardant son lien (aide officielle de YouTube).
+- **Tests :** `ruff check .` propre ; tests du tableau de bord et d'OBS verts ; suite complète lancée avant le commit.

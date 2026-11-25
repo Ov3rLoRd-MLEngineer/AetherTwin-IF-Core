@@ -52,6 +52,13 @@ for (const tab of document.querySelectorAll("#tabs button")) {
 // Anciens onglets regroupés le 25/11 : un lien ou un favori vers eux mène au nouvel emplacement.
 const TAB_ALIASES = { connaissances: "professeur" };
 const currentTab = () => { const name = (location.hash || "#accueil").slice(1); return TAB_ALIASES[name] || name; };
+// Au démarrage du Hub (ou à un rechargement de la page), on arrive toujours sur Accueil > Vue d'ensemble.
+// Seul un lien explicite vers un onglet (#professeur…) ouvert dans une nouvelle page est suivi.
+const HOME_SUBTAB = "Vue d'ensemble";
+function startTab() {
+  const nav = (performance.getEntriesByType && performance.getEntriesByType("navigation")[0]) || {};
+  return nav.type === "navigate" && location.hash ? currentTab() : "accueil";
+}
 
 // ---------- sous-onglets : un panneau [data-subtabs] montre une seule famille de sections [data-sub] ----------
 const SUBTAB_KEY = "hub.sousonglets";
@@ -87,7 +94,8 @@ function setupSubtabs() {
       bar.append(button);
     }
     panel.prepend(bar);
-    showSubtab(panel, memory[panel.dataset.panel] || labels[0]);
+    const start = panel.dataset.panel === "accueil" ? HOME_SUBTAB : memory[panel.dataset.panel];
+    showSubtab(panel, start || labels[0]);
   }
 }
 setupSubtabs();
@@ -1668,7 +1676,7 @@ function refreshAll() {
   if (tab === "ether" && !ether.shown) { ether.shown = true; refreshEther(); }
   if (tab === "traduction") refreshVoice();
 }
-showTab(currentTab());
+showTab(startTab());
 window.addEventListener("hashchange", () => { if (currentTab() !== document.querySelector("#tabs [aria-selected='true']")?.dataset.tab) showTab(currentTab()); });
 setInterval(refreshAll, 3000);
 

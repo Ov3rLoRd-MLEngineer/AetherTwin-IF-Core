@@ -170,6 +170,10 @@ Le détail brique par brique, avec les dates des essais : [`PROJECT_STATUS.md`](
 - Les mêmes outils sont servis en **MCP** (`aethertwin_calc`, `aethertwin_donnees`, `aethertwin_chimie`,
   `aethertwin_pixel`, `aethertwin_voice`). Claude Code local et Hermes Agent s'en servent comme d'outils
   natifs.
+- **OBS se pilote aussi en MCP** (`aethertwin-obs`, `modules/gaming_hud/obs_mcp.py`, 25/11) : scènes,
+  captures de fenêtre ou d'écran, logo, réglages vidéo, captures d'image et enregistrement, par le serveur
+  WebSocket d'OBS sur la boucle locale. Aucune diffusion n'est possible par ces outils. Testé contre un faux
+  OBS ; essai avec le vrai OBS **en cours**.
 - Le Hub **orchestre la mémoire**. Inoue décide quel modèle peut se charger, d'après la VRAM mesurée, et le
   routeur décharge le gros modèle précédent avant d'en charger un autre.
 - Le projet est **développé par des agents qui se relaient**, avec une passation documentée
@@ -254,7 +258,7 @@ l'environnement.
 
 En cours après le concours (détail dans `PROJECT_STATUS.md`) :
 
-- troisième carte graphique (décembre) et mesures à 48 Go ; 64 Go de RAM pour Strata ;
+- montage de la troisième carte graphique (achetée) et mesures à 48 Go ; 64 à 128 Go de RAM pour Strata ;
 - relais Cloud ⇄ Local en conditions réelles ;
 - interface simplifiée pour un ComfyUI local (workflows `.json`, choix des modèles) ;
 - atelier circuits : autres machines, périphériques des microcontrôleurs, jusqu'à un jeu éducatif ;

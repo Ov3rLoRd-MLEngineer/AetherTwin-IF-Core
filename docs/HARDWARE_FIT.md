@@ -15,9 +15,10 @@ VRAM bloque, et ce qu'une seule carte de 32 Go changerait. Tout chiffre vient d'
 | Mémoire vive | 32 Go | relevé lors de l'essai de Strata, 23/11/2026 |
 | Serveur de modèles | Ollama 0.40.16, cache KV `q8_0`, flash attention, `keep_alive` 5 min | journal d'Ollama |
 
-Une troisième carte (une seconde RTX 5060 Ti) est prévue : elle attend un riser. Le profil
+La RTX 5060 Ti en service est une ASUS Dual. Une troisième carte, une seconde RTX 5060 Ti 16 Go (ASUS Prime),
+est déjà achetée mais **pas encore montée** : elle est dans sa boîte (déclaré par Jérémy, 25/11). Le profil
 `tri_gpu_48gb_nvidia` existe dans `config/hardware_profiles.yaml` mais il est marqué **déclaré** : il
-n'a jamais été observé. Tout ce qui suit concerne les **deux** cartes réellement présentes.
+n'a jamais été observé. Tout ce qui suit concerne les **deux** cartes réellement branchées.
 
 Aucun modèle Q8_0 n'est installé. Les trois Qwen (27B, 30B, 35B) sont en Q4_K_M : c'est la décision de
 Jérémy tant que la VRAM totale est de 32 Go.
@@ -82,6 +83,30 @@ sur une carte de 32 Go : le projet n'en a jamais eu.
   calcule sur une carte, sans dépendre de la façon dont Ollama découpe un modèle.
 - **Le Q8_0 redevient envisageable** pour le modèle de 27B, si sa taille réelle le permet. Elle n'a pas été
   mesurée : il faudra l'installer et la relever (`ollama show`, `/api/ps`).
+- **L'image et la vidéo par IA, là où plusieurs cartes n'aident pas.** Ollama sait couper un modèle de
+  langage en couches et les poser sur plusieurs cartes. Un modèle de diffusion (image ou vidéo, par exemple
+  dans ComfyUI) ne se découpe pas ainsi : le modèle, ses encodeurs et son décodeur doivent tenir ensemble sur
+  **une** carte. Avec des cartes de 16 Go, empiler les cartes ne donne donc pas plus de place à ces modèles ;
+  une carte de 32 Go, si. Jérémy s'est beaucoup servi de ComfyUI et compte y revenir (déclaré, 25/11). Le
+  dépôt n'a pas encore de module de génération d'image ou de vidéo : c'est un besoin de l'auteur, pas une
+  mesure du projet.
+
+## 4 bis. Le reste de la plateforme
+
+La carte graphique n'est pas le seul plafond. Le paragraphe 3 l'a montré : avec 32 Go de RAM, le moteur
+Strata (mélange d'experts) manque déjà de mémoire vive, et une carte de plus n'y change rien. Une évolution
+cohérente du poste toucherait donc aussi la carte mère, le processeur et la mémoire, pour passer à **64 voire
+128 Go de RAM** et accueillir trois cartes dans de bonnes conditions.
+
+Une telle plateforme permettrait aussi de **répartir le matériel existant** sur deux postes au lieu d'un :
+
+- un poste d'IA, avec la carte de 32 Go (ou les deux RTX 5060 Ti) et beaucoup de RAM, pour les gros modèles,
+  Strata et ComfyUI ;
+- le poste actuel, gardé pour le jeu et la diffusion, avec la RTX 5080 ; AetherTwin y resterait le Hub de
+  jeu (WoW Assistant, overlay OBS) et appellerait le poste d'IA sur le réseau local.
+
+Ce partage n'est pas écrit dans le code aujourd'hui : le Hub et Ollama tournent sur la même machine. C'est une
+piste, décrite pour montrer où le projet pourrait aller, pas un résultat.
 
 ## 5. Ce qui n'est pas prouvé
 
@@ -92,7 +117,9 @@ sur une carte de 32 Go : le projet n'en a jamais eu.
   backend AMD n'a été écrit.
 - Le gain réel du « tout sur une carte » face au découpage sur deux cartes : non chiffré.
 - Le débit en jetons par seconde des gros modèles, et la VRAM à contexte rempli : non mesurés.
-- La topologie à trois cartes (48 Go) : jamais observée.
+- La topologie à trois cartes (48 Go) : jamais observée (la troisième carte est achetée, pas montée).
+- La génération d'image ou de vidéo (ComfyUI) : hors du dépôt, rien mesuré ici.
+- Le partage entre un poste d'IA et un poste de jeu : une piste, rien d'écrit dans le code.
 
 ## 6. Refaire les mesures
 

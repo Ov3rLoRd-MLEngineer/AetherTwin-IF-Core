@@ -14,7 +14,7 @@ Les textes sont prêts à copier. Les marqueurs `[À COMPLÉTER PAR JÉRÉMY : �
 | État évalué | tag `v0.1.0-concours`, branche `concours` |
 | Licence | Apache 2.0 |
 | Vidéo | `[À COMPLÉTER PAR JÉRÉMY : lien de la vidéo de 2 minutes]` (scénario : `docs/DEMO_SCRIPT.md`) |
-| Matériel du poste | RTX 5080 16 Go + RTX 5060 Ti 16 Go, 32 Go de RAM, Windows 10, Ollama |
+| Matériel du poste | RTX 5080 16 Go + RTX 5060 Ti 16 Go, 32 Go de RAM, Windows 10, Ollama ; une seconde RTX 5060 Ti achetée, pas encore montée |
 
 ## 2. Résumé court (environ 300 caractères)
 
