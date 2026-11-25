@@ -601,6 +601,7 @@ tests/
     test_simc.py
     test_ui_fixes.py
     test_waypoints.py
+    test_webhost_close.py
   genesis_lab/
     __init__.py
     test_calculs.py

@@ -10,6 +10,7 @@ Codes de sortie : 3 = pywebview absent, 4 = adresse refusée, 5 = échec du mote
 """
 import argparse
 import json
+import os
 import sys
 import threading
 from urllib.parse import urlparse
@@ -25,6 +26,70 @@ def host_allowed(url, allowed):
         return False
     host = parsed.hostname.lower()
     return any(host == a or host.endswith("." + a) for a in (x.strip().lower() for x in allowed) if a)
+
+
+def detach_window(title):
+    """Masque la fenêtre et la détache de la fenêtre de l'appli (vue 3D incrustée) avant sa destruction.
+
+    Sinon, si l'appli bouge ou se redimensionne pendant la fermeture, Windows prévient encore une fenêtre dont le
+    moteur WebView2 est déjà détruit, et .NET affiche « CoreWebView2Controller … disposed »."""
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+        from ctypes import wintypes
+        u = ctypes.WinDLL("user32")
+        u.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+        u.FindWindowW.restype = wintypes.HWND
+        u.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+        u.SetParent.argtypes = [wintypes.HWND, wintypes.HWND]
+        u.SetParent.restype = wintypes.HWND
+        u.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+        hwnd = u.FindWindowW(None, title)
+        pid = wintypes.DWORD(0)
+        if not hwnd or (u.GetWindowThreadProcessId(hwnd, ctypes.byref(pid)) and pid.value != os.getpid()):
+            return False                            # jamais la fenêtre d'un autre programme au même titre
+        u.ShowWindow(hwnd, 0)                       # SW_HIDE
+        u.SetParent(hwnd, None)                     # plus de fenêtre parente : plus de messages de déplacement
+        return True
+    except Exception:
+        return False
+
+
+def quiet_winforms_errors(window):
+    """Erreur .NET du fil d'affichage (en pratique : pendant la fermeture) : une ligne sur stderr, pas de boîte.
+
+    Sans gestionnaire, WinForms ouvre « Une exception non gérée s'est produite dans votre application ».
+    Le gestionnaire WinForms vaut pour un seul fil : il est posé sur le fil d'affichage de pywebview, via la fenêtre.
+    Lancé par webview.start (fil à part) : attend que la fenêtre existe, 20 s au plus."""
+    if sys.platform != "win32":
+        return False
+    try:
+        import time
+
+        from System import Action
+        from System.Threading import ThreadExceptionEventHandler
+        from System.Windows.Forms import Application
+
+        def handler(_sender, event):
+            try:
+                print(f"Moteur web (ignoré) : {event.Exception.Message}", file=sys.stderr)
+            except Exception:
+                pass
+
+        def attach():
+            Application.ThreadException += ThreadExceptionEventHandler(handler)
+
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline:
+            form = getattr(window, "native", None)
+            if form is not None and form.IsHandleCreated:
+                form.Invoke(Action(attach))
+                return True
+            time.sleep(0.1)
+    except Exception:
+        pass
+    return False
 
 
 def main():
@@ -107,6 +172,7 @@ def main():
                     break
             except Exception:
                 continue
+        detach_window(args.title)       # d'abord masquer et détacher, puis détruire
         try:
             window.destroy()            # parent terminé ou ordre de fermeture
         except Exception:
@@ -117,7 +183,7 @@ def main():
         kwargs = {"private_mode": False}
         if args.storage:
             kwargs["storage_path"] = args.storage
-        webview.start(**kwargs)
+        webview.start(quiet_winforms_errors, (window,), **kwargs)
     except Exception as e:
         print(f"Moteur web : {e}", file=sys.stderr)
         sys.exit(5)

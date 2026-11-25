@@ -1756,3 +1756,22 @@ Il a autorisé les téléchargements nécessaires.
 - **Tests :** `ruff check .` propre ; `pytest` (venv de développement) : 1 102 réussis, 5 sautés ; copie
   installée à neuf : voir la ligne de l'archive dans `PROJECT_STATUS.md`.
 - **Décisions :** aucune branche `concours`, aucun tag, aucun push : gestes de Jérémy (`docs/CANDIDATURE.md` §6).
+
+## 2026-11-25 — J9 : boîte d'erreur .NET à la fermeture des widgets web
+
+- **Agent :** Cloud
+- **Demande de Jérémy :** plusieurs boîtes « Microsoft .NET Framework — CoreWebView2Controller members cannot be
+  accessed after the WebView2 control is disposed » depuis la veille ; corriger.
+- **Cause :** le processus `webhost.py` (pywebview, WebView2) détruisait sa fenêtre alors qu'elle était encore
+  rattachée à la fenêtre de l'appli (vue 3D incrustée). Un déplacement ou redimensionnement pendant la fermeture
+  faisait prévenir un moteur WebView2 déjà détruit ; sans gestionnaire, WinForms ouvrait sa boîte. Seul ce
+  petit processus était touché, déjà en train de se fermer.
+- **Fichiers :** `modules/gaming_hud/app/webhost.py`, `tests/gaming_hud/test_webhost_close.py`,
+  `ARCHITECTURE_MAP.md`.
+- **Correctif :** avant `destroy()`, la fenêtre est masquée et détachée (`SetParent` à rien), seulement si elle
+  appartient à ce processus ; un gestionnaire `Application.ThreadException` est posé sur le fil d'affichage de
+  pywebview (le gestionnaire WinForms vaut pour un seul fil) : une erreur .NET y devient une ligne sur stderr.
+- **Tests :** essai réel (Python 3.11, pywebview, WebView2) : gestionnaire posé, erreur volontaire sur le fil
+  d'affichage écrite sur stderr sans boîte, détachement fait, fenêtre d'un autre programme ignorée. Non
+  reproduit : la course exacte de la fermeture pendant un déplacement (aléatoire). `ruff check .` propre ;
+  `pytest` complet vert (code de sortie 0).
