@@ -409,7 +409,7 @@ class Converter:
         if self._models is not None:
             return self._models
         if not self.available():
-            raise RuntimeError("PyTorch absent : la conversion de voix en a besoin")
+            raise RuntimeError("PyTorch absent : la conversion de voix en a besoin (installation avec l'option -Gpu)")
         if not all(weights_status(self.weights).values()):
             raise RuntimeError("poids de conversion absents : Studio audio → Ma voix → Installer")
         import torch
@@ -450,12 +450,14 @@ class Converter:
 
     def convert(self, x: np.ndarray, vid: str) -> np.ndarray:
         """Échantillons à 16 kHz → mêmes paroles avec le timbre de la voix `vid` (16 kHz)."""
-        import torch
-
         if x.size < RATE // 10:
             raise ValueError("enregistrement trop court")
         if x.size > RATE * 120:
             raise ValueError("2 minutes au plus par conversion")
+        if self._models is None:
+            self._load()  # message clair si PyTorch ou les poids manquent, avant tout import de PyTorch
+        import torch
+
         with self._lock, torch.inference_mode():
             wavlm, vocoder = self._load()
             device = next(wavlm.parameters()).device

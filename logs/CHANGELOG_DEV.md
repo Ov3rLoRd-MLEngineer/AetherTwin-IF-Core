@@ -1729,3 +1729,30 @@ Il a autorisé les téléchargements nécessaires.
   et le multiplexage se voient.
 - **En cours :** second cœur, interruptions, PIO, UART, ADC et PWM du RP2040 ; minuteries 1 et 2, UART et ADC de
   l'AVR.
+
+## 2026-11-25 — J9 : dossier de candidature et archive installable
+
+- **Agent :** Cloud
+- **Demande de Jérémy :** préparer les documents de candidature et une version déployable sur une installation
+  neuve, à refaire facilement après chaque ajout.
+- **Fichiers :** `README.md` (version finale), `docs/HARDWARE_FIT.md`, `docs/DEMO_SCRIPT.md`,
+  `docs/CANDIDATURE.md`, `docs/RELEASE.md`, `research/overlord_notes.md`, `scripts/build_release.py`,
+  `tests/test_build_release.py`, `scripts/gen_architecture_map.py`, `tests/test_architecture_map.py`,
+  `modules/voice/convert.py`, `tests/voice/test_convert.py`, `PROJECT_STATUS.md`, `ARCHITECTURE_MAP.md`.
+- **Documents :** écrits uniquement d'après les mesures et statuts déjà consignés ; ce qui manque porte un
+  marqueur `[À COMPLÉTER PAR JÉRÉMY : …]` (adresse du dépôt, vidéo, questionnaire Ov3rLoRd).
+- **Archive :** `scripts/build_release.py` fait un `git archive` du commit, refuse secrets, chemins personnels,
+  prompt privé, `config/local.yaml` et poids de modèles, ajoute `RELEASE.txt` et l'empreinte SHA-256.
+  `--verify` installe l'archive à neuf **hors du dépôt** (`%TEMP%\AetherTwin-verify`) avec `setup.ps1`, puis
+  lance toute la suite dans la copie installée.
+- **Ce que la vérification à neuf a trouvé (corrigé) :**
+  1. `tests/voice/test_convert.py` importait PyTorch au chargement : sans `-Gpu`, toute la collecte des tests
+     s'arrêtait (la CI Ubuntu aurait échoué de même). Import déplacé dans le test, sauté sans PyTorch.
+  2. Sans PyTorch, la conversion de voix plantait (`ModuleNotFoundError`) au lieu du message clair prévu :
+     `convert()` vérifie maintenant PyTorch et les poids avant d'importer PyTorch.
+  3. Vérifiée dans `dist/`, la copie voyait le dépôt parent par `git check-ignore` : la carte d'architecture y
+     semblait périmée. La vérification se fait hors du dépôt ; la carte n'interroge Git que si le projet a son
+     propre `.git` ; son test de fraîcheur est sauté dans une copie sans Git.
+- **Tests :** `ruff check .` propre ; `pytest` (venv de développement) : 1 102 réussis, 5 sautés ; copie
+  installée à neuf : voir la ligne de l'archive dans `PROJECT_STATUS.md`.
+- **Décisions :** aucune branche `concours`, aucun tag, aucun push : gestes de Jérémy (`docs/CANDIDATURE.md` §6).

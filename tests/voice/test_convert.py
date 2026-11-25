@@ -132,7 +132,8 @@ def test_module_commands_and_conversion_in_synthesis(tmp_path: Path, monkeypatch
     audio = base64.b64encode(speech()).decode("ascii")
     assert module.run("vc_take", {"voice": "ma_voix", "prompt": -1, "audio": audio})["take"] == 0
     assert module.run("vc_voice", {"voice": "ma_voix"})["consented"]
-    with pytest.raises(RuntimeError, match="poids"):  # pas de poids : message clair, rien de chargé
+    # pas de poids (ou pas de PyTorch, installation sans -Gpu) : message clair, rien de chargé
+    with pytest.raises(RuntimeError, match="poids|PyTorch absent"):
         module.run("vc_convert", {"voice": "ma_voix", "audio": audio})
     converted: list[str] = []
     monkeypatch.setattr(s.converter, "convert_wav", lambda wav, vid: converted.append(vid) or speech(1.0))

@@ -1,6 +1,6 @@
 # PROJECT_STATUS — AetherTwin (I&F Core)
 
-Dernière mise à jour : **23/11/2026** (J8) · Clôture du concours : **25/11/2026**.
+Dernière mise à jour : **25/11/2026** (J9) · Clôture du concours : **25/11/2026**.
 
 Statuts : `FAIT-TESTÉ` (exécuté réellement, tests verts) · `FAIT-NON-TESTÉ` (écrit, pas exécuté en
 conditions réelles) · `SIMULÉ` (fonctionne avec des doublures) · `EN COURS` (entamé, à poursuivre) · `À FAIRE`.
@@ -132,8 +132,9 @@ Les documents finaux et le gel J9 attendent sa demande.
 | Inoue : modèle déjà chargé par un autre client | P0 | J8 | `FAIT-TESTÉ` | trouvé à l'essai réel : un modèle déjà en VRAM (chargé par un autre programme sur le même Ollama) était compté deux fois et refusé. Désormais repris tel quel |
 | WoW Assistant : plusieurs serveurs IA | P1 | J8 | `FAIT-TESTÉ` (rendu headless) | liste de serveurs enregistrés (actif / inactif, utiliser, retirer) ; les modèles de tous les serveurs actifs, chacun avec son serveur. Rendu vérifié hors écran ; pas encore essayé par Jérémy |
 | Installation : `Installer AetherTwin.bat`, option `-Voice` | P0 | J8 | `FAIT-NON-TESTÉ` | le `.bat` lance `setup.ps1` avec `-ExecutionPolicy Bypass` pour ce lancement seulement (le réglage de Windows ne change pas) : Windows refusait le script (capture de Jérémy) |
-| `research/overlord_notes.md`, `docs/HARDWARE_FIT.md`, README final | P0 | J8 | `À FAIRE` | README actuel = version provisoire |
-| Gel, branche `concours`, tag `v0.1.0-concours`, scan de l'historique | P0 | J9 | `À FAIRE` | |
+| `research/overlord_notes.md`, `docs/HARDWARE_FIT.md`, `docs/DEMO_SCRIPT.md`, `docs/CANDIDATURE.md`, README final | P0 | J9 | `FAIT-NON-TESTÉ` | 25/11, demande de Jérémy ; écrits d'après les mesures et statuts de ce fichier ; marqueurs `[À COMPLÉTER PAR JÉRÉMY : …]` (adresse du dépôt, vidéo, questionnaire Ov3rLoRd) ; **à relire par Jérémy** |
+| Archive installable reconstructible (`scripts/build_release.py`, `docs/RELEASE.md`) : `git archive` du commit, contrôle des secrets et des fichiers interdits, `RELEASE.txt`, SHA-256 ; `--verify` installe l'archive à neuf et lance la suite dedans | P0 | J9 | `FAIT-TESTÉ` | 25/11, demande de Jérémy ; 5 tests ; archive installée à neuf hors du dépôt par `--verify` (setup.ps1 sans option en 99 s, suite complète verte dans la copie, sans PyTorch ni Git) ; cette vérification a trouvé deux défauts corrigés : conversion de voix qui plantait sans PyTorch au lieu d'un message clair, test de la carte d'architecture faussé par un dépôt parent ; **installation par Jérémy sur une machine neuve : en cours** |
+| Gel, branche `concours`, tag `v0.1.0-concours`, scan de l'historique, push | P0 | J9 | `À FAIRE` | gestes de Jérémy, liste dans `docs/CANDIDATURE.md` §6 |
 | `calc_cas` : moteur CAS (SymPy), saisie naturelle sûre, exact + approché, délai par processus séparé | P1 | J10 | `FAIT-TESTÉ` | 147 tests (division par zéro, saisies invalides, injection de code, `9^9^9` interrompu en 1 s et moteur relancé) ; branche `feature/calc-cas` fusionnée dans `main` le 23/11 |
 | `calc_cas` : onglet « Outils » du Hub = la calculatrice elle-même (fenêtre intégrée, centrée) + « Ouvrir la calculatrice » + état du branchement Hermes | P1 | J10 | `FAIT-TESTÉ` | 24/11, demande de Jérémy : les anciens panneaux (saisie, agents, graphes) retirés, les modèles passent par le MCP ; test des identifiants de la page + **essai réel** sur un Hub de test (port 5760) : cadre affiché, « Hermes : branché » |
 | `calc_cas` : outil de calcul exact pour les agents (bus, MCP stdio, délégation `CAS:`) | P1 | J10 | `FAIT-TESTÉ` | 14 tests (modèle SIMULÉ, MCP en sous-processus) + **essai réel** 23/11 : `qwen3-27b` via le Hub, 2 calculs délégués, aire = 4/3 en 22 s ; branché dans Hermes (`aethertwin_calc`) : **réel 24/11**, `hermes mcp test` → 3 outils ; question à Hermes → `cas_compute` appelé, ∫₀¹ x²eˣ dx = e − 2 en 31 s |
@@ -212,8 +213,8 @@ contexte, la VRAM d'une seule carte de 16 Go. Ollama les répartit donc sur les 
 
 ## Reste à faire (mis à jour le 22/11)
 
-1. **Sur demande de Jérémy seulement** : documents finaux (README final, `docs/HARDWARE_FIT.md`,
-   `docs/DEMO_SCRIPT.md`, `research/overlord_notes.md`), puis gel J9 (branche `concours`, tag, scan de l'historique).
+1. **Documents finaux écrits (25/11)** : à relire par Jérémy, marqueurs à remplir ; archive à essayer sur une
+   installation neuve ; puis gel J9 (branche `concours`, tag, scan de l'historique, push), voir `docs/CANDIDATURE.md`.
 2. **Essais restants côté Jérémy** : tests 9, 10, et ceux de la section suivante encore sans résultat.
 3. **En cours, non bloquant** : détection de fenêtres et interface générée depuis `widget_schema()` ; modèles 3D du
    HUD ; `log_tail` et `screen_ocr` sur un vrai jeu ; Studio (masques trop larges) ; jeu Éther (à développer après

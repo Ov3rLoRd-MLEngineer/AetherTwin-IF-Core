@@ -227,8 +227,8 @@ l'environnement.
 
 **Vérifié** (Windows 10, Python 3.11 ; dates dans `PROJECT_STATUS.md`) :
 
-- `pytest` le 25/11/2026 : `[NOMBRE_TESTS]`. Les tests sur GPU réel sont ignorés par défaut
-  (`AETHERTWIN_REAL_OLLAMA=1` pour les lancer). `ruff check .` propre.
+- `pytest` le 25/11/2026 : 1 102 tests réussis, 5 sautés (dont les tests sur GPU réel, ignorés par défaut ;
+  `AETHERTWIN_REAL_OLLAMA=1` pour les lancer). `ruff check .` propre.
 - Installation à neuf depuis l'archive de la version (`setup.ps1`), puis toute la suite de tests dans la
   copie installée (`scripts/build_release.py --verify`, 25/11/2026).
 - Bout en bout réel : démon → module `gaming_hud` → données du jeu → modèle local → réponse correcte.
