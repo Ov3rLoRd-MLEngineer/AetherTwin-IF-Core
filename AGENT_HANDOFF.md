@@ -73,8 +73,8 @@ N'utilise jamais `python` seul. Le `python` du PATH est une autre version (3.10)
 | Base de connaissances | tableau de bord, « Collecter maintenant » ; `GET /knowledge/search?q=…` | fait, testé en réel (vecteurs `nomic-embed-text`) |
 | `scantrad` | onglet Scantrad du tableau de bord (automatique ou manuel), ou `.venv\Scripts\python.exe -m modules.scantrad PAGE.png --series demo` (Hub lancé) ; `--evaluate` mesure la détection | fait, testé en réel (page de test + vraies pages) |
 | WoW Assistant depuis le Hub | onglet Jeu, ou `POST /modules/gaming_hud/app/start` (champ `app` du manifeste) | fait, testé en réel |
-| `mangastudio` | onglet Studio (poids dans `models/mangastudio/`, torch cu128 dans `.venv`) | fait, testé en réel (HandSegNet) |
-| `if_game` | onglet Éther | fait, testé en réel |
+| `mangastudio` | onglet Studio image, Hand & Foot SegNet (poids dans `models/mangastudio/`, torch cu128 dans `.venv`) | fait, testé en réel (HandSegNet) |
+| `if_game` | onglet AetherTwin I&F Hommage | fait, testé en réel |
 
 ## Recette locale validée par Jérémy (Ollama + Aider)
 

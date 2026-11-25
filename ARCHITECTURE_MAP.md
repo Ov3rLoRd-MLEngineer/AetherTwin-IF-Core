@@ -177,6 +177,7 @@ core/
   module_api.py
   module_runner.py
   scheduler.py
+  setup_jobs.py
   strata.py
   terminals.py
   translate.py
@@ -218,6 +219,7 @@ core/
     data_app.css
     data_app.html
     data_app.js
+    deps.js
     dev.css
     dev.js
     ether_scene.js
@@ -248,6 +250,7 @@ core/
     pixel_tool.css
     pixel_tool.js
     professeur.js
+    segnet.css
     system.css
     system.js
     terminal.css
@@ -563,6 +566,7 @@ tests/
     test_knowledge_store.py
     test_llm_router.py
     test_module_api.py
+    test_setup_jobs.py
     test_strata.py
     test_system_info.py
     test_translate.py
@@ -963,6 +967,15 @@ File d'attente GPU unique pour les tâches de vision et de diffusion (scantrad, 
   - `def submit(self, name: str, vram_gb: float, fn: Callable[[], Any]) -> Future[Any]` — Met une tâche en file. Le résultat (ou l'erreur) arrive par le `Future` retourné.
   - `def state(self) -> dict[str, Any]`
   - `def shutdown(self) -> None`
+
+### `core/setup_jobs.py`
+
+Dépendances d'AetherTwin : liste, présence sur ce PC, liens officiels, et installations lancées depuis le Hub.
+
+- `def dependencies() -> dict[str, Any]` — Tout ce que les pages affichent : logiciels externes (lien), tâches installables (état), fiches SegNet.
+- `def job_state(key: str) -> dict[str, Any]`
+- `def start(key: str, runner: Callable[[str, Callable[[str], None]], None] | None=None) -> dict[str, Any]` — Lance la tâche `key` dans un fil ; une seule fois à la fois. KeyError si la tâche est inconnue.
+- `def download(url: str, target: Path, say: Callable[[str], None], opener=urllib.request.urlopen) -> None` — Téléchargement par morceaux dans un .part, renommé à la fin : jamais de fichier de poids à moitié écrit.
 
 ### `core/strata.py`
 

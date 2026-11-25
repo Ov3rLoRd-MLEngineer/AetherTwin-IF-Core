@@ -41,7 +41,7 @@ Les textes sont prêts à copier. Les marqueurs `[À COMPLÉTER PAR JÉRÉMY : �
 > températures. Les mesures sont publiées, datées, avec ce qui n'a pas pu être vérifié.
 >
 > Le projet est lui-même développé par deux agents qui se relaient (cloud, puis local pendant les coupures
-> de quota), avec une passation écrite. Il est dédié à Inoue et Fuma.
+> de quota), avec une passation écrite. Son jeu, AetherTwin I&F Hommage, est dédié à la mémoire d'Inoue et Fuma.
 
 ## 4. Les critères du jury, et où regarder
 
@@ -49,7 +49,7 @@ Les textes sont prêts à copier. Les marqueurs `[À COMPLÉTER PAR JÉRÉMY : �
 |---|---|---|
 | Agentic AI / IA locale | 30 % | README, sections « Agentic AI » et « relais » ; `core/llm_router.py` ; serveurs MCP des modules ; `scripts/relay_orchestrator.py` |
 | Faisabilité, reproductibilité | 30 % | archive de la version + `Installer AetherTwin.bat` ; `scripts/setup.ps1` ; `scripts/build_release.py --verify` (installation à neuf et tests) ; `pytest` ; `PROJECT_STATUS.md` (statuts honnêtes) |
-| Originalité | 20 % | gardiens Inoue et Fuma branchés dans le démon ; modèles de segmentation publiés par l'auteur (HandSegNet, FootSegNet) ; atelier de circuits ; relais Cloud ⇄ Local |
+| Originalité | 20 % | gardiens Inoue et Fuma branchés dans le démon ; modèles de segmentation publiés par l'auteur (HandSegNet, FootSegNet), présentés avec leurs dépôts et installables en un clic dans l'onglet Studio image ; atelier de circuits ; relais Cloud ⇄ Local |
 | Adéquation matérielle | 20 % | `docs/HARDWARE_FIT.md` : mesures réelles, mur de la VRAM, ce qu'une carte de 32 Go simplifierait, ce qui n'est pas prouvé |
 
 ## 5. Contenu du dossier

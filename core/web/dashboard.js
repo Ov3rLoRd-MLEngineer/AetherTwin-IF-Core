@@ -49,7 +49,9 @@ function showTab(name) {
 for (const tab of document.querySelectorAll("#tabs button")) {
   tab.addEventListener("click", () => showTab(tab.dataset.tab));
 }
-const currentTab = () => (location.hash || "#accueil").slice(1);
+// Anciens onglets regroupés le 25/11 : un lien ou un favori vers eux mène au nouvel emplacement.
+const TAB_ALIASES = { connaissances: "professeur" };
+const currentTab = () => { const name = (location.hash || "#accueil").slice(1); return TAB_ALIASES[name] || name; };
 
 // ---------- sous-onglets : un panneau [data-subtabs] montre une seule famille de sections [data-sub] ----------
 const SUBTAB_KEY = "hub.sousonglets";
@@ -1660,13 +1662,14 @@ function refreshAll() {
   const tab = currentTab();
   if (tab === "accueil") refreshGpus();
   if (tab === "jeu") refreshGame();
-  if (tab === "connaissances") refreshKnowledge();
+  if (tab === "professeur" && currentSubtab("professeur") === "Connaissances") refreshKnowledge();
   if (tab === "journal") refreshEvents();
   if (tab === "studio" && !studio.statusShown) { studio.statusShown = true; refreshStudio(); }
   if (tab === "ether" && !ether.shown) { ether.shown = true; refreshEther(); }
   if (tab === "traduction") refreshVoice();
 }
 showTab(currentTab());
+window.addEventListener("hashchange", () => { if (currentTab() !== document.querySelector("#tabs [aria-selected='true']")?.dataset.tab) showTab(currentTab()); });
 setInterval(refreshAll, 3000);
 
 // ---------- thème (sombre par défaut, comme les studios ; mémorisé avec celui des guides) ----------

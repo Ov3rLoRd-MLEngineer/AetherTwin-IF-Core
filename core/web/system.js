@@ -3,7 +3,7 @@
 // (capteurs, ventilateurs), Inoue (optimisation) et outils ASUS. Dépend de dashboard.js : $, el, api, post.
 
 const sys = { live: null, info: null, sensors: null, perf: "cpu", timer: 0, loaded: {} };
-const SYS_POLL = { "Performance": 1500, "Carte mère": 3000 };
+const SYS_POLL = { "Vue d'ensemble": 1500, "Carte mère": 3000 };
 
 const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#3b5bdb";
 const num = (v, digits = 0) => (v === null || v === undefined ? "—" : Number(v).toLocaleString("fr-FR",
@@ -445,7 +445,10 @@ async function loadTools() {
     $("sys-tools").replaceChildren(...tools.map((t) => el("div", { class: `tool ${t.installe ? "" : "absent"}` },
       el("b", {}, t.nom), el("span", { class: "muted" }, t.role),
       el("small", { class: t.en_cours ? "good" : "muted" }, t.installe ? (t.en_cours ? "ouvert" : "installé") : "non installé"),
-      t.installe ? el("button", { type: "button", class: "ghost small", "data-tool": t.id }, "Ouvrir") : "")));
+      el("div", { class: "row tight" },
+        t.installe ? el("button", { type: "button", class: "ghost small", "data-tool": t.id }, "Ouvrir") : "",
+        t.telecharger ? el("a", { class: "guide-link small", href: t.telecharger, target: "_blank", rel: "noopener noreferrer",
+          title: "Page officielle de l'éditeur" }, t.installe ? "Site officiel" : "⬇ Télécharger") : ""))));
   } catch (error) {
     note($("sys-tools"), `Erreur : ${error.message}`, "warn");
   }
@@ -457,7 +460,7 @@ async function tick() {
   if (currentTab() !== "accueil" || document.hidden) return;
   const label = currentSubtab("accueil");
   try {
-    if (label === "Performance") {
+    if (label === "Vue d'ensemble") {
       sys.live = await api("/system/live", { timeoutMs: 15000 });
       renderPerf();
     } else if (label === "Carte mère") {
@@ -470,8 +473,8 @@ async function tick() {
 
 function onSubtab(label) {
   if (currentTab() !== "accueil") return;
-  if (["Performance", "Stockage et périphériques", "Système", "Carte mère"].includes(label)) loadInfo();
-  if (label === "Stockage et périphériques" && !sys.loaded.devices) { sys.loaded.devices = true; loadDevices(); }
+  if (["Vue d'ensemble", "Système", "Carte mère"].includes(label)) loadInfo();
+  if (label === "Système" && !sys.loaded.devices) { sys.loaded.devices = true; loadDevices(); }
   if (label === "Optimisation (Inoue)" && !sys.loaded.opt) { sys.loaded.opt = true; loadOptimisation(); }
   if (label === "Outils ASUS") loadTools();
   tick();

@@ -90,12 +90,49 @@
   const NEUTRAL = Object.fromEntries(FX.map((f) => [f.key, 0]));
   const fmt = (f, v) => (f.unit === "" ? `${Math.round(v * 100)} %` : `${v > 0 ? "+" : ""}${v} ${f.unit}`);
 
+  // Valeur réglable au clavier (retour de Jérémy, 25/11) : la case montre la valeur comme le curseur l'affiche ;
+  // on peut y taper un nombre (Entrée ou sortie de la case pour appliquer, Échap pour annuler), avec ou sans unité.
+  // Sans unité, le nombre est lu dans l'unité affichée (ms, s, k, %) ; il est ensuite ramené dans les bornes du curseur.
+  function valueBox(input, show) {
+    const box = el("input", { type: "text", class: "val", inputmode: "decimal", spellcheck: "false",
+                              "aria-label": `${input.getAttribute("aria-label") || "valeur"} (saisie au clavier)` });
+    box.value = show(Number(input.value));
+    const parse = (text) => {
+      const match = text.trim().toLowerCase().replace(",", ".").match(/^([+-]?(?:\d+\.?\d*|\.\d+))\s*([a-zµ½%]*)/);
+      if (!match) return null;
+      let v = Number(match[1]);
+      const shown = show(Number(input.value));   // unité affichée avant la saisie
+      const unit = match[2] || (/ms$/.test(shown) ? "ms" : /\ds$/.test(shown) ? "s" : /k$/.test(shown) ? "k" : "");
+      // durée tapée sans unité et trop grande pour des secondes (ex. 120 avec « 2.0s » affiché) : des millisecondes
+      if (unit === "s" && !match[2] && v > Number(input.max)) v /= 1000;
+      else if (unit === "ms") v /= 1000;
+      else if (unit === "k" || unit === "khz") v *= 1000;
+      else if (Number(input.max) <= 1 && Number(input.min) >= 0 && (unit === "%" || unit === "")) v /= 100;
+      return v;
+    };
+    const apply = () => {
+      const v = parse(box.value);
+      if (v == null || Number.isNaN(v)) { box.value = show(Number(input.value)); return; }
+      input.value = String(Math.min(Number(input.max), Math.max(Number(input.min), v)));
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      box.value = show(Number(input.value));
+    };
+    box.addEventListener("focus", () => box.select());
+    box.addEventListener("keydown", (event) => {
+      event.stopPropagation();                     // les touches tapées ne jouent pas de notes
+      if (event.key === "Enter") { event.preventDefault(); apply(); box.blur(); }
+      if (event.key === "Escape") { box.value = show(Number(input.value)); box.blur(); }
+    });
+    box.addEventListener("change", apply);
+    return box;
+  }
+
   function fxSliders(container, onChange) {
     const inputs = {};
     container.replaceChildren(...FX.map((f) => {
       const input = el("input", { type: "range", min: f.min, max: f.max, step: f.step, value: 0, "aria-label": f.label });
-      const out = el("output", {}, fmt(f, 0));
-      input.addEventListener("input", () => { out.textContent = fmt(f, Number(input.value)); onChange(get()); });
+      const out = valueBox(input, (v) => fmt(f, v));
+      input.addEventListener("input", () => { out.value = fmt(f, Number(input.value)); onChange(get()); });
       inputs[f.key] = { input, out, f };
       return el("div", { class: "param" }, el("label", {}, f.label), input, out);
     }));
@@ -106,7 +143,7 @@
       for (const f of FX) {
         const v = clamp(Number((values || {})[f.key] || 0), f.min, f.max);
         inputs[f.key].input.value = v;
-        inputs[f.key].out.textContent = fmt(f, v);
+        inputs[f.key].out.value = fmt(f, v);
       }
     }
     return { get, set };
@@ -756,8 +793,8 @@
   // ---------- instrument ----------
   function param(label, value, min, max, step, onInput, show) {
     const input = el("input", { type: "range", min, max, step, value, "aria-label": label });
-    const out = el("output", {}, show(value));
-    input.addEventListener("input", () => { const v = Number(input.value); out.textContent = show(v); onInput(v); });
+    const out = valueBox(input, show);
+    input.addEventListener("input", () => { const v = Number(input.value); out.value = show(v); onInput(v); });
     return el("div", { class: "param" }, el("label", {}, label), input, out);
   }
   function choice(label, value, options, onChange) {

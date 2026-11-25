@@ -5,7 +5,8 @@
 entre les modèles. Tout s'exécute sous Ollama, sur deux cartes NVIDIA grand public. Aucune requête de
 génération ne part vers un cloud.
 
-*À Inoue et Fuma.*
+*À Inoue et Fuma.* Le jeu du Hub, **AetherTwin I&F Hommage**, est dédié à leur mémoire : mes deux compagnons
+de vie, partis ensemble après l'été 2026.
 
 > **État évalué pour le concours ASUS Agent Computer Challenge** : le tag `v0.1.0-concours` (branche
 > `concours`), figé le 25/11/2026. Le développement continue sur `main`. AetherTwin est un projet **en
@@ -13,7 +14,7 @@ génération ne part vers un cloud.
 
 <p>
 <img src="docs/captures/scantrad_page_test_fr.png" alt="Page de test traduite par scantrad" height="260">
-<img src="docs/captures/ether_hd2d_lac.png" alt="Jeu Éther : Fuma et Inoue au bord du lac" height="260">
+<img src="docs/captures/ether_hd2d_lac.png" alt="AetherTwin I&F Hommage : Fuma et Inoue au bord du lac" height="260">
 <img src="docs/captures/obs_hud.png" alt="Overlay OBS : personnage, quêtes, jauges des GPU" height="260">
 </p>
 
@@ -80,7 +81,10 @@ Windows 10 ou 11, **Python 3.11** (`py -0p` liste les versions installées). Oll
 lui, le Hub démarre quand même, en mode dégradé.
 
 **Depuis l'archive de la version** (`AetherTwin-IF-Core-<version>.zip`) : décompresser, double-cliquer
-sur `Installer AetherTwin.bat`, puis sur `Lancer AetherTwin.bat`.
+sur `Installer AetherTwin.bat`, puis sur `Lancer AetherTwin.bat`. À la fin de l'installation, une fenêtre
+propose de créer les raccourcis du bureau (« AetherTwin » avec son logo, et « WoW Assistant »). Les
+dépendances facultatives et les poids des modèles s'installent ensuite depuis le Hub (onglets Studio image
+et Développement › Dépendances), ou avec les options ci-dessous.
 
 **Depuis le dépôt** :
 
@@ -103,9 +107,9 @@ pour ce lancement seulement, sans changer le réglage de Windows. Options du scr
 | `-Gpu` | PyTorch CUDA 12.8 et segment-anything (`mangastudio`) | environ 3 Go |
 | `-Weights` | poids HandSegNet, FootSegNet (Hugging Face) et LaMa (`scantrad`) | 2 × 375 Mo + 198 Mo |
 | `-Voice` | reconnaissance vocale locale (faster-whisper) | modèle de 480 Mo au premier usage |
-| `-Shortcut` | raccourci « AetherTwin » sur le bureau | — |
+| `-Shortcut` | raccourcis « AetherTwin » et « WoW Assistant » sur le bureau, sans poser la question | — |
 
-Le script n'écrit que dans le dossier du projet (sauf le raccourci). Il crée `config/local.yaml` depuis
+Le script n'écrit que dans le dossier du projet (sauf les raccourcis acceptés). Il crée `config/local.yaml` depuis
 l'exemple ; ce fichier est ignoré par Git et ne contient aucune clé.
 
 **Construire l'archive soi-même.** Après chaque ajout, la même commande refait le paquet :
@@ -150,8 +154,8 @@ Le scénario de la vidéo de deux minutes est dans [`docs/DEMO_SCRIPT.md`](docs/
 | `data_lab`, `chem_lab` | Tableur à formules et labo de chimie (équilibrage exact, pH, titrages), avec outils MCP | testés ; plusieurs feuilles et cinétique **en cours** |
 | `pixel_studio` | Studio de pixel art : sprites, animation, cartes en tuiles, exports ; outils pour les agents | testé en réel |
 | `voice` | Voix locale : synthèse Piper, écoute Whisper, effets, studio audio ; conversion de voix kNN-VC **avec consentement** | testé ; modulateur en direct et micro NVIDIA Broadcast **en cours** |
-| `mangastudio` | Masques de mains et de pieds (HandSegNet, FootSegNet), nœuds ComfyUI | masques réels ; jamais chargé dans un vrai ComfyUI |
-| `if_game` | « Fuma et Inoue : les Gardiens de l'Éther », exploration calme en vue RPG 16 bits ; le modèle propose les lieux, le code valide | joué par Jérémy (démo technique) |
+| `mangastudio` | **Hand & Foot SegNet** (onglet Studio image) : les modèles de segmentation publiés par l'auteur, avec leurs fiches, leurs dépôts ([HandSegNet](https://github.com/Ov3rLoRd-MLEngineer/handsegnet-anime-sdxl), [FootSegNet](https://github.com/Ov3rLoRd-MLEngineer/footsegnet-anime-sdxl)), l'installation des poids en un clic et l'outil de masque ; nœuds ComfyUI | masques réels ; jamais chargé dans un vrai ComfyUI |
+| `if_game` | **AetherTwin I&F Hommage** : « Fuma et Inoue : les Gardiens de l'Éther », exploration calme en vue RPG 16 bits, en hommage à Inoue et Fuma ; le modèle propose les lieux, le code valide | joué par Jérémy (démo technique) |
 | `circuit_lab` | Atelier circuits : consoles 8 et 16 bits à monter pièce par pièce, téléviseur cathodique, assembleurs, banc logique façon FPGA, cartes RP2040 et AVR | testé ; mappeurs, DMC, périphériques des microcontrôleurs **en cours** |
 | `dev_launcher` | Claude Code local (Ollama), terminal du Hub, pont MCP Hermes ⇄ Claude Code, relais | testé en réel |
 | `artcraft` | Intégration **externe** des logiciels libres ArtCraft, installés depuis leurs publications officielles | testé |

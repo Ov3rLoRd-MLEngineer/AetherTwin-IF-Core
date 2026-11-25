@@ -1,9 +1,10 @@
-/* Onglet Développement (module dev_launcher) : identité violette, cohérente avec le Hub. */
-.dev { --dev: #9775fa; --dev-soft: #221a3d; }
-:root[data-theme="light"] .dev { --dev: #7048e8; --dev-soft: #f3f0ff; }
+/* Onglet Développement (module dev_launcher) : tout ce qui touche à Claude Code prend l'orange du Hub
+   (celui de « I&F CORE · HUB » dans l'en-tête, --second), décision de Jérémy du 25/11. */
+.dev { --dev: var(--second); --dev-soft: rgba(242, 165, 65, .13); --dev-ink: #241503; }
+:root[data-theme="light"] .dev { --dev-soft: #fff2df; --dev-ink: #ffffff; }
 .dev h2 { display: flex; align-items: center; gap: 8px; margin: 0; }
 .dev h2::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--dev); }
-.dev :where(button:not(.ghost):not(.chip)) { background: var(--dev); }
+.dev :where(button:not(.ghost):not(.chip)) { background: var(--dev); border-color: var(--dev); color: var(--dev-ink); }
 .dev :where(button.ghost) { color: var(--dev); border-color: var(--dev); }
 .dev :where(button.ghost.danger) { color: var(--bad); border-color: var(--bad); }
 .dev a { color: var(--dev); }

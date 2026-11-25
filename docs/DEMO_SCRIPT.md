@@ -27,7 +27,7 @@ par un fondu et un compteur (« chargement du modèle : 11 s »).
 | 1:05–1:25 | Onglet Professeur : un chapitre de 4e, un exercice corrigé ; une simulation créée par le modèle local s'ouvre | « Le Professeur suit les programmes du CP à la terminale. Il cite ses sources, et peut écrire lui-même une simulation. » |
 | 1:25–1:40 | Onglet Outils : la calculatrice donne un résultat exact ; un agent appelle `python_run` ; l'atelier circuits allume une LED sur la carte RP2040 simulée | « Les agents ont de vrais outils : calcul exact, Python en bac à sable, données, chimie, pixel art, voix, exposés aussi en MCP. » |
 | 1:40–1:52 | Onglet Développement : le relais Cloud ⇄ Local en simulation (`--dry-run`), passage au local puis retour | « Le projet lui-même est développé par deux agents qui se relaient : quand le quota du cloud tombe, un agent local reprend, avec une passation écrite. » |
-| 1:52–2:00 | Dédicace sobre sur fond sombre : « À Inoue et Fuma. » Puis l'adresse du dépôt | (silence) |
+| 1:52–2:00 | Onglet AetherTwin I&F Hommage : le bandeau de dédicace, Fuma et Inoue au bord du lac ; puis « À Inoue et Fuma. » sur fond sombre et l'adresse du dépôt | (silence) |
 
 ## Ce qu'il ne faut pas montrer ou dire
 

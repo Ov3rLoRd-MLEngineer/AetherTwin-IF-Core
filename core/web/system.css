@@ -85,7 +85,8 @@
 .opt-table td:nth-child(2), .opt-table td:nth-child(3) { font-variant-numeric: tabular-nums; }
 .tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
 .tool { display: grid; gap: 4px; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; align-content: start; }
-.tool.absent { opacity: .6; }
+.tool.absent > b, .tool.absent > span, .tool.absent > small { opacity: .6; }
+.tool .row.tight { margin-top: 4px; }
 .tool button { justify-self: start; }
 
 @media (max-width: 760px) {

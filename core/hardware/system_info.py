@@ -48,21 +48,28 @@ WINDOWS_TARGETS: dict[str, tuple[str, str]] = {
 # Outils ASUS / CPUID, dans leurs dossiers d'installation par défaut.
 PF = os.environ.get("ProgramFiles", r"C:\Program Files")
 PF86 = os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")
+# Pages officielles de téléchargement (vérifiées le 25/11/2026 ; GPU Tweak III : l'ancienne page ASUS répond 404,
+# d'où la recherche du site ASUS ; le moniteur et GPU-Z ASUS sont livrés avec GPU Tweak III).
+GPU_TWEAK = "https://www.asus.com/search/?searchKey=GPU%20Tweak%20III"
 TOOLS: dict[str, dict[str, Any]] = {
     "armoury_crate": {"nom": "Armoury Crate", "role": "carte mère, ventilateurs (Fan Xpert), éclairage Aura",
-                      "appx": "B9ECED6F.ArmouryCrate_qmba6cd70vzyy!App", "process": "ArmouryCrate.exe"},
+                      "appx": "B9ECED6F.ArmouryCrate_qmba6cd70vzyy!App", "process": "ArmouryCrate.exe",
+                      "telecharger": "https://www.asus.com/supportonly/armoury%20crate/helpdesk_download/"},
     "gpu_tweak": {"nom": "GPU Tweak III", "role": "fréquences, tension et ventilateurs de la carte graphique",
                   "paths": [rf"{PF86}\ASUS\GPUTweakIII\GPU Tweak III.exe", rf"{PF}\ASUS\GPUTweakIII\GPU Tweak III.exe"],
-                  "process": "GPU Tweak III.exe"},
+                  "process": "GPU Tweak III.exe", "telecharger": GPU_TWEAK},
     "gpu_tweak_monitor": {"nom": "Moniteur GPU Tweak III", "role": "courbes des capteurs de la carte graphique",
-                          "paths": [rf"{PF86}\ASUS\GPUTweakIII\Monitor.exe"], "process": "Monitor.exe"},
+                          "paths": [rf"{PF86}\ASUS\GPUTweakIII\Monitor.exe"], "process": "Monitor.exe",
+                          "telecharger": GPU_TWEAK},
     "gpu_z": {"nom": "GPU-Z (ASUS)", "role": "fiche technique et capteurs de la carte graphique",
               "paths": [rf"{PF86}\ASUS\GPUTweakIII\ASUSGPUZ.exe", rf"{PF}\TechPowerUp\GPU-Z\GPU-Z.exe"],
-              "process": "ASUSGPUZ.exe"},
+              "process": "ASUSGPUZ.exe", "telecharger": "https://www.techpowerup.com/gpuz/"},
     "cpu_z": {"nom": "ROG CPU-Z", "role": "processeur, carte mère, mémoire (SPD)",
-              "paths": [rf"{PF}\CPUID\ROG CPU-Z\cpuz.exe", rf"{PF}\CPUID\CPU-Z\cpuz.exe"], "process": "cpuz.exe"},
+              "paths": [rf"{PF}\CPUID\ROG CPU-Z\cpuz.exe", rf"{PF}\CPUID\CPU-Z\cpuz.exe"], "process": "cpuz.exe",
+              "telecharger": "https://www.cpuid.com/softwares/cpu-z.html"},
     "lhm": {"nom": "LibreHardwareMonitor", "role": "capteurs détaillés de la carte mère (lus par le Hub)",
-            "paths": [rf"{PF}\LibreHardwareMonitor\LibreHardwareMonitor.exe"], "process": "LibreHardwareMonitor.exe"},
+            "paths": [rf"{PF}\LibreHardwareMonitor\LibreHardwareMonitor.exe"], "process": "LibreHardwareMonitor.exe",
+            "telecharger": "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases"},
 }
 
 # Processus qu'Inoue ne propose jamais de fermer.
@@ -493,7 +500,8 @@ def tools_state() -> list[dict[str, Any]]:
         path = next((p for p in tool.get("paths", []) if Path(p).is_file()), "")
         installed = bool(path) or (bool(tool.get("appx")) and appx_installed(tool["appx"].split("!")[0]))
         result.append({"id": key, "nom": tool["nom"], "role": tool["role"], "installe": installed,
-                       "en_cours": tool.get("process", "").lower() in running})
+                       "en_cours": tool.get("process", "").lower() in running,
+                       "telecharger": tool.get("telecharger", "")})
     return result
 
 

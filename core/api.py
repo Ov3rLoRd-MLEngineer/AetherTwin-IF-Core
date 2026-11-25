@@ -469,6 +469,22 @@ def create_app(daemon: Daemon) -> FastAPI:
 
         return status(config.section("mangastudio"))
 
+    # Dépendances : liens officiels des logiciels externes, et installations d'une liste fermée de pièces.
+    @app.get("/setup/dependencies")
+    def setup_dependencies() -> dict[str, Any]:
+        from core import setup_jobs
+
+        return setup_jobs.dependencies()
+
+    @app.post("/setup/run")
+    def setup_run(data: dict[str, Any]) -> dict[str, Any]:
+        from core import setup_jobs
+
+        key = str(data.get("tache", ""))
+        if key not in setup_jobs.JOBS:
+            raise HTTPException(400, "tâche inconnue")
+        return setup_jobs.start(key)
+
     def module_call(name: str, command: str, payload: dict[str, Any], timeout_s: float = 600) -> dict[str, Any]:
         """Commande à un module, lancé à la demande s'il ne tourne pas."""
         module_or_404(name)

@@ -215,3 +215,38 @@ a.guide-link { display: inline-flex; align-items: center; gap: 4px; padding: 4px
 a.guide-link:hover { border-color: var(--accent); }
 a.guide-link.small { font-size: 12px; font-weight: 400; padding: 1px 8px; vertical-align: middle; }
 .calc-tool-head .grow { flex: 1; }
+
+/* Grand écran (25/11) : pages plus larges ; les sections marquées « half » (et toutes celles d'un panneau « cols »)
+   se rangent côte à côte, les autres gardent toute la largeur. */
+main { max-width: 1680px; }
+@media (min-width: 1100px) {
+  .panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .panel > * { grid-column: 1 / -1; }
+  .panel > section.half, .panel.cols > section { grid-column: auto; }
+}
+
+/* AetherTwin I&F Hommage : bandeau de dédicace, puis la scène à gauche et le journal à droite sur grand écran. */
+.hommage-banner { display: flex; gap: 20px; align-items: center; padding: 22px 26px; border-color: rgba(242, 165, 65, .35);
+  background: radial-gradient(130% 160% at 0% 0%, rgba(46, 196, 214, .14), transparent 55%),
+              radial-gradient(120% 160% at 100% 100%, rgba(242, 165, 65, .14), transparent 55%), var(--panel); }
+.hommage-mark { flex: none; display: grid; place-items: center; width: 74px; height: 74px; border-radius: 50%;
+  font-weight: 700; font-size: 20px; letter-spacing: .04em; color: var(--second);
+  border: 2px solid var(--second); box-shadow: 0 0 24px rgba(242, 165, 65, .25), inset 0 0 18px rgba(46, 196, 214, .18); }
+.hommage-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--second); }
+.hommage-banner h2 { margin: 4px 0 8px; font-size: 24px; }
+.hommage-dedication { margin: 0; max-width: 90ch; line-height: 1.6; font-style: italic; }
+.hommage-sign { font-style: normal; color: var(--muted); white-space: nowrap; }
+.hommage-game { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+@media (min-width: 1250px) { .hommage-game { grid-template-columns: minmax(0, 1.7fr) minmax(340px, 1fr); } }
+.hommage-stage .ether-canvas { margin-top: 0; }
+.hommage-keys { color: var(--muted); font-size: 13px; line-height: 1.7; margin: 0; }
+kbd { font-family: var(--mono); font-size: 12px; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line);
+      border-bottom-width: 2px; background: var(--bg); color: var(--text); }
+.hommage-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.hommage-place { display: grid; gap: 2px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.hommage-side .ether-log { flex: 1; max-height: 420px; min-height: 180px; margin: 0; }
+.hommage-side .row { margin-top: 0; }
+.hommage-note { font-size: 12.5px; margin: 0; }
+.hommage-controls { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding-top: 8px;
+  border-top: 1px solid var(--line); }
+.hommage .question { font-size: 17px; }

@@ -9,7 +9,7 @@ rend un masque binaire, base d'une retouche locale (régénérer seulement la ma
 | Segmentation (module du Hub) | `segment.py`, `module.py` | modèle réel si `torch`, `segment-anything`, `safetensors` et les poids sont là ; sinon **simulation GrabCut** (OpenCV), toujours signalée |
 | Nœuds ComfyUI | `comfyui_nodes/` | « Masque de main (HandSegNet) », « Masque de pied (FootSegNet) » ; dossier autonome à copier dans `ComfyUI/custom_nodes/` |
 | Continuité inter-cases | `workflows/continuity.json` | format API de ComfyUI : IP-Adapter (identité du personnage) + ControlNet (trait de la nouvelle case), puis masque des mains pour contrôle. **À valider sur la machine GPU** |
-| Interface | onglet **Studio** du tableau de bord | choisir l'image, tracer la boîte, obtenir le masque et un aperçu teinté |
+| Interface | onglet **Studio image** du tableau de bord, module **Hand & Foot SegNet** | un sous-onglet par modèle (HandSegNet, FootSegNet) : fiche, chiffres, liens GitHub et Hugging Face, poids à installer en un clic ; puis l'outil de masque (image, boîtes, masque et aperçu teinté), réglé sur le modèle du sous-onglet ; dépendances (PyTorch, segment-anything) installables depuis la même page |
 
 ## Licences (vérifiées le 17/11/2026)
 
@@ -17,6 +17,15 @@ rend un masque binaire, base d'une retouche locale (régénérer seulement la ma
 - **Code d'inférence** des dépôts GitHub d'origine : MIT (fichier `LICENSE`). Le README GitHub de FootSegNet
   annonce « Apache 2.0 » pour l'ensemble : à harmoniser par l'auteur. Le code de ce dossier est celui
   d'AetherTwin et suit la licence du projet.
+
+## Dépôts de l'auteur
+
+- HandSegNet : code <https://github.com/Ov3rLoRd-MLEngineer/handsegnet-anime-sdxl>, poids et fiche
+  <https://huggingface.co/Ov3rLoRd-MLEngineer/handsegnet-anime-sdxl>.
+- FootSegNet : code <https://github.com/Ov3rLoRd-MLEngineer/footsegnet-anime-sdxl>, poids et fiche
+  <https://huggingface.co/Ov3rLoRd-MLEngineer/footsegnet-anime-sdxl>.
+
+Les chiffres affichés dans le Hub (`core/setup_jobs.py`, `SEGNET`) viennent de ces fiches, lues le 25/11/2026.
 
 ## Poids
 

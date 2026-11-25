@@ -25,6 +25,8 @@
   <script src="/static/circuit_tool.js" defer></script>
   <script src="/static/artcraft_tool.js" defer></script>
   <script src="/static/labs_tool.js" defer></script>
+  <link rel="stylesheet" href="/static/segnet.css">
+  <script src="/static/deps.js" defer></script>
 </head>
 <body>
   <header>
@@ -44,11 +46,10 @@
     <button role="tab" data-tab="jeu">Jeu</button>
     <button role="tab" data-tab="assistant">Assistant</button>
     <button role="tab" data-tab="professeur">Professeur</button>
-    <button role="tab" data-tab="connaissances">Connaissances</button>
     <button role="tab" data-tab="scantrad">Scantrad</button>
     <button role="tab" data-tab="traduction">Traduction</button>
-    <button role="tab" data-tab="studio">Studio</button>
-    <button role="tab" data-tab="ether">Éther</button>
+    <button role="tab" data-tab="studio">Studio image</button>
+    <button role="tab" data-tab="ether">AetherTwin I&amp;F Hommage</button>
     <button role="tab" data-tab="developpement">Développement</button>
     <button role="tab" data-tab="outils">Outils</button>
     <button role="tab" data-tab="journal">Journal</button>
@@ -57,7 +58,7 @@
   <main>
     <!-- Accueil -->
     <div data-subtabs class="panel" data-panel="accueil">
-      <section data-sub="Vue d'ensemble">
+      <section data-sub="Vue d'ensemble" class="half">
         <h2>Cartes graphiques</h2>
         <div id="gpus" class="cards"><p class="muted">Mesure en cours…</p></div>
         <p id="llm-line" class="muted"></p>
@@ -68,7 +69,7 @@
           <button type="button" id="strata-stop" class="ghost">Arrêter Strata</button>
         </p>
       </section>
-      <section data-sub="Vue d'ensemble">
+      <section data-sub="Vue d'ensemble" class="half">
         <h2>Budget VRAM (Inoue)</h2>
         <p class="muted">Inoue garde 10 % de la VRAM en réserve et n'accepte qu'un gros modèle de langage à la fois.</p>
         <div class="bar big"><i id="inoue-bar"></i></div>
@@ -77,7 +78,7 @@
           met les nouveaux chargements en attente. Décharge un modèle dans « Cartes graphiques » pour faire de la place.</p>
         <ul id="inoue-list" class="links"></ul>
       </section>
-      <section data-sub="Performance" class="sys">
+      <section data-sub="Vue d'ensemble" class="sys">
         <div class="sys-head"><h2>Performance</h2><span class="grow"></span>
           <button type="button" class="ghost small" data-open="gestionnaire_taches">Gestionnaire des tâches</button>
           <button type="button" class="ghost small" data-open="moniteur_ressources">Moniteur de ressources</button></div>
@@ -92,18 +93,11 @@
           </div>
         </div>
       </section>
-      <section data-sub="Stockage et périphériques" class="sys">
+      <section data-sub="Vue d'ensemble" class="sys">
         <div class="sys-head"><h2>Lecteurs</h2><span class="grow"></span>
           <button type="button" class="ghost small" data-open="ce_pc">Ouvrir Ce PC</button>
           <button type="button" class="ghost small" data-open="gestion_disques">Gestion des disques</button></div>
         <div id="sys-drives" class="drives"><p class="muted">Lecture des lecteurs…</p></div>
-      </section>
-      <section data-sub="Stockage et périphériques" class="sys">
-        <div class="sys-head"><h2>Périphériques</h2><span class="grow"></span>
-          <button type="button" class="ghost small" data-open="peripheriques">Bluetooth et appareils</button>
-          <button type="button" class="ghost small" data-open="imprimantes">Imprimantes et scanners</button>
-          <button type="button" class="ghost small" data-open="gestionnaire_peripheriques">Gestionnaire de périphériques</button></div>
-        <div id="sys-devices" class="devices"><p class="muted">Recherche des périphériques…</p></div>
       </section>
       <section data-sub="Système" class="sys">
         <div id="sys-tiles" class="sys-tiles"></div>
@@ -111,6 +105,13 @@
           <button type="button" id="sys-copy" class="ghost small">Copier</button>
           <button type="button" class="ghost small" data-open="a_propos">Paramètres › À propos</button></div>
         <dl id="sys-specs" class="specs"><dt>Lecture</dt><dd class="muted">Fiche système en cours de lecture…</dd></dl>
+      </section>
+      <section data-sub="Système" class="sys">
+        <div class="sys-head"><h2>Périphériques</h2><span class="grow"></span>
+          <button type="button" class="ghost small" data-open="peripheriques">Bluetooth et appareils</button>
+          <button type="button" class="ghost small" data-open="imprimantes">Imprimantes et scanners</button>
+          <button type="button" class="ghost small" data-open="gestionnaire_peripheriques">Gestionnaire de périphériques</button></div>
+        <div id="sys-devices" class="devices"><p class="muted">Recherche des périphériques…</p></div>
       </section>
       <section data-sub="Carte mère" class="sys board">
         <div class="board-grid">
@@ -175,8 +176,8 @@
     </div>
 
     <!-- Jeu -->
-    <div data-subtabs class="panel" data-panel="jeu" hidden>
-      <section data-sub="WoW Assistant">
+    <div class="panel cols" data-panel="jeu" hidden>
+      <section>
         <h2>WoW Assistant</h2>
         <p class="muted">L'application de bureau d'origine (fenêtre Pygame), lancée par le Hub.</p>
         <div class="row">
@@ -185,7 +186,7 @@
           <a class="guide-link" href="/static/guide.html?g=wow_assistant" target="_blank" rel="noopener" title="Ouvrir le guide dans une nouvelle fenêtre">📖 Guide de WoW Assistant</a>
         </div>
       </section>
-      <section data-sub="Lecture du jeu">
+      <section>
         <h2>Lecture du jeu (gaming_hud)</h2>
         <div class="row">
           <button id="hud-toggle" type="button">Activer gaming_hud</button>
@@ -194,7 +195,7 @@
         <h3>Ce que l'assistant sait de ton jeu</h3>
         <pre id="hud-context" class="answer">—</pre>
       </section>
-      <section data-sub="Showcase">
+      <section>
         <h2>Mode Showcase (diffusion)</h2>
         <p class="muted">Quand OBS est ouvert, gaming_hud passe seul en mode Showcase : il retire de ce qu'il
           publie le nom de compte, les chemins de fichiers, les clés, et arrondit l'or. L'overlay OBS, lui, est
@@ -205,7 +206,7 @@
           <button id="showcase-off" type="button" class="ghost">Repasser en normal</button>
         </div>
       </section>
-      <section data-sub="Overlay OBS">
+      <section>
         <h2>Overlay OBS</h2>
         <p>Dans OBS : Sources → + → Navigateur, URL <code id="overlay-url">http://127.0.0.1:5757/obs-hud</code>,
           largeur 420, hauteur 600. gaming_hud doit être actif.</p>
@@ -354,6 +355,17 @@
         </div>
         <div id="lab-result"></div>
       </section>
+      <section data-sub="Connaissances">
+        <h2>Base de connaissances</h2>
+        <p class="muted">Les sources que le Professeur et l'Assistant citent : pages collectées sur cette machine, retrouvées par mots et par sens.</p>
+        <p id="kb-line" class="muted">…</p>
+        <form id="kb-form" class="row">
+          <input id="kb-query" class="grow" autocomplete="off" required placeholder="Chercher dans la base locale">
+          <button type="submit">Chercher</button>
+          <button id="kb-ingest" type="button" class="ghost">Collecter maintenant</button>
+        </form>
+        <div id="kb-result" class="answer" hidden></div>
+      </section>
     </div>
 
     <!-- Outils (modules calc_cas, pixel_studio et voice) -->
@@ -453,20 +465,6 @@
           <p id="artcraft-hermes-state" class="muted"></p>
           <button id="artcraft-hermes" type="button" hidden>Brancher sur Hermes</button>
         </div>
-      </section>
-    </div>
-
-    <!-- Connaissances -->
-    <div class="panel" data-panel="connaissances" hidden>
-      <section>
-        <h2>Base de connaissances</h2>
-        <p id="kb-line" class="muted">…</p>
-        <form id="kb-form" class="row">
-          <input id="kb-query" class="grow" autocomplete="off" required placeholder="Chercher dans la base locale">
-          <button type="submit">Chercher</button>
-          <button id="kb-ingest" type="button" class="ghost">Collecter maintenant</button>
-        </form>
-        <div id="kb-result" class="answer" hidden></div>
       </section>
     </div>
 
@@ -611,22 +609,31 @@
       </section>
     </div>
 
-    <!-- Studio (mangastudio) -->
-    <div class="panel" data-panel="studio" hidden>
-      <section>
-        <h2>Masque de main ou de pied <a class="guide-link small" href="/static/guide.html?g=mangastudio" target="_blank" rel="noopener" title="Ouvrir le guide dans une nouvelle fenêtre">📖 Guide</a></h2>
-        <p id="studio-status" class="muted">…</p>
-        <div class="row">
-          <input id="studio-file" type="file" accept="image/png,image/jpeg,image/webp">
-          <select id="studio-target">
-            <option value="hand">Main (HandSegNet)</option>
-            <option value="foot">Pied (FootSegNet)</option>
-          </select>
-          <button id="studio-detect" type="button" class="ghost">Détecter automatiquement</button>
-          <button id="studio-clear" type="button" class="ghost">Effacer les boîtes</button>
-          <button id="studio-run" type="button">Créer le masque</button>
+    <!-- Studio image : Hand & Foot SegNet (module mangastudio) -->
+    <div data-subtabs class="panel segnet" data-panel="studio" hidden>
+      <section data-sub="HandSegNet" class="seg-card" id="seg-card-hand"><p class="muted">Chargement de la fiche…</p></section>
+      <section data-sub="FootSegNet" class="seg-card" id="seg-card-foot"><p class="muted">Chargement de la fiche…</p></section>
+      <section class="seg-tool">
+        <div class="calc-tool-head">
+          <h2>Créer un masque</h2>
+          <span id="seg-tool-sub" class="muted">avec HandSegNet : une boîte par main</span>
+          <span class="grow"></span>
+          <a class="guide-link" href="/static/guide.html?g=mangastudio" target="_blank" rel="noopener" title="Ouvrir le guide dans une nouvelle fenêtre">📖 Guide</a>
         </div>
-        <p class="muted">Trace une boîte autour de <b>chaque</b> main (ou pied) en glissant sur l'image : une boîte par main.</p>
+        <p id="studio-status" class="muted">…</p>
+        <input id="studio-target" type="hidden" value="hand">
+        <div class="seg-steps">
+          <label class="seg-step"><b>1</b><span>Choisis une illustration</span>
+            <input id="studio-file" type="file" accept="image/png,image/jpeg,image/webp"></label>
+          <div class="seg-step"><b>2</b><span>Trace une boîte autour de <strong>chaque</strong> main (ou pied) en glissant sur
+            l'image, ou laisse le modèle de vision les proposer.</span>
+            <div class="row tight">
+              <button id="studio-detect" type="button" class="ghost">Détecter automatiquement</button>
+              <button id="studio-clear" type="button" class="ghost">Effacer les boîtes</button>
+            </div></div>
+          <div class="seg-step"><b>3</b><span>Le masque blanc marque la zone à régénérer (inpainting, nœuds ComfyUI).</span>
+            <div class="row tight"><button id="studio-run" type="button">Créer le masque</button></div></div>
+        </div>
         <canvas id="studio-canvas" class="studio-canvas" hidden></canvas>
         <p id="studio-line" class="muted"></p>
         <div id="studio-result" class="compare" hidden>
@@ -634,37 +641,55 @@
           <figure><figcaption>Masque (blanc = zone à retoucher)</figcaption><img id="studio-mask" alt="masque"></figure>
         </div>
       </section>
+      <section class="seg-install">
+        <h2>Installer sur ce PC</h2>
+        <p class="muted">Sans ces pièces, l'outil tourne en simulation (GrabCut d'OpenCV), toujours signalée. Les poids
+          viennent des dépôts Hugging Face d'Ov3rLoRd ; les dépendances s'installent dans le Python du Hub.</p>
+        <div id="seg-deps" class="deps"><p class="muted">Lecture…</p></div>
+      </section>
     </div>
 
-    <!-- Éther (if_game) -->
-    <div class="panel" data-panel="ether" hidden>
-      <section>
-        <h2>Fuma &amp; Inoue : Les Gardiens de l'Éther</h2>
-        <p class="muted">Exploration calme, sans combat. Le modèle local invente les lieux et les répliques ; le
-          jeu vérifie tout avant de l'accepter.</p>
-        <canvas id="ether-canvas" class="ether-canvas" width="960" height="540" tabindex="0"
-                aria-label="vue du lieu : clique pour y déplacer Fuma, ou utilise les flèches"></canvas>
-        <p class="muted">Clique dans la scène, puis <b>flèches</b> ou <b>ZQSD</b> pour guider Fuma (Inoue le suit),
-          ou clique sur une case. Les chemins de bord mènent aux autres lieux, les escaliers montent ou descendent.
-          <b>Espace</b> : lire une stèle ou parler à Inoue. <b>M</b> : carte. Marcher sur une lueur ramasse l'objet.</p>
-        <div class="row">
-          <span id="ether-place" class="question">—</span>
-          <span id="ether-stats" class="muted"></span>
+    <!-- AetherTwin I&F Hommage (module if_game) -->
+    <div class="panel hommage" data-panel="ether" hidden>
+      <section class="hommage-banner">
+        <div class="hommage-mark" aria-hidden="true">I&amp;F</div>
+        <div>
+          <span class="hommage-eyebrow">AetherTwin I&amp;F Hommage</span>
+          <h2>Fuma &amp; Inoue : Les Gardiens de l'Éther</h2>
+          <p class="hommage-dedication">Ce jeu est un hommage à la mémoire d'Inoue et de Fuma, mes deux compagnons de
+            vie, partis ensemble après ce bel été 2026. Dans ce monde calme et sans combat, ils continuent d'explorer
+            côte à côte. <span class="hommage-sign">— Jérémy (Ov3rLoRd)</span></p>
         </div>
-        <div id="ether-log" class="answer ether-log"></div>
-        <div id="ether-exits" class="row"></div>
-        <form id="ether-form" class="row">
-          <input id="ether-input" class="grow" autocomplete="off" placeholder="regarder, prendre …, répondre …, parler à Fuma, repos, aide">
-          <button type="submit">Agir</button>
-        </form>
-        <div class="row">
-          <label title="Une même graine donne toujours le même monde">Graine du monde
-            <input id="ether-seed" type="number" value="42" min="0"></label>
-          <button id="ether-new" type="button" class="ghost">Nouvelle partie</button>
-          <button id="ether-sound" type="button" class="ghost" aria-pressed="false">Son : coupé</button>
-          <label>Volume <input id="ether-volume" type="range" min="0" max="100" value="60"></label>
-          <button id="ether-map" type="button" class="ghost" aria-pressed="true">Carte</button>
+      </section>
+      <section class="hommage-game">
+        <div class="hommage-stage">
+          <canvas id="ether-canvas" class="ether-canvas" width="960" height="540" tabindex="0"
+                  aria-label="vue du lieu : clique pour y déplacer Fuma, ou utilise les flèches"></canvas>
+          <p class="hommage-keys"><kbd>←↑↓→</kbd> ou <kbd>ZQSD</kbd> guider Fuma (Inoue le suit) · clic : aller à la case ·
+            <kbd>Espace</kbd> lire une stèle, parler à Inoue · <kbd>M</kbd> carte · marcher sur une lueur ramasse l'objet ·
+            les chemins de bord mènent aux autres lieux, les escaliers montent ou descendent.</p>
         </div>
+        <aside class="hommage-side">
+          <div class="hommage-place">
+            <span id="ether-place" class="question">—</span>
+            <span id="ether-stats" class="muted"></span>
+          </div>
+          <div id="ether-log" class="answer ether-log"></div>
+          <div id="ether-exits" class="row"></div>
+          <form id="ether-form" class="row">
+            <input id="ether-input" class="grow" autocomplete="off" placeholder="regarder, prendre …, répondre …, parler à Fuma, repos, aide">
+            <button type="submit">Agir</button>
+          </form>
+          <p class="muted hommage-note">Le modèle local invente les lieux et les répliques ; le jeu vérifie tout avant de l'accepter.</p>
+          <div class="hommage-controls">
+            <label title="Une même graine donne toujours le même monde">Graine du monde
+              <input id="ether-seed" type="number" value="42" min="0"></label>
+            <button id="ether-new" type="button" class="ghost">Nouvelle partie</button>
+            <button id="ether-sound" type="button" class="ghost" aria-pressed="false">Son : coupé</button>
+            <label>Volume <input id="ether-volume" type="range" min="0" max="100" value="60"></label>
+            <button id="ether-map" type="button" class="ghost" aria-pressed="true">Carte</button>
+          </div>
+        </aside>
       </section>
     </div>
 
@@ -765,6 +790,13 @@
           <code>hermes.exe</code>…), son modèle, sa durée, ses fichiers et la sortie de Claude Code.</p>
         <p id="dev-history-count" class="muted"></p>
         <div id="dev-history"></div>
+      </section>
+      <section data-sub="Dépendances">
+        <h2>Dépendances</h2>
+        <p class="muted">Ce qu'AetherTwin utilise autour de lui. Les logiciels externes s'installent depuis leur page
+          officielle (le Hub ne les installe jamais lui-même) ; les pièces facultatives d'AetherTwin s'installent d'un
+          clic. Les poids HandSegNet et FootSegNet sont dans l'onglet Studio image.</p>
+        <div id="dev-deps" class="deps"><p class="muted">Lecture…</p></div>
       </section>
       <section data-sub="Relais">
         <h2>Relais quand le quota de Claude Code API est épuisé</h2>

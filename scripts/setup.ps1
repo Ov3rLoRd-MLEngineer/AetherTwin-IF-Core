@@ -2,14 +2,16 @@
 #   .\scripts\setup.ps1              # venv Python 3.11 + dépendances + config + vérifications
 #   .\scripts\setup.ps1 -Gpu         # + PyTorch CUDA et segment-anything (mangastudio), environ 3 Go
 #   .\scripts\setup.ps1 -Weights     # + poids HandSegNet / FootSegNet (2 × 375 Mo) et LaMa (198 Mo), Hugging Face
-#   .\scripts\setup.ps1 -Shortcut    # + raccourci « AetherTwin » sur le bureau
+#   .\scripts\setup.ps1 -Shortcut    # + raccourcis « AetherTwin » et « WoW Assistant » sur le bureau
+#   .\scripts\setup.ps1 -Ask         # à la fin, une fenêtre propose de créer ces raccourcis (utilisé par
+#                                    #   « Installer AetherTwin.bat »)
 #   .\scripts\setup.ps1 -Voice       # + reconnaissance vocale locale (faster-whisper) pour l'onglet Traduction ;
 #                                    #   le modèle « small » (~480 Mo, Hugging Face) se télécharge au premier message
 # Si Windows refuse d'exécuter le script (« l'exécution de scripts est désactivée »), passe par
 # `Installer AetherTwin.bat` à la racine : il autorise ce script pour ce lancement seulement, sans changer le
 # réglage de Windows.
-# Le script ne touche à rien en dehors du dossier du projet, sauf le raccourci demandé par -Shortcut.
-param([switch]$Gpu, [switch]$Weights, [switch]$Shortcut, [switch]$Voice)
+# Le script ne touche à rien en dehors du dossier du projet, sauf les raccourcis du bureau (-Shortcut, ou accord donné dans la fenêtre de -Ask).
+param([switch]$Gpu, [switch]$Weights, [switch]$Shortcut, [switch]$Voice, [switch]$Ask)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
@@ -65,15 +67,30 @@ if (-not (Test-Path "config\local.yaml")) {
     Write-Host "config\local.yaml créé depuis l'exemple (ignoré par Git)."
 }
 
+if ($Ask -and -not $Shortcut) {
+    Add-Type -AssemblyName System.Windows.Forms
+    $answer = [System.Windows.Forms.MessageBox]::Show(
+        "Créer les raccourcis sur le bureau ?`n`n  • AetherTwin (le Hub, avec son logo)`n  • WoW Assistant`n`nTu pourras les supprimer quand tu veux, ils ne changent rien d'autre.",
+        "Installation d'AetherTwin", "YesNo", "Question")
+    $Shortcut = ($answer -eq "Yes")
+}
+
 if ($Shortcut) {
     $desktop = [Environment]::GetFolderPath("Desktop")
-    $link = (New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $desktop "AetherTwin.lnk"))
-    $link.TargetPath = Join-Path $root "Lancer AetherTwin.bat"
-    $link.WorkingDirectory = $root
-    $link.Description = "AetherTwin (I&F Core) - Hub local"
-    $link.IconLocation = (Join-Path $root "core\web\logo.ico") + ",0"
-    $link.Save()
-    Write-Host "Raccourci « AetherTwin » créé sur le bureau."
+    $icon = (Join-Path $root "core\web\logo.ico") + ",0"
+    $shell = New-Object -ComObject WScript.Shell
+    foreach ($s in @(
+            @("AetherTwin", (Join-Path $root "Lancer AetherTwin.bat"), $root, "AetherTwin (I&F Core) - Hub local"),
+            @("WoW Assistant", (Join-Path $root "modules\gaming_hudpp\Lancer WoW Assistant.bat"),
+              (Join-Path $root "modules\gaming_hudpp"), "WoW Assistant (AetherTwin)"))) {
+        $link = $shell.CreateShortcut((Join-Path $desktop "$($s[0]).lnk"))
+        $link.TargetPath = $s[1]
+        $link.WorkingDirectory = $s[2]
+        $link.Description = $s[3]
+        $link.IconLocation = $icon
+        $link.Save()
+        Write-Host "Raccourci « $($s[0]) » créé sur le bureau."
+    }
 }
 
 # Vérifications (informatives : rien n'est installé ni modifié ici)

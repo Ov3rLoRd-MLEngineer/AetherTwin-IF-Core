@@ -44,7 +44,7 @@ h2 { font-size: 14px; margin: 0 0 6px; font-weight: 600; letter-spacing: .02em; 
 .view { min-height: 0; min-width: 0; }
 
 /* ---------- marque ---------- */
-.brand { display: flex; align-items: center; gap: 8px; padding: 6px 10px; flex: none;
+.brand { display: flex; align-items: center; gap: 8px; padding: 6px 10px; flex: none; flex-wrap: wrap; row-gap: 6px;
          background: linear-gradient(var(--bg-2), var(--bg)); border-bottom: 1px solid var(--line); }
 .brand .logo { width: 24px; height: auto; filter: drop-shadow(0 0 6px rgba(46, 196, 214, .45)); }
 .brand .wordmark { font-weight: 300; font-size: 18px; letter-spacing: .06em; }
@@ -53,11 +53,13 @@ h2 { font-size: 14px; margin: 0 0 6px; font-weight: 600; letter-spacing: .02em; 
                       -webkit-background-clip: text; background-clip: text; color: transparent; }
 .brand .model { font-size: 10px; font-weight: 600; letter-spacing: .2em; color: var(--second);
                 border: 1px solid rgba(242, 165, 65, .5); border-radius: 4px; padding: 1px 5px; margin-right: 10px; }
-.modes { display: flex; gap: 2px; background: var(--panel-2); border-radius: 7px; padding: 2px; min-width: 0; overflow-x: auto;
-         scrollbar-width: none; }
-.modes button { border: 0; background: transparent; padding: 3px 11px; border-radius: 5px; color: var(--muted); white-space: nowrap; flex: none; }
+/* Les onglets gardent toujours leur largeur (retour de Jérémy, 25/11 : « Microcontrôleurs » était écrasé par le
+   message d'état) ; c'est le message qui se raccourcit, et l'en-tête passe sur deux lignes si la place manque. */
+.modes { display: flex; gap: 2px; background: var(--panel-2); border-radius: 7px; padding: 2px; flex: none; flex-wrap: wrap; }
+.modes button { border: 0; background: transparent; padding: 4px 13px; border-radius: 5px; color: var(--muted); white-space: nowrap; flex: none; }
 .modes button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
-.status { font-size: 12px; color: var(--muted); max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status { font-size: 12px; color: var(--muted); flex: 1 1 0; min-width: 0; text-align: right; overflow: hidden;
+          text-overflow: ellipsis; white-space: nowrap; }
 .status.err { color: var(--bad); }
 .doc-name { width: 150px; font: 600 13px var(--mono); }
 

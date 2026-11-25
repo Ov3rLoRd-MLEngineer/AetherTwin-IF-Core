@@ -1,0 +1,55 @@
+/* Studio image : Hand & Foot SegNet (fiches des modèles, outil de masque) et listes de dépendances. */
+.seg-card { padding: 0; overflow: hidden; }
+.seg-hero { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 0; }
+.seg-title { padding: 22px 26px; background:
+  radial-gradient(120% 140% at 0% 0%, rgba(46, 196, 214, .16), transparent 60%),
+  radial-gradient(120% 140% at 100% 100%, rgba(242, 165, 65, .10), transparent 55%); }
+.seg-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--second); }
+.seg-title h2 { margin: 6px 0 10px; font-size: 30px; font-weight: 700; letter-spacing: .01em; }
+.seg-title h2 small { font-size: 15px; font-weight: 400; color: var(--muted); }
+.seg-title p { margin: 0 0 14px; max-width: 70ch; line-height: 1.55; }
+.seg-links { display: flex; gap: 10px; flex-wrap: wrap; }
+.seg-link { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; font-weight: 600;
+            font-size: 14px; text-decoration: none; color: var(--accent-ink); background: var(--accent); }
+.seg-link + .seg-link { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+.seg-link:hover { filter: brightness(1.08); }
+.seg-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line);
+             border-left: 1px solid var(--line); }
+.seg-stat { display: grid; align-content: center; gap: 4px; padding: 16px 20px; background: var(--panel); }
+.seg-stat b { font-size: 26px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.seg-stat span { color: var(--muted); font-size: 13px; }
+.seg-facts { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 26px; padding: 16px 26px 4px;
+             border-top: 1px solid var(--line); }
+.seg-facts p { margin: 0 0 10px; line-height: 1.5; font-size: 14px; }
+.seg-facts p.muted { grid-column: 1 / -1; font-size: 13px; }
+.seg-weights { grid-column: 1 / -1; padding: 0 26px 20px; }
+@media (max-width: 900px) {
+  .seg-hero, .seg-facts { grid-template-columns: 1fr; }
+  .seg-stats { border-left: 0; border-top: 1px solid var(--line); }
+}
+
+/* outil de masque en trois étapes */
+.seg-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 12px 0 4px; }
+@media (max-width: 900px) { .seg-steps { grid-template-columns: 1fr; } }
+.seg-step { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; align-content: start; padding: 12px 14px;
+            border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.seg-step > b { grid-row: span 2; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+                background: var(--accent); color: var(--accent-ink); font-size: 15px; }
+.seg-step > span { font-size: 14px; line-height: 1.45; }
+.seg-step > input, .seg-step > .row { grid-column: 2; margin-top: 2px; }
+.segnet .studio-canvas { max-height: 75vh; margin-inline: auto; }
+
+/* listes de dépendances (Studio image, Développement) */
+.deps { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+.dep { display: grid; gap: 6px; align-content: start; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px;
+       background: var(--bg); }
+.dep-main { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.dep-main b { font-size: 15px; }
+.dep > .muted { font-size: 13px; }
+.dep-state { font-size: 12px; white-space: nowrap; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; }
+.dep-state.ok { color: var(--ok); border-color: var(--ok); }
+.dep-state.no { color: var(--bad); border-color: var(--bad); }
+.dep-state.run { color: var(--second); border-color: var(--second); }
+.dep-log { display: block; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dep-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.seg-weights .dep { background: var(--panel-2, var(--bg)); }

@@ -42,7 +42,7 @@ def test_static_refuses_other_files(client, path: str) -> None:
 
 def test_dashboard_has_every_tab(client) -> None:
     page = client.get("/").text
-    for tab in ("accueil", "jeu", "assistant", "professeur", "connaissances", "scantrad", "studio", "journal"):
+    for tab in ("accueil", "jeu", "assistant", "professeur", "scantrad", "studio", "ether", "journal"):
         assert f'data-tab="{tab}"' in page and f'data-panel="{tab}"' in page
     assert "frame-src 'self' http://127.0.0.1:5757" in client.get("/").headers["content-security-policy"]
 
@@ -202,14 +202,22 @@ def test_panels_use_subtabs_and_system_assets(client) -> None:
     import re
 
     page = client.get("/").text
-    for panel in ("accueil", "jeu", "professeur", "outils", "scantrad", "developpement"):
+    for panel in ("accueil", "professeur", "outils", "scantrad", "developpement"):
         block = page.split(f'data-panel="{panel}"', 1)[1].split('<div class="panel', 1)[0]
         assert re.search(rf'<div data-subtabs class="panel[^"]*" data-panel="{panel}"', page)
         # Outils : la calculatrice et le studio pixel, chacun en entier (décision de Jérémy, 24/11)
         assert len(set(re.findall(r'<section data-sub="([^"]+)"', block))) >= (2 if panel == "outils" else 3)
         assert not re.search(r"\n      <section(?! data-sub=)", block)  # aucune section hors sous-onglet
-    for label in ("Performance", "Stockage et périphériques", "Système", "Carte mère", "Optimisation (Inoue)"):
+    for label in ("Vue d'ensemble", "Système", "Carte mère", "Optimisation (Inoue)", "Outils ASUS", "Connaissances"):
         assert f'<section data-sub="{label}"' in page
+    # Regroupement du 25/11 (retour de Jérémy) : Performance et Lecteurs dans la vue d'ensemble, Périphériques dans
+    # Système, la base de connaissances dans le Professeur, le Jeu sur une seule page.
+    assert 'data-tab="connaissances"' not in page and 'data-sub="Performance"' not in page
+    assert '<div class="panel cols" data-panel="jeu"' in page
+    jeu = page.split('data-panel="jeu"', 1)[1].split('<div class="panel', 1)[0]
+    assert "data-sub=" not in jeu
+    systeme = page.split('<section data-sub="Système"', 1)[1]
+    assert systeme.index("Périphériques") < systeme.index('data-sub="Carte mère"')
     for name, kind in (("system.js", "javascript"), ("system.css", "text/css")):
         response = client.get(f"/static/{name}")
         assert response.status_code == 200 and kind in response.headers["content-type"]

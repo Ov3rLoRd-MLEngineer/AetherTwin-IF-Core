@@ -49,7 +49,8 @@ fichiers ignorés par Git, fraîcheur de `ARCHITECTURE_MAP.md`) sont sautés, et
 1. Installer **Python 3.11** (python.org, avec le lanceur `py`) et, de préférence, **Ollama**.
 2. Décompresser l'archive dans le dossier voulu.
 3. Double-clic sur `Installer AetherTwin.bat`. Options possibles, à passer depuis un terminal :
-   `"Installer AetherTwin.bat" -Gpu -Weights -Voice -Shortcut` (voir le README).
+   `"Installer AetherTwin.bat" -Gpu -Weights -Voice -Shortcut` (voir le README). Sans `-Shortcut`, une
+   fenêtre propose les raccourcis du bureau à la fin ; `--verify` appelle `setup.ps1` sans la fenêtre.
 4. Double-clic sur `Lancer AetherTwin.bat`. Le Hub s'ouvre sur `http://127.0.0.1:5750/`.
 5. Modèles conseillés : `ollama pull qwen3-27b`, `ollama pull qwen2.5vl:7b`, `ollama pull nomic-embed-text`.
 
