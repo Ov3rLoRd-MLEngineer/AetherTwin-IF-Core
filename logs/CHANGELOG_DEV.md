@@ -1870,3 +1870,14 @@ Il a autorisé les téléchargements nécessaires.
 - **OBS :** serveur WebSocket activé dans les réglages d'OBS (copie de l'ancien fichier gardée à côté) ; le MCP
   `aethertwin-obs` lit l'état du vrai OBS 32.2.2 avec authentification.
 - **Tests :** voir la vérification de l'archive du gel.
+
+## 2026-11-25 — J9 : vidéo de présentation
+
+- **Agent :** Cloud
+- **Demande de Jérémy :** finir par la vidéo : tournage OBS sur l'écran libre, montage avec les outils ArtCraft,
+  voix off par IA (il enregistrera la sienne pour comparer). Musique libre ou aucune ; publication non répertoriée.
+- **Fait :** 10 plans enregistrés par OBS via le MCP `aethertwin-obs` (le plan Scantrad refait avec une vraie
+  traduction de la page de test) ; voix Piper ; montage EffectCraft (cadrages zoomés, sous-titres, bandeau sur la
+  coupe du chargement du modèle, carton final) ; rendu H.264 1080p de 108 s, hors du dépôt.
+- **CI :** GitHub Actions verte sur `f961442` (Windows).
+- **Tests :** aucun code modifié ; rendu vérifié sur une planche d'images, durée et piste son contrôlées.

@@ -40,3 +40,23 @@ par un fondu et un compteur (« chargement du modèle : 11 s »).
 Musique : libre de droits, ou aucune. Durée réelle de chaque plan : relevée au montage. Vidéo publiée en non
 répertoriée. Jeu : WoW n'est pas montré ; WoW Assistant et son overlay le sont, avec les données de test du
 personnage le plus complet.
+
+## Montage réalisé (25/11/2026)
+
+Vidéo de 1 min 48, 1920 × 1080, 30 images/s, montée dans EffectCraft. Plans filmés en direct sur le Hub de
+test par OBS, piloté par le MCP `aethertwin-obs`. Voix off synthétisée en local (Piper, voix
+`fr_FR-siwis-medium`), reprise en sous-titres. Pas de musique.
+
+| Temps | Plan |
+|---|---|
+| 0:00–0:11 | Logo, puis titre |
+| 0:11–0:23 | Accueil › Vue d'ensemble : cartes, budget VRAM d'Inoue, performances |
+| 0:23–0:37 | Assistant : question posée au modèle local ; le premier chargement du modèle (≈ 70 s) est coupé, et un bandeau le signale |
+| 0:37–0:50 | Jeu : WoW Assistant, puis l'overlay OBS avec les données de test de Sakuranïchan |
+| 0:50–0:59 | Scantrad : page de test du dépôt traduite (bulles, texte lu, traduction) |
+| 0:59–1:08 | Professeur : cours, puis simulations |
+| 1:08–1:18 | Outils : calculatrice, atelier circuits, labo de chimie |
+| 1:18–1:25 | Studio image : HandSegNet, FootSegNet |
+| 1:25–1:36 | Développement : relais Cloud ⇄ Local (simulation) |
+| 1:36–1:42 | AetherTwin I&F Hommage |
+| 1:42–1:48 | « À Inoue et Fuma. », adresse du dépôt, licence |
