@@ -1846,3 +1846,14 @@ Il a autorisé les téléchargements nécessaires.
 - **Vidéo :** intro de 8 s (logo, titre, accroche) faite dans EffectCraft, rendue en H.264 1080p hors du dépôt.
   YouTube ne permet pas de remplacer le fichier d'une vidéo en gardant son lien (aide officielle de YouTube).
 - **Tests :** `ruff check .` propre ; tests du tableau de bord et d'OBS verts ; suite complète lancée avant le commit.
+
+## 2026-11-25 — J9 : textes du formulaire Gleam
+
+- **Agent :** Cloud
+- **Demande de Jérémy :** les champs à remplir du formulaire du concours (capture de la page Gleam).
+- **Fichiers :** `docs/CANDIDATURE.md` (§1 bis : un texte par champ, limites de mots comptées ; catégorie High-End),
+  `CLAUDE.md` (nom de la catégorie).
+- **Constats sur la page :** catégories AI Entry, Developer, High-End ; en High-End, dépôt GitHub et démo
+  téléchargeable obligatoires, vidéo optionnelle (non répertoriée acceptée). Le règlement dit clôture le 25/11 à
+  23 h 59 CET ; le compte à rebours du formulaire va jusqu'au 06/12/2026 à 23 h 59 CET.
+- **Tests :** test d'hygiène vert (documents seulement).

@@ -1,7 +1,7 @@
 # CLAUDE.md — AetherTwin (I&F Core)
 
 Hub d'agents locaux, 100 % exécuté en local, développé en solo par Jérémy pour le
-concours ASUS Agent Computer Challenge (catégorie Advanced / High-End).
+concours ASUS Agent Computer Challenge (catégorie High-End).
 **Clôture : 25 novembre 2026.** Plan et priorités : `PROJECT_STATUS.md`.
 
 ## Avant de travailler
