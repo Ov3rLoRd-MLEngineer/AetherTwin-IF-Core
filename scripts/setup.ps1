@@ -5,13 +5,14 @@
 #   .\scripts\setup.ps1 -Shortcut    # + raccourcis « AetherTwin » et « WoW Assistant » sur le bureau
 #   .\scripts\setup.ps1 -Ask         # à la fin, une fenêtre propose de créer ces raccourcis (utilisé par
 #                                    #   « Installer AetherTwin.bat »)
+#   -Desktop <dossier>               # raccourcis dans ce dossier au lieu du bureau (essais)
 #   .\scripts\setup.ps1 -Voice       # + reconnaissance vocale locale (faster-whisper) pour l'onglet Traduction ;
 #                                    #   le modèle « small » (~480 Mo, Hugging Face) se télécharge au premier message
 # Si Windows refuse d'exécuter le script (« l'exécution de scripts est désactivée »), passe par
 # `Installer AetherTwin.bat` à la racine : il autorise ce script pour ce lancement seulement, sans changer le
 # réglage de Windows.
 # Le script ne touche à rien en dehors du dossier du projet, sauf les raccourcis du bureau (-Shortcut, ou accord donné dans la fenêtre de -Ask).
-param([switch]$Gpu, [switch]$Weights, [switch]$Shortcut, [switch]$Voice, [switch]$Ask)
+param([switch]$Gpu, [switch]$Weights, [switch]$Shortcut, [switch]$Voice, [switch]$Ask, [string]$Desktop = "")
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
@@ -76,7 +77,7 @@ if ($Ask -and -not $Shortcut) {
 }
 
 if ($Shortcut) {
-    $desktop = [Environment]::GetFolderPath("Desktop")
+    $desktop = if ($Desktop) { $Desktop } else { [Environment]::GetFolderPath("Desktop") }
     $icon = (Join-Path $root "core\web\logo.ico") + ",0"
     $shell = New-Object -ComObject WScript.Shell
     foreach ($s in @(
