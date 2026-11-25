@@ -28,7 +28,9 @@ Son historique n'a pas été scanné.
   24 minutes. Premières versions : 71 fichiers, 52 agents Python.
 - **Pivot (déclaré)** : vers un RPG en 2D / 2,5D, avec des dialogues de PNJ tenus par un modèle local
   (machine à états de comportement, plus une couche de conversation avec garde-fous et base de données).
-- `[À COMPLÉTER PAR JÉRÉMY : date du pivot, et ce qui reste de ce RPG aujourd'hui]`
+- **Dates (déclaré, 25/11)** : le laboratoire commence fin juin 2026 ; le pivot vers le RPG date de fin août
+  2026. Peu après, la santé de ses chats oblige Jérémy à tout mettre en pause. C'est de là que viennent les
+  mini-jeux du Hub et son jeu-hommage, AetherTwin I&F Hommage, dédié à Inoue et Fuma.
 
 ## 3. Un échec assumé, et ce qu'il apprend
 
@@ -51,11 +53,15 @@ chaque zone détectée se corrige à la main avant la réincrustation.
   AetherTwin. HandSegNet a donné un masque en 0,17 s sur la RTX 5080 une fois chargé, avec 2,8 Go de VRAM.
 - Ils n'ont vu que des images SDXL à l'entraînement (précision de Jérémy). Sur de vraies pages de manga,
   ils sortent de leur domaine : deux masques sur cinq ont débordé lors de l'essai du 17/11.
-- FootSegNet : val_IoU de 0,9277 (**déclaré**, non recalculé ici).
+- FootSegNet : val_IoU de 0,9277, arrondi à 0,928 sur sa page (**déclaré**, non recalculé ici).
 - Le pipeline d'entraînement reste privé. Seules l'inférence et la conversion sont publiées (**déclaré**).
 - Quatre modules de segmentation existent : pieds, mains, visage, corps (**déclaré** ; seuls les deux
-  premiers sont publiés).
-- `[À COMPLÉTER PAR JÉRÉMY : taille du jeu d'entraînement, val_IoU de HandSegNet, matériel et durée d'entraînement]`
+  premiers sont publiés : les annotations du visage et du corps ne sont pas faites).
+- Chiffres publiés sur les pages GitHub des deux modèles (repris dans l'onglet Studio image) : HandSegNet,
+  IoU 0,888 avec la boîte exacte (0,722 avec une boîte trouvée automatiquement), 320 images annotées à la main
+  dont 32 pour la validation ; FootSegNet, IoU 0,928, 300 images dont 30 pour la validation. Seul le décodeur de
+  masque de SAM ViT-B est entraîné (≈ 4 M de paramètres sur 93,7 M). Le matériel et la durée d'entraînement sont
+  dans les archives privées de Jérémy, **non consultées** pour ce dossier.
 
 ## 5. L'infrastructure d'exécution
 
@@ -70,7 +76,8 @@ Tout ce paragraphe est **déclaré**, sauf mention contraire.
   reprend l'idée dans `core/llm_router.py`, réécrit et testé ici.
 - Une recherche documentaire hybride (BM25 + sémantique) sur 682 fragments.
 - Un essai de fine-tuning QLoRA (« ov3rlord-coder »).
-- `[À COMPLÉTER PAR JÉRÉMY : modèle de base du fine-tuning QLoRA, taille du jeu de données, durée]`
+- Le détail de cet essai (modèle de base, données, durée) est dans les archives privées de Jérémy, **non
+  consultées** pour ce dossier.
 
 ## 6. Les leçons techniques
 
@@ -103,7 +110,8 @@ d'AetherTwin, est dans [`docs/HARDWARE_FIT.md`](../docs/HARDWARE_FIT.md).
 
 ## 8. Questionnaire pour Jérémy
 
-Une réponse courte suffit. Chaque réponse remplace un marqueur `[À COMPLÉTER PAR JÉRÉMY : …]`.
+**Répondu par Jérémy le 25/11/2026** ; les réponses sont reportées plus haut. Les essais d'anime n'ont pas été
+concluants : aucune démonstration publique n'en est citée.
 
 1. En quelle année (et quel mois) le laboratoire Ov3rLoRd a-t-il commencé ?
 2. Date du pivot de la chaîne d'anime vers le RPG ? Que reste-t-il du RPG ?

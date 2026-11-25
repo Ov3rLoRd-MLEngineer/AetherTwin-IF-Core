@@ -37,4 +37,6 @@ par un fondu et un compteur (« chargement du modèle : 11 s »).
 - Le relais Cloud ⇄ Local est **testé en simulation** : le montrer comme tel (`--dry-run`), sans prétendre
   qu'il a déjà tenu une vraie coupure de quota.
 
-`[À COMPLÉTER PAR JÉRÉMY : durée réelle de chaque plan après le tournage, et musique éventuelle (libre de droits)]`
+Musique : libre de droits, ou aucune. Durée réelle de chaque plan : relevée au montage. Vidéo publiée en non
+répertoriée. Jeu : WoW n'est pas montré ; WoW Assistant et son overlay le sont, avec les données de test du
+personnage le plus complet.

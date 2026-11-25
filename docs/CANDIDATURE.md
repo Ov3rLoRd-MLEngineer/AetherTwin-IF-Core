@@ -1,7 +1,7 @@
 # Dossier de candidature — ASUS Agent Computer Challenge (High-End)
 
 Ce fichier rassemble ce qu'il faut pour remplir le formulaire de dépôt, et la liste des gestes du gel.
-Les textes sont prêts à copier. Les marqueurs `[À COMPLÉTER PAR JÉRÉMY : …]` restent à remplir.
+Les textes sont prêts à copier.
 
 ## 1. Fiche
 
@@ -10,10 +10,10 @@ Les textes sont prêts à copier. Les marqueurs `[À COMPLÉTER PAR JÉRÉMY : �
 | Nom du projet | AetherTwin (I&F Core) |
 | Auteur | Jérémy (Onibaku Gumi), développeur ML autodidacte — compte GitHub `Ov3rLoRd-MLEngineer` |
 | Catégorie | High-End (projet finalisé ou en cours de finalisation) |
-| Dépôt | `[À COMPLÉTER PAR JÉRÉMY : adresse du dépôt public]` |
+| Dépôt | <https://github.com/Ov3rLoRd-MLEngineer/AetherTwin-IF-Core> |
 | État évalué | tag `v0.1.0-concours`, branche `concours` |
 | Licence | Apache 2.0 |
-| Vidéo | `[À COMPLÉTER PAR JÉRÉMY : lien de la vidéo de 2 minutes]` (scénario : `docs/DEMO_SCRIPT.md`) |
+| Vidéo | lien donné dans le formulaire (YouTube, non répertoriée) ; scénario : `docs/DEMO_SCRIPT.md` |
 | Matériel du poste | RTX 5080 16 Go + RTX 5060 Ti 16 Go, 32 Go de RAM, Windows 10, Ollama ; une seconde RTX 5060 Ti achetée, pas encore montée |
 
 ## 1 bis. Formulaire Gleam : un texte par champ (25/11)
@@ -63,10 +63,18 @@ Une carte de 32 Go comme la Radeon AI PRO R9700 lèverait le mur que je mesure :
 
 ### Liens
 
-- Repository GitHub (obligatoire en High-End) : `[À COMPLÉTER PAR JÉRÉMY : adresse du dépôt public]`
+- Repository GitHub (obligatoire en High-End) : <https://github.com/Ov3rLoRd-MLEngineer/AetherTwin-IF-Core>
 - Démo du projet (obligatoire en High-End, lien de téléchargement) : l'archive `dist/AetherTwin-IF-Core-…zip`
-  publiée comme Release GitHub du tag `v0.1.0-concours` : `[À COMPLÉTER PAR JÉRÉMY : lien de la Release]`
-- Vidéo de présentation (optionnelle ; non répertoriée acceptée) : `[À COMPLÉTER PAR JÉRÉMY : lien]`
+  publiée comme Release GitHub du tag `v0.1.0-concours` : <https://github.com/Ov3rLoRd-MLEngineer/AetherTwin-IF-Core/releases/tag/v0.1.0-concours>
+- Vidéo de présentation (optionnelle ; non répertoriée acceptée) : lien YouTube non répertorié, donné dans le
+  formulaire.
+
+### Note sur la date et les évolutions (à coller à la fin du champ « Environnement », sans limite de mots)
+
+L'état soumis est figé par le tag `v0.1.0-concours`, le 25/11/2026 avant 23 h 59 CET. Le règlement donne cette
+date de clôture, mais le formulaire reste ouvert jusqu'au 06/12/2026. Si la date de clôture était erronée ou si
+les participants restent libres de continuer, le projet a pu évoluer depuis : la branche `main` du dépôt
+principal en montre la version la plus récente, et `PROJECT_STATUS.md` ce qui a changé.
 
 ## 2. Résumé court (environ 300 caractères)
 

@@ -75,6 +75,9 @@ Le relais de développement Cloud ⇄ Local est décrit plus bas. Le rôle de ch
 signatures des fonctions publiques sont dans [`ARCHITECTURE_MAP.md`](ARCHITECTURE_MAP.md), généré par
 `scripts/gen_architecture_map.py`.
 
+> **État soumis au concours** : tag `v0.1.0-concours` (25/11/2026). La branche `main` peut contenir des
+> évolutions plus récentes ; `PROJECT_STATUS.md` dit lesquelles.
+
 ## Installation
 
 Windows 10 ou 11, **Python 3.11** (`py -0p` liste les versions installées). Ollama est conseillé. Sans
@@ -96,8 +99,6 @@ ollama pull qwen3-27b; ollama pull qwen2.5vl:7b; ollama pull nomic-embed-text
 .\.venv\Scripts\python.exe -m pytest
 .\.venv\Scripts\python.exe -m core.daemon --open
 ```
-
-`[À COMPLÉTER PAR JÉRÉMY : adresse définitive du dépôt GitHub au moment du push]`
 
 Si Windows refuse d'exécuter `setup.ps1`, passer par `Installer AetherTwin.bat`. Il autorise le script
 pour ce lancement seulement, sans changer le réglage de Windows. Options du script :

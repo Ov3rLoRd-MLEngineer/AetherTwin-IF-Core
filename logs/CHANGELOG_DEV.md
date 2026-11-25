@@ -1857,3 +1857,16 @@ Il a autorisé les téléchargements nécessaires.
   téléchargeable obligatoires, vidéo optionnelle (non répertoriée acceptée). Le règlement dit clôture le 25/11 à
   23 h 59 CET ; le compte à rebours du formulaire va jusqu'au 06/12/2026 à 23 h 59 CET.
 - **Tests :** test d'hygiène vert (documents seulement).
+
+## 2026-11-25 — J9 : réponses de Jérémy, OBS réel, préparation du gel
+
+- **Agent :** Cloud
+- **Demande de Jérémy :** remplir les documents avec ses réponses, noter que le projet a pu évoluer si la date de
+  clôture était erronée, activer le serveur WebSocket d'OBS, puis créer le dépôt, pousser, publier la Release, et
+  finir par la vidéo. Feu vert donné pour le push et la Release.
+- **Fichiers :** `research/overlord_notes.md` (dates, chiffres publiés des modèles, archives non consultées),
+  `README.md` (état soumis = tag), `docs/CANDIDATURE.md` (dépôt, Release, note sur la date), `docs/DEMO_SCRIPT.md`,
+  `PROJECT_STATUS.md`.
+- **OBS :** serveur WebSocket activé dans les réglages d'OBS (copie de l'ancien fichier gardée à côté) ; le MCP
+  `aethertwin-obs` lit l'état du vrai OBS 32.2.2 avec authentification.
+- **Tests :** voir la vérification de l'archive du gel.
