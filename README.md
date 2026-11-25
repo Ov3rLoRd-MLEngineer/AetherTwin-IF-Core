@@ -8,6 +8,9 @@ génération ne part vers un cloud.
 *À Inoue et Fuma.* Le jeu du Hub, **AetherTwin I&F Hommage**, est dédié à leur mémoire : mes deux compagnons
 de vie, partis ensemble après l'été 2026.
 
+> **Démo à télécharger :** [Release `v0.1.0-concours`](https://github.com/Ov3rLoRd-MLEngineer/AetherTwin-IF-Core/releases/tag/v0.1.0-concours)
+> (archive `.zip` prête à installer, empreinte SHA-256 et étapes d'installation).
+
 > **État évalué pour le concours ASUS Agent Computer Challenge** : le tag `v0.1.0-concours` (branche
 > `concours`), figé le 25/11/2026. Le développement continue sur `main`. AetherTwin est un projet **en
 > cours** : ce qui n'est pas fini est dit comme tel, ici et dans [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
