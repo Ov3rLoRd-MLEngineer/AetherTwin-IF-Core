@@ -1810,3 +1810,21 @@ Il a autorisé les téléchargements nécessaires.
 - **Tests :** `ruff check .` propre ; `pytest` complet vert (code de sortie 0) ; vérification visuelle sur un Hub de test (port 5760) : Studio image, Accueil,
   Jeu, Outils ASUS, Dépendances, Hommage, atelier circuits à 1 150 px, saisie audio.
 - **Non essayé en réel :** la fenêtre des raccourcis, l'installation des poids et de PyTorch depuis la page.
+
+## 2026-11-25 — J9 : essais réels des ajouts du jour sur une installation neuve
+
+- **Agent :** Cloud
+- **Demande de Jérémy :** finir les deux essais restants (fenêtre des raccourcis ; poids et PyTorch depuis la page).
+- **Fichiers :** `scripts/setup.ps1` (`-Desktop` pour les essais, chemin du raccourci WoW corrigé),
+  `tests/test_repo_hygiene.py` (aucun caractère de contrôle dans les scripts et pages),
+  `core/hardware/system_info.py` (lien de GPU Tweak III donné par Jérémy), `PROJECT_STATUS.md`.
+- **Essai 1, fenêtre des raccourcis :** archive installée à neuf, `setup.ps1 -Ask -Desktop <dossier d'essai>`, la
+  vraie fenêtre de Windows reçoit « Oui » au clavier. Premier essai : seul « AetherTwin » créé, `setup.ps1` en
+  erreur (`ArgumentException` sur `TargetPath`) : le chemin `…\gaming_hudpp\…` contenait un caractère BEL
+  («  » interprété lors d'une modification par script). Corrigé, test ajouté (il échoue sur l'ancienne
+  version). Second essai sur l'archive `9c456af` : les deux raccourcis, cible, dossier de travail et logo justes.
+- **Essai 2, depuis la page Studio image (Hub de la copie installée, port 5760) :** « Installer » des dépendances
+  (clic dans la page) et des deux poids (même requête que les boutons) ; PyTorch 2.11 CUDA visible, poids complets
+  (374 979 240 octets chacun) ; après redémarrage du Hub, `simulation: false` et segmentation réelle des deux
+  modèles sur une image du dépôt (boîte arbitraire : la qualité du masque n'est pas jugée ici).
+- **Tests :** `pytest` complet vert ; copies d'essai supprimées.
