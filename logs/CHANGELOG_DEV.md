@@ -1820,11 +1820,12 @@ Il a autorisé les téléchargements nécessaires.
   `core/hardware/system_info.py` (lien de GPU Tweak III donné par Jérémy), `PROJECT_STATUS.md`.
 - **Essai 1, fenêtre des raccourcis :** archive installée à neuf, `setup.ps1 -Ask -Desktop <dossier d'essai>`, la
   vraie fenêtre de Windows reçoit « Oui » au clavier. Premier essai : seul « AetherTwin » créé, `setup.ps1` en
-  erreur (`ArgumentException` sur `TargetPath`) : le chemin `…\gaming_hudpp\…` contenait un caractère BEL
-  («  » interprété lors d'une modification par script). Corrigé, test ajouté (il échoue sur l'ancienne
+  erreur (`ArgumentException` sur `TargetPath`) : le chemin `…\gaming_hud\app\…` contenait un caractère BEL
+  (« \a » interprété lors d'une modification par script). Corrigé, test ajouté (il échoue sur l'ancienne
   version). Second essai sur l'archive `9c456af` : les deux raccourcis, cible, dossier de travail et logo justes.
 - **Essai 2, depuis la page Studio image (Hub de la copie installée, port 5760) :** « Installer » des dépendances
   (clic dans la page) et des deux poids (même requête que les boutons) ; PyTorch 2.11 CUDA visible, poids complets
   (374 979 240 octets chacun) ; après redémarrage du Hub, `simulation: false` et segmentation réelle des deux
   modèles sur une image du dépôt (boîte arbitraire : la qualité du masque n'est pas jugée ici).
-- **Tests :** `pytest` complet vert ; copies d'essai supprimées.
+- **Tests :** la vérification de l'archive a d'abord échoué sur le nouveau test : ce journal contenait lui-même
+  deux caractères BEL (même piège). Corrigé ; `pytest` complet vert ensuite ; copies d'essai supprimées.
