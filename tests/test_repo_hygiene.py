@@ -61,3 +61,24 @@ def test_sensitive_files_are_ignored_by_git(name: str) -> None:
 def test_example_config_exists_and_holds_no_key() -> None:
     text = (ROOT / "config" / "local.example.yaml").read_text(encoding="utf-8")
     assert "api_key" not in text.lower()
+
+
+def test_no_control_character_in_scripts_and_pages() -> None:
+    """Un caractère de contrôle glissé dans un chemin (« \a » devenu BEL, 25/11) casse un script sans erreur visible.
+
+    Le fichier tiers xterm.js (minifié) en contient volontairement : il est exclu."""
+    import re
+
+    control = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+    suffixes = {".ps1", ".bat", ".py", ".js", ".css", ".html", ".md", ".yaml", ".json"}
+    bad = []
+    for path in tracked_files():
+        if path.suffix not in suffixes or path.name.startswith("xterm"):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8-sig")
+        except (UnicodeDecodeError, OSError):
+            continue
+        if control.search(text):
+            bad.append(str(path.relative_to(ROOT)))
+    assert not bad, bad

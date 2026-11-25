@@ -82,8 +82,8 @@ if ($Shortcut) {
     $shell = New-Object -ComObject WScript.Shell
     foreach ($s in @(
             @("AetherTwin", (Join-Path $root "Lancer AetherTwin.bat"), $root, "AetherTwin (I&F Core) - Hub local"),
-            @("WoW Assistant", (Join-Path $root "modules\gaming_hudpp\Lancer WoW Assistant.bat"),
-              (Join-Path $root "modules\gaming_hudpp"), "WoW Assistant (AetherTwin)"))) {
+            @("WoW Assistant", (Join-Path $root "modules\gaming_hud\app\Lancer WoW Assistant.bat"),
+              (Join-Path $root "modules\gaming_hud\app"), "WoW Assistant (AetherTwin)"))) {
         $link = $shell.CreateShortcut((Join-Path $desktop "$($s[0]).lnk"))
         $link.TargetPath = $s[1]
         $link.WorkingDirectory = $s[2]
