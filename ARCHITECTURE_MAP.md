@@ -649,6 +649,7 @@ docs/
   DEMO_SCRIPT.md
   HARDWARE_FIT.md
   RELEASE.md
+  REVUE_JURY.md
 research/
   .gitkeep
   overlord_notes.md

@@ -1881,3 +1881,7 @@ Il a autorisé les téléchargements nécessaires.
   coupe du chargement du modèle, carton final) ; rendu H.264 1080p de 108 s, hors du dépôt.
 - **CI :** GitHub Actions verte sur `f961442` (Windows).
 - **Tests :** aucun code modifié ; rendu vérifié sur une planche d'images, durée et piste son contrôlées.
+
+## 2026-11-26 — Revue jury
+
+- Revue jury réalisée, rapport dans `docs/REVUE_JURY.md`, aucune modification du code.
