@@ -16,7 +16,8 @@ Les documents finaux et le gel J9 attendent sa demande.
 - **Tous les tests de Jérémy sur sa machine sont validés** (25/11, voir la section « Tests de Jérémy »), ainsi que
   l'installation de l'archive sur une autre partition Windows ; ses retours ont été traités le jour même (commit
   `c9f0655`).
-- Relais Cloud ⇄ Local écrit et testé **en simulation**.
+- Relais Cloud ⇄ Local écrit, testé en simulation, puis **en réel** le 25/11 par Jérémy : à la vraie limite de
+  quota, l'agent local a pris le relais et a demandé s'il fallait poursuivre ou attendre (pas de capture).
 - **J2 terminé** : moniteur GPU, contrat de module, bus, ordonnanceur, gardiens, démon et API locale.
 - **J3 terminé** (17/11) : WoW Assistant porté dans `modules/gaming_hud/`, interface `GameAdapter`, trois
   adaptateurs, module du Hub avec bascule Showcase, routeur LLM. Premier module réel du Hub.
@@ -54,7 +55,7 @@ Les documents finaux et le gel J9 attendent sa demande.
 | Garde-fou anti-secrets (`tests/test_repo_hygiene.py`) | P0 | J0 | `FAIT-TESTÉ` | scanne les fichiers suivis |
 | `scripts/relay_orchestrator.py` — logique (états, verrou, reprise, backoff) | P0 | J1 | `SIMULÉ` | horloge virtuelle + doublures ; `--dry-run` exécuté |
 | Relais — backend API Anthropic | P0 | J1 | `SIMULÉ` | SDK officiel contre un serveur HTTP factice (429, 529, 400, 200) ; jamais appelé sur le vrai service |
-| `dev_launcher/quota_watch.py` : veilleur de quota de **toutes** les sessions Claude (app de bureau comprise, transcriptions `~/.claude/projects`) ; à la limite d'usage, passation écrite (retour de Claude, dernière demande, état du dépôt) et Claude Code local ouvert dans Windows Terminal : il confirme « RELAIS PRIS » et demande s'il faut continuer ou attendre, rien avant la réponse | P1 | J10 | `EN COURS` | 24/11, demandé par Jérémy ; tests (vrai format du message de limite relevé dans 7 transcriptions, lecture incrémentale, passation) ; essai réel `--essai` puis veille lancée en attendant la vraie fin de quota |
+| `dev_launcher/quota_watch.py` : veilleur de quota de **toutes** les sessions Claude (app de bureau comprise, transcriptions `~/.claude/projects`) ; à la limite d'usage, passation écrite (retour de Claude, dernière demande, état du dépôt) et Claude Code local ouvert dans Windows Terminal : il confirme « RELAIS PRIS » et demande s'il faut continuer ou attendre, rien avant la réponse | P1 | J10 | `FAIT-TESTÉ` | essai réel de Jérémy le 25/11 à une vraie fin de quota : relais pris, question « poursuivre ou attendre » posée (pas de capture) ; 24/11, demandé par Jérémy ; tests (vrai format du message de limite relevé dans 7 transcriptions, lecture incrémentale, passation) ; essai réel `--essai` puis veille lancée en attendant la vraie fin de quota |
 | Relais — backend Claude Code | P0 | J1 | `FAIT-NON-TESTÉ` | sous-processus réel testé avec un faux binaire ; le format exact du message de quota de Claude Code n'a pas été observé |
 | Relais — agent local Claude Code via OmniRoute (défaut) | P0 | J1 | `FAIT-NON-TESTÉ` | commande et environnement repris du lanceur de Jérémy ; sous-processus réel testé avec un faux binaire ; jamais lancé contre OmniRoute + Qwen |
 | Relais — agent local Aider / OpenCode | P0 | J1 | `FAIT-NON-TESTÉ` | commande construite et testée ; **Aider et OpenCode ne sont pas installés** sur ce poste |

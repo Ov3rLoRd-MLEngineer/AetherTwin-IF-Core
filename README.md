@@ -156,12 +156,20 @@ Le scénario de la vidéo de deux minutes est dans [`docs/DEMO_SCRIPT.md`](docs/
 | `genesis_lab` | Le Professeur : programmes du CP à la terminale, cours, schémas, exercices corrigés, simulations (dont des simulations écrites par le modèle local) ; calculs scientifiques vérifiés | testé en réel |
 | `calc_cas` | Calculatrice à calcul formel (SymPy), graphes, géométrie dynamique, Python en bac à sable, outils pour les agents, serveur MCP | testé en réel |
 | `data_lab`, `chem_lab` | Tableur à formules et labo de chimie (équilibrage exact, pH, titrages), avec outils MCP | testés ; plusieurs feuilles et cinétique **en cours** |
-| `pixel_studio` | Studio de pixel art : sprites, animation, cartes en tuiles, exports ; outils pour les agents | testé en réel |
 | `voice` | Voix locale : synthèse Piper, écoute Whisper, effets, studio audio ; conversion de voix kNN-VC **avec consentement** | testé ; modulateur en direct et micro NVIDIA Broadcast **en cours** |
 | `mangastudio` | **Hand & Foot SegNet** (onglet Studio image) : les modèles de segmentation publiés par l'auteur, avec leurs fiches, leurs dépôts ([HandSegNet](https://github.com/Ov3rLoRd-MLEngineer/handsegnet-anime-sdxl), [FootSegNet](https://github.com/Ov3rLoRd-MLEngineer/footsegnet-anime-sdxl)), l'installation des poids en un clic et l'outil de masque ; nœuds ComfyUI | masques réels ; jamais chargé dans un vrai ComfyUI |
 | `if_game` | **AetherTwin I&F Hommage** : « Fuma et Inoue : les Gardiens de l'Éther », exploration calme en vue RPG 16 bits, en hommage à Inoue et Fuma ; le modèle propose les lieux, le code valide | joué par Jérémy (démo technique) |
-| `circuit_lab` | Atelier circuits : consoles 8 et 16 bits à monter pièce par pièce, téléviseur cathodique, assembleurs, banc logique façon FPGA, cartes RP2040 et AVR | testé ; mappeurs, DMC, périphériques des microcontrôleurs **en cours** |
 | `dev_launcher` | Claude Code local (Ollama), terminal du Hub, pont MCP Hermes ⇄ Claude Code, relais | testé en réel |
+
+### Démonstrations annexes d'agents outillés
+
+Ces modules montrent les mêmes outils d'agents sur d'autres terrains. Ils restent dans le dépôt et dans
+le Hub, mais ne font pas partie du cœur (Hub, gardiens, routeur, relais).
+
+| Module | Ce qu'il fait | État |
+|---|---|---|
+| `pixel_studio` | Studio de pixel art : sprites, animation, cartes en tuiles, exports ; outils pour les agents | testé en réel |
+| `circuit_lab` | Atelier circuits : consoles 8 et 16 bits à monter pièce par pièce, téléviseur cathodique, assembleurs, banc logique façon FPGA, cartes RP2040 et AVR | testé ; mappeurs, DMC, périphériques des microcontrôleurs **en cours** |
 | `artcraft` | Intégration **externe** des logiciels libres ArtCraft, installés depuis leurs publications officielles | testé |
 
 Le détail brique par brique, avec les dates des essais : [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
@@ -245,6 +253,8 @@ l'environnement.
   copie installée (`scripts/build_release.py --verify`, 25/11/2026).
 - Bout en bout réel : démon → module `gaming_hud` → données du jeu → modèle local → réponse correcte.
 - Mode Showcase avec un vrai OBS, overlay affiché dans OBS (essais de Jérémy).
+- Relais face à une vraie limite de quota (Jérémy, 25/11/2026, sans capture) : l'agent local a pris le
+  relais et a demandé s'il fallait poursuivre ou attendre le retour du quota, comme le voulait la consigne.
 - Routeur : deux gros modèles chargés l'un après l'autre, un seul en mémoire à chaque instant.
 - `scantrad`, Professeur, calculatrice, outils des agents et serveurs MCP : essais réels avec `qwen3-27b`
   et `qwen2.5vl:7b`.
@@ -252,7 +262,6 @@ l'environnement.
 
 **Pas vérifié :**
 
-- Le relais face à une vraie limite de quota (testé en simulation seulement).
 - La CI GitHub sous Ubuntu : 10 tests propres à Windows (chemins, Piper, pywinpty), portage en cours. La CI
   tourne sous Windows, la plateforme visée.
 - Les adaptateurs de jeu `log_tail` et `screen_ocr` sur un vrai jeu.
@@ -264,7 +273,7 @@ l'environnement.
 En cours après le concours (détail dans `PROJECT_STATUS.md`) :
 
 - montage de la troisième carte graphique (achetée) et mesures à 48 Go ; 64 à 128 Go de RAM pour Strata ;
-- relais Cloud ⇄ Local en conditions réelles ;
+- relais Cloud ⇄ Local : verser au dépôt le journal d'une bascule réelle ;
 - interface simplifiée pour un ComfyUI local (workflows `.json`, choix des modèles) ;
 - atelier circuits : autres machines, périphériques des microcontrôleurs, jusqu'à un jeu éducatif ;
 - WoW Assistant : essais en jeu des onglets récents ;

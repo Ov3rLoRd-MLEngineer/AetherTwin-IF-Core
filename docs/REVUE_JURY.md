@@ -178,11 +178,8 @@ Taille et tests par module (lignes de Python, fichiers et tests) :
      - voix off de la vidéo : « Ce relais est testé en simulation ».
    - Ce qui dit « validé en réel » : l.338-339, « Relais réel, fenêtre courte… bascule sur l'agent local, puis
      retour » et « Relever le message exact… », tous deux « ✅ validé (Jérémy, 25/11) ».
-   - Selon Jérémy, le relais marche en réel côté Claude Code, et la bascule vers l'agent local est volontairement
-     non activée.
-   - Le README l.30-31 dit pourtant « Quand le quota de l'agent cloud tombe, un agent local (Qwen sous Ollama)
-     reprend » : c'est une **sur-déclaration** si la bascule n'est pas activée. Les documents ne le disent nulle
-     part exactement ainsi. À trancher par Jérémy (§ 7).
+   - **Tranché le 26/11 (§ 8) :** la bascule a eu lieu en réel le 25/11. Le README l.30-31 est donc exact ; ce
+     sont les mentions « simulation » qui étaient en retard (corrigées sur `main` le 26/11).
 2. **`AGENT_HANDOFF.md` est périmé** (« mis à jour le 22/11 », 404 tests). Or il est censé être le premier fichier
    lu par un agent local.
 3. **README l.256 :** « La CI GitHub sous Ubuntu : 10 tests propres à Windows… » est exact pour le portage, mais
@@ -395,7 +392,7 @@ Cette conclusion repose sur des extraits de résultats : « partiellement vérif
 
 | # | Document | Dit | Réalité vérifiée |
 |---|---|---|---|
-| 1 | README l.30-31 | un agent local « reprend » quand le quota tombe | bascule locale volontairement non activée (selon Jérémy) |
+| 1 | README l.30-31 | un agent local « reprend » quand le quota tombe | exact : bascule réelle le 25/11 (Jérémy, § 8) |
 | 2 | `PROJECT_STATUS.md` l.19, 55-59 ; README l.255 ; voix off | relais « en simulation » ; message de quota « pas observé » | l.338-339 du même fichier : relais réel et message relevé, « validés le 25/11 » |
 | 3 | README l.242 / `PROJECT_STATUS.md` l.14 / `AGENT_HANDOFF.md` l.17, 36 | 1 102 + 5 / 1 118 / 404 / 268 tests | 1 126 (1 122 réussis + 4 sautés) |
 | 4 | `AGENT_HANDOFF.md` | « mis à jour le 22/11 » | trois jours de travail manquent (OBS MCP, Release, vidéo, CI) |
@@ -434,7 +431,7 @@ Cette conclusion repose sur des extraits de résultats : « partiellement vérif
 |---|---|---|
 | Verser le script de contention dans le dépôt et ajouter ses résultats datés à `HARDWARE_FIT.md` (avec les débits du § 3.7) | +2 à +3 points (pertinence, hardware) | `scripts/contention_demo.py` (annexe A), `docs/HARDWARE_FIT.md` |
 | Ajouter la « Visite en 5 minutes » en haut du README, avec le lien de la vidéo et la phrase « tournée et montée par un agent via les MCP OBS et EffectCraft » | +1 à +2 (clarté) | `README.md` |
-| Trancher et aligner le relais partout, sur une seule formulation : « en réel côté Claude Code ; bascule vers l'agent local écrite, testée en simulation, volontairement non activée » | +1 (implémentation : honnêteté des statuts) | `README.md` l.30-31, 255 ; `PROJECT_STATUS.md` l.19, 55-59 |
+| Aligner le relais partout : bascule réelle observée le 25/11 (fait le 26/11 pour le README et `PROJECT_STATUS.md` l.19 ; reste la voix off et les lignes `SIMULÉ` du relais) | +1 (implémentation : honnêteté des statuts) | `README.md` l.30-31, 255 ; `PROJECT_STATUS.md` l.19, 55-59 |
 | Aligner le nombre de tests (1 126) et dater ; remettre `AGENT_HANDOFF.md` à jour | +0,5 | `README.md`, `PROJECT_STATUS.md`, `AGENT_HANDOFF.md` |
 | Expliquer la CI rouge du tag : « workflow d'alors Ubuntu + Windows ; corrigé sur `main` » | +0,5 | notes de la Release, `README.md` l.256 |
 | Préciser l'accroche : « aucune requête de génération vers un cloud ; WoW Assistant télécharge seulement des images du jeu » | +0,5 | `README.md` l.3-6 |
@@ -483,6 +480,27 @@ outillés ».
 6. **Modules annexes :** acceptes-tu de les sortir du tableau principal du README ? Le code, lui, ne bouge pas.
 
 ---
+
+## 8. Réponses de Jérémy (26/11/2026) et suites données
+
+Ces réponses sont des témoignages, sans capture ni journal versés au dépôt.
+
+1. **Relais :** à une vraie fin de quota, la bascule s'est faite. L'agent local a demandé s'il fallait poursuivre
+   ou attendre le retour du quota, ce qui était la consigne du test. Ce comportement correspond à celui décrit
+   pour `dev_launcher/quota_watch.py`.
+   - Suite : README et `PROJECT_STATUS.md` alignés (relais réel, sans capture) ; l'écart n° 1 est levé.
+   - Reste : la voix off de la vidéo dit « testé en simulation » (la vidéo est rendue, elle ne change pas), et
+     les lignes du relais par `scripts/relay_orchestrator.py` gardent leurs statuts d'origine.
+2. **Windows 11 :** installation de l'archive sur une autre partition du même poste, où seuls Ollama et
+   World of Warcraft étaient installés (donc sans Python préalable). Pas de capture.
+   - Le risque n° 5 baisse, sans disparaître : même matériel, et aucune trace dans le dépôt.
+3. **`qwen3-coder:30b-a3b-64k` :** fonctionnait avant le 26/11. La variante est toujours présente
+   (`ollama list`). Ollama est en 0.40.18 le 26/11, contre 0.40.16 lors des mesures du 17/11.
+   - Hypothèse **non vérifiée** : régression liée à la mise à jour d'Ollama.
+4. **Résultats de contention dans le README :** non, ils sont postérieurs au tag. Ils restent dans ce rapport.
+5. **Lien YouTube dans le README :** non, le jury l'a déjà.
+6. **Modules annexes :** oui. `pixel_studio`, `circuit_lab` et `artcraft` sont sortis du tableau principal du
+   README, sous « Démonstrations annexes d'agents outillés ». Le code ne bouge pas.
 
 ## Annexe A — script de contention (lancé le 26/11/2026, hors du dépôt)
 

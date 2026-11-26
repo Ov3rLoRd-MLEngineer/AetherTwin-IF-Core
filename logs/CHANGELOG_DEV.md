@@ -1885,3 +1885,5 @@ Il a autorisé les téléchargements nécessaires.
 ## 2026-11-26 — Revue jury
 
 - Revue jury réalisée, rapport dans `docs/REVUE_JURY.md`, aucune modification du code.
+
+- Réponses de Jérémy versées dans `docs/REVUE_JURY.md` (§ 8) : relais réel le 25/11 (README et `PROJECT_STATUS.md` alignés), modules annexes (`pixel_studio`, `circuit_lab`, `artcraft`) sortis du tableau principal du README. Aucune modification du code.
