@@ -108,8 +108,12 @@ class MangaStudioModule(ModuleBase):
         boxes = [check_box(box, width, height) for box in payload.get("boxes") or []]
         if not boxes:
             raise ValueError("au moins une boîte est nécessaire")
+        device = str(payload.get("device") or "")  # carte choisie par Inoue (« cuda:N »), sinon réglage local
+        settings = {**self.config, "device": device} if device else self.config
+        if target in self.segmenters and getattr(self.segmenters[target], "device", "") != settings.get("device", ""):
+            self.segmenters.pop(target).unload()  # autre carte : le modèle est rechargé là où il y a la place
         if target not in self.segmenters:
-            self.segmenters[target] = make_segmenter(target, self.config)
+            self.segmenters[target] = make_segmenter(target, settings)
         segmenter = self.segmenters[target]
         results = [segmenter(image, box) for box in boxes]
         mask = combine([r.mask for r in results])

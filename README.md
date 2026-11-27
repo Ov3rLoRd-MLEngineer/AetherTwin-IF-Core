@@ -3,7 +3,8 @@
 **Un hub d'agents IA qui tourne entièrement en local.** Un démon central observe ce que fait la machine
 (un jeu, une page de manga, un cours, un outil de création). Il active le module adapté et partage la VRAM
 entre les modèles. Tout s'exécute sous Ollama, sur deux cartes NVIDIA grand public. Aucune requête de
-génération ne part vers un cloud.
+génération ne part vers un cloud (seul WoW Assistant télécharge des images du jeu depuis Battle.net, et
+Wowhead s'il est activé).
 
 *À Inoue et Fuma.* Le jeu du Hub, **AetherTwin I&F Hommage**, est dédié à leur mémoire : mes deux compagnons
 de vie, partis ensemble après l'été 2026.
@@ -11,9 +12,25 @@ de vie, partis ensemble après l'été 2026.
 > **Démo à télécharger :** [Release `v0.1.0-concours`](https://github.com/Ov3rLoRd-MLEngineer/AetherTwin-IF-Core/releases/tag/v0.1.0-concours)
 > (archive `.zip` prête à installer, empreinte SHA-256 et étapes d'installation).
 
-> **État évalué pour le concours ASUS Agent Computer Challenge** : le tag `v0.1.0-concours` (branche
-> `concours`), figé le 25/11/2026. Le développement continue sur `main`. AetherTwin est un projet **en
-> cours** : ce qui n'est pas fini est dit comme tel, ici et dans [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
+> **Version soumise au concours ASUS Agent Computer Challenge** : le tag `v0.1.0-concours` (branche
+> `concours`), du 25/11/2026. Le développement continue sur `main` pendant la période de candidature ; une
+> version figée sera posée à sa fin. AetherTwin est un projet **en cours** : ce qui n'est pas fini est dit
+> comme tel, ici et dans [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
+
+### Visite en 5 minutes
+
+1. **La thèse** : plusieurs agents locaux se partagent deux cartes de 16 Go sans se marcher dessus. Inoue
+   décide qui charge quoi, d'après la mémoire **mesurée** des cartes et de la RAM ; ce qui ne tient pas
+   attend, avec sa raison. Code : [`core/guardians/inoue.py`](core/guardians/inoue.py).
+2. **Le voir** : onglet **Accueil** du Hub, panneau « État de charge » : une jauge par carte et pour la RAM,
+   la file d'attente d'Inoue et ses dernières décisions.
+3. **Les agents outillés** : calcul formel, Python en bac à sable, tableur, chimie, voix, servis aussi en
+   **MCP** à Claude Code local et à Hermes Agent ([plus bas](#ce-qui-en-fait-un-projet--agentic-ai--local)).
+4. **Développé par des agents qui se relaient** : Claude Code dans le cloud, un agent Qwen local en fin de
+   quota ([le relais](#développement-24-h24--le-relais-cloud--local)). La vidéo de présentation a été
+   filmée et montée par un agent, via les serveurs MCP d'OBS et d'EffectCraft.
+5. **Les preuves** : [`docs/HARDWARE_FIT.md`](docs/HARDWARE_FIT.md) (mesures datées) et
+   [`PROJECT_STATUS.md`](PROJECT_STATUS.md) (un statut par brique, essais réels datés).
 
 <p>
 <img src="docs/captures/scantrad_page_test_fr.png" alt="Page de test traduite par scantrad" height="260">
@@ -23,8 +40,9 @@ de vie, partis ensemble après l'été 2026.
 
 ## En bref
 
-- **Deux gardiens, pas une décoration.** Inoue garde la VRAM : un seul gros modèle chargé à la fois,
-  10 % de réserve, budget calculé sur la mesure réelle des cartes. Fuma garde la stabilité : il relance
+- **Deux gardiens, pas une décoration.** Inoue garde la VRAM et la RAM : un seul gros modèle chargé à la
+  fois, 10 % de réserve, budget calculé sur la mesure réelle des cartes, et une seule carte choisie pour un
+  module PyTorch qui ne se répartit pas. Fuma garde la stabilité : il relance
   un module planté, surveille les températures et lance les tâches de nuit.
 - **Des modules qui sont de vrais agents outillés.** Les modèles locaux appellent des outils exacts :
   calcul formel, Python en bac à sable, tableur, chimie, pixel art, voix. Ces outils sont aussi servis en
@@ -135,7 +153,8 @@ de RAM, il faut l'arrêter avant un traitement lourd (voir [`docs/HARDWARE_FIT.m
 ## Démo en cinq minutes
 
 1. `Lancer AetherTwin.bat` : le Hub s'ouvre dans sa fenêtre, sur `http://127.0.0.1:5750/`.
-2. **Accueil** : les deux cartes mesurées en direct, le budget d'Inoue, les modèles chargés.
+2. **Accueil** : l'état de charge (une jauge par carte et pour la RAM, file d'attente d'Inoue), le budget
+   d'Inoue, les modèles chargés.
 3. **Assistant** : poser une question. La réponse s'écrit mot à mot. Les sources de la base locale sont
    citées quand elles existent.
 4. **Scantrad** : ouvrir une page libre de droits, lancer la traduction, corriger une zone à la main.
@@ -247,10 +266,12 @@ l'environnement.
 
 **Vérifié** (Windows 10, Python 3.11 ; dates dans `PROJECT_STATUS.md`) :
 
-- `pytest` le 25/11/2026 : 1 102 tests réussis, 5 sautés (dont les tests sur GPU réel, ignorés par défaut ;
-  `AETHERTWIN_REAL_OLLAMA=1` pour les lancer). `ruff check .` propre.
+- `pytest` le 27/11/2026 : 1 143 tests réussis, 4 sautés (dont les tests sur GPU réel, ignorés par défaut ;
+  `AETHERTWIN_REAL_OLLAMA=1` pour les lancer). `ruff check .` propre. CI GitHub sous Windows verte sur `main`.
 - Installation à neuf depuis l'archive de la version (`setup.ps1`), puis toute la suite de tests dans la
   copie installée (`scripts/build_release.py --verify`, 25/11/2026).
+- Installation de l'archive sur une partition Windows 11 où seuls Ollama et le jeu étaient installés, donc
+  sans Python préalable (Jérémy, 25/11/2026, sans capture).
 - Bout en bout réel : démon → module `gaming_hud` → données du jeu → modèle local → réponse correcte.
 - Mode Showcase avec un vrai OBS, overlay affiché dans OBS (essais de Jérémy).
 - Relais face à une vraie limite de quota (Jérémy, 25/11/2026, sans capture) : l'agent local a pris le
@@ -263,7 +284,9 @@ l'environnement.
 **Pas vérifié :**
 
 - La CI GitHub sous Ubuntu : 10 tests propres à Windows (chemins, Piper, pywinpty), portage en cours. La CI
-  tourne sous Windows, la plateforme visée.
+  tourne sous Windows, la plateforme visée. Celle du tag `v0.1.0-concours` est rouge : son workflow lançait
+  encore Ubuntu (et une erreur de YAML), corrigés ensuite sur `main`.
+- Inoue par carte et les commandes GPU des modules : testés, pas encore essayés avec un vrai module PyTorch.
 - Les adaptateurs de jeu `log_tail` et `screen_ocr` sur un vrai jeu.
 - Les nœuds `mangastudio` dans un vrai ComfyUI.
 - Une carte de 32 Go, la topologie à trois cartes, toute carte autre que NVIDIA.

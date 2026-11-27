@@ -35,8 +35,44 @@ Jérémy tant que la VRAM totale est de 32 Go.
 | Strata, moteur secondaire « mélange d'experts » : Qwen3.6-35B-A3B UD-Q4_K_XL | contexte 64 K, RTX 5060 Ti seule | 36 à 48 jetons par seconde ; **21 à 24 Go de RAM** pris | 23/11, essai réel |
 | Budget d'Inoue (gardienne de la VRAM) | marge de 10 % | 6,39 Go réservés sur 28,66 Go utilisables | 22/11, Hub de Jérémy |
 
-Débit en jetons par seconde d'Ollama sur les gros modèles : **non mesuré**. Contexte rempli à
-32 768 jetons : **non mesuré** (les mesures ci-dessus sont prises après une question courte).
+Débit mesuré le 26/11 (Ollama 0.40.18, `num_ctx` 32 768, cache KV q8_0, flash attention, réponse courte) :
+
+| Modèle | Chargement à froid | Débit | VRAM carte 0 / carte 1 pendant |
+|---|---|---|---|
+| `qwen3-27b` | 11,6 s | **29,6 jetons/s** | 10 177 / 8 970 Mio |
+| `qwen3-coder:30b-a3b` (mélange d'experts, 3 B actifs) | 12,3 s | **132,9 jetons/s** | 12 174 / 9 972 Mio |
+| `qwen2.5vl:7b` | 7,1 s | **82,1 jetons/s** | carte 1 seule, 7 402 Mio |
+
+Contexte rempli à 32 768 jetons : **non mesuré** (question courte).
+
+### Contention mesurée : ce qu'Inoue apporte de plus qu'Ollama seul
+
+Scénario reproductible : [`scripts/contention_demo.py`](../scripts/contention_demo.py). Un autre programme
+(PyTorch, comme ComfyUI) tient 12 Gio sur la carte 1, puis on demande les deux gros modèles.
+
+| Étape | 26/11 | 27/11 |
+|---|---|---|
+| **Sans le Hub** : Ollama seul, deux gros modèles en même temps | deux erreurs 500 « out of memory », en 2,6 et 4,6 s | identique : 4,6 et 6,8 s |
+| **Avec le Hub** : Inoue mesure les cartes | mis en file en **0,16 s** : « VRAM occupée par d'autres modules », 14,5 Go libres pour 18 demandés | mis en file en **0,11 s**, 13,9 Go libres pour 18 |
+| L'occupant libère sa place | demande servie, réponse en 17,3 s | **échec** : le moteur d'Ollama plante au chargement (voir ci-dessous) |
+
+Le 27/11, Ollama 0.40.18 plantait au chargement de `qwen3-27b` **même sur des cartes vides** : 4 essais sur
+4, `llama-server.exe` arrêté dans `ggml-base.dll` ou `ucrtbase.dll` (journal d'applications de Windows).
+Ce plantage est extérieur au Hub. Depuis, le routeur refait **une** tentative quand le moteur plante au
+chargement, et attend que `/api/ps` ne liste plus un modèle déchargé avant d'en charger un autre.
+
+### Mémoire vive (27/11, Hub lancé)
+
+| Ce qui tourne | RAM privée |
+|---|---|
+| Démon du Hub au repos | 436 Mo (15 Mo au démarrage : la hausse reste à expliquer) |
+| Un module lancé (`gaming_hud`) | 62 Mo |
+| Chaque module, au chargement de son code | 10 à 36 Mo (les bibliothèques lourdes se chargent à l'usage) |
+| PyTorch importé, puis avec CUDA ouvert | 346 Mo, puis 467 Mo, **par processus** |
+
+La RAM du Hub lui-même est faible. Ce qui la remplit : les modèles qu'Ollama fait transiter, les traitements
+PyTorch, et les autres applications. Depuis le 27/11, Inoue contrôle aussi la RAM : un module qui déclare
+`ram_gb` attend si la RAM libre, réserve de 10 % déduite, ne suffit pas.
 
 ## 3. Le mur de la VRAM
 
@@ -116,7 +152,7 @@ piste, décrite pour montrer où le projet pourrait aller, pas un résultat.
   sur `nvidia-smi`, puis sur un état « inconnu » qui n'empêche jamais le démarrage du Hub. Aucun
   backend AMD n'a été écrit.
 - Le gain réel du « tout sur une carte » face au découpage sur deux cartes : non chiffré.
-- Le débit en jetons par seconde des gros modèles, et la VRAM à contexte rempli : non mesurés.
+- La VRAM et le débit à contexte rempli (32 768 jetons) : non mesurés.
 - La topologie à trois cartes (48 Go) : jamais observée (la troisième carte est achetée, pas montée).
 - La génération d'image ou de vidéo (ComfyUI) : hors du dépôt, rien mesuré ici.
 - Le partage entre un poste d'IA et un poste de jeu : une piste, rien d'écrit dans le code.
@@ -129,7 +165,10 @@ ollama show qwen3-27b:latest
 # deux gros modèles chargés l'un après l'autre par le routeur, VRAM relevée par /api/ps
 $env:AETHERTWIN_REAL_OLLAMA = "1"
 .\.venv\Scripts\python.exe -m pytest tests/core/test_llm_router.py -k real_ollama -s
+# scénario de contention (Ollama lancé, PyTorch avec CUDA) ; résultats en JSON
+.\.venv\Scripts\python.exe scripts\contention_demo.py --occupant-gb 12 --card 1 --json logs\contention.json
 ```
 
-Le Hub montre aussi la mesure en direct : onglet **Accueil** (charge et VRAM de chaque carte, budget
-d'Inoue, modèles chargés, bouton pour décharger un modèle).
+Le Hub montre aussi la mesure en direct : onglet **Accueil**, panneau « État de charge » (une jauge par
+carte et pour la RAM, file d'attente d'Inoue avec sa raison, dernières décisions), puis le budget d'Inoue,
+les modèles chargés et le bouton pour décharger un modèle.

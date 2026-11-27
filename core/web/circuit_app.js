@@ -1,7 +1,7 @@
 "use strict";
 // Atelier circuits Æther : deux établis de consoles (cartes mères à monter pièce par pièce), téléviseur
 // cathodique, programmation en assembleur et débogueur.
-//   - « Japon rouge et blanc 8 bits 1983 » : nes_cpu.js, nes_ppu.js, nes_machine.js, assembleur asm6502.js ;
+//   - « Japon rouge et blanc 8 bits 1983 » : c8_cpu.js, c8_ppu.js, c8_machine.js, assembleur asm6502.js ;
 //   - « Japon grise 16 bits 1990 » : c16_cpu.js, c16_ppu.js, c16_apu.js, c16_machine.js, assembleur asm65816.js.
 // L'écran est dans crt.js. Les noms commerciaux des consoles ne sont pas utilisés (marques protégées) : chaque
 // machine est nommée par son origine, sa couleur, son nombre de bits et sa date de sortie.
@@ -624,7 +624,7 @@
     $("code-tab").textContent = `Programmation (${P.cpuName})`;
     $("opt-example").textContent = `Exemple : ${P.exampleTitle}`;
     $("opt-file").textContent = `Un fichier ${P.ext} à moi…`;
-    $("nes-file").accept = kind === "c16" ? ".sfc,.smc" : ".nes";
+    $("cart-file").accept = kind === "c16" ? ".sfc,.smc" : ".nes";
     $("prog-export").textContent = `Exporter ${P.ext}`;
     $("keys").textContent = P.keyHelp;
     src.setAttribute("aria-label", `Programme en assembleur ${P.cpuName}`);
@@ -665,10 +665,10 @@
     $("reset").addEventListener("click", () => { if (S.machine && S.machine.clocked && S.machine.has("cpu")) { S.machine.cpu.reset(); S.jamShown = false; status("RESET."); } });
     $("cart-pick").addEventListener("change", (e) => {
       S.cartPick = e.target.value;
-      if (S.cartPick === "file") $("nes-file").click();
+      if (S.cartPick === "file") $("cart-file").click();
       else if (S.on) { powerOff(); powerOn(); }
     });
-    $("nes-file").addEventListener("change", async (e) => {
+    $("cart-file").addEventListener("change", async (e) => {
       const file = e.target.files[0];
       if (!file) return;
       const bytes = new Uint8Array(await file.arrayBuffer());

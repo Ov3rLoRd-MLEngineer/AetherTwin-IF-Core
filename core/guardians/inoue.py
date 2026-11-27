@@ -10,11 +10,20 @@ Inoue tient une comptabilité des attributions ; elle ne charge ni ne décharge 
 La place libre tient compte aussi de la VRAM **réellement mesurée** : ce que la comptabilité ignore (un jeu, le
 navigateur, le contexte CUDA d'un module, un modèle d'embedding) réduit d'autant ce qu'elle accorde. Sans cette
 règle, le Hub de Jérémy a atteint 29,8 Go mesurés pour un budget de 28,7 Go (22/11).
+
+Deux garde-fous s'ajoutent le 27/11 :
+  - **par carte** (`single_card=True`) : un module PyTorch ou ONNX ne se répartit pas sur deux cartes. Il lui faut
+    sa place sur **une** carte ; Inoue choisit celle qui a le plus de place et renvoie son index (`device`).
+    Les modèles de langage, qu'Ollama répartit lui-même, restent sur le budget global ;
+  - **mémoire vive** (`ram_gb`) : une demande qui dépasserait la RAM libre, réserve déduite, attend aussi.
+    Ollama fait transiter les poids par la RAM, et PyTorch y garde son contexte CUDA.
 """
 from __future__ import annotations
 
 import threading
+import time
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -23,6 +32,21 @@ from core.hardware.gpu_monitor import GpuMonitor
 
 SAFETY_MARGIN = 0.10
 MIB_PER_GB = 1024.0
+RAM_RESERVE_MIN_GB = 2.0  # jamais attribué, même sur une petite machine
+HISTORY = 20
+
+
+def _gb(value: float) -> str:
+    """1 décimale, virgule française (les raisons sont lues dans l'Accueil)."""
+    return f"{value:.1f}".replace(".", ",")
+
+
+def psutil_ram() -> tuple[float, float]:
+    """(total, disponible) de la mémoire vive en Go, mesurés par psutil."""
+    import psutil
+
+    mem = psutil.virtual_memory()
+    return mem.total / 2**30, mem.available / 2**30
 
 
 class Verdict(StrEnum):
@@ -36,6 +60,7 @@ class Decision:
     verdict: Verdict
     granted_gb: float = 0.0
     reason: str = ""
+    device: int | None = None  # carte choisie quand la demande exige une seule carte
 
 
 @dataclass
@@ -43,21 +68,31 @@ class _Waiting:
     name: str
     min_gb: float
     comfort_gb: float
+    ram_gb: float = 0.0
+    single_card: bool = False
+    reason: str = ""
+    since: float = 0.0
 
 
 class Inoue:
     """Budget VRAM du Hub. Sans GPU détecté, le budget vaut 0 : seuls les modules sans besoin VRAM démarrent."""
 
     def __init__(self, monitor: GpuMonitor, safety_margin: float = SAFETY_MARGIN,
-                 max_loaded_llms: int = 1) -> None:
+                 max_loaded_llms: int = 1, ram_probe: Callable[[], tuple[float, float]] | None = psutil_ram,
+                 clock: Callable[[], float] = time.time) -> None:
         if not 0 <= safety_margin < 1:
             raise ValueError("la marge de sécurité doit être dans [0, 1[")
         self.monitor = monitor
         self.safety_margin = safety_margin
         self.max_loaded_llms = max_loaded_llms
+        self.ram_probe = ram_probe
+        self._clock = clock
         self._allocations: dict[str, float] = {}
+        self._cards: dict[str, int] = {}  # attribution -> carte, pour les demandes « une seule carte »
+        self._ram: dict[str, float] = {}  # attribution -> Go de RAM réservés
         self._queue: deque[_Waiting] = deque()
         self._llms: dict[str, float] = {}  # modèle -> Go attribués
+        self._history: deque[dict[str, Any]] = deque(maxlen=HISTORY)
         self._lock = threading.RLock()
 
     # -- budget
@@ -83,28 +118,103 @@ class Inoue:
         """Place libre : budget moins le plus grand du prévu (attributions) et du réel (mesure)."""
         return max(0.0, self.budget_gb() - max(self.allocated_gb(), self.measured_gb()))
 
+    # -- par carte
+    def cards(self) -> list[dict[str, Any]]:
+        """Chaque carte : total, mesuré, attribué (demandes « une seule carte »), budget et place libre, en Go."""
+        try:
+            gpus = self.monitor.snapshot()
+        except Exception:  # noqa: BLE001 — pas de mesure : aucune carte connue
+            return []
+        with self._lock:
+            out = []
+            for gpu in gpus:
+                total, used = gpu.vram_total_mib / MIB_PER_GB, gpu.vram_used_mib / MIB_PER_GB
+                allocated = sum(self._allocations.get(n, 0.0) for n, i in self._cards.items() if i == gpu.index)
+                budget = total * (1.0 - self.safety_margin)
+                out.append({"index": gpu.index, "name": gpu.name, "total_gb": round(total, 2),
+                            "used_gb": round(used, 2), "allocated_gb": round(allocated, 2),
+                            "budget_gb": round(budget, 2),
+                            "free_gb": round(max(0.0, budget - max(allocated, used)), 2),
+                            "utilization_pct": gpu.utilization_pct, "temperature_c": gpu.temperature_c})
+            return out
+
+    # -- mémoire vive
+    def ram(self) -> dict[str, Any] | None:
+        """Mémoire vive mesurée, réserve et place attribuable (Go). None si la mesure est impossible."""
+        if self.ram_probe is None:
+            return None
+        try:
+            total, available = self.ram_probe()
+        except Exception:  # noqa: BLE001 — pas de mesure : la RAM n'est pas contrôlée
+            return None
+        reserve = max(RAM_RESERVE_MIN_GB, total * self.safety_margin)
+        with self._lock:
+            reserved = sum(self._ram.values())
+        return {"total_gb": round(total, 2), "available_gb": round(available, 2), "reserve_gb": round(reserve, 2),
+                "reserved_gb": round(reserved, 2),
+                "free_gb": round(max(0.0, available - reserve - reserved), 2)}
+
+    def _log(self, name: str, decision: Decision) -> Decision:
+        self._history.append({"at": self._clock(), "name": name, "verdict": decision.verdict.value,
+                              "granted_gb": round(decision.granted_gb, 2), "reason": decision.reason,
+                              "device": decision.device})
+        return decision
+
     # -- demandes
-    def request(self, name: str, min_gb: float, comfort_gb: float | None = None) -> Decision:
-        """Demande de VRAM. Accorde le confortable s'il tient, sinon le minimum, sinon met en file."""
+    def request(self, name: str, min_gb: float, comfort_gb: float | None = None, *, ram_gb: float = 0.0,
+                single_card: bool = False) -> Decision:
+        """Demande de VRAM (et de RAM). Accorde le confortable s'il tient, sinon le minimum, sinon met en file.
+
+        `single_card` : la demande doit tenir sur une seule carte (module PyTorch ou ONNX). La décision porte
+        alors l'index de la carte choisie, celle qui a le plus de place.
+        """
         comfort = max(min_gb, comfort_gb if comfort_gb is not None else min_gb)
         with self._lock:
             if name in self._allocations:
-                return Decision(Verdict.GRANTED, self._allocations[name], "déjà attribué")
+                return Decision(Verdict.GRANTED, self._allocations[name], "déjà attribué", self._cards.get(name))
             budget = self.budget_gb()
             if min_gb > budget + 1e-9:
-                return Decision(Verdict.REFUSED, 0.0,
-                                f"besoin minimal {min_gb:.1f} Go > budget {budget:.1f} Go "
-                                f"(marge de sécurité de {self.safety_margin:.0%} déduite)")
+                return self._log(name, Decision(Verdict.REFUSED, 0.0,
+                                                f"besoin minimal {_gb(min_gb)} Go > budget {_gb(budget)} Go "
+                                                f"(marge de sécurité de {self.safety_margin:.0%} déduite)"))
+            cards = self.cards() if single_card and min_gb > 0 else []
+            if cards and min_gb > max(c["budget_gb"] for c in cards) + 1e-9:
+                return self._log(name, Decision(Verdict.REFUSED, 0.0,
+                                                f"besoin minimal {_gb(min_gb)} Go > plus grande carte "
+                                                f"({_gb(max(c['budget_gb'] for c in cards))} Go, marge déduite)"))
             free = self.available_gb()
-            if min_gb <= free + 1e-9:
+            reason = ""
+            device = None
+            if min_gb > free + 1e-9:
+                reason = f"VRAM : {_gb(free)} Go libres sur {_gb(budget)}, {_gb(min_gb)} demandés"
+            elif cards:
+                best = max(cards, key=lambda c: c["free_gb"])
+                free = min(free, best["free_gb"])
+                device = best["index"]
+                if min_gb > free + 1e-9:
+                    detail = ", ".join(f"carte {c['index']} : {_gb(c['free_gb'])}" for c in cards)
+                    reason = f"VRAM : aucune carte n'a {_gb(min_gb)} Go libres d'un seul tenant ({detail})"
+            ram = self.ram() if ram_gb > 0 else None
+            if not reason and ram is not None and ram_gb > ram["free_gb"] + 1e-9:
+                reason = (f"RAM : {_gb(ram['free_gb'])} Go attribuables ({_gb(ram['available_gb'])} libres, "
+                          f"réserve {_gb(ram['reserve_gb'])}), {_gb(ram_gb)} demandés")
+            if not reason:
                 granted = comfort if comfort <= free + 1e-9 else min_gb
                 self._allocations[name] = granted
+                if device is not None:
+                    self._cards[name] = device
+                if ram_gb > 0:
+                    self._ram[name] = ram_gb
                 self._queue = deque(w for w in self._queue if w.name != name)
-                return Decision(Verdict.GRANTED, granted,
-                                "confortable" if granted == comfort else "minimum (confortable indisponible)")
-            if all(w.name != name for w in self._queue):
-                self._queue.append(_Waiting(name, min_gb, comfort))
-            return Decision(Verdict.QUEUED, 0.0, f"{free:.1f} Go libres sur {budget:.1f}, {min_gb:.1f} demandés")
+                return self._log(name, Decision(Verdict.GRANTED, granted,
+                                                "confortable" if granted == comfort
+                                                else "minimum (confortable indisponible)", device))
+            waiting = next((w for w in self._queue if w.name == name), None)
+            if waiting is None:
+                self._queue.append(_Waiting(name, min_gb, comfort, ram_gb, single_card, reason, self._clock()))
+                return self._log(name, Decision(Verdict.QUEUED, 0.0, reason))
+            waiting.reason = reason
+            return Decision(Verdict.QUEUED, 0.0, reason)
 
     def adopt(self, name: str, gb: float, llm: str | None = None) -> Decision:
         """Enregistre ce qui est **déjà** en VRAM (un modèle chargé par un autre programme sur le même Ollama) :
@@ -114,18 +224,24 @@ class Inoue:
             self._allocations[name] = gb
             if llm is not None:
                 self._llms[llm] = gb
-            return Decision(Verdict.GRANTED, gb, "déjà en mémoire")
+            return self._log(name, Decision(Verdict.GRANTED, gb, "déjà en mémoire"))
 
     def release(self, name: str) -> list[tuple[str, Decision]]:
         """Libère l'attribution d'un module, puis sert la file d'attente dans l'ordre d'arrivée."""
         with self._lock:
             self._allocations.pop(name, None)
+            self._cards.pop(name, None)
+            self._ram.pop(name, None)
             self._llms.pop(name, None)
             self._queue = deque(w for w in self._queue if w.name != name)
             served = []
             while self._queue and self._queue[0].min_gb <= self.available_gb() + 1e-9:
-                waiting = self._queue.popleft()
-                served.append((waiting.name, self.request(waiting.name, waiting.min_gb, waiting.comfort_gb)))
+                waiting = self._queue[0]
+                decision = self.request(waiting.name, waiting.min_gb, waiting.comfort_gb, ram_gb=waiting.ram_gb,
+                                        single_card=waiting.single_card)
+                if decision.verdict is not Verdict.GRANTED:
+                    break  # la tête de file attend encore (une seule carte, ou la RAM) : l'ordre est gardé
+                served.append((waiting.name, decision))
             return served
 
     # -- modèles de langage
@@ -142,15 +258,19 @@ class Inoue:
             freed = sum(self._llms[m] for m in to_unload)
             budget = self.budget_gb()
             if vram_gb > budget + 1e-9:
-                return Decision(Verdict.REFUSED, 0.0, f"modèle {vram_gb:.1f} Go > budget {budget:.1f} Go"), []
-            if vram_gb > self.available_gb() + freed + 1e-9:
-                return Decision(Verdict.QUEUED, 0.0, "VRAM occupée par d'autres modules"), to_unload
+                return self._log(model, Decision(Verdict.REFUSED, 0.0,
+                                                 f"modèle {_gb(vram_gb)} Go > budget {_gb(budget)} Go")), []
+            free = self.available_gb() + freed
+            if vram_gb > free + 1e-9:
+                return self._log(model, Decision(
+                    Verdict.QUEUED, 0.0,
+                    f"VRAM occupée par d'autres modules ({_gb(free)} Go libres, {_gb(vram_gb)} demandés)")), to_unload
             for name in to_unload:
                 self._allocations.pop(f"llm:{name}", None)
                 del self._llms[name]
             self._llms[model] = vram_gb
             self._allocations[f"llm:{model}"] = vram_gb
-            return Decision(Verdict.GRANTED, vram_gb, "attribué"), to_unload
+            return self._log(model, Decision(Verdict.GRANTED, vram_gb, "attribué")), to_unload
 
     def confirm_llm_unloaded(self, model: str) -> list[tuple[str, Decision]]:
         with self._lock:
@@ -177,5 +297,10 @@ class Inoue:
                 "measured_used_gb": round(report["vram_used_mib"] / MIB_PER_GB, 2),
                 "allocations": dict(self._allocations),
                 "queue": [w.name for w in self._queue],
+                "queue_detail": [{"name": w.name, "min_gb": w.min_gb, "ram_gb": w.ram_gb, "reason": w.reason,
+                                  "since": w.since} for w in self._queue],
                 "loaded_llms": list(self._llms),
+                "cards": self.cards(),
+                "ram": self.ram(),
+                "history": list(self._history),
             }

@@ -115,3 +115,18 @@ def test_module_base_lifecycle() -> None:
     assert module.widget_schema()["title"] == "Module de démonstration"
     with pytest.raises(TypeError):
         api.ModuleBase(api.parse_manifest(VALID))  # type: ignore[abstract]
+
+
+def test_manifest_ram_single_card_and_gpu_commands() -> None:
+    manifest = api.parse_manifest({**VALID, "ram_gb": 1.5, "single_card": True, "gpu_commands": {"segment": 3}})
+    assert manifest.ram_gb == 1.5 and manifest.single_card is True and manifest.gpu_commands == {"segment": 3.0}
+    defaults = api.parse_manifest({k: VALID[k] for k in ("name", "version", "description", "entry")})
+    assert defaults.ram_gb == 0 and defaults.single_card is False and defaults.gpu_commands == {}
+
+
+@pytest.mark.parametrize("bad", [{"ram_gb": -1}, {"ram_gb": True}, {"gpu_commands": {"segment": 0}},
+                                 {"gpu_commands": {"seg ment": 2}}, {"gpu_commands": ["segment"]}])
+def test_manifest_rejects_bad_ram_or_gpu_commands(bad: dict) -> None:
+    with pytest.raises(api.ManifestError):
+        api.parse_manifest({**VALID, **bad})
+

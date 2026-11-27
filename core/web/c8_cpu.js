@@ -2,7 +2,7 @@
 // Processeur 6502 (variante 2A03 : pas de mode décimal) de l'atelier circuits. Précis à l'instruction près :
 // cycles officiels, pénalités de page et de branchement, interruptions NMI et IRQ, instructions non officielles
 // courantes. Vérifié contre la trace de référence nestest (voir tests/circuit_lab).
-// Le bus est un objet { read(adresse), write(adresse, valeur) } fourni par la carte mère (nes_machine.js).
+// Le bus est un objet { read(adresse), write(adresse, valeur) } fourni par la carte mère (c8_machine.js).
 (function (root) {
   const FLAG = { C: 0x01, Z: 0x02, I: 0x04, D: 0x08, B: 0x10, U: 0x20, V: 0x40, N: 0x80 };
 

@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 WEB = ROOT / "core" / "web"
 HERE = Path(__file__).resolve().parent
 PAGES = ("circuit_app", "crt")
-SCRIPTS = ("nes_cpu.js", "asm6502.js", "nes_ppu.js", "nes_machine.js", "crt.js", "crt_tv.js", "circuit_audio.js",
+SCRIPTS = ("c8_cpu.js", "asm6502.js", "c8_ppu.js", "c8_machine.js", "crt.js", "crt_tv.js", "circuit_audio.js",
            "c16_cpu.js", "c16_ppu.js", "c16_apu.js", "c16_machine.js", "asm65816.js", "logic_sim.js", "logic_app.js",
            "mcu_asm.js", "mcu_avr.js", "mcu_rp2040.js", "mcu_board.js", "mcu_examples.js", "mcu_app.js")
 # Scripts de chaque page dont les identifiants `$("…")` doivent exister dans la page.

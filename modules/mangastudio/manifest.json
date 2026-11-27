@@ -21,5 +21,9 @@
   },
   "network": [],
   "experimental": true,
-  "command_timeout_s": 900
+  "command_timeout_s": 900,
+  "gpu_commands": {
+    "segment": 3
+  },
+  "ram_gb": 1.5
 }

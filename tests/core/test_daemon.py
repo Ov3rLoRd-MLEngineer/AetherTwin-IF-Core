@@ -34,6 +34,9 @@ class Demo(ModuleBase):
         elif event.topic == "module.demo.cmd.echo":
             self.publish(Event("module.demo.result", {"request_id": event.payload.get("request_id"), "ok": True,
                                                       "result": event.payload.get("text")}, source="demo"))
+        elif event.topic == "module.demo.cmd.where":  # carte transmise par le Hub pour une commande GPU
+            self.publish(Event("module.demo.result", {"request_id": event.payload.get("request_id"), "ok": True,
+                                                      "result": event.payload.get("device")}, source="demo"))
         elif event.topic == "module.demo.cmd.crash":
             import os
             os._exit(7)
@@ -251,3 +254,57 @@ def test_a_module_stuck_in_a_command_is_refused_fast_then_restarted(tmp_path: Pa
         assert daemon.command("demo", "echo", {"text": "après"})["result"] == "après"
     finally:
         daemon.stop()
+
+
+class TwoBusyGpus:
+    """Carte 0 presque pleine, carte 1 libre."""
+
+    name = "factice"
+
+    def read(self) -> list[GpuInfo]:
+        return [GpuInfo(0, "GPU 0", 16 * 1024, 13 * 1024), GpuInfo(1, "GPU 1", 16 * 1024, 1024)]
+
+
+def test_gpu_command_asks_inoue_and_gets_the_card_with_room(tmp_path: Path) -> None:
+    """Une commande qui charge un modèle (ex. segmentation) passe par Inoue : place sur une seule carte, la carte
+    choisie est transmise au module, puis la place est rendue."""
+    daemon = Daemon(make_modules(tmp_path / "modules", extra={"gpu_commands": {"where": 4, "echo": 15}}),
+                    monitor=GpuMonitor(TwoBusyGpus()), process_names=Processes(),
+                    llm=LlmRouter(transport=ollama_stopped))
+    topics: list[str] = []
+    daemon.bus.subscribe("*", lambda e: topics.append(e.topic))
+    daemon.start()
+    try:
+        daemon.activate("demo")
+        assert wait_for(lambda: "module.demo.started" in topics)
+        assert daemon.command("demo", "where", {})["result"] == "cuda:1"
+        state = daemon.inoue.state()
+        assert not [k for k in state["allocations"] if k.startswith("cmd:")]  # place rendue après la réponse
+        assert state["history"][-1]["device"] == 1 and state["history"][-1]["name"].startswith("cmd:demo.where")
+        with pytest.raises(RuntimeError, match="VRAM refusée"):  # 15 Go ne tiennent sur aucune carte de 16 Go
+            daemon.command("demo", "echo", {"text": "x"})
+    finally:
+        daemon.stop()
+
+
+def test_module_ram_need_is_checked_before_start(tmp_path: Path) -> None:
+    daemon = Daemon(make_modules(tmp_path / "modules", extra={"ram_gb": 64}),
+                    monitor=GpuMonitor(UnknownBackend()), process_names=Processes(),
+                    llm=LlmRouter(transport=ollama_stopped))
+    daemon.reload_modules()
+    daemon.inoue.ram_probe = lambda: (32.0, 20.0)
+    decision = daemon.activate("demo")
+    assert decision.verdict is Verdict.QUEUED and decision.reason.startswith("RAM")
+    assert not daemon.modules["demo"].running()
+
+
+@pytest.mark.parametrize(("system", "release", "version", "expected"), [
+    ("Windows", "10", "10.0.19045", "Windows 10 (build 19045)"),
+    ("Windows", "10", "10.0.22631", "Windows 11 (build 22631)"),
+    ("Windows", "10", "inconnu", "Windows 10"),
+    ("Linux", "6.8.0", "#1 SMP", "Linux 6.8.0"),
+])
+def test_os_label_tells_windows_11_apart(system: str, release: str, version: str, expected: str) -> None:
+    from core.daemon import os_label
+
+    assert os_label(system, release, version) == expected

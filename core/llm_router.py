@@ -103,6 +103,15 @@ def http_stream(url: str, body: dict[str, Any], timeout_s: float) -> Iterator[di
                     raise LlmError("morceau de réponse d'Ollama illisible") from exc
 
 
+LOAD_CRASH_MARKERS = ("out of memory", "llama-server process has terminated", "error reading llama-server response")
+
+
+def is_load_crash(exc: Exception) -> bool:
+    """Erreur 500 d'Ollama au chargement du modèle (et non une erreur de la requête elle-même)."""
+    text = str(exc).lower()
+    return " 500 " in f" {text} " and any(marker in text for marker in LOAD_CRASH_MARKERS)
+
+
 @dataclass
 class LlmRouter:
     """Point d'entrée unique vers les modèles de langage locaux."""
@@ -113,6 +122,11 @@ class LlmRouter:
     stream_transport: Callable[[str, dict[str, Any], float], Iterator[dict[str, Any]]] = http_stream
     measured_vram_gb: dict[str, float] = field(default_factory=dict)
     strata: StrataBackend | None = None
+    # Après `keep_alive: 0`, Ollama rend la mémoire en différé. Charger le suivant trop tôt a donné une erreur 500
+    # pendant la revue du 26/11 : le routeur attend que `/api/ps` ne liste plus le modèle (au plus ce délai).
+    unload_wait_s: float = 20.0
+    load_retry_s: float = 5.0
+    sleep: Callable[[float], None] = time.sleep
     _lock: threading.RLock = field(default_factory=threading.RLock)
 
     # -- lecture de l'état d'Ollama
@@ -209,6 +223,22 @@ class LlmRouter:
             raise LlmRefused(f"{model} ({need:.1f} Go) : {decision.verdict.value} — {decision.reason}")
         for other in to_unload:  # un seul gros modèle à la fois : les autres sortent AVANT le chargement
             self._call("POST", "/api/generate", {"model": other, "keep_alive": 0}, timeout_s=60)
+        if to_unload:
+            self.wait_unloaded(to_unload)
+
+    def wait_unloaded(self, models: list[str]) -> bool:
+        """Attend que `/api/ps` ne liste plus ces modèles. Retourne False si le délai est dépassé."""
+        deadline = time.monotonic() + self.unload_wait_s
+        while True:
+            try:
+                still = {m["name"] for m in self.loaded()} & set(models)
+            except LlmError:
+                return False  # Ollama ne répond plus : le chargement suivant dira ce qu'il en est
+            if not still:
+                return True
+            if time.monotonic() >= deadline:
+                return False
+            self.sleep(0.25)
 
     # -- Strata
     def _strata_holder(self) -> str:
@@ -299,7 +329,15 @@ class LlmRouter:
                 body["think"] = think
             started = time.perf_counter()
             try:
-                data = self._call("POST", "/api/chat", body)
+                try:
+                    data = self._call("POST", "/api/chat", body)
+                except LlmError as exc:
+                    if not is_load_crash(exc):
+                        raise
+                    # Le moteur d'Ollama a planté au chargement (manque de mémoire passager, plantage de
+                    # llama-server) : une seule nouvelle tentative, après le délai de libération de la mémoire.
+                    self.sleep(self.load_retry_s)
+                    data = self._call("POST", "/api/chat", body)
             except LlmError:
                 if self.inoue is not None:  # échec du chargement : la réservation est rendue
                     self.inoue.confirm_llm_unloaded(model)

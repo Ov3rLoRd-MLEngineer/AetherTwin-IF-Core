@@ -3,7 +3,7 @@
 "use strict";
 const fs = require("fs");
 const path = require("path");
-require(path.join(__dirname, "..", "..", "core", "web", "nes_cpu.js"));
+require(path.join(__dirname, "..", "..", "core", "web", "c8_cpu.js"));
 const { CPU6502, hex } = globalThis.AetherCPU;
 
 const rom = fs.readFileSync(process.argv[2]);

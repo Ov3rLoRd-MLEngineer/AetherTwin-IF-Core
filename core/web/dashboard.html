@@ -58,6 +58,25 @@
   <main>
     <!-- Accueil -->
     <div data-subtabs class="panel" data-panel="accueil">
+      <section data-sub="Vue d'ensemble" class="load" aria-labelledby="load-title">
+        <div class="load-head">
+          <h2 id="load-title">État de charge</h2>
+          <span id="load-status" class="load-pill" data-level="ok">Mesure en cours…</span>
+          <span class="grow"></span>
+          <span class="muted small">Mesuré toutes les 3 s · Inoue garde 10 % de chaque carte et de la RAM</span>
+        </div>
+        <div id="load-gauges" class="load-gauges"></div>
+        <div class="load-cols">
+          <div>
+            <h3>En attente</h3>
+            <ul id="load-queue" class="load-list"><li class="muted">Personne n'attend.</li></ul>
+          </div>
+          <div>
+            <h3>Dernières décisions d'Inoue</h3>
+            <ul id="load-history" class="load-list"><li class="muted">Aucune décision pour l'instant.</li></ul>
+          </div>
+        </div>
+      </section>
       <section data-sub="Vue d'ensemble" class="half">
         <h2>Cartes graphiques</h2>
         <div id="gpus" class="cards"><p class="muted">Mesure en cours…</p></div>

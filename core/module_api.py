@@ -41,6 +41,13 @@ class Manifest:
     entry: str  # « paquet.module:Classe »
     vram_min_gb: float = 0.0
     vram_comfort_gb: float = 0.0
+    # Mémoire vive que le module occupe une fois lancé (contrôlée par Inoue avant le démarrage).
+    ram_gb: float = 0.0
+    # Le module tourne sur PyTorch ou ONNX : sa VRAM doit tenir sur **une** carte, choisie par Inoue.
+    single_card: bool = False
+    # Commandes qui chargent un modèle sur le GPU : {commande: Go de VRAM}. Le Hub demande cette place à Inoue
+    # avant de transmettre la commande, et passe au module la carte choisie (`device`, « cuda:N »).
+    gpu_commands: dict[str, float] = field(default_factory=dict)
     python_deps: tuple[str, ...] = ()
     optional_deps: tuple[str, ...] = ()
     triggers: Triggers = field(default_factory=Triggers)
@@ -82,6 +89,14 @@ def parse_manifest(raw: Any) -> Manifest:
         vram[key] = float(value)
     if vram["vram_comfort_gb"] < vram["vram_min_gb"]:
         raise ManifestError("`vram_comfort_gb` ne peut pas être inférieur à `vram_min_gb`")
+    ram_gb = raw.get("ram_gb", 0)
+    if isinstance(ram_gb, bool) or not isinstance(ram_gb, int | float) or ram_gb < 0:
+        raise ManifestError("`ram_gb` doit être un nombre positif ou nul")
+    gpu_commands = raw.get("gpu_commands", {})
+    if not isinstance(gpu_commands, dict) or not all(
+            isinstance(k, str) and k.replace("_", "").isalnum() and not isinstance(v, bool)
+            and isinstance(v, int | float) and v > 0 for k, v in gpu_commands.items()):
+        raise ManifestError("`gpu_commands` doit être un objet {« commande »: Go de VRAM > 0}")
 
     trig = raw.get("triggers", {})
     if not isinstance(trig, dict):
@@ -104,6 +119,8 @@ def parse_manifest(raw: Any) -> Manifest:
     return Manifest(
         name=raw["name"], version=raw["version"], description=raw["description"], entry=raw["entry"],
         vram_min_gb=vram["vram_min_gb"], vram_comfort_gb=vram["vram_comfort_gb"],
+        ram_gb=float(ram_gb), single_card=bool(raw.get("single_card", False)),
+        gpu_commands={k: float(v) for k, v in gpu_commands.items()},
         python_deps=_strings(raw, "python_deps"), optional_deps=_strings(raw, "optional_deps"),
         triggers=Triggers(_strings(trig, "processes"), _strings(trig, "windows"), tuple(ports)),
         network=_strings(raw, "network"), experimental=bool(raw.get("experimental", False)), app=app,

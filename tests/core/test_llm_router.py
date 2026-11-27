@@ -22,6 +22,9 @@ class FakeOllama:
         self.installed = {"gros-a:27b": 14.0, "gros-b:30b": 16.0, "geant:70b": 40.0, "petit-vision:7b": 5.0}
         self.loaded: dict[str, float] = {}
         self.calls: list[tuple[str, dict]] = []
+        self.linger = 0  # lectures de /api/ps pendant lesquelles un modèle déchargé reste listé
+        self.crashes = 0  # prochains chargements qui font planter le moteur (erreur 500 d'Ollama)
+        self._lingering: dict[str, int] = {}
         handler = type("Handler", (_Handler,), {"fake": self})
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
@@ -50,6 +53,11 @@ class _Handler(BaseHTTPRequestHandler):
                 "parameter_size": n.split(":")[1].upper(), "quantization_level": "Q4_K_M"}}
                 for n, s in fake.installed.items()]})
         elif self.path == "/api/ps":
+            for name in list(fake._lingering):
+                fake._lingering[name] -= 1
+                if fake._lingering[name] < 0:
+                    del fake._lingering[name]
+                    fake.loaded.pop(name, None)
             self._send(200, {"models": [{"name": n, "size": int(v * GIB), "size_vram": int(v * GIB),
                                          "context_length": 32768} for n, v in fake.loaded.items()]})
         else:
@@ -63,7 +71,10 @@ class _Handler(BaseHTTPRequestHandler):
         if model not in fake.installed:
             self._send(404, {"error": f"model '{model}' not found"})
         elif self.path == "/api/generate" and body.get("keep_alive") == 0:
-            fake.loaded.pop(model, None)
+            if fake.linger and model in fake.loaded:
+                fake._lingering[model] = fake.linger
+            else:
+                fake.loaded.pop(model, None)
             self._send(200, {"done": True})
         elif self.path == "/api/chat" and body.get("stream"):  # une ligne JSON par morceau, comme Ollama
             fake.loaded[model] = fake.installed[model] * 1.2
@@ -74,6 +85,9 @@ class _Handler(BaseHTTPRequestHandler):
             self.send_header("content-length", str(len(payload)))
             self.end_headers()
             self.wfile.write(payload)
+        elif self.path == "/api/chat" and fake.crashes:
+            fake.crashes -= 1
+            self._send(500, {"error": "llama-server process has terminated: exit status 0xc0000409"})
         elif self.path == "/api/chat":
             fake.loaded[model] = fake.installed[model] * 1.2  # la VRAM réelle dépasse la taille des poids
             self._send(200, {"message": {"role": "assistant", "content": f"réponse de {model}"},
@@ -385,3 +399,38 @@ def test_a_model_already_loaded_by_another_client_is_not_counted_twice(ollama: F
     assert "llm-small:petit-vision:7b" in router.inoue.state()["allocations"]
     with pytest.raises(LlmRefused, match="en file"):  # un modèle absent, lui, doit trouver sa place
         router.chat(USER, model="gros-a:27b")
+
+
+def test_next_large_model_waits_until_ollama_really_released_the_previous(router: LlmRouter,
+                                                                          ollama: FakeOllama) -> None:
+    """Revue du 26/11 : charger juste après `keep_alive: 0` a donné une erreur 500. Le routeur attend que
+    `/api/ps` ne liste plus l'ancien modèle avant de charger le suivant."""
+    naps: list[float] = []
+    router.sleep = naps.append
+    router.chat([{"role": "user", "content": "a"}], model="gros-a:27b")
+    ollama.linger = 3
+    router.chat([{"role": "user", "content": "b"}], model="gros-b:30b")
+    assert len(naps) == 3 and set(ollama.loaded) == {"gros-b:30b"}
+
+
+def test_wait_unloaded_gives_up_after_the_delay(router: LlmRouter, ollama: FakeOllama) -> None:
+    router.chat([{"role": "user", "content": "a"}], model="gros-a:27b")
+    ollama.linger = 10_000
+    router.unload_wait_s = 0.0
+    router.sleep = lambda _s: None
+    router._call("POST", "/api/generate", {"model": "gros-a:27b", "keep_alive": 0})
+    assert router.wait_unloaded(["gros-a:27b"]) is False
+
+
+def test_one_retry_when_ollama_engine_crashes_while_loading(router: LlmRouter, ollama: FakeOllama) -> None:
+    """27/11 : llama-server (Ollama 0.40.18) plante parfois au chargement. Une seule nouvelle tentative."""
+    naps: list[float] = []
+    router.sleep = naps.append
+    ollama.crashes = 1
+    assert router.chat([{"role": "user", "content": "a"}], model="gros-a:27b")["content"] == "réponse de gros-a:27b"
+    assert naps == [router.load_retry_s]
+    ollama.crashes = 2
+    with pytest.raises(LlmError, match="terminated"):
+        router.chat([{"role": "user", "content": "b"}], model="gros-b:30b")
+    assert "gros-b:30b" not in router.inoue.state()["loaded_llms"]  # réservation rendue après l'échec
+

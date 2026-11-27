@@ -71,6 +71,22 @@ def psutil_process_names() -> set[str] | None:
 HEARTBEAT_STALE_S = 30.0  # plus de battement : processus figé
 BUSY_FAIL_FAST_S = 60.0  # occupé depuis plus longtemps : refus immédiat (un long travail n'est pas coupé)
 MAX_PENDING = 4  # demandes en attente au plus par module (protège les fils du serveur)
+GPU_WAIT_MAX_S = 120.0  # attente maximale d'une place GPU pour une commande de module
+
+
+def os_label(system: str | None = None, release: str | None = None, version: str | None = None) -> str:
+    """« Windows 11 » se présente comme « Windows 10 » à `platform.release()` : c'est le build (≥ 22000) qui
+    les distingue. Les autres systèmes gardent « système release »."""
+    system = system if system is not None else platform.system()
+    release = release if release is not None else platform.release()
+    version = version if version is not None else platform.version()
+    if system == "Windows" and release == "10":
+        try:
+            build = int(version.split(".")[2])
+        except (IndexError, ValueError):
+            return "Windows 10"
+        return f"Windows {'11' if build >= 22000 else '10'} (build {build})"
+    return f"{system} {release}"
 
 @dataclass
 class ManagedModule:
@@ -79,6 +95,7 @@ class ManagedModule:
     proc: subprocess.Popen[bytes] | None = None
     active: bool = False
     auto: bool = False  # activé par un déclencheur (et donc désactivé quand il disparaît)
+    device: int | None = None  # carte choisie par Inoue pour un module « une seule carte »
     waiting_vram: bool = False
     last_health: dict[str, Any] = field(default_factory=dict)
     last_error: str = ""
@@ -112,7 +129,7 @@ class Daemon:
         self.scheduler = GpuScheduler(self.inoue)
         self.modules: dict[str, ManagedModule] = {}
         self.manifest_errors: dict[str, str] = {}
-        self.os_name = f"{platform.system()} {platform.release()}"
+        self.os_name = os_label()
         self._process_names = process_names
         self._seen: set[str] = set()
         self._python = python
@@ -167,7 +184,8 @@ class Daemon:
             module = self.modules[name]
             if module.active and module.running():
                 return Decision(Verdict.GRANTED, reason="déjà actif")
-            decision = self.inoue.request(name, module.manifest.vram_min_gb, module.manifest.vram_comfort_gb)
+            decision = self.inoue.request(name, module.manifest.vram_min_gb, module.manifest.vram_comfort_gb,
+                                          ram_gb=module.manifest.ram_gb, single_card=module.manifest.single_card)
             module.waiting_vram = decision.verdict is Verdict.QUEUED
             module.auto = auto
             if decision.verdict is not Verdict.GRANTED:
@@ -175,6 +193,7 @@ class Daemon:
                 self.bus.publish(Event(f"module.{name}.vram", {"verdict": decision.verdict.value,
                                                                "reason": decision.reason}))
                 return decision
+            module.device = decision.device
             self._spawn(module)
             module.active = True
             self.fuma.watch(name, lambda: self._health(name), lambda: self._respawn(name))
@@ -203,6 +222,10 @@ class Daemon:
     def _spawn(self, module: ManagedModule) -> None:
         env = dict(os.environ, **self.bus.child_env())
         env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(REPO_ROOT), env.get("PYTHONPATH", "")]))
+        # Mêmes numéros de carte pour PyTorch et pour la mesure (NVML) : sinon « cuda:0 » peut être la carte 1.
+        env.setdefault("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
+        if module.device is not None:  # module « une seule carte » : il ne voit que la carte choisie par Inoue
+            env["CUDA_VISIBLE_DEVICES"] = str(module.device)
         module.proc = subprocess.Popen([self._python, "-m", "core.module_runner", str(module.directory)],
                                        cwd=str(REPO_ROOT), env=env, stdin=subprocess.DEVNULL)
         module.starts += 1
@@ -348,17 +371,45 @@ class Daemon:
         if module.pending >= MAX_PENDING:
             raise RuntimeError(f"{name} a déjà {module.pending} demandes en attente ; réessaie dans un moment")
         request_id = uuid.uuid4().hex
+        payload = dict(payload or {})
+        gpu_key = ""
+        vram_gb = module.manifest.gpu_commands.get(command, 0.0)
+        if vram_gb > 0:  # la commande charge un modèle sur le GPU : Inoue décide d'abord, et choisit la carte
+            gpu_key = f"cmd:{name}.{command}#{request_id[:8]}"
+            decision = self._acquire_gpu(gpu_key, vram_gb, timeout_s)
+            if decision.device is not None and module.device is None:
+                payload["device"] = f"cuda:{decision.device}"
         done, reply = threading.Event(), {}
         self._pending[request_id] = (done, reply)
         module.pending += 1
         try:
-            self.bus.publish(Event(f"module.{name}.cmd.{command}", {**(payload or {}), "request_id": request_id}))
+            self.bus.publish(Event(f"module.{name}.cmd.{command}", {**payload, "request_id": request_id}))
             if not done.wait(timeout_s):
                 raise TimeoutError(f"pas de réponse de {name} en {timeout_s:g} s")
             return reply
         finally:
             self._pending.pop(request_id, None)
             module.pending = max(0, module.pending - 1)
+            if gpu_key:
+                self.inoue.release(gpu_key)  # un modèle resté chargé reste compté par la mesure des cartes
+
+    def _acquire_gpu(self, key: str, vram_gb: float, timeout_s: float, poll_s: float = 0.25) -> Decision:
+        """Attend qu'Inoue accorde la place, sur une seule carte. Lève `RuntimeError` si c'est refusé ou trop long."""
+        deadline = time.monotonic() + min(timeout_s, GPU_WAIT_MAX_S)
+        announced = False
+        while True:
+            decision = self.inoue.request(key, vram_gb, single_card=True)
+            if decision.verdict is Verdict.GRANTED:
+                return decision
+            if decision.verdict is Verdict.REFUSED:
+                raise RuntimeError(f"VRAM refusée : {decision.reason}")
+            if not announced:  # l'Accueil affiche l'attente et sa raison (file d'Inoue)
+                self.bus.publish(Event("inoue.queued", {"name": key, "reason": decision.reason}))
+                announced = True
+            if time.monotonic() >= deadline:
+                self.inoue.release(key)
+                raise RuntimeError(f"pas de VRAM libre à temps : {decision.reason}")
+            time.sleep(poll_s)
 
     # -- assistant
     def ask_messages(self, prompt: str, with_context: bool = True, history: list[dict[str, Any]] | None = None,

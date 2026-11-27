@@ -2,7 +2,7 @@
 "use strict";
 const path = require("path");
 const assert = require("assert");
-require(path.join(__dirname, "..", "..", "core", "web", "nes_cpu.js"));
+require(path.join(__dirname, "..", "..", "core", "web", "c8_cpu.js"));
 require(path.join(__dirname, "..", "..", "core", "web", "asm6502.js"));
 const { assemble } = globalThis.AetherAsm;
 

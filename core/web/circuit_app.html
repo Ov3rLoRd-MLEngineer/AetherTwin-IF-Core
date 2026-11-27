@@ -7,10 +7,10 @@
   <link rel="icon" href="/static/logo.svg">
   <link rel="icon" type="image/png" sizes="256x256" href="/static/logo-256.png">
   <link rel="stylesheet" href="/static/circuit_app.css">
-  <script src="/static/nes_cpu.js" defer></script>
+  <script src="/static/c8_cpu.js" defer></script>
   <script src="/static/asm6502.js" defer></script>
-  <script src="/static/nes_ppu.js" defer></script>
-  <script src="/static/nes_machine.js" defer></script>
+  <script src="/static/c8_ppu.js" defer></script>
+  <script src="/static/c8_machine.js" defer></script>
   <script src="/static/c16_cpu.js" defer></script>
   <script src="/static/c16_ppu.js" defer></script>
   <script src="/static/c16_apu.js" defer></script>
@@ -69,7 +69,7 @@
                 <option value="file" id="opt-file">Un fichier .nes à moi…</option>
               </select>
             </label>
-            <input type="file" id="nes-file" accept=".nes" hidden>
+            <input type="file" id="cart-file" accept=".nes" hidden>
             <span class="grow"></span>
             <span id="cart-name" class="muted small"></span>
           </div>

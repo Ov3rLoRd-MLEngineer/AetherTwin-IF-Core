@@ -11,16 +11,25 @@ Les phrases sont courtes. Rien n'est implicite.
 4. **Ne charge pas tout le dépôt.** Ouvre seulement les fichiers de ta tâche.
 5. `modules/gaming_hud/app/ui.py` fait 93 Ko : n'ouvre que la partie utile.
 
-## Où on en est (mis à jour le 22/11/2026)
+## Où on en est (mis à jour le 27/11/2026)
 
-- J0 à J7 faits. J8 en cours : installation vérifiée, puis améliorations demandées par Jérémy. Détail dans
-  `PROJECT_STATUS.md` et `logs/CHANGELOG_DEV.md`. 404 tests (400 verts, 4 réels sur GPU ignorés par défaut).
-- Retours de Jérémy reçus sur les tests 15 à 23 (22/11). Depuis : Scantrad mode manuel et lecture par
-  colonnes, Inoue tient compte de la VRAM mesurée, jeu Éther en vue RPG 16 bits (chats, minicarte, sons).
-- **Ne pas toucher** aux documents finaux ni au gel J9 tant que Jérémy ne le demande pas. Studio et Éther
-  restent en l'état (démo technique) sauf demande de sa part.
-- Après le 25/11 : relais Claude Code ↔ agent local en réel, 3 GPU (décembre), ComfyUI, push GitHub (par Jérémy).
+- J0 à J9 faits. Le projet est soumis au concours : tag et Release `v0.1.0-concours` sur `395c74b`, dépôt
+  public, CI Windows verte sur `main`. **Ne touche jamais** au tag ni à la branche `concours`.
+- Tous les tests de Jérémy sont validés (25/11), dont le **relais réel** : en fin de quota, l'agent local a pris
+  le relais et a demandé s'il fallait poursuivre ou attendre.
+- Revue « comme un juge » le 26/11 : `docs/REVUE_JURY.md` (74/100, plan d'amélioration en § 6, réponses de
+  Jérémy en § 8). Le travail continue sur `main` jusqu'à la fin du compteur Gleam.
+- 27/11, après la revue :
+  - Inoue raisonne **par carte** pour les modules PyTorch ou ONNX (`single_card`) et contrôle la **RAM**
+    (`ram_gb`) ; les commandes GPU des modules passent par Inoue (`gpu_commands` du manifeste) ;
+  - le routeur attend la vraie libération d'un modèle et refait une tentative si Ollama plante au chargement ;
+  - l'Accueil montre un panneau « État de charge » (jauges, file d'attente, décisions d'Inoue) ;
+  - `scripts/contention_demo.py` rejoue la preuve de contention ; résultats dans `docs/HARDWARE_FIT.md`.
+- Nombre de tests : lis la dernière entrée de `logs/CHANGELOG_DEV.md` (il change souvent).
+- Ollama 0.40.18 a planté au chargement de `qwen3-27b` le 27/11, même sur cartes vides. Si un chargement
+  échoue en 500, redémarre Ollama avant de soupçonner le code.
 - HandSegNet/FootSegNet n'ont vu que des images SDXL : les ratés sur des pages de manga sont hors domaine.
+- Modules annexes (`pixel_studio`, `circuit_lab`, `artcraft`) : en pause, sauf demande de Jérémy.
 
 ## Historique de cette section (16/11/2026)
 
@@ -28,7 +37,7 @@ Les phrases sont courtes. Rien n'est implicite.
 2. Il est présenté au concours ASUS Agent Computer Challenge. Clôture : 25/11/2026.
 3. Le dépôt Git est initialisé. La branche est `main`.
 4. Le venv est `.venv`. Python 3.11.
-5. Le relais Cloud ⇄ Local existe : `scripts/relay_orchestrator.py`. Il est testé en simulation.
+5. Le relais Cloud ⇄ Local existe : `scripts/relay_orchestrator.py`. Testé en simulation, puis en réel le 25/11.
 6. Les jalons J2 et J3 sont faits. `core/` contient : moniteur GPU, contrat de module, bus, lanceur de
    module, ordonnanceur GPU, Inoue, Fuma, daemon, API locale, configuration, routeur LLM.
 7. `modules/gaming_hud/` est le premier module réel. Son dossier `app/` est le code d'origine de

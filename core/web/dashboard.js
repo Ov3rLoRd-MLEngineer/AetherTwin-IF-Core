@@ -107,6 +107,7 @@ async function refreshHub() {
     const minutes = Math.floor(health.uptime_s / 60);
     $("hub-line").textContent = `Hub en marche depuis ${minutes} min — ${health.os} — GPU via ${health.gpu_backend}`;
     const inoue = health.inoue || {};
+    renderLoad(inoue);
     if (inoue.budget_gb !== undefined) {
       const pct = inoue.budget_gb ? Math.min(100, Math.round(100 * inoue.allocated_gb / inoue.budget_gb)) : 0;
       $("inoue-bar").style.width = `${pct}%`;
@@ -141,6 +142,68 @@ async function refreshHub() {
   } catch (error) {
     $("hub-line").textContent = `Hub injoignable : ${error.message}`;
   }
+}
+
+// ---------- État de charge : une jauge lisible d'un coup d'œil par carte et pour la RAM ----------
+const gb1 = (n) => Number(n).toFixed(1).replace(".", ",");
+function loadLevel(pct) { return pct >= 90 ? "bad" : pct >= 75 ? "warn" : "ok"; }
+function gauge(title, subtitle, total, used, held, reserve, lines) {
+  const pct = total ? Math.round((100 * used) / total) : 0;
+  const level = loadLevel(pct);
+  const width = (gb) => `${total ? Math.max(0, Math.min(100, (100 * gb) / total)) : 0}%`;
+  const track = el("div", { class: "gauge-track", role: "img",
+    "aria-label": `${title} : ${pct} % occupé, ${gb1(used)} sur ${gb1(total)} Go` });
+  const usedBar = el("i", { class: "used" }); usedBar.style.width = width(used);
+  const heldBar = el("i", { class: "held" }); heldBar.style.left = width(used);
+  heldBar.style.width = width(Math.max(0, Math.min(held, total - used)));
+  const reserveBar = el("i", { class: "reserve" }); reserveBar.style.width = width(reserve);
+  track.append(usedBar, heldBar, reserveBar);
+  const box = el("div", { class: "gauge", "data-level": level },
+    el("div", { class: "gauge-top" }, el("span", {}, el("strong", {}, title), " ",
+      el("span", { class: "muted small" }, subtitle)), el("b", {}, `${pct} %`)),
+    track, ...lines.map((line) => el("p", { class: "muted" }, line)));
+  return { box, level, pct };
+}
+function renderLoad(inoue) {
+  const gauges = [];
+  for (const card of inoue.cards || []) {
+    const temp = card.temperature_c != null ? ` · ${Math.round(card.temperature_c)} °C` : "";
+    const util = card.utilization_pct != null ? ` · calcul ${Math.round(card.utilization_pct)} %` : "";
+    gauges.push(gauge(`Carte ${card.index}`, card.name, card.total_gb, card.used_gb,
+      Math.max(0, card.allocated_gb - card.used_gb), card.total_gb - card.budget_gb,
+      [`${gb1(card.used_gb)} Go occupés sur ${gb1(card.total_gb)}${temp}${util}`,
+        `Libre pour un module : ${gb1(card.free_gb)} Go`]));
+  }
+  const ram = inoue.ram;
+  if (ram) {
+    const used = ram.total_gb - ram.available_gb;
+    gauges.push(gauge("Mémoire vive", "RAM", ram.total_gb, used, ram.reserved_gb, ram.reserve_gb,
+      [`${gb1(used)} Go occupés sur ${gb1(ram.total_gb)}`,
+        `Attribuable : ${gb1(ram.free_gb)} Go (réserve ${gb1(ram.reserve_gb)} Go)`]));
+  }
+  $("load-gauges").replaceChildren(...(gauges.length ? gauges.map((g) => g.box)
+    : [el("p", { class: "muted" }, "Aucune carte NVIDIA mesurée : Inoue refuse par prudence tout ce qui demande de la VRAM.")]));
+  const queue = inoue.queue_detail || [];
+  const pretty = (name) => String(name).replace(/^llm-small:/, "petit modèle ").replace(/^llm:/, "modèle ")
+    .replace(/^cmd:([^#]+)#.*/, "commande $1").replace(/^job:([^#]+)#.*/, "tâche $1");
+  $("load-queue").replaceChildren(...(queue.length
+    ? queue.map((w) => el("li", {}, el("span", { class: "tag v-wait" }, "attend"),
+      el("span", {}, `${pretty(w.name)} — ${w.reason}`)))
+    : [el("li", { class: "muted" }, "Personne n'attend.")]));
+  const history = (inoue.history || []).slice(-6).reverse();
+  const tag = { "accordé": "v-ok", "en file": "v-wait", "refusé": "v-no" };
+  $("load-history").replaceChildren(...(history.length
+    ? history.map((h) => el("li", {}, el("span", { class: `tag ${tag[h.verdict] || ""}` }, h.verdict),
+      el("span", {}, `${new Date(h.at * 1000).toLocaleTimeString("fr-FR")} · ${pretty(h.name)}`
+        + (h.granted_gb ? ` · ${gb1(h.granted_gb)} Go` : "")
+        + (h.device != null ? ` · carte ${h.device}` : "") + (h.reason ? ` — ${h.reason}` : ""))))
+    : [el("li", { class: "muted" }, "Aucune décision pour l'instant.")]));
+  const worst = gauges.reduce((acc, g) => (g.pct > acc.pct ? g : acc), { pct: 0, level: "ok" });
+  const level = queue.length ? (worst.level === "bad" ? "bad" : "warn") : worst.level;
+  const status = $("load-status");
+  status.dataset.level = level;
+  status.textContent = queue.length ? `${queue.length} en attente de place`
+    : { ok: "Tout tient", warn: "Charge élevée", bad: "Presque plein" }[level];
 }
 
 // ---------- Strata (moteur secondaire optionnel, gros modèles MoE) ----------

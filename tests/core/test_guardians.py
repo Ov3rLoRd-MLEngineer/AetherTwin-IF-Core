@@ -97,6 +97,65 @@ def test_invalid_margin() -> None:
         Inoue(monitor(16), safety_margin=1.5)
 
 
+def test_single_card_request_goes_to_the_card_with_room() -> None:
+    """Un module PyTorch ne se répartit pas : 10 Go libres au total ne suffisent pas s'il n'y a que 5 + 5."""
+    gpus = [GpuInfo(0, "GPU 0", 16 * 1024, 12 * 1024), GpuInfo(1, "GPU 1", 16 * 1024, 4 * 1024)]
+    inoue = Inoue(GpuMonitor(FakeBackend(gpus)), ram_probe=None)
+    granted = inoue.request("mangastudio", min_gb=6, single_card=True)
+    assert granted.verdict is Verdict.GRANTED and granted.device == 1  # la carte 1 a 10,4 Go libres
+    assert inoue.cards()[1]["allocated_gb"] == 6
+    gpus[1] = GpuInfo(1, "GPU 1", 16 * 1024, 10 * 1024)  # le module a chargé ses poids
+    queued = inoue.request("voice", min_gb=5, single_card=True)  # 2,4 + 4,4 = 6,8 libres, mais pas sur une carte
+    assert queued.verdict is Verdict.QUEUED and "aucune carte" in queued.reason
+    assert inoue.request("autre", min_gb=5).verdict is Verdict.GRANTED  # sans contrainte : budget global
+    assert inoue.request("geant", min_gb=15, single_card=True).verdict is Verdict.REFUSED  # 15 > 14,4 par carte
+    assert inoue.state()["queue_detail"][0]["reason"].startswith("VRAM")
+
+
+def test_single_card_queue_is_served_when_a_card_frees_up() -> None:
+    gpus = [GpuInfo(0, "GPU 0", 16 * 1024, 0), GpuInfo(1, "GPU 1", 16 * 1024, 0)]
+    inoue = Inoue(GpuMonitor(FakeBackend(gpus)), ram_probe=None)
+    assert inoue.request("a", 12, single_card=True).device == 0
+    assert inoue.request("b", 12, single_card=True).device == 1
+    assert inoue.request("c", 12, single_card=True).verdict is Verdict.QUEUED
+    served = inoue.release("a")
+    assert [(name, d.verdict, d.device) for name, d in served] == [("c", Verdict.GRANTED, 0)]
+
+
+def test_ram_request_waits_when_memory_is_short() -> None:
+    ram = {"available": 10.0}
+    inoue = Inoue(monitor(16, 16), ram_probe=lambda: (32.0, ram["available"]))
+    state = inoue.state()["ram"]
+    assert state["reserve_gb"] == pytest.approx(3.2) and state["free_gb"] == pytest.approx(6.8)
+    assert inoue.request("voice", 0, ram_gb=4).verdict is Verdict.GRANTED
+    queued = inoue.request("scantrad", 0, ram_gb=4)  # 6,8 − 4 réservés = 2,8
+    assert queued.verdict is Verdict.QUEUED and queued.reason.startswith("RAM")
+    served = inoue.release("voice")
+    assert [(name, d.verdict) for name, d in served] == [("scantrad", Verdict.GRANTED)]
+    ram["available"] = 1.0
+    assert inoue.request("autre", 0, ram_gb=1).verdict is Verdict.QUEUED
+    assert inoue.request("sans_ram", 0).verdict is Verdict.GRANTED  # rien demandé : rien de contrôlé
+
+
+def test_ram_probe_failure_does_not_block() -> None:
+    def broken() -> tuple[float, float]:
+        raise OSError("pas de mesure")
+
+    inoue = Inoue(monitor(16, 16), ram_probe=broken)
+    assert inoue.ram() is None and inoue.request("a", 0, ram_gb=50).verdict is Verdict.GRANTED
+
+
+def test_history_keeps_the_last_decisions_with_their_reason() -> None:
+    inoue = Inoue(monitor(16, 16), ram_probe=None, clock=lambda: 42.0)
+    inoue.request("a", 20)
+    inoue.request("b", 20)
+    inoue.plan_llm_load("qwen3-27b", 17)
+    history = inoue.state()["history"]
+    assert [(h["name"], h["verdict"]) for h in history] == [("a", "accordé"), ("b", "en file"),
+                                                           ("qwen3-27b", "en file")]
+    assert history[-1]["at"] == 42.0 and "Go libres" in history[-1]["reason"]
+
+
 # --------------------------------------------------------------------------- Fuma
 class Clock:
     def __init__(self) -> None:

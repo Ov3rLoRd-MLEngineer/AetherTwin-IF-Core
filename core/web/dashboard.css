@@ -55,6 +55,37 @@ code { font-family: var(--mono); background: var(--bg); color: var(--accent); bo
 .bar { height: 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; margin: 6px 0; }
 .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), #8fe3ee); }
 .bar.big { height: 14px; border-radius: 7px; }
+
+/* État de charge (Accueil) : une jauge par carte et pour la RAM, file d'attente et décisions d'Inoue */
+.load { grid-column: 1 / -1; }
+.load-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.load-head h2 { margin: 0; }
+.load-pill { padding: 3px 12px; border-radius: 999px; font-weight: 600; font-size: 0.9em; border: 1px solid currentColor; }
+.load-pill[data-level="ok"] { color: var(--ok); } .load-pill[data-level="warn"] { color: var(--warn); }
+.load-pill[data-level="bad"] { color: var(--bad); }
+.load-gauges { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin: 14px 0; }
+.gauge { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--bg); }
+.gauge-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.gauge-top b { font-size: 1.6em; font-variant-numeric: tabular-nums; }
+.gauge[data-level="ok"] .gauge-top b { color: var(--ok); } .gauge[data-level="warn"] .gauge-top b { color: var(--warn); }
+.gauge[data-level="bad"] .gauge-top b { color: var(--bad); }
+.gauge-track { position: relative; height: 16px; border-radius: 8px; background: var(--field); border: 1px solid var(--line);
+               overflow: hidden; margin: 8px 0 6px; }
+.gauge-track i { position: absolute; top: 0; bottom: 0; left: 0; }
+.gauge-track .used { background: var(--accent); }
+.gauge[data-level="warn"] .gauge-track .used { background: var(--warn); }
+.gauge[data-level="bad"] .gauge-track .used { background: var(--bad); }
+.gauge-track .held { background: repeating-linear-gradient(45deg, transparent 0 4px, rgba(127,127,127,.45) 4px 8px); }
+.gauge-track .reserve { left: auto; right: 0; background: repeating-linear-gradient(-45deg, transparent 0 3px,
+                        rgba(229,72,77,.35) 3px 6px); }
+.gauge p { margin: 2px 0; font-size: 0.88em; }
+.load-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+.load-cols h3 { margin: 4px 0 6px; font-size: 1em; }
+.load-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 0.9em; }
+.load-list li { display: flex; gap: 8px; align-items: baseline; }
+.load-list .tag { flex: none; font-size: 0.8em; padding: 0 6px; border-radius: 4px; border: 1px solid currentColor; }
+.tag.v-ok { color: var(--ok); } .tag.v-wait { color: var(--warn); } .tag.v-no { color: var(--bad); }
+.small { font-size: 0.85em; }
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
 th { color: var(--muted); font-weight: 600; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }

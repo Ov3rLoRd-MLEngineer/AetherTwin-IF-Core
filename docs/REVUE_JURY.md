@@ -502,6 +502,25 @@ Ces réponses sont des témoignages, sans capture ni journal versés au dépôt.
 6. **Modules annexes :** oui. `pixel_studio`, `circuit_lab` et `artcraft` sont sortis du tableau principal du
    README, sous « Démonstrations annexes d'agents outillés ». Le code ne bouge pas.
 
+## 9. Suites données le 27/11/2026 (sur `main`)
+
+| Action du § 6 | État |
+|---|---|
+| Script de contention dans le dépôt, résultats dans `HARDWARE_FIT.md` | fait (`scripts/contention_demo.py`, relancé le 27/11) |
+| Visite en 5 minutes en haut du README | faite (sans lien vidéo ni chiffres de contention, à la demande de Jérémy) |
+| Relais aligné, nombre de tests, `AGENT_HANDOFF.md` | faits |
+| CI rouge du tag expliquée | faite dans le README |
+| Accroche précisée (Battle.net, Wowhead) | faite |
+| Contention visible dans le Hub | faite : panneau « État de charge » de l'Accueil |
+| Routeur : attendre la libération après `keep_alive: 0` | fait, avec une nouvelle tentative si Ollama plante au chargement |
+| Détection de Windows 11 | faite |
+| Noms de consoles commerciales | retirés (`c8_*.js`, `PROJECT_STATUS.md`) |
+| Affectation **par carte** dans Inoue | faite (`single_card`), plus un budget de **RAM** |
+| Variante `qwen3-coder:30b-a3b-64k` | non tranchée : Ollama 0.40.18 plante aussi sur `qwen3-27b` le 27/11 |
+| Suite de tests résistante à la saturation de RAM | sans objet : les tests lourds sont déjà opt-in ; la saturation venait de deux suites lancées en parallèle |
+| Portage Ubuntu de la CI | non fait (pas de Linux ni d'accès aux journaux de la CI sur ce poste) |
+| Installation tracée sur Windows 11 | témoignage de Jérémy versé au README, sans capture |
+
 ## Annexe A — script de contention (lancé le 26/11/2026, hors du dépôt)
 
 Le script complet a servi aux mesures des § 3.6 et 3.7. Voici le cœur de la partie « avec le Hub », à lancer

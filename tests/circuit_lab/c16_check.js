@@ -6,7 +6,7 @@ const fs = require("fs");
 const path = require("path");
 const assert = require("assert");
 const ROOT = path.join(__dirname, "..", "..");
-for (const f of ["nes_cpu.js", "asm6502.js", "c16_cpu.js", "c16_ppu.js", "c16_apu.js", "c16_machine.js", "asm65816.js"]) {
+for (const f of ["c8_cpu.js", "asm6502.js", "c16_cpu.js", "c16_ppu.js", "c16_apu.js", "c16_machine.js", "asm65816.js"]) {
   require(path.join(ROOT, "core", "web", f));
 }
 const { assemble } = globalThis.AetherAsm16;

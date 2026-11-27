@@ -1887,3 +1887,27 @@ Il a autorisé les téléchargements nécessaires.
 - Revue jury réalisée, rapport dans `docs/REVUE_JURY.md`, aucune modification du code.
 
 - Réponses de Jérémy versées dans `docs/REVUE_JURY.md` (§ 8) : relais réel le 25/11 (README et `PROJECT_STATUS.md` alignés), modules annexes (`pixel_studio`, `circuit_lab`, `artcraft`) sortis du tableau principal du README. Aucune modification du code.
+
+## 2026-11-27 — Suites de la revue jury : Inoue par carte et RAM, Accueil « État de charge »
+
+- Mesure de la RAM (Hub lancé) : démon 436 Mo, module lancé 62 Mo, chaque module 10 à 36 Mo au chargement,
+  PyTorch 346 Mo puis 467 Mo avec CUDA par processus. Le gros consommateur du poste était `effectcraft-cli`
+  (21,7 Go), resté ouvert après le montage vidéo.
+- `core/guardians/inoue.py` : demandes « une seule carte » (`single_card`, carte choisie renvoyée dans
+  `Decision.device`), RAM (`ram_gb`, réserve de 10 %, 2 Go au moins, mesure `psutil`), file avec raison et
+  date, historique des 20 dernières décisions ; raisons en français (virgule décimale).
+- `core/module_api.py` : champs `ram_gb`, `single_card`, `gpu_commands` du manifeste.
+- `core/daemon.py` : RAM et carte demandées à l'activation (`CUDA_VISIBLE_DEVICES`, `CUDA_DEVICE_ORDER=PCI_BUS_ID`) ;
+  commandes GPU arbitrées par Inoue (attente 120 s au plus, place rendue après) ; `os_label()` reconnaît
+  Windows 11 (build ≥ 22000). `mangastudio` : `segment` déclare 3 Go et suit la carte choisie.
+- `core/llm_router.py` : attente de la vraie libération après `keep_alive: 0` (`/api/ps`) ; une seule nouvelle
+  tentative si le moteur d'Ollama plante au chargement. Constat réel : Ollama 0.40.18 plantait au chargement
+  de `qwen3-27b` même sur cartes vides (4/4, `llama-server.exe`, `ggml-base.dll` / `ucrtbase.dll`).
+- Accueil : panneau « État de charge » (jauges par carte et RAM, état global, file, décisions). Vérifié dans
+  le navigateur sur un Hub d'aperçu (port 5761), thèmes sombre et clair.
+- `scripts/contention_demo.py` + `docs/HARDWARE_FIT.md` : débits (29,6 / 132,9 / 82,1 jetons/s), contention
+  des 26 et 27/11, RAM.
+- Atelier circuits : `nes_*.js` renommés `c8_*.js` ; plus de nom de console commerciale dans `PROJECT_STATUS.md`.
+- Documents : `PROJECT_STATUS.md` (relais réel, gel fait, nouvelles briques), `AGENT_HANDOFF.md` (27/11),
+  README (visite en 5 minutes, Battle.net, CI du tag, Windows 11).
+- Tests : 1 143 réussis, 4 sautés ; `ruff` propre. Non fait : CI Ubuntu (pas de Linux ni de journaux CI ici).

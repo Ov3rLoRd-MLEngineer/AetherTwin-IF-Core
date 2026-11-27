@@ -195,6 +195,9 @@ core/
     c16_cpu.js
     c16_machine.js
     c16_ppu.js
+    c8_cpu.js
+    c8_machine.js
+    c8_ppu.js
     calc_app.css
     calc_app.html
     calc_app.js
@@ -241,9 +244,6 @@ core/
     mcu_board.js
     mcu_examples.js
     mcu_rp2040.js
-    nes_cpu.js
-    nes_machine.js
-    nes_ppu.js
     pixel_app.css
     pixel_app.html
     pixel_app.js
@@ -514,6 +514,7 @@ modules/
 scripts/
   __init__.py
   build_release.py
+  contention_demo.py
   extract_ui_strings.py
   gen_architecture_map.py
   relay_orchestrator.py
@@ -631,6 +632,7 @@ tests/
     test_scantrad_module.py
   test_architecture_map.py
   test_build_release.py
+  test_contention_demo.py
   test_hub_window.py
   test_relay_orchestrator.py
   test_repo_hygiene.py
@@ -723,6 +725,7 @@ Configuration locale du Hub : `config/local.yaml` (ignoré par Git), jamais de s
 Le démon : centre de l'architecture en étoile.
 
 - `def psutil_process_names() -> set[str] | None` — Noms (en minuscules) des processus en cours ; `None` si `psutil` est absent (mode dégradé).
+- `def os_label(system: str | None=None, release: str | None=None, version: str | None=None) -> str` — « Windows 11 » se présente comme « Windows 10 » à `platform.release()` : c'est le build (≥ 22000) qui
 - **`class ManagedModule`**
   - `def running(self) -> bool`
 - **`class Daemon`** — Registre de modules + bus + gardiens. Toutes les sources externes sont injectables (tests).
@@ -769,6 +772,7 @@ Fuma — gardien de la stabilité et du mode nocturne.
 
 Inoue — gardienne de l'énergie et de la VRAM.
 
+- `def psutil_ram() -> tuple[float, float]` — (total, disponible) de la mémoire vive en Go, mesurés par psutil.
 - **`class Verdict(StrEnum)`**
 - **`class Decision`**
 - **`class Inoue`** — Budget VRAM du Hub. Sans GPU détecté, le budget vaut 0 : seuls les modules sans besoin VRAM démarrent.
@@ -777,7 +781,9 @@ Inoue — gardienne de l'énergie et de la VRAM.
   - `def allocated_gb(self) -> float`
   - `def measured_gb(self) -> float` — VRAM occupée d'après les cartes (0 sans mesure).
   - `def available_gb(self) -> float` — Place libre : budget moins le plus grand du prévu (attributions) et du réel (mesure).
-  - `def request(self, name: str, min_gb: float, comfort_gb: float | None=None) -> Decision` — Demande de VRAM. Accorde le confortable s'il tient, sinon le minimum, sinon met en file.
+  - `def cards(self) -> list[dict[str, Any]]` — Chaque carte : total, mesuré, attribué (demandes « une seule carte »), budget et place libre, en Go.
+  - `def ram(self) -> dict[str, Any] | None` — Mémoire vive mesurée, réserve et place attribuable (Go). None si la mesure est impossible.
+  - `def request(self, name: str, min_gb: float, comfort_gb: float | None=None, *, ram_gb: float=0.0, single_card: bool=False) -> Decision` — Demande de VRAM (et de RAM). Accorde le confortable s'il tient, sinon le minimum, sinon met en file.
   - `def adopt(self, name: str, gb: float, llm: str | None=None) -> Decision` — Enregistre ce qui est **déjà** en VRAM (un modèle chargé par un autre programme sur le même Ollama) :
   - `def release(self, name: str) -> list[tuple[str, Decision]]` — Libère l'attribution d'un module, puis sert la file d'attente dans l'ordre d'arrivée.
   - `def plan_llm_load(self, model: str, vram_gb: float) -> tuple[Decision, list[str]]` — Prépare le chargement d'un gros modèle de langage.
@@ -908,6 +914,7 @@ Routeur LLM du Hub : toutes les demandes de génération passent par ici, vers O
   - `def base_url(self) -> str`
 - `def http_json(method: str, url: str, body: dict[str, Any] | None, timeout_s: float) -> dict[str, Any]` — Appel HTTP JSON vers Ollama. Lève `LlmError` avec un message lisible.
 - `def http_stream(url: str, body: dict[str, Any], timeout_s: float) -> Iterator[dict[str, Any]]` — Réponse d'Ollama morceau par morceau (une ligne JSON par morceau).
+- `def is_load_crash(exc: Exception) -> bool` — Erreur 500 d'Ollama au chargement du modèle (et non une erreur de la requête elle-même).
 - **`class LlmRouter`** — Point d'entrée unique vers les modèles de langage locaux.
   - `def list_models(self) -> list[dict[str, Any]]` — Modèles installés : `[{"name", "size_gb", "parameters", "quantization"}]`.
   - `def strata_models(self) -> list[dict[str, Any]]` — Modèles servis par Strata (`strata/<id>`) ; liste vide s'il est désactivé ou arrêté.
@@ -915,6 +922,7 @@ Routeur LLM du Hub : toutes les demandes de génération passent par ici, vers O
   - `def estimate_vram_gb(self, model: str) -> float` — VRAM à prévoir : la dernière valeur **mesurée** si elle existe, sinon taille des poids x marge.
   - `def unload(self, model: str) -> None` — Décharge réellement un modèle de la VRAM (`keep_alive: 0`).
   - `def sync(self) -> list[str]` — Aligne la comptabilité d'Inoue sur ce qu'Ollama a vraiment en mémoire (les modèles expirent seuls).
+  - `def wait_unloaded(self, models: list[str]) -> bool` — Attend que `/api/ps` ne liste plus ces modèles. Retourne False si le délai est dépassé.
   - `def chat(self, messages: list[dict[str, Any]], model: str | None=None, num_ctx: int | None=None, think: bool | None=None, options: dict[str, Any] | None=None) -> dict[str, Any]` — Envoie une conversation au modèle local. Retourne `{"content", "model", "num_ctx", "seconds", …}`.
   - `def chat_stream(self, messages: list[dict[str, Any]], model: str | None=None, num_ctx: int | None=None, think: bool | None=None, options: dict[str, Any] | None=None) -> Iterator[str]` — Comme `chat`, mais rend le texte au fil de la génération. Mêmes règles VRAM, même verrou.
   - `def state(self) -> dict[str, Any]` — État pour l'API du démon. Ne lève jamais : Ollama arrêté = mode dégradé.
@@ -2506,6 +2514,16 @@ Construit l'archive installable d'AetherTwin à partir d'un commit Git, et peut 
 - `def build(ref: str='HEAD', out_dir: Path | None=None, version: str | None=None, log=print) -> Path` — Construit l'archive et son empreinte SHA-256 ; renvoie le chemin de l'archive.
 - `def default_verify_dir() -> Path` — Dossier de vérification, hors du dépôt : Git ne doit pas y voir le dépôt de développement.
 - `def verify(archive: Path, setup_args: list[str], base: Path | None=None, log=print) -> None` — Installe l'archive à neuf hors du dépôt (setup.ps1), puis lance toute la suite de tests dedans.
+- `def main(argv: list[str] | None=None) -> int`
+
+### `scripts/contention_demo.py`
+
+Scénario de contention : ce qu'Inoue apporte de plus qu'Ollama seul, mesuré sur les vraies cartes.
+
+- `def ollama(path: str, body: dict[str, Any] | None=None, timeout: float=600) -> dict[str, Any]`
+- `def vram_mib(monitor: GpuMonitor) -> dict[int, int]`
+- `def unload_all() -> None`
+- `def generate(model: str, num_ctx: int) -> dict[str, Any]` — Une génération directe sur Ollama, sans le Hub. Une erreur HTTP est un résultat, pas une exception.
 - `def main(argv: list[str] | None=None) -> int`
 
 ### `scripts/extract_ui_strings.py`
