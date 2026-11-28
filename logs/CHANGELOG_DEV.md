@@ -1911,3 +1911,11 @@ Il a autorisé les téléchargements nécessaires.
 - Documents : `PROJECT_STATUS.md` (relais réel, gel fait, nouvelles briques), `AGENT_HANDOFF.md` (27/11),
   README (visite en 5 minutes, Battle.net, CI du tag, Windows 11).
 - Tests : 1 143 réussis, 4 sautés ; `ruff` propre. Non fait : CI Ubuntu (pas de Linux ni de journaux CI ici).
+
+## 2026-11-28 — preuve de contention refaite
+
+- `scripts/contention_demo.py` : l'occupant remplit et fait travailler sa mémoire (un occupant inactif est déplacé
+  vers la RAM par le pilote de Windows, ce qui faussait l'essai) ; le rapport note ce qu'Ollama garde en mémoire
+  avant l'étape avec le Hub.
+- Résultat (Ollama 0.40.19) : Ollama seul ne plante plus mais tombe à 1,6 et 6,8 tok/s ; le Hub met en file en
+  0,12 s puis sert en 16,4 s une fois la place libérée. Détails dans `docs/HARDWARE_FIT.md`.

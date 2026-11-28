@@ -84,8 +84,22 @@ def main(argv: list[str] | None = None) -> int:
     report: dict[str, Any] = {"date": time.strftime("%Y-%m-%d %H:%M"), "occupant_gb": args.occupant_gb,
                               "card": args.card, "models": args.models, "num_ctx": args.num_ctx}
     unload_all()
-    occupant = torch.empty(int(args.occupant_gb * 2**30), dtype=torch.uint8, device=f"cuda:{args.card}")
+    # Remplie, pas seulement réservée : sous Windows (WDDM), une réservation jamais écrite peut ne pas être résidente.
+    occupant = torch.ones(int(args.occupant_gb * 2**30), dtype=torch.uint8, device=f"cuda:{args.card}")
     torch.cuda.synchronize(args.card)
+    # L'occupant travaille, comme un ComfyUI en pleine génération : sous Windows, le pilote déplace vers la RAM la
+    # mémoire d'un programme inactif quand un autre en réclame (mesuré le 28/11 : 12,7 Go devenus 6,3 Go).
+    stop = threading.Event()
+
+    def keep_busy(buffer: Any) -> None:
+        with torch.cuda.device(args.card):
+            while not stop.is_set():
+                buffer.add_(1)
+                torch.cuda.synchronize(args.card)
+
+    worker = threading.Thread(target=keep_busy, args=(occupant,), daemon=True)
+    worker.start()
+    time.sleep(2)  # laisse la mesure des cartes voir l'occupant
     report["vram_with_occupant_mib"] = vram_mib(monitor)
     print(f"Occupant : {args.occupant_gb:g} Gio sur la carte {args.card} — VRAM {report['vram_with_occupant_mib']}")
 
@@ -101,7 +115,11 @@ def main(argv: list[str] | None = None) -> int:
         print("   ", json.dumps(result, ensure_ascii=False))
     unload_all()
 
-    print("2. Avec le Hub : routeur + Inoue…")
+    # Un modèle encore en mémoire serait « adopté » sans contrôle : l'étape 2 ne mesurerait plus rien.
+    report["loaded_before_hub"] = [m["name"] for m in ollama("/api/ps").get("models", [])]
+    report["vram_before_hub_mib"] = vram_mib(monitor)
+    print("2. Avec le Hub : routeur + Inoue…  (en mémoire chez Ollama :",
+          report["loaded_before_hub"] or "rien", "— VRAM", report["vram_before_hub_mib"], ")")
     inoue = Inoue(monitor)
     router = LlmRouter(inoue=inoue, config=LlmConfig(num_ctx=args.num_ctx))
     messages = [{"role": "user", "content": PROMPT}]
@@ -116,6 +134,8 @@ def main(argv: list[str] | None = None) -> int:
     print("   ", json.dumps(report["with_hub"], ensure_ascii=False))
 
     print("3. L'occupant libère sa place : la demande est servie…")
+    stop.set()
+    worker.join()
     del occupant
     torch.cuda.empty_cache()
     time.sleep(2)

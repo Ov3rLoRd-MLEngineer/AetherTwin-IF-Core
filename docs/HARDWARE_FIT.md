@@ -50,11 +50,16 @@ Contexte rempli à 32 768 jetons : **non mesuré** (question courte).
 Scénario reproductible : [`scripts/contention_demo.py`](../scripts/contention_demo.py). Un autre programme
 (PyTorch, comme ComfyUI) tient 12 Gio sur la carte 1, puis on demande les deux gros modèles.
 
-| Étape | 26/11 | 27/11 |
-|---|---|---|
-| **Sans le Hub** : Ollama seul, deux gros modèles en même temps | deux erreurs 500 « out of memory », en 2,6 et 4,6 s | identique : 4,6 et 6,8 s |
-| **Avec le Hub** : Inoue mesure les cartes | mis en file en **0,16 s** : « VRAM occupée par d'autres modules », 14,5 Go libres pour 18 demandés | mis en file en **0,11 s**, 13,9 Go libres pour 18 |
-| L'occupant libère sa place | demande servie, réponse en 17,3 s | **échec** : le moteur d'Ollama plante au chargement (voir ci-dessous) |
+| Étape | 26/11 | 27/11 | 28/11 (Ollama 0.40.19, occupant actif) |
+|---|---|---|---|
+| **Sans le Hub** : Ollama seul, deux gros modèles en même temps | deux erreurs 500 « out of memory », en 2,6 et 4,6 s | identique : 4,6 et 6,8 s | pas d'erreur, mais **1,6 tok/s** (181 s) et **6,8 tok/s** (351 s) au lieu de 30 et 140 : les modèles débordent en RAM |
+| **Avec le Hub** : Inoue mesure les cartes | mis en file en **0,16 s** : « VRAM occupée par d'autres modules », 14,5 Go libres pour 18 demandés | mis en file en **0,11 s**, 13,9 Go libres pour 18 | mis en file en **0,12 s**, 14,9 Go libres pour 18 |
+| L'occupant libère sa place | demande servie, réponse en 17,3 s | **échec** : le moteur d'Ollama plante au chargement (voir ci-dessous) | demande servie, réponse en 16,4 s |
+
+Le 28/11, un premier essai avec un occupant **inactif** a donné un faux résultat : pendant l'étape 1, le pilote
+de Windows (WDDM) a déplacé vers la RAM la moitié de sa mémoire (12,7 Go devenus 6,3 Go sur la carte 1), Ollama
+a pris la place et Inoue, qui mesurait alors de la place libre, a accordé. Depuis, l'occupant **travaille** en
+continu, comme un ComfyUI en pleine génération, et le script note ce qu'Ollama garde en mémoire avant l'étape 2.
 
 Le 27/11, Ollama 0.40.18 plantait au chargement de `qwen3-27b` **même sur des cartes vides** : 4 essais sur
 4, `llama-server.exe` arrêté dans `ggml-base.dll` ou `ucrtbase.dll` (journal d'applications de Windows).
